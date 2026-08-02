@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Sparkles, CheckSquare, GitCompare, Terminal, ArrowRight, Lock, Wrench, ShieldCheck, UserCheck, Database, Zap, HelpCircle, ChevronDown } from "lucide-react";
 import { SignInButton, SignUpButton, SignedIn, SignedOut } from "@clerk/nextjs";
 import { LiveExecutionTerminal } from "@/components/landing/LiveExecutionTerminal";
+import { PixelGridWave } from "@/components/landing/PixelGridWave";
 
 export default function LandingPage() {
   return (
@@ -11,6 +12,7 @@ export default function LandingPage() {
       <section className="relative overflow-hidden border-b border-indigo-950/80 -mx-4 sm:-mx-6 lg:-mx-10">
         {/* Premium Animated Background Layers */}
         <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+          <PixelGridWave />
           <div className="absolute inset-0 crt-lines" />
           <div className="absolute -top-48 -left-32 h-[520px] w-[520px] rounded-full bg-indigo-600/25 blur-[130px]" />
           <div className="absolute top-1/4 -right-40 h-[460px] w-[460px] rounded-full bg-cyan-500/15 blur-[130px]" />
