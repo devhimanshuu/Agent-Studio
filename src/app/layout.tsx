@@ -5,6 +5,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { Toaster } from "@/components/feedback/Toaster";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -62,6 +63,7 @@ export default function RootLayout({
                 <Sidebar />
                 <main className="flex-1 p-6 overflow-y-auto">{children}</main>
               </div>
+              <Toaster />
             </div>
           </Providers>
         </ClerkProvider>

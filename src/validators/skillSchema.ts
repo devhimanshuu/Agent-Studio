@@ -1,24 +1,50 @@
 import { z } from "zod";
 
-export const createSkillSchema = z.object({
-  userId: z.string().min(1, "User ID is required"),
-  name: z.string().min(2, "Skill name must be at least 2 characters").max(100),
-  purpose: z.string().min(5, "Purpose must be at least 5 characters").max(500),
-  inputSchema: z.record(z.unknown()).optional(),
-  outputSchema: z.record(z.unknown()).optional(),
-  instructions: z.string().optional(),
-  examples: z
-    .array(
-      z.object({
-        input: z.record(z.unknown()),
-        output: z.record(z.unknown()),
-        description: z.string().optional(),
-      })
-    )
-    .optional(),
-  allowedTools: z.array(z.string()).optional(),
-  actionsRequiringApproval: z.array(z.string()).optional(),
-  maxExecutionSteps: z.number().int().min(1).max(50).optional(),
+// A JSON object must be a plain object (not array/null) and JSON-serializable.
+const jsonSchema = z
+  .record(z.string(), z.unknown())
+  .refine((val) => val !== null && typeof val === "object" && !Array.isArray(val), {
+    message: "Must be a valid JSON object",
+  });
+
+export const skillExampleSchema = z.object({
+  input: jsonSchema,
+  output: jsonSchema,
+  description: z.string().max(300).optional(),
 });
 
-export const updateDraftSchema = createSkillSchema.partial();
+export const createSkillSchema = z.object({
+  userId: z.string().min(1, "User ID is required"),
+  name: z.string().min(2, "Skill name must be at least 2 characters").max(100, "Skill name must be at most 100 characters"),
+  purpose: z.string().min(5, "Purpose must be at least 5 characters").max(1000, "Purpose must be at most 1000 characters"),
+  inputSchema: jsonSchema.optional(),
+  outputSchema: jsonSchema.optional(),
+  instructions: z.string().min(5, "Instructions must be at least 5 characters").max(20000).optional(),
+  examples: z.array(skillExampleSchema).max(50).optional(),
+  allowedTools: z.array(z.string().min(1)).min(1, "At least one allowed tool is required").max(20),
+  actionsRequiringApproval: z.array(z.string().min(1)).max(20).optional(),
+  maxExecutionSteps: z.number().int("Must be a whole number").min(1, "Max execution steps must be greater than 0").max(100).optional(),
+  notes: z.string().max(5000).optional(),
+});
+
+export const updateSkillSchema = createSkillSchema
+  .omit({ userId: true })
+  .partial()
+  // Allow editing any subset, but keep the "at least one allowed tool" rule
+  // when allowedTools is explicitly provided.
+  .extend({
+    allowedTools: z.array(z.string().min(1)).min(1, "At least one allowed tool is required").max(20).optional(),
+  });
+
+export const publishSkillSchema = z.object({
+  versionId: z.string().min(1, "Version ID is required"),
+});
+
+export const skillListQuerySchema = z.object({
+  search: z.string().max(100).optional(),
+  status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).optional(),
+  sortBy: z.enum(["updatedAt", "name", "createdAt"]).optional(),
+  sortOrder: z.enum(["asc", "desc"]).optional(),
+});
+
+export const skillIdSchema = z.string().min(1, "Skill ID is required");

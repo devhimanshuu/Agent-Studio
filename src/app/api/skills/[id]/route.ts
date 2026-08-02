@@ -1,23 +1,30 @@
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { SkillService } from "@/services/SkillService";
 import { SkillRepository } from "@/repositories/SkillRepository";
 import { AuditLogRepository } from "@/repositories/AuditLogRepository";
-import { updateDraftSchema } from "@/validators/skillSchema";
+import { updateSkillSchema } from "@/validators/skillSchema";
+import { unauthorized, badRequest, serverError, notFound, forbidden } from "@/lib/api/handlers";
 
 const skillRepo = new SkillRepository();
 const auditRepo = new AuditLogRepository();
 const skillService = new SkillService(skillRepo, auditRepo);
 
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const skill = await skillService.getSkill(id);
-  if (!skill) {
-    return NextResponse.json({ success: false, error: "Skill not found" }, { status: 404 });
+  try {
+    const { userId } = await auth();
+    if (!userId) return unauthorized();
+
+    const { id } = await params;
+    const skill = await skillService.getSkillForUser(id, userId);
+    if (!skill) return notFound("Skill not found");
+    return NextResponse.json({ success: true, data: skill });
+  } catch (error) {
+    return serverError(error);
   }
-  return NextResponse.json({ success: true, data: skill });
 }
 
 export async function PATCH(
@@ -25,12 +32,46 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { userId } = await auth();
+    if (!userId) return unauthorized();
+
     const { id } = await params;
     const body = await request.json();
-    const validated = updateDraftSchema.parse(body);
-    const updated = await skillService.updateDraft(id, validated);
+    const validated = updateSkillSchema.parse(body);
+    const updated = await skillService.updateSkill(id, userId, validated);
     return NextResponse.json({ success: true, data: updated });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message.includes("not found") || message.includes("access")) {
+      return forbidden();
+    }
+    if (error instanceof Error && "issues" in error) {
+      return badRequest(error); // Zod validation failure → 400
+    }
+    return serverError(error); // service/DB failure → 500
+  }
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { userId } = await auth();
+    if (!userId) return unauthorized();
+
+    const { id } = await params;
+    try {
+      await skillService.deleteSkill(id, userId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (message.includes("access")) return forbidden();
+      if (message.includes("not found")) return notFound(message);
+      if (message.includes("cannot be deleted")) return badRequest(new Error(message));
+      throw error;
+    }
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return serverError(error);
   }
 }

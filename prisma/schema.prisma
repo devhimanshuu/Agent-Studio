@@ -69,6 +69,7 @@ model Skill {
   userId             String
   name               String
   purpose            String
+  status             SkillStatus    @default(DRAFT)
   currentDraftId     String?        @unique
   publishedVersionId String?        @unique
   createdAt          DateTime       @default(now())
@@ -94,6 +95,7 @@ model SkillVersion {
   actionsRequiringApproval Json           // String array of tool actions requiring human approval
   maxExecutionSteps        Int            @default(10)
   changelog                String?
+  notes                    String?
   createdAt                DateTime       @default(now())
   publishedAt              DateTime?
 

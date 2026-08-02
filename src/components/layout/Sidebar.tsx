@@ -10,7 +10,7 @@ import { SignOutModal } from "@/components/feedback/SignOutModal";
 
 const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, tag: "SYS_01" },
-  { name: "Skills Studio", href: "/skills", icon: Sparkles, tag: "SKILL_V1" },
+  { name: "Skills Studio", href: "/dashboard/skills", icon: Sparkles, tag: "SKILL_V1" },
   { name: "Executions", href: "/executions", icon: Play, tag: "TRACE_LOG" },
   { name: "Versions", href: "/versions", icon: GitCompare, tag: "DIFF_VIEW" },
   { name: "Approvals", href: "/approvals", icon: CheckSquare, tag: "HITL_LOCK" },

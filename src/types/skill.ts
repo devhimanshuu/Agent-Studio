@@ -19,6 +19,7 @@ export interface SkillVersionDTO {
   actionsRequiringApproval: string[];
   maxExecutionSteps: number;
   changelog?: string | null;
+  notes?: string | null;
   createdAt: Date;
   publishedAt?: Date | null;
 }
@@ -28,6 +29,7 @@ export interface SkillDTO {
   userId: string;
   name: string;
   purpose: string;
+  status: SkillStatus;
   currentDraftId?: string | null;
   publishedVersionId?: string | null;
   createdAt: Date;
@@ -48,4 +50,30 @@ export interface CreateSkillInput {
   allowedTools?: string[];
   actionsRequiringApproval?: string[];
   maxExecutionSteps?: number;
+  notes?: string;
+}
+
+export interface UpdateSkillInput {
+  name?: string;
+  purpose?: string;
+  inputSchema?: Record<string, unknown>;
+  outputSchema?: Record<string, unknown>;
+  instructions?: string;
+  examples?: SkillExampleDTO[];
+  allowedTools?: string[];
+  actionsRequiringApproval?: string[];
+  maxExecutionSteps?: number;
+  notes?: string;
+}
+
+export interface SkillListQuery {
+  search?: string;
+  status?: SkillStatus;
+  sortBy?: "updatedAt" | "name" | "createdAt";
+  sortOrder?: "asc" | "desc";
+}
+
+export interface SkillListResult {
+  items: SkillDTO[];
+  total: number;
 }
