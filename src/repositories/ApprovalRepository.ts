@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { IApprovalRepository } from "./interfaces/IApprovalRepository";
 import { ApprovalRequestDTO, RespondApprovalInput } from "@/types/approval";
 import { prisma } from "@/lib/prisma";
@@ -31,7 +32,7 @@ export class ApprovalRepository implements IApprovalRepository {
         userId: request.userId,
         toolName: request.toolName,
         action: request.action,
-        inputPayload: request.inputPayload as any,
+        inputPayload: request.inputPayload as unknown as Prisma.InputJsonValue,
         idempotencyKey: request.idempotencyKey,
         status: "PENDING",
       },
@@ -56,7 +57,7 @@ export class ApprovalRepository implements IApprovalRepository {
     return app ? this.mapApproval(app) : null;
   }
 
-  private mapApproval(a: any): ApprovalRequestDTO {
+  private mapApproval(a: Prisma.ApprovalRequestGetPayload<{}>): ApprovalRequestDTO {
     return {
       id: a.id,
       executionId: a.executionId,

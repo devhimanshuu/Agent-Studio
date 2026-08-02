@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { IExecutionRepository } from "./interfaces/IExecutionRepository";
 import { ExecutionDTO, ExecutionStepDTO, ToolCallDTO, StartExecutionInput } from "@/types/execution";
 import { prisma } from "@/lib/prisma";
@@ -34,7 +35,7 @@ export class ExecutionRepository implements IExecutionRepository {
       data: {
         userId: input.userId,
         skillVersionId: input.skillVersionId,
-        inputData: input.inputData as any,
+        inputData: input.inputData as unknown as Prisma.InputJsonValue,
         maxSteps,
         status: "RUNNING",
       },
@@ -67,7 +68,7 @@ export class ExecutionRepository implements IExecutionRepository {
         executionId,
         stepNumber: step.stepNumber,
         nodeName: step.nodeName,
-        stateSnapshot: step.stateSnapshot as any,
+        stateSnapshot: step.stateSnapshot as unknown as Prisma.InputJsonValue,
         status: step.status,
       },
     });
@@ -90,8 +91,8 @@ export class ExecutionRepository implements IExecutionRepository {
         stepId: toolCall.stepId,
         toolName: toolCall.toolName,
         action: toolCall.action,
-        inputArgs: toolCall.inputArgs as any,
-        outputResult: toolCall.outputResult as any,
+        inputArgs: toolCall.inputArgs as unknown as Prisma.InputJsonValue,
+        outputResult: toolCall.outputResult as unknown as Prisma.InputJsonValue,
         status: toolCall.status,
         errorMessage: toolCall.errorMessage,
       },
@@ -101,7 +102,7 @@ export class ExecutionRepository implements IExecutionRepository {
       ...created,
       inputArgs: created.inputArgs as Record<string, unknown>,
       outputResult: created.outputResult as Record<string, unknown> | null,
-      status: created.status as any,
+      status: created.status as ToolCallDTO["status"],
     };
   }
 
@@ -109,7 +110,7 @@ export class ExecutionRepository implements IExecutionRepository {
     const updated = await prisma.execution.update({
       where: { id },
       data: {
-        finalOutput: output as any,
+        finalOutput: output as unknown as Prisma.InputJsonValue,
         status: "COMPLETED",
         completedAt: new Date(),
       },
@@ -119,7 +120,7 @@ export class ExecutionRepository implements IExecutionRepository {
     return this.mapExecution(updated);
   }
 
-  private mapExecution(e: any): ExecutionDTO {
+  private mapExecution(e: Prisma.ExecutionGetPayload<{ include: { steps: true; toolCalls: true } }>): ExecutionDTO {
     return {
       id: e.id,
       userId: e.userId,
@@ -132,7 +133,7 @@ export class ExecutionRepository implements IExecutionRepository {
       errorMessage: e.errorMessage,
       startedAt: e.startedAt,
       completedAt: e.completedAt,
-      steps: (e.steps || []).map((s: any) => ({
+      steps: (e.steps || []).map((s: Prisma.ExecutionStepGetPayload<{}>) => ({
         id: s.id,
         executionId: s.executionId,
         stepNumber: s.stepNumber,
@@ -142,7 +143,7 @@ export class ExecutionRepository implements IExecutionRepository {
         startedAt: s.startedAt,
         completedAt: s.completedAt,
       })),
-      toolCalls: (e.toolCalls || []).map((t: any) => ({
+      toolCalls: (e.toolCalls || []).map((t: Prisma.ToolCallGetPayload<{}>) => ({
         id: t.id,
         executionId: t.executionId,
         stepId: t.stepId,
@@ -150,7 +151,7 @@ export class ExecutionRepository implements IExecutionRepository {
         action: t.action,
         inputArgs: t.inputArgs as Record<string, unknown>,
         outputResult: t.outputResult as Record<string, unknown> | null,
-        status: t.status,
+        status: t.status as ToolCallDTO["status"],
         errorMessage: t.errorMessage,
         executedAt: t.executedAt,
       })),

@@ -75,7 +75,7 @@
   body {
     background-color: #000000;
     color: #e2e8f0;
-    font-family: 'Lora', Georgia, serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'JetBrains Mono', sans-serif;
     background-image: radial-gradient(rgba(129, 140, 248, 0.12) 1px, transparent 1px);
     background-size: 24px 24px;
     background-attachment: fixed;
@@ -111,22 +111,27 @@
   box-shadow: 0 0 15px rgba(99, 102, 241, 0.15);
 }
 
-/* Drop Cap Styling */
-.drop-cap::first-letter {
-  font-family: 'Silkscreen', monospace;
-  font-size: 3.25rem;
-  line-height: 0.85;
-  float: left;
-  margin-right: 0.75rem;
-  margin-top: 0.1rem;
-  color: #818cf8;
-  background: rgba(99, 102, 241, 0.1);
-  border: 1px solid rgba(129, 140, 248, 0.3);
-  padding: 0.4rem 0.6rem;
-  border-radius: 2px;
-}
 
 /* Clerk Custom Aesthetic & Branding Overrides */
+/* Center the sign-in / sign-up modal card on the screen */
+.cl-rootBox {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 1.25rem !important;
+}
+
+.cl-cardBox {
+  margin: 0 !important;
+}
+
+/* Clerk's own .cl-modalContent ships with margin: 64px 0px which pins the
+   card to the top. With a flex parent, margin: auto absorbs the free space
+   and centers the card on both axes (backdrop padding keeps it off edges). */
+.cl-modalContent {
+  margin: auto !important;
+}
+
 .cl-logoBox,
 .cl-logoImage,
 .cl-footer,

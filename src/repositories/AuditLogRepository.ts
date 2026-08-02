@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { IAuditLogRepository, AuditLogDTO } from "./interfaces/IAuditLogRepository";
 import { prisma } from "@/lib/prisma";
 
@@ -8,7 +9,7 @@ export class AuditLogRepository implements IAuditLogRepository {
         userId: entry.userId,
         executionId: entry.executionId,
         action: entry.action,
-        details: entry.details as any,
+        details: entry.details as unknown as Prisma.InputJsonValue,
         ipAddress: entry.ipAddress,
       },
     });

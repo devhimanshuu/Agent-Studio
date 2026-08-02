@@ -2,13 +2,23 @@
 
 import React, { useEffect, useRef } from "react";
 
+const CELL = 18;
+const GAP = 2;
+
+// Seconds each pattern plays before crossfading into the next
+const PATTERN_DURATION = 7;
+// Per-pattern hue offset (degrees): indigo, cyan, violet, blue
+const PATTERN_HUES = [0, -18, 14, -30];
+
 /**
  * LED-matrix style pixel wave for the hero background.
  *
- * A grid of small sharp squares lights up in flowing ripples that travel from
- * a slowly moving source point — echoing the app's pixel (Silkscreen) font and
- * dot-grid background. Squares (not dots) keep it visually distinct from a
- * generic particle effect. Drawn on canvas for performance.
+ * A grid of small sharp squares lights up in flowing patterns that keep
+ * evolving — expanding radial ripples, drifting diagonal bars, a rotating
+ * spiral vortex, and a radiating checkerboard pulse — with smooth crossfades
+ * between each pattern and a subtle hue shift per pattern. Echoes the app's
+ * pixel (Silkscreen) font and dot-grid background while staying subtle behind
+ * content. Drawn on canvas for performance.
  */
 export function PixelGridWave({ className = "" }: { className?: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -24,8 +34,6 @@ export function PixelGridWave({ className = "" }: { className?: string }) {
       "(prefers-reduced-motion: reduce)"
     ).matches;
 
-    const CELL = 14;
-    const GAP = 2;
     let width = 0;
     let height = 0;
     let cols = 0;
@@ -33,6 +41,46 @@ export function PixelGridWave({ className = "" }: { className?: string }) {
     let raf = 0;
 
     const DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+    const smoothstep = (a: number, b: number, x: number) => {
+      const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
+      return t * t * (3 - 2 * t);
+    };
+
+    /** Returns a wave value in roughly [-1, 1] for the given pattern. */
+    const patternValue = (x: number, y: number, t: number, p: number) => {
+      switch (p % 4) {
+        case 0: {
+          // Expanding radial ripples from a slowly traveling source
+          const cx = width * (0.5 + 0.38 * Math.sin(t * 0.28));
+          const cy = height * (0.42 + 0.3 * Math.sin(t * 0.45 + 1.4));
+          const d = Math.hypot(x - cx, y - cy);
+          return Math.sin(d * 0.05 - t * 3.2);
+        }
+        case 1: {
+          // Diagonal bars drifting across
+          return Math.sin((x + y) * 0.03 - t * 3.0);
+        }
+        case 2: {
+          // Rotating spiral vortex around a drifting center
+          const cx = width * (0.5 + 0.25 * Math.sin(t * 0.24));
+          const cy = height * (0.45 + 0.2 * Math.sin(t * 0.3 + 2));
+          const dx = x - cx;
+          const dy = y - cy;
+          const ang = Math.atan2(dy, dx);
+          const d = Math.hypot(dx, dy);
+          return Math.sin(ang * 3 + d * 0.045 - t * 2.4);
+        }
+        default: {
+          // Checkerboard pulse radiating from a moving source
+          const cx = width * (0.5 + 0.3 * Math.sin(t * 0.2));
+          const cy = height * (0.45 + 0.25 * Math.cos(t * 0.22 + 1));
+          const d = Math.hypot(x - cx, y - cy);
+          const checker = Math.sin(x * 0.1) * Math.sin(y * 0.1);
+          return checker * 0.55 + Math.sin(d * 0.04 - t * 2.8) * 0.55;
+        }
+      }
+    };
 
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
@@ -52,28 +100,29 @@ export function PixelGridWave({ className = "" }: { className?: string }) {
       ctx.clearRect(0, 0, width, height);
       const t = time / 1000;
 
-      // Ripple source travels a slow figure-eight path across the hero
-      const cx = width * (0.5 + 0.38 * Math.sin(t * 0.28));
-      const cy = height * (0.42 + 0.3 * Math.sin(t * 0.45 + 1.4));
+      // Pattern scheduling with smooth crossfade near the end of each cycle
+      const cycle = t / PATTERN_DURATION;
+      const from = Math.floor(cycle) % 4;
+      const to = (from + 1) % 4;
+      const progress = cycle - Math.floor(cycle);
+      const blend = smoothstep(0.75, 1, progress);
+      const hueFrom = PATTERN_HUES[from];
+      const hueTo = PATTERN_HUES[to];
 
       for (let row = 0; row < rows; row++) {
         const y = row * CELL;
         for (let col = 0; col < cols; col++) {
           const x = col * CELL;
 
-          // Radial ripple expanding from the moving source
-          const d = Math.hypot(x - cx, y - cy);
-          const ripple = Math.sin(d * 0.05 - t * 3.2);
-          // Subtle diagonal sweep for extra motion
-          const sweep = Math.sin((x + y) * 0.016 + t * 1.3) * 0.45;
-
-          const v = ripple + sweep + 1; // ~0..2
+          const vA = patternValue(x, y, t, from);
+          const vB = patternValue(x, y, t, to);
+          const v = (1 - blend) * vA + blend * vB + 1; // ~0..2
           const a = Math.max(0, Math.min(1, (v - 1.32) * 2.4));
           if (a <= 0.02) continue;
 
-          // indigo → cyan as cells light up brighter
-          const hue = 226 - a * 26;
-          ctx.fillStyle = `hsla(${hue}, 90%, ${58 + a * 20}%, ${a * 0.42})`;
+          // indigo → cyan, with a per-pattern hue offset for variety
+          const hue = 226 + (1 - blend) * hueFrom + blend * hueTo - a * 26;
+          ctx.fillStyle = `hsla(${hue}, 90%, ${58 + a * 20}%, ${a * 0.10})`;
           ctx.fillRect(x + GAP / 2, y + GAP / 2, CELL - GAP, CELL - GAP);
         }
       }

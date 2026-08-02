@@ -51,7 +51,7 @@ export default function RootLayout({
               userButtonPopoverCard: "border border-indigo-900/50 bg-black font-mono shadow-xl rounded",
               userButtonPopoverActionButton: "font-mono text-xs text-slate-300 hover:bg-indigo-950/50 hover:text-indigo-300",
               userButtonPopoverFooter: "hidden", // Removes Clerk footer in user profile popover
-              userButtonAvatarBox: "w-8 h-8 rounded border border-indigo-500/40 shadow-sm",
+              userButtonAvatarBox: "w-8 h-8 rounded-full border border-indigo-500/40 shadow-sm",
             },
           }}
         >

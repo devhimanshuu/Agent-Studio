@@ -1,5 +1,6 @@
+import { Prisma } from "@prisma/client";
 import { ISkillRepository } from "./interfaces/ISkillRepository";
-import { SkillDTO, SkillVersionDTO, CreateSkillInput } from "@/types/skill";
+import { SkillDTO, SkillVersionDTO, SkillExampleDTO, CreateSkillInput } from "@/types/skill";
 import { prisma } from "@/lib/prisma";
 
 export class SkillRepository implements ISkillRepository {
@@ -46,12 +47,12 @@ export class SkillRepository implements ISkillRepository {
           create: {
             versionNumber: 1,
             status: "DRAFT",
-            inputSchema: (input.inputSchema ?? {}) as any,
-            outputSchema: (input.outputSchema ?? {}) as any,
+            inputSchema: (input.inputSchema ?? {}) as unknown as Prisma.InputJsonValue,
+            outputSchema: (input.outputSchema ?? {}) as unknown as Prisma.InputJsonValue,
             instructions: input.instructions ?? "",
-            examples: (input.examples ?? []) as any,
-            allowedTools: (input.allowedTools ?? []) as any,
-            actionsRequiringApproval: (input.actionsRequiringApproval ?? []) as any,
+            examples: (input.examples ?? []) as unknown as Prisma.InputJsonValue,
+            allowedTools: (input.allowedTools ?? []) as unknown as Prisma.InputJsonValue,
+            actionsRequiringApproval: (input.actionsRequiringApproval ?? []) as unknown as Prisma.InputJsonValue,
             maxExecutionSteps: input.maxExecutionSteps ?? 10,
           },
         },
@@ -81,12 +82,12 @@ export class SkillRepository implements ISkillRepository {
     const updated = await prisma.skillVersion.update({
       where: { id: skill.currentDraftId },
       data: {
-        ...(versionData.inputSchema && { inputSchema: versionData.inputSchema as any }),
-        ...(versionData.outputSchema && { outputSchema: versionData.outputSchema as any }),
+        ...(versionData.inputSchema && { inputSchema: versionData.inputSchema as unknown as Prisma.InputJsonValue }),
+        ...(versionData.outputSchema && { outputSchema: versionData.outputSchema as unknown as Prisma.InputJsonValue }),
         ...(versionData.instructions !== undefined && { instructions: versionData.instructions }),
-        ...(versionData.examples && { examples: versionData.examples as any }),
-        ...(versionData.allowedTools && { allowedTools: versionData.allowedTools as any }),
-        ...(versionData.actionsRequiringApproval && { actionsRequiringApproval: versionData.actionsRequiringApproval as any }),
+        ...(versionData.examples && { examples: versionData.examples as unknown as Prisma.InputJsonValue }),
+        ...(versionData.allowedTools && { allowedTools: versionData.allowedTools as unknown as Prisma.InputJsonValue }),
+        ...(versionData.actionsRequiringApproval && { actionsRequiringApproval: versionData.actionsRequiringApproval as unknown as Prisma.InputJsonValue }),
         ...(versionData.maxExecutionSteps !== undefined && { maxExecutionSteps: versionData.maxExecutionSteps }),
       },
     });
@@ -124,7 +125,7 @@ export class SkillRepository implements ISkillRepository {
     return versions.map(this.mapVersion);
   }
 
-  private mapVersion(v: any): SkillVersionDTO {
+  private mapVersion(v: Prisma.SkillVersionGetPayload<{}>): SkillVersionDTO {
     return {
       id: v.id,
       skillId: v.skillId,
@@ -133,7 +134,7 @@ export class SkillRepository implements ISkillRepository {
       inputSchema: v.inputSchema as Record<string, unknown>,
       outputSchema: v.outputSchema as Record<string, unknown>,
       instructions: v.instructions,
-      examples: v.examples as any[],
+      examples: v.examples as unknown as SkillExampleDTO[],
       allowedTools: v.allowedTools as string[],
       actionsRequiringApproval: v.actionsRequiringApproval as string[],
       maxExecutionSteps: v.maxExecutionSteps,
