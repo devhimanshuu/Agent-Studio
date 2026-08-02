@@ -21,7 +21,7 @@ export function Sidebar() {
   if (pathname === "/") return null;
 
   return (
-    <aside className="w-64 border-r border-indigo-900/40 bg-[#060813]/60 flex flex-col justify-between p-4 min-h-[calc(100vh-5.5rem)] font-mono">
+    <aside className="w-64 border-r border-indigo-900/40 bg-black/60 flex flex-col justify-between p-4 min-h-[calc(100vh-5.5rem)] font-mono">
       <div className="space-y-6">
         <div className="px-3 py-2 text-[11px] font-mono tracking-widest uppercase text-indigo-400/80 border-b border-indigo-950/60 flex items-center justify-between">
           <span>// WORKSPACE</span>

@@ -24,8 +24,8 @@ export function PixelGridWave({ className = "" }: { className?: string }) {
       "(prefers-reduced-motion: reduce)"
     ).matches;
 
-    const CELL = 26;
-    const GAP = 3;
+    const CELL = 14;
+    const GAP = 2;
     let width = 0;
     let height = 0;
     let cols = 0;
@@ -43,6 +43,9 @@ export function PixelGridWave({ className = "" }: { className?: string }) {
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
       cols = Math.ceil(width / CELL) + 1;
       rows = Math.ceil(height / CELL) + 1;
+      if (prefersReducedMotion) {
+        draw(6500); // redraw a static frame so the canvas isn't blank after resize
+      }
     };
 
     const draw = (time: number) => {

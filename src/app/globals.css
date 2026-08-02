@@ -6,22 +6,22 @@
 
 @layer base {
   :root {
-    --background: 228 50% 5%;
+    --background: 0 0% 0%;
     --foreground: 213 31% 91%;
 
-    --card: 228 45% 7%;
+    --card: 0 0% 3%;
     --card-foreground: 213 31% 91%;
 
-    --popover: 228 45% 7%;
+    --popover: 0 0% 3%;
     --popover-foreground: 213 31% 91%;
 
     --primary: 225 90% 70%;
     --primary-foreground: 228 50% 5%;
 
-    --secondary: 225 30% 12%;
+    --secondary: 0 0% 9%;
     --secondary-foreground: 213 31% 91%;
 
-    --muted: 225 25% 15%;
+    --muted: 0 0% 12%;
     --muted-foreground: 215 20% 65%;
 
     --accent: 225 80% 65%;
@@ -30,30 +30,30 @@
     --destructive: 0 75% 55%;
     --destructive-foreground: 213 31% 91%;
 
-    --border: 225 30% 16%;
-    --input: 225 30% 16%;
+    --border: 0 0% 14%;
+    --input: 0 0% 14%;
     --ring: 225 90% 70%;
 
     --radius: 0.25rem;
   }
 
   .dark {
-    --background: 228 50% 5%;
+    --background: 0 0% 0%;
     --foreground: 213 31% 91%;
 
-    --card: 228 45% 7%;
+    --card: 0 0% 3%;
     --card-foreground: 213 31% 91%;
 
-    --popover: 228 45% 7%;
+    --popover: 0 0% 3%;
     --popover-foreground: 213 31% 91%;
 
     --primary: 225 90% 70%;
     --primary-foreground: 228 50% 5%;
 
-    --secondary: 225 30% 12%;
+    --secondary: 0 0% 9%;
     --secondary-foreground: 213 31% 91%;
 
-    --muted: 225 25% 15%;
+    --muted: 0 0% 12%;
     --muted-foreground: 215 20% 65%;
 
     --accent: 225 80% 65%;
@@ -62,8 +62,8 @@
     --destructive: 0 75% 55%;
     --destructive-foreground: 213 31% 91%;
 
-    --border: 225 30% 16%;
-    --input: 225 30% 16%;
+    --border: 0 0% 14%;
+    --input: 0 0% 14%;
     --ring: 225 90% 70%;
   }
 }
@@ -73,7 +73,7 @@
     @apply border-border;
   }
   body {
-    background-color: #060813;
+    background-color: #000000;
     color: #e2e8f0;
     font-family: 'Lora', Georgia, serif;
     background-image: radial-gradient(rgba(129, 140, 248, 0.12) 1px, transparent 1px);
@@ -137,7 +137,7 @@
 }
 
 .cl-card {
-  background-color: #060813 !important;
+  background-color: #000000 !important;
   border: 1px solid rgba(99, 102, 241, 0.4) !important;
   font-family: 'JetBrains Mono', monospace !important;
   border-radius: 4px !important;
@@ -171,7 +171,7 @@
 }
 
 .cl-formFieldInput {
-  background-color: #080b1a !important;
+  background-color: #0a0a0a !important;
   border: 1px solid rgba(99, 102, 241, 0.3) !important;
   color: #f8fafc !important;
   font-family: 'JetBrains Mono', monospace !important;
@@ -179,7 +179,7 @@
 }
 
 .cl-userButtonPopoverCard {
-  background-color: #060813 !important;
+  background-color: #000000 !important;
   border: 1px solid rgba(99, 102, 241, 0.4) !important;
   font-family: 'JetBrains Mono', monospace !important;
 }

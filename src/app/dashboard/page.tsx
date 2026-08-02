@@ -47,7 +47,7 @@ export default function DashboardPage() {
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-mono">
-        <div className="p-5 rounded border border-indigo-900/50 bg-[#080b1a]/80 space-y-2 hover:border-indigo-500/50 transition-all">
+        <div className="p-5 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-2 hover:border-indigo-500/50 transition-all">
           <div className="flex items-center justify-between text-indigo-400 text-xs tracking-wider uppercase">
             <span>ACTIVE SKILLS</span>
             <Sparkles className="h-4 w-4" />
@@ -56,7 +56,7 @@ export default function DashboardPage() {
           <p className="text-[11px] text-slate-400">Draft & Published Skills</p>
         </div>
 
-        <div className="p-5 rounded border border-indigo-900/50 bg-[#080b1a]/80 space-y-2 hover:border-emerald-500/50 transition-all">
+        <div className="p-5 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-2 hover:border-emerald-500/50 transition-all">
           <div className="flex items-center justify-between text-emerald-400 text-xs tracking-wider uppercase">
             <span>TOTAL EXECUTIONS</span>
             <Play className="h-4 w-4" />
@@ -65,7 +65,7 @@ export default function DashboardPage() {
           <p className="text-[11px] text-slate-400">Agent Step Runs</p>
         </div>
 
-        <div className="p-5 rounded border border-indigo-900/50 bg-[#080b1a]/80 space-y-2 hover:border-amber-500/50 transition-all">
+        <div className="p-5 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-2 hover:border-amber-500/50 transition-all">
           <div className="flex items-center justify-between text-amber-400 text-xs tracking-wider uppercase">
             <span>PENDING APPROVALS</span>
             <CheckSquare className="h-4 w-4" />
@@ -74,7 +74,7 @@ export default function DashboardPage() {
           <p className="text-[11px] text-slate-400">Requires Human Review</p>
         </div>
 
-        <div className="p-5 rounded border border-indigo-900/50 bg-[#080b1a]/80 space-y-2 hover:border-indigo-500/50 transition-all">
+        <div className="p-5 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-2 hover:border-indigo-500/50 transition-all">
           <div className="flex items-center justify-between text-indigo-300 text-xs tracking-wider uppercase">
             <span>PERMITTED TOOLS</span>
             <Shield className="h-4 w-4" />
@@ -92,7 +92,7 @@ export default function DashboardPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Skills Overview */}
-          <div className="p-6 rounded border border-indigo-900/40 bg-[#080b1a]/60 space-y-4">
+          <div className="p-6 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-4">
             <div className="flex items-center justify-between font-mono">
               <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-indigo-400" />
@@ -117,7 +117,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Pending Approvals Queue */}
-          <div className="p-6 rounded border border-indigo-900/40 bg-[#080b1a]/60 space-y-4">
+          <div className="p-6 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-4">
             <div className="flex items-center justify-between font-mono">
               <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
                 <CheckSquare className="h-4 w-4 text-amber-400" />

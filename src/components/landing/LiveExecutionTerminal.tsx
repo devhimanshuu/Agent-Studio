@@ -29,9 +29,9 @@ export function LiveExecutionTerminal() {
   };
 
   return (
-    <div className="rounded border border-indigo-900/50 bg-[#060813] font-mono shadow-2xl shadow-indigo-950/50 overflow-hidden">
+    <div className="rounded border border-indigo-900/50 bg-black font-mono shadow-2xl shadow-indigo-950/50 overflow-hidden">
       {/* Terminal Bar */}
-      <div className="px-4 py-2.5 bg-[#080b1a] border-b border-indigo-950 flex items-center justify-between gap-2 text-xs">
+      <div className="px-4 py-2.5 bg-[#0a0a0a] border-b border-indigo-950 flex items-center justify-between gap-2 text-xs">
         <div className="flex items-center gap-2 min-w-0">
           <div className="flex gap-1.5 shrink-0">
             <div className="w-2.5 h-2.5 rounded-full bg-red-500/80"></div>

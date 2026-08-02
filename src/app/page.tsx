@@ -18,10 +18,10 @@ export default function LandingPage() {
           <div className="absolute top-1/4 -right-40 h-[460px] w-[460px] rounded-full bg-cyan-500/15 blur-[130px]" />
           <div className="absolute -bottom-24 left-1/4 h-[380px] w-[380px] rounded-full bg-violet-600/15 blur-[120px]" />
           <div className="absolute inset-0 bg-grid-faint [mask-image:radial-gradient(ellipse_60%_60%_at_50%_35%,black_20%,transparent_80%)]" />
-          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-[#060813]" />
+          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-black" />
           <div
             className="absolute inset-0"
-            style={{ background: "radial-gradient(ellipse at center, transparent 55%, rgba(6, 8, 19, 0.5) 100%)" }}
+            style={{ background: "radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.5) 100%)" }}
           />
         </div>
 
@@ -124,19 +124,19 @@ export default function LandingPage() {
 
       {/* SECTION 2: SOCIAL PROOF & KEY METRICS */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 font-mono text-center">
-        <div className="p-4 rounded border border-indigo-900/40 bg-[#080b1a]/60 space-y-1">
+        <div className="p-4 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-1">
           <div className="text-2xl font-pixel text-slate-100">99.99%</div>
           <div className="text-[11px] text-indigo-400">HITL Approval Reliability</div>
         </div>
-        <div className="p-4 rounded border border-indigo-900/40 bg-[#080b1a]/60 space-y-1">
+        <div className="p-4 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-1">
           <div className="text-2xl font-pixel text-slate-100">ZERO</div>
           <div className="text-[11px] text-emerald-400">Unauthorized Tool Leaks</div>
         </div>
-        <div className="p-4 rounded border border-indigo-900/40 bg-[#080b1a]/60 space-y-1">
+        <div className="p-4 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-1">
           <div className="text-2xl font-pixel text-slate-100">100%</div>
           <div className="text-[11px] text-amber-400">Single-Use Token Security</div>
         </div>
-        <div className="p-4 rounded border border-indigo-900/40 bg-[#080b1a]/60 space-y-1">
+        <div className="p-4 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-1">
           <div className="text-2xl font-pixel text-slate-100">SAAS READY</div>
           <div className="text-[11px] text-indigo-300">Multi-Tenant PostgreSQL</div>
         </div>
@@ -151,7 +151,7 @@ export default function LandingPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-4 gap-6 font-mono">
           {/* Pillar 1 */}
-          <div className="p-6 rounded border border-indigo-900/50 bg-[#080b1a]/80 space-y-3 hover:border-indigo-500/50 transition-all">
+          <div className="p-6 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-3 hover:border-indigo-500/50 transition-all">
             <div className="flex items-center justify-between text-indigo-400 text-xs">
               <span className="font-pixel text-sm">01. USER-DEFINED SKILLS</span>
               <Sparkles className="h-4 w-4" />
@@ -163,7 +163,7 @@ export default function LandingPage() {
           </div>
 
           {/* Pillar 2 */}
-          <div className="p-6 rounded border border-indigo-900/50 bg-[#080b1a]/80 space-y-3 hover:border-indigo-500/50 transition-all">
+          <div className="p-6 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-3 hover:border-indigo-500/50 transition-all">
             <div className="flex items-center justify-between text-indigo-400 text-xs">
               <span className="font-pixel text-sm">02. BOUNDED SYSTEM TOOLS</span>
               <Wrench className="h-4 w-4" />
@@ -175,7 +175,7 @@ export default function LandingPage() {
           </div>
 
           {/* Pillar 3 */}
-          <div className="p-6 rounded border border-indigo-900/50 bg-[#080b1a]/80 space-y-3 hover:border-amber-500/50 transition-all">
+          <div className="p-6 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-3 hover:border-amber-500/50 transition-all">
             <div className="flex items-center justify-between text-amber-400 text-xs">
               <span className="font-pixel text-sm">03. HUMAN-IN-THE-LOOP (HITL)</span>
               <CheckSquare className="h-4 w-4" />
@@ -187,7 +187,7 @@ export default function LandingPage() {
           </div>
 
           {/* Pillar 4 */}
-          <div className="p-6 rounded border border-indigo-900/50 bg-[#080b1a]/80 space-y-3 hover:border-emerald-500/50 transition-all">
+          <div className="p-6 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-3 hover:border-emerald-500/50 transition-all">
             <div className="flex items-center justify-between text-emerald-400 text-xs">
               <span className="font-pixel text-sm">04. VERSIONING & DIFF ENGINE</span>
               <GitCompare className="h-4 w-4" />
@@ -208,7 +208,7 @@ export default function LandingPage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
-          <div className="p-5 rounded border border-indigo-900/40 bg-[#080b1a]/90 space-y-2">
+          <div className="p-5 rounded border border-indigo-900/40 bg-[#0a0a0a]/90 space-y-2">
             <div className="text-indigo-400 font-bold flex items-center justify-between">
               <span>calculator</span>
               <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300">READ</span>
@@ -216,7 +216,7 @@ export default function LandingPage() {
             <p className="text-[11px] text-slate-400 font-serif">Safely evaluates mathematical expressions and formulas.</p>
           </div>
 
-          <div className="p-5 rounded border border-indigo-900/40 bg-[#080b1a]/90 space-y-2">
+          <div className="p-5 rounded border border-indigo-900/40 bg-[#0a0a0a]/90 space-y-2">
             <div className="text-indigo-400 font-bold flex items-center justify-between">
               <span>document_search</span>
               <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300">READ</span>
@@ -224,7 +224,7 @@ export default function LandingPage() {
             <p className="text-[11px] text-slate-400 font-serif">Mock vector and text query search over internal knowledge base.</p>
           </div>
 
-          <div className="p-5 rounded border border-indigo-900/40 bg-[#080b1a]/90 space-y-2">
+          <div className="p-5 rounded border border-indigo-900/40 bg-[#0a0a0a]/90 space-y-2">
             <div className="text-indigo-400 font-bold flex items-center justify-between">
               <span>record_lookup</span>
               <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300">READ</span>
@@ -243,7 +243,7 @@ export default function LandingPage() {
       </section>
 
       {/* SECTION 5: SECURITY & GUARDRAILS (#guardrails) */}
-      <section id="guardrails" className="p-5 sm:p-8 rounded border border-indigo-900/50 bg-[#080b1a]/90 space-y-6 font-mono">
+      <section id="guardrails" className="p-5 sm:p-8 rounded border border-indigo-900/50 bg-[#0a0a0a]/90 space-y-6 font-mono">
         <div className="flex items-center justify-between border-b border-indigo-950 pb-4 text-xs">
           <div className="flex items-center gap-2 text-indigo-400">
             <ShieldCheck className="h-5 w-5" />
@@ -290,7 +290,7 @@ export default function LandingPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-4 gap-6 text-xs">
-          <div className="p-5 rounded border border-indigo-900/40 bg-[#080b1a]/60 space-y-2">
+          <div className="p-5 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-2">
             <h4 className="font-bold text-slate-100 flex items-center gap-2">
               <HelpCircle className="h-4 w-4 text-indigo-400" /> How does Human-in-the-Loop (HITL) approval work?
             </h4>
@@ -299,7 +299,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="p-5 rounded border border-indigo-900/40 bg-[#080b1a]/60 space-y-2">
+          <div className="p-5 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-2">
             <h4 className="font-bold text-slate-100 flex items-center gap-2">
               <HelpCircle className="h-4 w-4 text-indigo-400" /> What prevents duplicate write execution?
             </h4>
@@ -308,7 +308,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="p-5 rounded border border-indigo-900/40 bg-[#080b1a]/60 space-y-2">
+          <div className="p-5 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-2">
             <h4 className="font-bold text-slate-100 flex items-center gap-2">
               <HelpCircle className="h-4 w-4 text-indigo-400" /> Can agents call unauthorized tools?
             </h4>
@@ -317,7 +317,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="p-5 rounded border border-indigo-900/40 bg-[#080b1a]/60 space-y-2">
+          <div className="p-5 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-2">
             <h4 className="font-bold text-slate-100 flex items-center gap-2">
               <HelpCircle className="h-4 w-4 text-indigo-400" /> How does skill version control work?
             </h4>

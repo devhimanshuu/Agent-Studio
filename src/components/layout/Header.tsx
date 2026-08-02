@@ -3,7 +3,6 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ThemeToggle } from "./ThemeToggle";
 import { ShieldCheck, LayoutDashboard } from "lucide-react";
 import { SignInButton, SignUpButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 
@@ -12,16 +11,7 @@ export function Header() {
   const isLanding = pathname === "/";
 
   return (
-    <header className="sticky top-0 z-40 border-b border-indigo-900/40 bg-[#060813]/90 backdrop-blur-md font-mono">
-      {/* Top Technical Metadata Bar */}
-      <div className="px-4 sm:px-6 py-1.5 border-b border-indigo-950/60 flex items-center justify-between gap-3 text-[11px] text-indigo-400/70 tracking-widest uppercase">
-        <span>FIG_000 · AGENT STUDIO V1.0 · 2026</span>
-        <div className="flex items-center gap-4">
-          <span className="hidden md:inline">BOUNDED TOOLS · STRICT HITL GUARDRAILS</span>
-          <span>OPEN SOURCE · MIT</span>
-        </div>
-      </div>
-
+    <header className="sticky top-0 z-40 border-b border-indigo-900/40 bg-black/90 backdrop-blur-md font-mono">
       {/* Main Header Row */}
       <div className="px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
         {/* Brand Logo */}
@@ -76,8 +66,6 @@ export function Header() {
           <SignedIn>
             <UserButton afterSignOutUrl="/" />
           </SignedIn>
-
-          <ThemeToggle />
         </div>
       </div>
     </header>
