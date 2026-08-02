@@ -1,0 +1,314 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Silkscreen:wght@400;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 228 50% 5%;
+    --foreground: 213 31% 91%;
+
+    --card: 228 45% 7%;
+    --card-foreground: 213 31% 91%;
+
+    --popover: 228 45% 7%;
+    --popover-foreground: 213 31% 91%;
+
+    --primary: 225 90% 70%;
+    --primary-foreground: 228 50% 5%;
+
+    --secondary: 225 30% 12%;
+    --secondary-foreground: 213 31% 91%;
+
+    --muted: 225 25% 15%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 225 80% 65%;
+    --accent-foreground: 228 50% 5%;
+
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 213 31% 91%;
+
+    --border: 225 30% 16%;
+    --input: 225 30% 16%;
+    --ring: 225 90% 70%;
+
+    --radius: 0.25rem;
+  }
+
+  .dark {
+    --background: 228 50% 5%;
+    --foreground: 213 31% 91%;
+
+    --card: 228 45% 7%;
+    --card-foreground: 213 31% 91%;
+
+    --popover: 228 45% 7%;
+    --popover-foreground: 213 31% 91%;
+
+    --primary: 225 90% 70%;
+    --primary-foreground: 228 50% 5%;
+
+    --secondary: 225 30% 12%;
+    --secondary-foreground: 213 31% 91%;
+
+    --muted: 225 25% 15%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 225 80% 65%;
+    --accent-foreground: 228 50% 5%;
+
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 213 31% 91%;
+
+    --border: 225 30% 16%;
+    --input: 225 30% 16%;
+    --ring: 225 90% 70%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    background-color: #060813;
+    color: #e2e8f0;
+    font-family: 'Lora', Georgia, serif;
+    background-image: radial-gradient(rgba(129, 140, 248, 0.12) 1px, transparent 1px);
+    background-size: 24px 24px;
+    background-attachment: fixed;
+  }
+}
+
+/* Custom Font Utilities */
+.font-pixel {
+  font-family: 'Silkscreen', 'Press Start 2P', monospace;
+  letter-spacing: -0.02em;
+}
+
+.font-mono-tech {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.font-serif-reading {
+  font-family: 'Lora', Georgia, serif;
+}
+
+/* Retro Pixel Banner Glow */
+.text-pixel-glow {
+  color: #7dd3fc;
+  text-shadow: 0 0 12px rgba(125, 211, 252, 0.4), 0 0 24px rgba(99, 102, 241, 0.3);
+}
+
+.border-tech {
+  border: 1px solid rgba(99, 102, 241, 0.25);
+}
+
+.border-tech-active {
+  border: 1px solid rgba(125, 211, 252, 0.5);
+  box-shadow: 0 0 15px rgba(99, 102, 241, 0.15);
+}
+
+/* Drop Cap Styling */
+.drop-cap::first-letter {
+  font-family: 'Silkscreen', monospace;
+  font-size: 3.25rem;
+  line-height: 0.85;
+  float: left;
+  margin-right: 0.75rem;
+  margin-top: 0.1rem;
+  color: #818cf8;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(129, 140, 248, 0.3);
+  padding: 0.4rem 0.6rem;
+  border-radius: 2px;
+}
+
+/* Clerk Custom Aesthetic & Branding Overrides */
+.cl-logoBox,
+.cl-logoImage,
+.cl-footer,
+.cl-userButtonPopoverFooter,
+.cl-internal-157w9y1,
+.cl-internal-ph9wfc {
+  display: none !important;
+}
+
+.cl-card {
+  background-color: #060813 !important;
+  border: 1px solid rgba(99, 102, 241, 0.4) !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  border-radius: 4px !important;
+  box-shadow: 0 25px 50px -12px rgba(6, 8, 19, 0.9) !important;
+}
+
+.cl-headerTitle {
+  font-family: 'Silkscreen', monospace !important;
+  color: #a5b4fc !important;
+  text-transform: uppercase !important;
+}
+
+.cl-headerSubtitle,
+.cl-formFieldLabel,
+.cl-socialButtonsBlockButtonText {
+  font-family: 'JetBrains Mono', monospace !important;
+  color: #94a3b8 !important;
+}
+
+.cl-formButtonPrimary {
+  background-color: #4f46e5 !important;
+  border: 1px solid #818cf8 !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  border-radius: 4px !important;
+}
+
+.cl-formButtonPrimary:hover {
+  background-color: #6366f1 !important;
+}
+
+.cl-formFieldInput {
+  background-color: #080b1a !important;
+  border: 1px solid rgba(99, 102, 241, 0.3) !important;
+  color: #f8fafc !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  border-radius: 4px !important;
+}
+
+.cl-userButtonPopoverCard {
+  background-color: #060813 !important;
+  border: 1px solid rgba(99, 102, 241, 0.4) !important;
+  font-family: 'JetBrains Mono', monospace !important;
+}
+
+/* ===== Landing Hero Animations & Utilities ===== */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.45s ease-out both;
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-float {
+  animation: float 5s ease-in-out infinite;
+}
+
+/* Gradient headline with soft glow (drop-shadow works with clipped text) */
+.text-gradient-glow {
+  background: linear-gradient(120deg, #a5b4fc 0%, #7dd3fc 45%, #c4b5fd 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 22px rgba(125, 211, 252, 0.35));
+}
+
+/* Faint blueprint grid for the hero background */
+.bg-grid-faint {
+  background-image:
+    linear-gradient(rgba(99, 102, 241, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99, 102, 241, 0.07) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* ===== Retro Glitch Headline ===== */
+@keyframes glitch-shift-before {
+  0%, 90%, 100% { transform: translate(0, 0); opacity: 0; }
+  91% { transform: translate(-4px, 1px); opacity: 0.9; }
+  92% { transform: translate(3px, -2px); opacity: 0.9; }
+  93% { transform: translate(-5px, 0); opacity: 0.9; }
+  94% { transform: translate(4px, 2px); opacity: 0.9; }
+  95% { transform: translate(-2px, -1px); opacity: 0.9; }
+  96% { transform: translate(5px, 1px); opacity: 0.9; }
+  97% { transform: translate(-3px, -2px); opacity: 0.9; }
+  98% { transform: translate(2px, 0); opacity: 0.9; }
+  99% { transform: translate(-1px, 1px); opacity: 0.9; }
+}
+
+@keyframes glitch-shift-after {
+  0%, 90%, 100% { transform: translate(0, 0); opacity: 0; }
+  91% { transform: translate(4px, -1px); opacity: 0.9; }
+  92% { transform: translate(-3px, 2px); opacity: 0.9; }
+  93% { transform: translate(5px, 0); opacity: 0.9; }
+  94% { transform: translate(-4px, -2px); opacity: 0.9; }
+  95% { transform: translate(2px, 1px); opacity: 0.9; }
+  96% { transform: translate(-5px, -1px); opacity: 0.9; }
+  97% { transform: translate(3px, 2px); opacity: 0.9; }
+  98% { transform: translate(-2px, 0); opacity: 0.9; }
+  99% { transform: translate(1px, -1px); opacity: 0.9; }
+}
+
+@keyframes glitch-slice {
+  0%, 90%, 100% { clip-path: inset(0 0 100% 0); }
+  91% { clip-path: inset(20% 0 60% 0); }
+  92% { clip-path: inset(75% 0 10% 0); }
+  93% { clip-path: inset(40% 0 45% 0); }
+  94% { clip-path: inset(5% 0 80% 0); }
+  95% { clip-path: inset(60% 0 25% 0); }
+  96% { clip-path: inset(25% 0 60% 0); }
+  97% { clip-path: inset(85% 0 5% 0); }
+  98% { clip-path: inset(45% 0 40% 0); }
+  99% { clip-path: inset(10% 0 70% 0); }
+}
+
+.glitch {
+  position: relative;
+}
+
+.glitch::before,
+.glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  animation-duration: 7s;
+  animation-timing-function: steps(1, end);
+  animation-iteration-count: infinite;
+}
+
+.glitch::before {
+  color: rgba(248, 113, 113, 0.8);
+  animation-name: glitch-shift-before, glitch-slice;
+}
+
+.glitch::after {
+  color: rgba(103, 232, 249, 0.8);
+  animation-name: glitch-shift-after, glitch-slice;
+}
+
+/* Static CRT scanline texture */
+.crt-lines {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(148, 163, 184, 0.04) 0px,
+    rgba(148, 163, 184, 0.04) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glitch::before,
+  .glitch::after {
+    animation: none;
+  }
+}

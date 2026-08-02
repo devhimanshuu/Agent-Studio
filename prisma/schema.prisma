@@ -1,0 +1,221 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum SkillStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ExecutionStatus {
+  PENDING
+  RUNNING
+  PAUSED_FOR_APPROVAL
+  COMPLETED
+  FAILED
+  CANCELLED
+  STEP_LIMIT_EXCEEDED
+}
+
+enum StepStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+  SKIPPED
+  AWAITING_APPROVAL
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum ToolType {
+  READ
+  WRITE
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String?
+  role          Role           @default(USER)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  skills        Skill[]
+  executions    Execution[]
+  approvals     ApprovalRequest[]
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+model Skill {
+  id                 String         @id @default(cuid())
+  userId             String
+  name               String
+  purpose            String
+  currentDraftId     String?        @unique
+  publishedVersionId String?        @unique
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  versions           SkillVersion[] @relation("SkillToVersions")
+
+  @@index([userId])
+  @@map("skills")
+}
+
+model SkillVersion {
+  id                       String         @id @default(cuid())
+  skillId                  String
+  versionNumber            Int
+  status                   SkillStatus    @default(DRAFT)
+  inputSchema              Json           // JSON Schema definition
+  outputSchema             Json           // JSON Schema definition
+  instructions             String
+  examples                 Json           // Array of input/output examples
+  allowedTools             Json           // String array of permitted tool names
+  actionsRequiringApproval Json           // String array of tool actions requiring human approval
+  maxExecutionSteps        Int            @default(10)
+  changelog                String?
+  createdAt                DateTime       @default(now())
+  publishedAt              DateTime?
+
+  skill                    Skill          @relation("SkillToVersions", fields: [skillId], references: [id], onDelete: Cascade)
+  executions               Execution[]
+
+  @@unique([skillId, versionNumber])
+  @@index([skillId, status])
+  @@map("skill_versions")
+}
+
+model Execution {
+  id               String          @id @default(cuid())
+  userId           String
+  skillVersionId   String
+  status           ExecutionStatus @default(PENDING)
+  inputData        Json
+  finalOutput      Json?
+  stepCount        Int             @default(0)
+  maxSteps         Int
+  errorMessage     String?
+  startedAt        DateTime        @default(now())
+  completedAt      DateTime?
+
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skillVersion     SkillVersion    @relation(fields: [skillVersionId], references: [id])
+  steps            ExecutionStep[]
+  toolCalls        ToolCall[]
+  approvalRequests ApprovalRequest[]
+  auditLogs        AuditLog[]
+
+  @@index([userId])
+  @@index([skillVersionId])
+  @@index([status])
+  @@map("executions")
+}
+
+model ExecutionStep {
+  id           String      @id @default(cuid())
+  executionId  String
+  stepNumber   Int
+  nodeName     String
+  stateSnapshot Json
+  status       StepStatus  @default(RUNNING)
+  startedAt    DateTime    @default(now())
+  completedAt  DateTime?
+
+  execution    Execution   @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  toolCalls    ToolCall[]
+
+  @@unique([executionId, stepNumber])
+  @@map("execution_steps")
+}
+
+model ToolCall {
+  id             String      @id @default(cuid())
+  executionId    String
+  stepId         String?
+  toolName       String
+  action         String
+  inputArgs      Json
+  outputResult   Json?
+  status         String      // SUCCESS | ERROR | BLOCKED | REJECTED
+  errorMessage   String?
+  executedAt     DateTime    @default(now())
+
+  execution      Execution   @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  step           ExecutionStep? @relation(fields: [stepId], references: [id], onDelete: SetNull)
+
+  @@index([executionId])
+  @@map("tool_calls")
+}
+
+model ApprovalRequest {
+  id             String         @id @default(cuid())
+  executionId    String
+  userId         String
+  toolName       String
+  action         String
+  inputPayload   Json
+  status         ApprovalStatus @default(PENDING)
+  idempotencyKey String         @unique // Single-use execution token
+  requestedAt    DateTime       @default(now())
+  respondedAt    DateTime?
+  rejectionReason String?
+
+  execution      Execution      @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([executionId])
+  @@index([status])
+  @@map("approval_requests")
+}
+
+model ToolDefinition {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  displayName  String
+  description  String
+  type         ToolType @default(READ)
+  parameters   Json     // JSON Schema for tool parameters
+  requiresAuth Boolean  @default(false)
+  isSystem     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  @@map("tool_definitions")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  executionId String?
+  action      String   // e.g. SKILL_CREATED, VERSION_PUBLISHED, APPROVAL_GRANTED
+  details     Json
+  ipAddress   String?
+  timestamp   DateTime @default(now())
+
+  user        User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  execution   Execution? @relation(fields: [executionId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([executionId])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
