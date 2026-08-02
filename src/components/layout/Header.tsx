@@ -1,17 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SignInButton, SignUpButton, SignedIn, SignedOut, UserButton, useClerk } from "@clerk/nextjs";
-import { LogOut } from "lucide-react";
-import { SignOutModal } from "@/components/feedback/SignOutModal";
+import { SignInButton, SignUpButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 
 export function Header() {
   const pathname = usePathname();
   const isLanding = pathname === "/";
-  const { signOut } = useClerk();
-  const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
 
   return (
     <>
@@ -53,30 +49,11 @@ export function Header() {
             </SignedOut>
 
             <SignedIn>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsSignOutModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded border border-red-500/30 bg-red-950/20 text-xs font-mono text-red-300 hover:border-red-400 hover:text-white transition-all whitespace-nowrap cursor-pointer"
-                >
-                  <LogOut className="h-3.5 w-3.5 text-red-400" />
-                  <span>[ SIGN OUT ]</span>
-                </button>
-                <UserButton afterSignOutUrl="/" />
-              </div>
+              <UserButton afterSignOutUrl="/" />
             </SignedIn>
           </div>
         </div>
       </header>
-
-      <SignOutModal
-        isOpen={isSignOutModalOpen}
-        onClose={() => setIsSignOutModalOpen(false)}
-        onConfirm={() => {
-          setIsSignOutModalOpen(false);
-          signOut({ redirectUrl: "/" });
-        }}
-      />
     </>
   );
 }
