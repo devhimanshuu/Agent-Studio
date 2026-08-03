@@ -190,25 +190,25 @@ export default function LandingPage() {
       {/* SECTION 2: SOCIAL PROOF & KEY METRICS */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 font-mono text-center">
         <Reveal delay={0}>
-          <div className="p-4 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-1 h-full">
+          <div className="p-4 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-1 h-full hover:-translate-y-1 hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-300">
             <div className="text-2xl font-pixel text-slate-100">12</div>
             <div className="text-[11px] text-indigo-400">LLM Models · Auto-Failover Roster</div>
           </div>
         </Reveal>
         <Reveal delay={80}>
-          <div className="p-4 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-1 h-full">
+          <div className="p-4 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-1 h-full hover:-translate-y-1 hover:border-emerald-500/50 hover:shadow-lg hover:shadow-emerald-500/10 transition-all duration-300">
             <div className="text-2xl font-pixel text-slate-100">ZERO</div>
             <div className="text-[11px] text-emerald-400">Unauthorized Tool Leaks</div>
           </div>
         </Reveal>
         <Reveal delay={160}>
-          <div className="p-4 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-1 h-full">
+          <div className="p-4 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-1 h-full hover:-translate-y-1 hover:border-amber-500/50 hover:shadow-lg hover:shadow-amber-500/10 transition-all duration-300">
             <div className="text-2xl font-pixel text-slate-100">100%</div>
             <div className="text-[11px] text-amber-400">Single-Use Token Enforcement</div>
           </div>
         </Reveal>
         <Reveal delay={240}>
-          <div className="p-4 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-1 h-full">
+          <div className="p-4 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-1 h-full hover:-translate-y-1 hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-300">
             <div className="text-2xl font-pixel text-slate-100">TRACED</div>
             <div className="text-[11px] text-indigo-300">Every Execution · Node Timeline</div>
           </div>
@@ -475,7 +475,7 @@ export default function LandingPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
           <Reveal delay={0}>
-            <div className="space-y-2">
+            <div className="p-4 rounded border border-indigo-900/40 bg-black/40 space-y-2 hover:-translate-y-1 hover:border-amber-500/50 hover:shadow-md hover:shadow-amber-500/10 transition-all duration-300 h-full">
               <h4 className="font-bold text-slate-100 flex items-center gap-1.5">
                 <Lock className="h-4 w-4 text-amber-400" /> Single-Use Idempotency Tokens
               </h4>
@@ -486,7 +486,7 @@ export default function LandingPage() {
           </Reveal>
 
           <Reveal delay={100}>
-            <div className="space-y-2">
+            <div className="p-4 rounded border border-indigo-900/40 bg-black/40 space-y-2 hover:-translate-y-1 hover:border-indigo-500/50 hover:shadow-md hover:shadow-indigo-500/10 transition-all duration-300 h-full">
               <h4 className="font-bold text-slate-100 flex items-center gap-1.5">
                 <Database className="h-4 w-4 text-indigo-400" /> Multi-Tenant Isolation
               </h4>
@@ -497,7 +497,7 @@ export default function LandingPage() {
           </Reveal>
 
           <Reveal delay={200}>
-            <div className="space-y-2">
+            <div className="p-4 rounded border border-indigo-900/40 bg-black/40 space-y-2 hover:-translate-y-1 hover:border-emerald-500/50 hover:shadow-md hover:shadow-emerald-500/10 transition-all duration-300 h-full">
               <h4 className="font-bold text-slate-100 flex items-center gap-1.5">
                 <Zap className="h-4 w-4 text-emerald-400" /> Hard Execution Step Limits
               </h4>
@@ -508,7 +508,7 @@ export default function LandingPage() {
           </Reveal>
 
           <Reveal delay={300}>
-            <div className="space-y-2">
+            <div className="p-4 rounded border border-indigo-900/40 bg-black/40 space-y-2 hover:-translate-y-1 hover:border-cyan-500/50 hover:shadow-md hover:shadow-cyan-500/10 transition-all duration-300 h-full">
               <h4 className="font-bold text-slate-100 flex items-center gap-1.5">
                 <RefreshCw className="h-4 w-4 text-cyan-400" /> LLM Circuit Breakers
               </h4>
@@ -519,7 +519,7 @@ export default function LandingPage() {
           </Reveal>
 
           <Reveal delay={400}>
-            <div className="space-y-2">
+            <div className="p-4 rounded border border-indigo-900/40 bg-black/40 space-y-2 hover:-translate-y-1 hover:border-indigo-500/50 hover:shadow-md hover:shadow-indigo-500/10 transition-all duration-300 h-full">
               <h4 className="font-bold text-slate-100 flex items-center gap-1.5">
                 <Database className="h-4 w-4 text-indigo-400" /> Atomic Database Writes
               </h4>
@@ -530,7 +530,7 @@ export default function LandingPage() {
           </Reveal>
 
           <Reveal delay={500}>
-            <div className="space-y-2">
+            <div className="p-4 rounded border border-indigo-900/40 bg-black/40 space-y-2 hover:-translate-y-1 hover:border-emerald-500/50 hover:shadow-md hover:shadow-emerald-500/10 transition-all duration-300 h-full">
               <h4 className="font-bold text-slate-100 flex items-center gap-1.5">
                 <Activity className="h-4 w-4 text-emerald-400" /> Full Audit Trails
               </h4>
@@ -553,7 +553,7 @@ export default function LandingPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 text-xs">
           <Reveal delay={0}>
-            <div className="p-5 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-2 h-full">
+            <div className="p-5 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-2 h-full hover:-translate-y-1 hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-300">
               <h4 className="font-bold text-slate-100 flex items-center gap-2">
                 <HelpCircle className="h-4 w-4 text-indigo-400" /> How does Human-in-the-Loop (HITL) approval work?
               </h4>
@@ -564,7 +564,7 @@ export default function LandingPage() {
           </Reveal>
 
           <Reveal delay={80}>
-            <div className="p-5 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-2 h-full">
+            <div className="p-5 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-2 h-full hover:-translate-y-1 hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-300">
               <h4 className="font-bold text-slate-100 flex items-center gap-2">
                 <HelpCircle className="h-4 w-4 text-indigo-400" /> What prevents duplicate write execution?
               </h4>
@@ -575,7 +575,7 @@ export default function LandingPage() {
           </Reveal>
 
           <Reveal delay={160}>
-            <div className="p-5 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-2 h-full">
+            <div className="p-5 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-2 h-full hover:-translate-y-1 hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-300">
               <h4 className="font-bold text-slate-100 flex items-center gap-2">
                 <HelpCircle className="h-4 w-4 text-indigo-400" /> Can agents call unauthorized tools?
               </h4>
@@ -586,7 +586,7 @@ export default function LandingPage() {
           </Reveal>
 
           <Reveal delay={240}>
-            <div className="p-5 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-2 h-full">
+            <div className="p-5 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-2 h-full hover:-translate-y-1 hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-300">
               <h4 className="font-bold text-slate-100 flex items-center gap-2">
                 <HelpCircle className="h-4 w-4 text-indigo-400" /> What happens when an LLM provider goes down?
               </h4>
@@ -597,7 +597,7 @@ export default function LandingPage() {
           </Reveal>
 
           <Reveal delay={320}>
-            <div className="p-5 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-2 h-full">
+            <div className="p-5 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-2 h-full hover:-translate-y-1 hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-300">
               <h4 className="font-bold text-slate-100 flex items-center gap-2">
                 <HelpCircle className="h-4 w-4 text-indigo-400" /> Can I trace how an execution ran?
               </h4>
@@ -608,7 +608,7 @@ export default function LandingPage() {
           </Reveal>
 
           <Reveal delay={400}>
-            <div className="p-5 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-2 h-full">
+            <div className="p-5 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-2 h-full hover:-translate-y-1 hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-300">
               <h4 className="font-bold text-slate-100 flex items-center gap-2">
                 <HelpCircle className="h-4 w-4 text-indigo-400" /> How does skill version control work?
               </h4>

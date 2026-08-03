@@ -24,7 +24,8 @@ export async function GET() {
   const hasGroq = Boolean(env.GROQ_API_KEY);
   const hasOpenRouter = Boolean(env.OPENROUTER_API_KEY);
 
-  const roster = (entries: ModelEntry[]) => entries.map((e) => e.label);
+  const formatModels = (entries: ModelEntry[]) =>
+    entries.map((e) => ({ label: e.label, model: e.model }));
 
   const status: ProviderStatus = {
     groqConfigured: hasGroq,
@@ -34,8 +35,12 @@ export async function GET() {
     totalModels: hasGroq || hasOpenRouter ? ALL_FALLBACK_MODELS.length : 0,
     runtimeReady: hasGroq || hasOpenRouter,
     roster: {
-      groq: hasGroq ? roster(GROQ_FREE_MODELS) : [],
-      openRouter: hasOpenRouter ? roster(OPENROUTER_FREE_MODELS) : [],
+      groq: hasGroq ? formatModels(GROQ_FREE_MODELS) : [],
+      openRouter: hasOpenRouter ? formatModels(OPENROUTER_FREE_MODELS) : [],
+    },
+    availableModels: {
+      groq: formatModels(GROQ_FREE_MODELS),
+      openRouter: formatModels(OPENROUTER_FREE_MODELS),
     },
   };
 

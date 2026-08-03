@@ -7,22 +7,22 @@ import { clsx } from "clsx";
 
 const variantStyles: Record<ToastVariant, { border: string; bg: string; icon: React.ReactNode; text: string }> = {
   success: {
-    border: "border-emerald-500/40",
-    bg: "bg-emerald-950/40",
-    text: "text-emerald-300",
-    icon: <CheckCircle2 className="h-4 w-4 text-emerald-400" />,
+    border: "border-emerald-300 dark:border-emerald-500/40",
+    bg: "bg-emerald-50 dark:bg-emerald-950/40",
+    text: "text-emerald-800 dark:text-emerald-300",
+    icon: <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />,
   },
   error: {
-    border: "border-red-500/40",
-    bg: "bg-red-950/40",
-    text: "text-red-300",
-    icon: <AlertTriangle className="h-4 w-4 text-red-400" />,
+    border: "border-red-300 dark:border-red-500/40",
+    bg: "bg-red-50 dark:bg-red-950/40",
+    text: "text-red-800 dark:text-red-300",
+    icon: <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />,
   },
   info: {
-    border: "border-indigo-500/40",
-    bg: "bg-indigo-950/40",
-    text: "text-indigo-300",
-    icon: <Info className="h-4 w-4 text-indigo-400" />,
+    border: "border-indigo-300 dark:border-indigo-500/40",
+    bg: "bg-indigo-50 dark:bg-indigo-950/40",
+    text: "text-indigo-800 dark:text-indigo-300",
+    icon: <Info className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
   },
 };
 
@@ -39,7 +39,7 @@ export function Toaster() {
             key={t.id}
             role="status"
             className={clsx(
-              "rounded border p-3 shadow-xl shadow-black/50 backdrop-blur-sm animate-fadeInUp",
+              "rounded border p-3 shadow-xl backdrop-blur-sm animate-fadeInUp",
               style.border,
               style.bg
             )}
@@ -49,14 +49,14 @@ export function Toaster() {
                 <span className="mt-0.5 shrink-0">{style.icon}</span>
                 <div className="space-y-0.5">
                   <p className={clsx("text-xs font-semibold uppercase tracking-wide", style.text)}>{t.title}</p>
-                  {t.description && <p className="text-[11px] text-slate-400 leading-relaxed">{t.description}</p>}
+                  {t.description && <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">{t.description}</p>}
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => dismiss(t.id)}
                 aria-label="Dismiss notification"
-                className="shrink-0 text-slate-500 hover:text-slate-200 transition-colors cursor-pointer"
+                className="shrink-0 text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -67,3 +67,5 @@ export function Toaster() {
     </div>
   );
 }
+
+export default Toaster;

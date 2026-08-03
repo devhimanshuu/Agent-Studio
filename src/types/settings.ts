@@ -1,3 +1,8 @@
+export interface ModelRosterItem {
+  label: string;
+  model: string;
+}
+
 export interface ProviderStatus {
   groqConfigured: boolean;
   openRouterConfigured: boolean;
@@ -6,9 +11,13 @@ export interface ProviderStatus {
   totalModels: number;
   /** Whether any provider is available to the execution runtime. */
   runtimeReady: boolean;
-  /** Example roster (labels only, no secrets) for the settings UI. */
+  /** Complete roster for the settings UI. */
   roster: {
-    groq: string[];
-    openRouter: string[];
+    groq: (string | ModelRosterItem)[];
+    openRouter: (string | ModelRosterItem)[];
+  };
+  availableModels: {
+    groq: ModelRosterItem[];
+    openRouter: ModelRosterItem[];
   };
 }

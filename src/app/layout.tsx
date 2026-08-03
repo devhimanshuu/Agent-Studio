@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
-import { Providers } from "./providers";
+import { Providers } from "@/app/providers";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Toaster } from "@/components/feedback/Toaster";
@@ -66,11 +66,11 @@ export default function RootLayout({
           }}
         >
           <Providers>
-            <div className="min-h-screen flex flex-col bg-background text-foreground">
+            <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
               <Header />
-              <div className="flex flex-1">
+              <div className="flex flex-1 min-h-0 overflow-hidden">
                 <Sidebar />
-                <main id="main-content" className="flex-1 p-6 overflow-y-auto">
+                <main id="main-content" className="flex-1 p-6 overflow-y-auto min-h-0">
                   {children}
                 </main>
               </div>
