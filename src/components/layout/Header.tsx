@@ -23,7 +23,7 @@ export function Header() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-slate-400 dark:border-indigo-900/40 bg-slate-300/90 dark:bg-black/90 backdrop-blur-md font-mono text-slate-900 dark:text-slate-100 transition-colors duration-200">
+      <header className="sticky top-0 z-40 border-b border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-black/90 backdrop-blur-md font-mono text-slate-900 dark:text-slate-100 transition-colors duration-200 shadow-sm dark:shadow-none">
         {/* Main Header Row */}
         <div className="px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
           {/* Brand Logo */}

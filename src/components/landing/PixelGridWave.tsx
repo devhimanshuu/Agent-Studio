@@ -121,8 +121,11 @@ export function PixelGridWave({ className = "" }: { className?: string }) {
           if (a <= 0.02) continue;
 
           // indigo → cyan, with a per-pattern hue offset for variety
+          const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
           const hue = 226 + (1 - blend) * hueFrom + blend * hueTo - a * 26;
-          ctx.fillStyle = `hsla(${hue}, 90%, ${58 + a * 20}%, ${a * 0.10})`;
+          const fillAlpha = isDark ? a * 0.10 : a * 0.28;
+          const lightness = isDark ? 58 + a * 20 : 40 + a * 18;
+          ctx.fillStyle = `hsla(${hue}, ${isDark ? 90 : 88}%, ${lightness}%, ${fillAlpha})`;
           ctx.fillRect(x + GAP / 2, y + GAP / 2, CELL - GAP, CELL - GAP);
         }
       }

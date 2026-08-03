@@ -119,10 +119,12 @@ export function NeuralPatterns({ className = "" }: { className?: string }) {
       ctx.clearRect(0, 0, width, height);
       const t = time / 1000;
 
+      const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
+
       // ── Layer 1: Neural connections ──────────────────────────────
       for (const node of nodes) {
         const pulse = 0.5 + 0.5 * Math.sin(t * node.pulseSpeed + node.phase);
-        const alpha = 0.035 + pulse * 0.045;
+        const alpha = (0.035 + pulse * 0.045) * (isDark ? 1 : 3.0);
 
         // Draw connections
         for (const targetIdx of node.connections) {
@@ -134,7 +136,7 @@ export function NeuralPatterns({ className = "" }: { className?: string }) {
           const dist = Math.hypot(dx, dy);
           if (dist > 400) continue;
 
-          const connAlpha = alpha * (1 - dist / 400) * 0.6;
+          const connAlpha = alpha * (1 - dist / 400) * 0.7;
           ctx.beginPath();
           ctx.moveTo(node.x, node.y);
 
@@ -142,29 +144,29 @@ export function NeuralPatterns({ className = "" }: { className?: string }) {
           const cpx = (node.x + target.x) / 2 + (Math.random() - 0.5) * 60;
           const cpy = (node.y + target.y) / 2 + (Math.random() - 0.5) * 60;
           ctx.quadraticCurveTo(cpx, cpy, target.x, target.y);
-          ctx.strokeStyle = `hsla(226, 80%, 70%, ${connAlpha})`;
-          ctx.lineWidth = 0.5 + pulse * 0.5;
+          ctx.strokeStyle = `hsla(226, 85%, ${isDark ? 70 : 40}%, ${connAlpha})`;
+          ctx.lineWidth = 0.6 + pulse * 0.6;
           ctx.stroke();
         }
 
         // Draw node glow
-        const glowAlpha = 0.03 + pulse * 0.05;
+        const glowAlpha = (0.03 + pulse * 0.05) * (isDark ? 1 : 2.4);
         const gradient = ctx.createRadialGradient(
           node.x, node.y, 0,
-          node.x, node.y, 12 + pulse * 8
+          node.x, node.y, 14 + pulse * 8
         );
-        gradient.addColorStop(0, `hsla(226, 90%, 80%, ${glowAlpha})`);
-        gradient.addColorStop(0.5, `hsla(226, 80%, 60%, ${glowAlpha * 0.4})`);
-        gradient.addColorStop(1, `hsla(226, 80%, 60%, 0)`);
+        gradient.addColorStop(0, `hsla(226, 90%, ${isDark ? 80 : 45}%, ${glowAlpha})`);
+        gradient.addColorStop(0.5, `hsla(226, 85%, ${isDark ? 60 : 35}%, ${glowAlpha * 0.5})`);
+        gradient.addColorStop(1, `hsla(226, 85%, 60%, 0)`);
         ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.arc(node.x, node.y, 12 + pulse * 8, 0, Math.PI * 2);
+        ctx.arc(node.x, node.y, 14 + pulse * 8, 0, Math.PI * 2);
         ctx.fill();
 
         // Draw node dot
-        ctx.fillStyle = `hsla(226, 90%, 80%, ${0.04 + pulse * 0.06})`;
+        ctx.fillStyle = `hsla(226, 90%, ${isDark ? 80 : 35}%, ${(0.04 + pulse * 0.06) * (isDark ? 1 : 2.8)})`;
         ctx.beginPath();
-        ctx.arc(node.x, node.y, 1.5 + pulse * 1, 0, Math.PI * 2);
+        ctx.arc(node.x, node.y, 1.8 + pulse * 1, 0, Math.PI * 2);
         ctx.fill();
       }
 
@@ -181,23 +183,23 @@ export function NeuralPatterns({ className = "" }: { className?: string }) {
         const lifeRatio = p.life / p.maxLife;
         const fadeIn = Math.min(1, lifeRatio * 4);
         const fadeOut = Math.max(0, 1 - (lifeRatio - 0.6) / 0.4);
-        const alpha = fadeIn * fadeOut * 0.08;
+        const alpha = fadeIn * fadeOut * (isDark ? 0.08 : 0.26);
 
         // Draw trail
         if (p.trail.length > 1) {
           for (let i = 1; i < p.trail.length; i++) {
-            const trailAlpha = (i / p.trail.length) * alpha * 0.5;
+            const trailAlpha = (i / p.trail.length) * alpha * 0.6;
             ctx.beginPath();
             ctx.moveTo(p.trail[i - 1].x, p.trail[i - 1].y);
             ctx.lineTo(p.trail[i].x, p.trail[i].y);
-            ctx.strokeStyle = `hsla(180, 70%, 70%, ${trailAlpha})`;
-            ctx.lineWidth = 0.5;
+            ctx.strokeStyle = `hsla(180, 75%, ${isDark ? 70 : 35}%, ${trailAlpha})`;
+            ctx.lineWidth = 0.7;
             ctx.stroke();
           }
         }
 
         // Draw particle
-        ctx.fillStyle = `hsla(180, 80%, 80%, ${alpha})`;
+        ctx.fillStyle = `hsla(180, 85%, ${isDark ? 80 : 35}%, ${alpha})`;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();
@@ -225,7 +227,7 @@ export function NeuralPatterns({ className = "" }: { className?: string }) {
         const dist = Math.hypot(end.x - start.x, end.y - start.y);
         if (dist > 400) continue;
 
-        const arcAlpha = Math.sin(arc.life * Math.PI) * 0.06;
+        const arcAlpha = Math.sin(arc.life * Math.PI) * (isDark ? 0.06 : 0.22);
         if (arcAlpha <= 0.01) continue;
 
         const midX = (start.x + end.x) / 2;
@@ -234,8 +236,8 @@ export function NeuralPatterns({ className = "" }: { className?: string }) {
         ctx.beginPath();
         ctx.moveTo(start.x, start.y);
         ctx.quadraticCurveTo(midX, midY, end.x, end.y);
-        ctx.strokeStyle = `hsla(260, 60%, 70%, ${arcAlpha})`;
-        ctx.lineWidth = 0.8;
+        ctx.strokeStyle = `hsla(260, 70%, ${isDark ? 70 : 40}%, ${arcAlpha})`;
+        ctx.lineWidth = 1.0;
         ctx.setLineDash([4, 8]);
         ctx.stroke();
         ctx.setLineDash([]);
