@@ -22,7 +22,7 @@ import {
 import { executionsApi } from "@/lib/api/executions";
 import { ExecutionStatusBadge } from "@/components/executions/ExecutionStatusBadge";
 import { ExecutionTimeline, TimelineLegend } from "@/components/executions/ExecutionTimeline";
-import { LoadingSkeleton } from "@/components/feedback/LoadingSkeleton";
+import { SkeletonExecutionDetail } from "@/components/feedback/Skeleton";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { toast } from "@/stores/toastStore";
 import { clsx } from "clsx";
@@ -107,7 +107,7 @@ export default function ExecutionDetailPage() {
     }
   }, [id]);
 
-  if (isLoading) return <LoadingSkeleton rows={5} />;
+  if (isLoading) return <SkeletonExecutionDetail />;
   if (isError || !execution) {
     return (
       <EmptyState

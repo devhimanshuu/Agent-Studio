@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, Download, ShieldCheck, Filter } from "lucide-react";
 import { auditApi, AuditFilters } from "@/lib/api/audit";
-import { LoadingSkeleton } from "@/components/feedback/LoadingSkeleton";
+import { SkeletonTable } from "@/components/feedback/Skeleton";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { toast } from "@/stores/toastStore";
 
@@ -144,7 +144,7 @@ export default function AuditPage() {
 
       {/* Log table */}
       {isLoading ? (
-        <LoadingSkeleton rows={8} />
+        <SkeletonTable cols={4} rows={8} />
       ) : isError ? (
         <EmptyState
           title="Failed to load audit log"

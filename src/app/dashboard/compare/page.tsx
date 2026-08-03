@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { GitCompare, GitBranch, ArrowRight, Plus, Minus, Pencil, Check } from "lucide-react";
 import { skillsApi } from "@/lib/api/skills";
 import { compareApi } from "@/lib/api/compare";
-import { LoadingSkeleton } from "@/components/feedback/LoadingSkeleton";
+import { SkeletonList, SkeletonPanels } from "@/components/feedback/Skeleton";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { clsx } from "clsx";
 import { VersionDiffResult } from "@/types/observability";
@@ -127,7 +127,7 @@ export default function ComparePage() {
       </div>
 
       {isLoading ? (
-        <LoadingSkeleton rows={4} />
+        <SkeletonList rows={4} />
       ) : !skills || skills.items.length === 0 ? (
         <EmptyState
           icon={<GitCompare className="h-6 w-6" />}
@@ -141,7 +141,7 @@ export default function ComparePage() {
           description="Pick a skill, then choose Version A and Version B to generate a diff."
         />
       ) : diffLoading ? (
-        <LoadingSkeleton rows={5} />
+        <SkeletonPanels panels={2} rows={5} />
       ) : isError ? (
         <EmptyState
           title="Comparison failed"

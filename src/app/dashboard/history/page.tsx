@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { executionsApi } from "@/lib/api/executions";
 import { ExecutionStatusBadge } from "@/components/executions/ExecutionStatusBadge";
-import { LoadingSkeleton } from "@/components/feedback/LoadingSkeleton";
+import { SkeletonTable } from "@/components/feedback/Skeleton";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { ExecutionDTO } from "@/types/execution";
 
@@ -195,7 +195,7 @@ export default function HistoryPage() {
         </div>
 
         {execLoading ? (
-          <LoadingSkeleton rows={4} />
+          <SkeletonTable cols={6} rows={7} />
         ) : !executions || executions.length === 0 ? (
           <EmptyState
             icon={<Play className="h-6 w-6" />}

@@ -10,6 +10,7 @@ import { ExecutionLogRepository } from "@/repositories/ExecutionLogRepository";
 import { ApprovalRepository } from "@/repositories/ApprovalRepository";
 import { ApprovalHistoryRepository } from "@/repositories/ApprovalHistoryRepository";
 import { unauthorized, badRequest, serverError, isValidIsoDate } from "@/lib/api/handlers";
+import { rateLimit } from "@/lib/api/rateLimit";
 import { ExecutionError } from "@/modules/execution/executor/errors";
 import { ExecutionQuery, ExecutionStatus } from "@/types/execution";
 
@@ -92,6 +93,10 @@ export async function POST(request: Request) {
   // Auth first — Clerk errors are never business-logic errors.
   const { userId } = await auth();
   if (!userId) return unauthorized();
+
+  // Execution starts are expensive (LLM calls + graph run) — rate limit.
+  const limited = rateLimit(`exec:start:${userId}`);
+  if (limited) return limited;
 
   try {
     const body = await request.json();

@@ -154,7 +154,7 @@ logger.error({ err: error, executionId }, "Execution failed");
 - Strict mode. **No `any`** — type the edge (`unknown` + narrowing, generics, or an explicit cast with a comment). Implicit-`any` errors fail CI.
 - `@/` alias for all imports from `src/` (`@/services/…`, `@/validators/…`). Prefer relative imports only inside a file's own folder.
 - Async/await, no `.then()` chains; `Promise.all` for independent parallel calls.
-- Match surrounding formatting — 2-space indent, double quotes, semicolons (Prettier defaults).
+- Match surrounding formatting — 2-space indent, double quotes, semicolons (ESLint enforces this via `npm run lint`).
 
 ### 11. Testing
 

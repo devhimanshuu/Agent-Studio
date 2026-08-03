@@ -8,7 +8,7 @@ import { skillsApi } from "@/lib/api/skills";
 import { SkillDTO, SkillStatus } from "@/types/skill";
 import { StatusBadge } from "@/components/skills/StatusBadge";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
-import { LoadingSkeleton } from "@/components/feedback/LoadingSkeleton";
+import { SkeletonGrid } from "@/components/feedback/Skeleton";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { toast } from "@/stores/toastStore";
 import { clsx } from "clsx";
@@ -154,7 +154,7 @@ export default function SkillsDashboardPage() {
 
       {/* Results */}
       {isLoading ? (
-        <LoadingSkeleton rows={4} />
+        <SkeletonGrid cards={6} />
       ) : isError ? (
         <EmptyState
           title="Failed to load skills"

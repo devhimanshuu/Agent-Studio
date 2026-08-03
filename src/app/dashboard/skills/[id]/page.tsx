@@ -23,7 +23,7 @@ import { skillsApi } from "@/lib/api/skills";
 import { executionsApi } from "@/lib/api/executions";
 import { StatusBadge } from "@/components/skills/StatusBadge";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
-import { LoadingSkeleton } from "@/components/feedback/LoadingSkeleton";
+import { SkeletonSkillDetail } from "@/components/feedback/Skeleton";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { toast } from "@/stores/toastStore";
 
@@ -128,7 +128,7 @@ export default function SkillDetailPage() {
     }
   };
 
-  if (isLoading) return <LoadingSkeleton rows={5} />;
+  if (isLoading) return <SkeletonSkillDetail />;
   if (isError || !skill) {
     return (
       <EmptyState

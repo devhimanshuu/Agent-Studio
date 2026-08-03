@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, GitBranch } from "lucide-react";
 import { SkillForm } from "@/components/skills/SkillForm";
 import { skillsApi } from "@/lib/api/skills";
-import { LoadingSkeleton } from "@/components/feedback/LoadingSkeleton";
+import { SkeletonSkillForm } from "@/components/feedback/Skeleton";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { toast } from "@/stores/toastStore";
 
@@ -22,7 +22,7 @@ export default function EditSkillPage() {
     queryFn: () => skillsApi.get(id),
   });
 
-  if (isLoading) return <LoadingSkeleton rows={5} />;
+  if (isLoading) return <SkeletonSkillForm />;
   if (isError || !skill) {
     return (
       <EmptyState

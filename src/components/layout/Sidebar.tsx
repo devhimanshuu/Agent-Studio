@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useClerk } from "@clerk/nextjs";
-import { LayoutDashboard, Sparkles, Play, GitCompare, Shield, Wrench, LogOut, ChevronsLeft, ChevronsRight, Gauge, ScrollText } from "lucide-react";
+import { LayoutDashboard, Sparkles, Play, GitCompare, Shield, Wrench, LogOut, ChevronsLeft, ChevronsRight, Gauge, ScrollText, Settings } from "lucide-react";
 import { clsx } from "clsx";
 import { SignOutModal } from "@/components/feedback/SignOutModal";
 
@@ -18,6 +18,7 @@ const navItems = [
   { name: "Compare", href: "/dashboard/compare", icon: GitCompare, tag: "DIFF_07" },
   { name: "Tool Registry", href: "/dashboard/tools", icon: Wrench, tag: "TOOL_V1" },
   { name: "Human Review", href: "/dashboard/review", icon: Shield, tag: "HITL_V2" },
+  { name: "Settings", href: "/dashboard/settings", icon: Settings, tag: "CFG_V1" },
 ];
 
 const STORAGE_KEY = "agent-studio-sidebar-collapsed";
@@ -114,22 +115,6 @@ export function Sidebar() {
 
         {/* Bottom Section */}
         <div className="space-y-2 pt-4">
-          {!collapsed && (
-            <Link
-              href="/dashboard/tools"
-              className="block p-3 rounded border border-indigo-900/40 bg-indigo-950/20 text-xs font-mono space-y-2 hover:border-indigo-500/50 hover:bg-indigo-950/40 transition-all duration-150"
-            >
-              <div className="font-semibold text-indigo-300 flex items-center gap-1.5">
-                <Wrench className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
-                <span>BOUNDED TOOLS</span>
-              </div>
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                Calculator • Doc Search • Record Lookup • Task Creator
-              </p>
-              <p className="text-[10px] text-indigo-400/80">[ VIEW REGISTRY ]</p>
-            </Link>
-          )}
-
           <button
             type="button"
             onClick={() => setIsSignOutModalOpen(true)}

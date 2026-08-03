@@ -9,6 +9,7 @@ import { ApprovalRepository } from "@/repositories/ApprovalRepository";
 import { ApprovalHistoryRepository } from "@/repositories/ApprovalHistoryRepository";
 import { ApprovalEngine } from "@/modules/approval";
 import { unauthorized, forbidden, badRequest, serverError, notFound } from "@/lib/api/handlers";
+import { rateLimit } from "@/lib/api/rateLimit";
 
 const resumeSchema = z.object({
   approvalId: z.string().min(1, "Approval ID is required"),
@@ -32,6 +33,10 @@ export async function POST(
   // Auth first — Clerk errors are never business-logic errors.
   const { userId } = await auth();
   if (!userId) return unauthorized();
+
+  // Resume re-invokes the LLM graph — rate limit.
+  const limited = rateLimit(`exec:resume:${userId}`);
+  if (limited) return limited;
 
   try {
     const { id: executionId } = await params;

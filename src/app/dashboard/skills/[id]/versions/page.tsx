@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, GitCompare, Rocket, FileText } from "lucide-react";
 import { skillsApi } from "@/lib/api/skills";
 import { StatusBadge } from "@/components/skills/StatusBadge";
-import { LoadingSkeleton } from "@/components/feedback/LoadingSkeleton";
+import { SkeletonVersions } from "@/components/feedback/Skeleton";
 import { EmptyState } from "@/components/feedback/EmptyState";
 
 function formatDate(d: Date | string | null | undefined): string {
@@ -25,7 +25,7 @@ export default function SkillVersionsPage() {
     queryFn: () => skillsApi.get(id),
   });
 
-  if (isLoading) return <LoadingSkeleton rows={5} />;
+  if (isLoading) return <SkeletonVersions />;
   if (isError || !skill) {
     return (
       <EmptyState

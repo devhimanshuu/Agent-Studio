@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
@@ -14,6 +14,12 @@ export const metadata: Metadata = {
   description: "Create, test, version, and execute reusable user-defined AI skills safely.",
 };
 
+export const viewport: Viewport = {
+  themeColor: "#000000",
+  width: "device-width",
+  initialScale: 1,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -22,6 +28,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
+        <a href="#main-content" className="skip-to-content-link">
+          Skip to main content
+        </a>
         <ClerkProvider
           appearance={{
             layout: {
@@ -61,7 +70,9 @@ export default function RootLayout({
               <Header />
               <div className="flex flex-1">
                 <Sidebar />
-                <main className="flex-1 p-6 overflow-y-auto">{children}</main>
+                <main id="main-content" className="flex-1 p-6 overflow-y-auto">
+                  {children}
+                </main>
               </div>
               <Toaster />
             </div>

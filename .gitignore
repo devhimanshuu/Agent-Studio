@@ -1,4 +1,8 @@
 node_modules
 .next
 .env
-.env.example
+.env.*
+!.env.example
+tsconfig.tsbuildinfo
+playwright-report/
+test-results/

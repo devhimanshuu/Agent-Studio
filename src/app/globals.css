@@ -189,6 +189,59 @@
   font-family: 'JetBrains Mono', monospace !important;
 }
 
+/* ===== Skeleton Shimmer ===== */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(99, 102, 241, 0.05) 25%,
+    rgba(129, 140, 248, 0.12) 37%,
+    rgba(99, 102, 241, 0.05) 63%
+  );
+  background-size: 400px 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer {
+    animation: none;
+  }
+}
+
+/* ===== Global Focus & Accessibility ===== */
+:focus-visible {
+  outline: 2px solid rgba(129, 140, 248, 0.8);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.skip-to-content-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: 0.5rem 1rem;
+  background: #1e1b4b;
+  color: #e0e7ff;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  border: 1px solid rgba(129, 140, 248, 0.5);
+  border-radius: 4px;
+}
+
+.skip-to-content-link:focus {
+  left: 0.5rem;
+  top: 0.5rem;
+}
+
 /* ===== Landing Hero Animations & Utilities ===== */
 @keyframes fadeIn {
   from { opacity: 0; }

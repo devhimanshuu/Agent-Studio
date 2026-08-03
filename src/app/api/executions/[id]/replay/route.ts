@@ -9,6 +9,7 @@ import { ExecutionLogRepository } from "@/repositories/ExecutionLogRepository";
 import { ApprovalRepository } from "@/repositories/ApprovalRepository";
 import { ApprovalHistoryRepository } from "@/repositories/ApprovalHistoryRepository";
 import { unauthorized, serverError, notFound, forbidden } from "@/lib/api/handlers";
+import { rateLimit } from "@/lib/api/rateLimit";
 
 const executionRepo = new ExecutionRepository();
 const skillRepo = new SkillRepository();
@@ -35,6 +36,10 @@ export async function POST(
 ) {
   const { userId } = await auth();
   if (!userId) return unauthorized();
+
+  // Replay spawns a full new execution — rate limit to protect the LLM budget.
+  const limited = rateLimit(`exec:replay:${userId}`);
+  if (limited) return limited;
 
   try {
     const { id } = await params;

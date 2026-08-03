@@ -1,24 +1,50 @@
 # Agent Studio — Dynamic User-Defined Skills Agent Platform
 
-> Enterprise-grade AI Agent Platform where users can create, schema-validate, version, publish, and manage reusable AI Skills under strict tool permissions and Human-in-the-Loop (HITL) write approval guardrails.
+> Enterprise-grade AI Agent Platform where users can create, schema-validate, version, publish, and execute reusable AI Skills — under strict tool permissions and Human-in-the-Loop (HITL) write-approval guardrails, with full observability.
 
 ---
 
-## 🌟 Architecture & Key Technical Decisions
+## ✨ What is Agent Studio?
 
-### 1. Clean & Layered Architecture (Dependency Inversion)
-Agent Studio is structured following strict Clean Architecture principles:
+Agent Studio is a production-grade **AI Agent Platform** (think LangGraph Studio / OpenAI Agents SDK / LangSmith) built with Next.js 15. Users define **Skills** (schema-validated AI capabilities), version them like software, and execute them on a **graph-first LangGraph runtime** where the LLM is just one node — every tool call is permission-checked, every write action requires explicit human approval, and every run is fully traced.
+
+**The complete lifecycle is covered end-to-end:**
+
+```
+Create Skill → Draft → Validate → Publish (immutable) → Execute (graph runtime)
+     ↑                                              ↓
+  Edit (auto new draft)                    Human Review (HITL pause)
+     ↑                                              ↓
+  Version / Compare / Replay           Execution History / Audit / Metrics
+```
+
+---
+
+## 🏗️ Architecture
+
+### Clean & Layered Architecture (Dependency Inversion)
 
 - **Presentation Layer** (`src/app/`, `src/components/`, `src/stores/`): Next.js 15 App Router, RSC, TailwindCSS, TanStack Query v5, Zustand, React Hook Form + Zod.
-- **Application Layer** (`src/services/`): Pure TypeScript application services (`SkillService`, `ExecutionService`, `ApprovalService`, `VersionService`) that orchestrate domain logic using constructor dependency injection.
-- **Domain Layer** (`src/types/`, `src/validators/`): Strongly typed domain entities, Zod schema validators, tool schemas, and idempotency rules.
-- **Infrastructure Layer** (`src/repositories/`, `src/lib/`, `src/providers/`, `prisma/`): Prisma ORM data access, PostgreSQL models, Pino structured logger, environment config, and the pluggable LLM provider layer.
+- **Application Layer** (`src/services/`): Pure TypeScript application services (`SkillService`, `ExecutionService`, `ApprovalService`, `VersionService`) with constructor dependency injection.
+- **Domain Layer** (`src/types/`, `src/validators/`): Strongly typed entities, Zod validators, tool schemas, idempotency rules.
+- **Infrastructure Layer** (`src/repositories/`, `src/lib/`, `src/providers/`, `prisma/`): Prisma data access, Pino structured logging, Zod-validated env, and the pluggable LLM provider layer.
 - **Auth**: Clerk (middleware-protected routes + per-request verification inside API handlers).
 
-> **Why this matters for commercial SaaS**: Decoupling domain logic from Next.js HTTP adapters keeps service code 100% unit-testable and allows the execution engine to be swapped or moved (e.g. a Python/FastAPI backend) without touching UI or domain contracts.
+> **Why this matters for a commercial SaaS**: services are 100% unit-testable without HTTP; the execution engine can be swapped or moved without touching UI or domain contracts.
 
-### 2. LLM Provider Abstraction with Automatic Failover
-Business logic never talks to a concrete vendor. Every AI call goes through the `LLMProvider` interface:
+### Graph-First Agent Runtime
+
+The LLM is a **dependency of one node**, not the center of the system. Skills execute through a deterministic LangGraph:
+
+```
+planner → permission → tool_selection ⇄ tool_execution → approval? → finish
+```
+
+Each node is independent (`src/modules/execution/graph/`), writes to a strongly typed agent state, and is persisted step-by-step for replay and audit.
+
+### LLM Provider Abstraction with Automatic Failover
+
+Business logic never talks to a concrete vendor — every AI call goes through the `LLMProvider` interface:
 
 ```
 LLMProvider (interface)
@@ -27,20 +53,31 @@ LLMProvider (interface)
    └── LLMRouter          → ordered failover across all configured models
 ```
 
-- **`LLMRouter`** tries each model in order (Groq free models first, then OpenRouter agentic free models). When a model fails for **any** reason — rate limit (429), 5xx, timeout, network error, model decommissioned (404), bad key (401/403) — it is parked in a circuit-breaker cooldown and the **next model is used automatically**.
-- Cooldowns adapt to the failure: 429 → 60s, 5xx/network → 30s, 404 → 10min, auth errors → parks the whole vendor for 5min. A successful call clears the model's cooldown.
-- `getLLMProvider()` returns a router built only from vendors you have keys for. Tool/function calling is supported end-to-end (`LLMTool` → `tools` + `tool_choice: auto`), ready for the execution engine.
+- **`LLMRouter`** tries each model in order (all Groq free models, then curated OpenRouter agentic free models). When a model fails for **any** reason — rate limit (429), 5xx, timeout, network error, model decommissioned (404), bad key (401/403) — it is parked in a circuit-breaker cooldown and the **next model is used automatically**.
+- Adaptive cooldowns: 429 → 60s, 5xx/network → 30s, 404 → 10min, auth errors → parks the whole vendor for 5min. A successful call clears the cooldown.
+- `getLLMProvider()` builds a router only from vendors you have keys for.
+
+### Tool Registry
+
+Every tool implements one interface (`id`, `name`, `description`, `category`, `inputSchema`, `outputSchema`, `requiresApproval`, `execute()`, `validate()`, `healthCheck()`) and self-registers. The runtime executes tools **only** through the registry — the Agent Runtime never knows implementation details.
+
+| Tool | Category | Type | Requires Approval |
+|---|---|---|---|
+| `calculator` | COMPUTE | READ | — |
+| `document_search` | SEARCH | READ | — |
+| `record_lookup` | DATA | READ | — |
+| `mock_task_creator` | TASK | WRITE | ✅ |
 
 ---
 
 ## 🛠️ Tech Stack
 
 - **Frontend**: Next.js 15 (App Router), TypeScript, TailwindCSS, TanStack Query v5, Zustand, React Hook Form + Zod, Lucide React
-- **Backend**: Next.js Route Handlers (stateless controllers delegating to application services), Clerk authentication
-- **Database & ORM**: PostgreSQL, Prisma ORM (`User`, `Skill`, `SkillVersion`, `Execution`, `ExecutionStep`, `ToolCall`, `ApprovalRequest`, `AuditLog`, `ToolDefinition`)
-- **AI Providers** (future-ready, no execution yet): Groq + OpenRouter via a shared OpenAI-compatible HTTP client (no SDK dependency), with automatic model failover
-- **Logging & Config**: Pino structured JSON logging, Zod environment validation (`src/lib/config/env.ts`)
-- **Testing**: Vitest (unit), with the `@/` path alias pointing at `src/`
+- **Backend**: Next.js Route Handlers (stateless controllers delegating to services), Clerk authentication
+- **Database & ORM**: PostgreSQL, Prisma ORM
+- **AI**: LangGraph JS execution engine; Groq + OpenRouter LLM providers with automatic failover
+- **Logging & Config**: Pino structured JSON logging, Zod environment validation
+- **Testing**: Vitest (unit, 184 tests), Playwright (E2E smoke)
 
 ---
 
@@ -48,39 +85,37 @@ LLMProvider (interface)
 
 ```
 ├── prisma/
-│   └── schema.prisma          # Prisma PostgreSQL schema
+│   ├── schema.prisma          # PostgreSQL schema
+│   └── seed.ts                # Demo data (npm run db:seed)
+├── e2e/                       # Playwright smoke tests
 ├── src/
-│   ├── app/                   # App Router pages & API handlers
-│   │   ├── dashboard/         # Dashboard (real metrics) + /skills module
-│   │   │   └── skills/        # Skill Management module (see below)
-│   │   ├── api/
-│   │   │   ├── skills/        # Skills REST API (CRUD + publish/archive/duplicate)
-│   │   │   ├── approvals/     # Approval stub routes (Phase 4)
-│   │   │   ├── executions/    # Execution stub routes (Phase 4)
-│   │   │   └── health/        # Liveness probe
+│   ├── app/
+│   │   ├── api/               # REST handlers (skills, executions, approvals, audit, tools, settings)
+│   │   ├── dashboard/         # Dashboard + skills / executions / history / audit / compare / review / tools / settings
 │   │   ├── page.tsx           # Public landing page
 │   │   ├── not-found.tsx / global-error.tsx
-│   │   └── layout.tsx         # Root layout (ClerkProvider, Header, Sidebar, Toaster)
+│   │   └── layout.tsx         # Root layout (Clerk, Header, Sidebar, Toaster, skip-link)
 │   ├── components/
 │   │   ├── skills/            # SkillForm (RHF+Zod), StatusBadge
-│   │   ├── feedback/          # Toaster, ConfirmDialog, EmptyState, LoadingSkeleton, ErrorBoundary
-│   │   ├── layout/            # Header, Sidebar (collapsible), ThemeToggle
+│   │   ├── executions/        # Timeline, status badges
+│   │   ├── feedback/          # Toaster, ConfirmDialog, EmptyState, Skeleton library, ErrorBoundary
+│   │   ├── layout/            # Header, collapsible Sidebar
 │   │   └── providers/         # QueryProvider, ThemeProvider
-│   ├── lib/
-│   │   ├── api/               # Shared route handlers (auth/error responses) + skills API client
-│   │   ├── config/env.ts      # Zod-validated environment
-│   │   ├── logger/            # Pino instance
-│   │   └── prisma.ts          # Prisma client singleton
-│   ├── middleware.ts           # Clerk route protection (Next 15.5's proxy.ts rename isn't yet detected by Clerk 6.x)
-│   ├── providers/llm/         # LLMProvider, Groq/OpenRouter providers, LLMRouter, model rosters
+│   ├── modules/               # Domain modules (clean architecture)
+│   │   ├── execution/         # Graph nodes, planner, executor, state
+│   │   ├── approval/          # Approval engine, policy, history
+│   │   ├── history/           # Execution history service
+│   │   ├── tools/             # Tool registry + calculator / document-search / record-lookup / mock-task
+│   │   └── ...
+│   ├── lib/                   # api helpers, rate limiter, config, logger, prisma
+│   ├── providers/llm/         # LLMProvider, Groq/OpenRouter, LLMRouter, model rosters
 │   ├── repositories/          # Prisma repositories (+ interfaces)
 │   ├── services/              # Application services (+ interfaces)
 │   ├── stores/                # Zustand stores (toast)
 │   ├── types/                 # Shared domain types
 │   └── validators/            # Zod payload validators
 ├── tests/unit/                # Vitest unit suites
-├── .env.example
-└── vitest.config.ts
+└── .env.example
 ```
 
 ---
@@ -88,37 +123,50 @@ LLMProvider (interface)
 ## 🚀 Quickstart & Setup
 
 ### 1. Environment Configuration
+
 ```bash
-cp .env.example .env
+cp .env.example .env.local
 ```
 
 | Variable | Required | Purpose |
 |---|---|---|
 | `DATABASE_URL` | ✅ | PostgreSQL connection string |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` | ✅ | Clerk auth (login/dashboard) |
-| `GROQ_API_KEY` | ⬜ | Enables the Groq failover models |
-| `OPENROUTER_API_KEY` | ⬜ | Enables the OpenRouter failover models |
-| `NEXT_PUBLIC_APP_URL` | ⬜ | Used in OpenRouter attribution headers |
-
-> **Build note**: if your `.env` sets `NODE_ENV`, run production builds with `NODE_ENV=production npm run build` — a `development` value in the environment breaks Next's production build.
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` | ✅ | Clerk auth |
+| `GROQ_API_KEY` | ⬜ | Enables Groq failover models |
+| `OPENROUTER_API_KEY` | ⬜ | Enables OpenRouter failover models |
+| `NEXT_PUBLIC_APP_URL` | ⬜ | App origin (OpenRouter attribution) |
 
 ### 2. Install, Generate Prisma Client & Sync Schema
+
 ```bash
 npm install          # runs `prisma generate` automatically via postinstall
 npx prisma db push   # sync the schema to your database
 ```
 
-### 3. Run Development Server
+### 3. Optional — Seed demo data
+
+```bash
+# To see the demo workspace under YOUR logged-in Clerk id:
+SEED_USER_ID=<your-clerk-user-id> npm run db:seed
+```
+
+Creates 1 demo user, 4 tool definitions, 4 skills with versions, 4 executions (completed / failed / paused-for-review / replayed), a pending approval request, and 14 audit entries. Idempotent — safe to re-run.
+
+### 4. Run Development Server
+
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000). Signed-in users are redirected straight to `/dashboard`; the landing page is for signed-out visitors.
+
+Open [http://localhost:3000](http://localhost:3000). Signed-in users are redirected straight to `/dashboard`.
 
 ---
 
-## 🧩 Skill Management Module (`/dashboard/skills`)
+## 🧩 Modules & Pages
 
-The complete Skill lifecycle: **create → edit draft → validate → publish → version → archive**.
+### Skill Management (`/dashboard/skills`)
+
+The complete Skill lifecycle: **create → edit draft → validate → publish → version → archive → duplicate**.
 
 | Route | Purpose |
 |---|---|
@@ -126,28 +174,39 @@ The complete Skill lifecycle: **create → edit draft → validate → publish �
 | `/dashboard/skills/new` | Create a skill (React Hook Form + Zod) |
 | `/dashboard/skills/[id]` | Skill detail: draft preview, publish, versions link, quick actions |
 | `/dashboard/skills/[id]/edit` | Edit the current draft — **editing a published skill auto-creates a new draft version** |
-| `/dashboard/skills/[id]/versions` | Version history (version number, status, created/published date, notes) |
+| `/dashboard/skills/[id]/versions` | Version history (version number, status, dates, notes) |
 
-### Skill Form fields
-Name · Purpose · Instructions · Input Schema (JSON) · Output Schema (JSON) · Examples (input/output pairs) · Allowed Tools (≥1 required) · Actions Requiring Approval · Max Execution Steps (> 0) · Notes
+**Validation (Zod):** Name/Purpose/Instructions required · `maxExecutionSteps` integer > 0 · ≥1 Allowed Tool · valid JSON input/output schemas · structured examples.
 
-### Validation rules (Zod — `src/validators/skillSchema.ts`)
-- Name (≥2 chars), Purpose (≥5 chars), Instructions (≥5 chars) required
-- `maxExecutionSteps` must be an integer > 0 (≤ 100)
-- At least one Allowed Tool
-- Input/Output Schema must be valid JSON objects
-- Examples must be valid `{ input, output, description? }` structures
+**Versioning:** published versions are immutable; publishing is guarded (DRAFT-only, archive blocks publish, draft pointer cleared on publish); `DRAFT → PUBLISHED → ARCHIVED`.
 
-### Versioning model
-- **Published versions are immutable.** Editing a published skill rotates a new DRAFT version cloned from the latest version (`versionNumber + 1`).
-- Publishing is guarded: only DRAFT versions can be published, archived skills cannot be published, and publishing clears the draft pointer so the same version can never be re-published.
-- Skills can be `DRAFT` → `PUBLISHED` → `ARCHIVED`. Published skills cannot be deleted (archive instead).
+### Execution & Observability
+
+| Route | Purpose |
+|---|---|
+| `/dashboard/executions` | Execution history: search, filter, sort, replay |
+| `/dashboard/executions/[id]` | Full trace: timeline, planner output, tool calls, logs, approvals |
+| `/dashboard/history` | Observability: metrics, success/failure rates, most-used skills |
+| `/dashboard/audit` | Audit log with search + JSON export |
+| `/dashboard/compare` | Side-by-side version diff (instructions, schemas, tools, steps) |
+
+### Human Review (`/dashboard/review`)
+
+Write actions pause execution at `PAUSED_FOR_APPROVAL` and surface a review card (requested action, skill, tool, arguments, planner reason). Approve / reject / cancel with **single-use idempotency keys** — a key can never respond twice, and rejected/cancelled requests terminate the run.
+
+### Tool Registry (`/dashboard/tools`)
+
+Browse all registered tools by category with health, approval requirements, and usage counts.
+
+### Settings (`/dashboard/settings`)
+
+Appearance (dark/light), Clerk profile, and **AI provider status** — booleans + model rosters only; API keys never leave the server.
 
 ---
 
 ## 🔌 REST API
 
-All endpoints require a Clerk session (`Authorization` is handled by Clerk's auth cookies). Responses use a consistent envelope:
+All endpoints require a Clerk session. Responses use a consistent envelope:
 
 ```jsonc
 // Success
@@ -156,90 +215,68 @@ All endpoints require a Clerk session (`Authorization` is handled by Clerk's aut
 { "success": false, "error": "message", "code": "VALIDATION_ERROR", "fields": { "allowedTools": ["At least one allowed tool is required"] } }
 ```
 
-| Method | Endpoint | Description | Errors |
-|---|---|---|---|
-| `GET` | `/api/skills?search=&status=&sortBy=&sortOrder=` | List own skills (`{ items, total }`) | 401, 400 |
-| `POST` | `/api/skills` | Create a skill (first draft v1) | 401, 400 |
-| `GET` | `/api/skills/:id` | Get one skill with all versions | 401, 404 |
-| `PATCH` | `/api/skills/:id` | Update the current draft (rotates a new draft if published) | 401, 400, 403 |
-| `DELETE` | `/api/skills/:id` | Delete a draft skill (published → 400) | 401, 400, 403, 404 |
-| `POST` | `/api/skills/:id/publish` | Publish a draft version `{ versionId }` | 401, 400, 403 |
-| `POST` | `/api/skills/:id/archive` | Archive a skill | 401, 403 |
-| `POST` | `/api/skills/:id/duplicate` | Duplicate as a new DRAFT copy `"(Copy)"` | 401, 403 |
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET/POST` | `/api/skills` | List (search/filter/sort) / create skill |
+| `GET/PATCH/DELETE` | `/api/skills/:id` | Get / update draft (auto-rotates on published) / delete draft |
+| `POST` | `/api/skills/:id/publish` · `/archive` · `/duplicate` | Lifecycle actions |
+| `GET/POST` | `/api/executions` | List with filters / start execution |
+| `POST` | `/api/executions/:id/cancel` · `/replay` · `/resume` | Execution control |
+| `GET` | `/api/executions/:id/detail` · `/export` · `/api/executions/metrics` | Trace, JSON export, observability |
+| `GET/POST` | `/api/approvals` | Review queue / respond (approve·reject·cancel) |
+| `GET` | `/api/audit` · `/api/tools` · `/api/settings/providers` | Audit log, tool registry, provider status |
 
-### Example — create a skill
-```bash
-curl -X POST http://localhost:3000/api/skills \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Sentiment Analyzer",
-    "purpose": "Classify customer feedback as positive, neutral, or negative.",
-    "instructions": "Read the input text and return a sentiment label with a confidence score.",
-    "inputSchema": { "type": "object", "properties": { "text": { "type": "string" } } },
-    "outputSchema": { "type": "object", "properties": { "label": { "type": "string" } } },
-    "allowedTools": ["calculator"],
-    "maxExecutionSteps": 10
-  }'
-```
+**Error codes:** `UNAUTHENTICATED` (401) · `FORBIDDEN` (403, never leaks resource existence) · `NOT_FOUND` (404) · `VALIDATION_ERROR` (400 + `fields`) · `BAD_REQUEST` (400) · `RATE_LIMITED` (429 + `Retry-After`) · `INTERNAL_ERROR` (500, details logged, never returned).
 
-### Error codes
-`UNAUTHENTICATED` (401) · `FORBIDDEN` (403 — includes 404-safety: don't leak whether a skill exists) · `NOT_FOUND` (404) · `VALIDATION_ERROR` (400 + `fields`) · `BAD_REQUEST` (400) · `INTERNAL_ERROR` (500 — details are logged, never returned)
+**Security:** every handler resolves `auth()` and scopes all queries to `userId`; business logic lives in services/repositories, never in route handlers; execution start/replay/resume + approval responses are rate-limited; mutations write audit entries.
 
-### Ownership & security
-- Every handler resolves `auth()` and scopes all queries to `userId` — users can never read or mutate another user's skills.
-- Business logic lives in services/repositories, never in the route handlers.
-- Mutations write audit log entries (`SKILL_CREATED`, `SKILL_UPDATED`, `SKILL_PUBLISHED`, `SKILL_ARCHIVED`, `SKILL_DELETED`, `SKILL_DUPLICATED`).
+See [`docs/API.md`](docs/API.md) for full request/response schemas.
 
 ---
 
 ## 🧪 Testing
 
-Vitest with `globals: true`, Node environment, and the `@/` alias resolved to `src/` (`vitest.config.ts`).
-
 ```bash
-npm test            # run once (vitest run)
-npm run test:watch  # watch mode
+npm test            # Vitest unit tests (184 tests)
+npm run test:e2e    # Playwright smoke tests
+npm run lint        # ESLint (flat config)
+npm run typecheck   # tsc --noEmit
 ```
 
-**4 suites · 40 tests:**
+**Unit suites cover:** skill CRUD + validation + versioning, execution engine + planner, LLM failover router, tool registry (calculator, document search, record lookup, task creator), permission validation, approval flow (pause/resume/reject/cancel, duplicate prevention, retry, step limit), execution history + replay + observability, audit logging, version comparison.
 
-| Suite | Tests | Coverage |
-|---|---|---|
-| `tests/unit/validators/skillSchema.test.ts` | 16 | Zod rules: required fields, allowed-tools minimum, max-steps bounds, JSON schema validity, examples structure, unknown-key stripping |
-| `tests/unit/services/skillService.test.ts` | 12 | Create / update / publish / archive / delete / duplicate, draft rotation on published skills, unauthorized access, audit logging |
-| `tests/unit/providers/llmRouter.test.ts` | 10 | Failover order, cross-vendor switching, cooldown circuit-breaking + recovery, auth parking, `onSwitch` events, all-fail & all-cooldown paths |
-| `tests/unit/config/env.test.ts` | 2 | Env defaults |
+---
+
+## 🚀 Deployment (Vercel + Neon)
+
+1. **Database**: create a [Neon](https://neon.tech) Postgres project; copy the connection string into `DATABASE_URL`.
+2. **Auth**: create a Clerk app; copy publishable + secret keys.
+3. **LLM**: optional `GROQ_API_KEY` / `OPENROUTER_API_KEY`.
+4. **Vercel**: import the repo → add the env vars → deploy. `prisma generate` runs via `postinstall`; run `npx prisma db push` (or migrations) against the Neon DB.
 
 ---
 
 ## 📊 Completed Scope
 
-**Phase 1 — Foundation**
-- [x] Clean Architecture folder structure with dependency inversion (service/repository interfaces)
-- [x] Next.js 15 App Router + TypeScript + TailwindCSS
-- [x] Prisma PostgreSQL models + Pino logger + Zod env validation
-- [x] Dashboard shell, sidebar, header, feedback components, dark theme
-- [x] Clerk authentication + route protection
-
-**Phase 2 — Platform UX**
-- [x] Signed-in users auto-redirected to `/dashboard`; header/sidebar polish (collapsible sidebar, circular user avatar)
-- [x] Landing page with terminal/pixel design language and scroll-reveal animations
-- [x] Production build fixes (custom `not-found`/`global-error` pages)
-
-**Phase 3 — Skill Management**
-- [x] Full Skill CRUD + search / status filter / sort / duplicate / archive / delete
-- [x] Draft → Published → Archived workflow with **immutable published versions** and automatic draft rotation
-- [x] Version history page
-- [x] REST API with Clerk auth, Zod validation, typed responses, audit logging
-- [x] Professional SaaS UI: toasts, confirm dialogs, status badges, empty/loading states, responsive layout
-- [x] **LLM provider abstraction + automatic model failover** (all Groq free models + curated OpenRouter free models)
-- [x] Live dashboard metrics (real counts from the DB)
+- ✅ Skill CRUD, search/filter/sort, duplicate/archive/delete, immutable versioning + draft rotation, version compare
+- ✅ Graph-first LangGraph runtime: planner, permission, tool selection, tool execution, approval, finish nodes
+- ✅ Typed agent state, structured logs, database persistence (steps, tool calls, logs, planner output, provider, duration)
+- ✅ LLM provider abstraction + automatic failover across all Groq free + curated OpenRouter free models
+- ✅ Tool Registry: calculator, document search, record lookup, mock task creator (self-registering, permission-gated)
+- ✅ Human Approval Engine: pause/resume, approve/reject/cancel, single-use idempotency, retry, cancellation, step limits
+- ✅ Execution history, detail traces, visual timeline, audit logs, JSON export, observability metrics, replay
+- ✅ Whole-UI skeleton loading system (15 dashboard routes), landing page with pixel/grid animations
+- ✅ Settings page (theme, profile, provider status), dashboard metrics (6 cards + recent activity)
+- ✅ Seed script, Husky + lint-staged, `.env.example`, README
+- ✅ Security: rate limiting, security headers, ownership-scoped APIs, Zod-first validation, audit trail
+- ✅ Accessibility: skip-link, focus-visible, reduced-motion, semantic landmarks, ARIA labels
 
 ---
 
-## 🔒 Intentionally Excluded (next phases)
+## 🔮 Roadmap
 
-- Live AI execution loop / agent runtime (LangGraph-style graph execution) — the `LLMProvider` + `LLMRouter` layer is ready for it
-- Real tool execution (`calculator`, `docSearch`, `recordLookup`, `taskCreator`)
-- Approval workflow (HITL) — schema, services, and stub routes exist
-- Production deployment to Neon & Vercel (ready via standard Prisma + Vercel integration)
+- Real (non-mock) write tools and third-party integrations
+- Multi-agent orchestration and team workspaces
+- Marketplace for sharing published skills
+- Billing / usage analytics
+- Notifications (email / Slack) for review queue events

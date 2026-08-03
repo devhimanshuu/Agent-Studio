@@ -1,5 +1,5 @@
-import { LoadingSkeleton } from "@/components/feedback/LoadingSkeleton";
+import { SkeletonDashboard } from "@/components/feedback/Skeleton";
 
 export default function DashboardLoading() {
-  return <LoadingSkeleton rows={4} />;
+  return <SkeletonDashboard />;
 }

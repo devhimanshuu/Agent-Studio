@@ -13,7 +13,7 @@ import {
   AlertTriangle,
   Play,
 } from "lucide-react";
-import { LoadingSkeleton } from "@/components/feedback/LoadingSkeleton";
+import { SkeletonGrid } from "@/components/feedback/Skeleton";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { Reveal } from "@/components/Reveal";
 import { toast } from "@/stores/toastStore";
@@ -378,7 +378,7 @@ export default function ReviewQueuePage() {
         </Reveal>
 
         {isLoading ? (
-          <LoadingSkeleton rows={3} />
+          <SkeletonGrid cards={2} cols="lg:grid-cols-2" />
         ) : isError ? (
           <EmptyState
             icon={<AlertTriangle className="h-6 w-6" />}

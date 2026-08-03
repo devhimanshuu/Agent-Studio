@@ -72,7 +72,7 @@ describe("ExecutionService.resumeExecution", () => {
     const stored = execRepo.executions.get(execution.id);
     if (stored) stored.toolCalls = execRepo.toolCalls;
 
-    let engineInputs: unknown[] = [];
+    const engineInputs: unknown[] = [];
     const spyEngine = {
       run: async (input: unknown) => {
         engineInputs.push(input);

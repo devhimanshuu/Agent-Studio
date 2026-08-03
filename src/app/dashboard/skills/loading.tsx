@@ -1,6 +1,5 @@
-import React from "react";
-import { LoadingSkeleton } from "@/components/feedback/LoadingSkeleton";
+import { SkeletonSkills } from "@/components/feedback/Skeleton";
 
 export default function SkillsLoading() {
-  return <LoadingSkeleton rows={5} />;
+  return <SkeletonSkills />;
 }

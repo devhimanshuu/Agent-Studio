@@ -9,6 +9,7 @@ import { AuditLogRepository } from "@/repositories/AuditLogRepository";
 import { ExecutionRepository } from "@/repositories/ExecutionRepository";
 import { ApprovalEngine } from "@/modules/approval";
 import { unauthorized, forbidden, notFound, badRequest, serverError } from "@/lib/api/handlers";
+import { rateLimit } from "@/lib/api/rateLimit";
 
 const approvalRepo = new ApprovalRepository();
 const auditRepo = new AuditLogRepository();
@@ -35,6 +36,10 @@ export async function POST(request: Request) {
   // Auth first — Clerk errors are never business-logic errors.
   const { userId } = await auth();
   if (!userId) return unauthorized();
+
+  // Approval responses resume executions (expensive) — rate limit.
+  const limited = rateLimit(`approval:respond:${userId}`);
+  if (limited) return limited;
 
   try {
     const body = await request.json();

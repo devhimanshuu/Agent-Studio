@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { executionsApi } from "@/lib/api/executions";
 import { ExecutionStatusBadge } from "@/components/executions/ExecutionStatusBadge";
-import { LoadingSkeleton } from "@/components/feedback/LoadingSkeleton";
+import { SkeletonTable } from "@/components/feedback/Skeleton";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { ExecutionDTO, ExecutionStatus } from "@/types/execution";
 import { toast } from "@/stores/toastStore";
@@ -166,7 +166,7 @@ export default function ExecutionsPage() {
       </div>
 
       {isLoading ? (
-        <LoadingSkeleton rows={4} />
+        <SkeletonTable cols={5} rows={7} />
       ) : isError ? (
         <EmptyState
           title="Failed to load executions"
