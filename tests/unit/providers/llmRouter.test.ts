@@ -13,15 +13,32 @@ function makeProvider(
   model: string,
   behavior: { result?: LLMCompletionResult; error?: Error }
 ): LLMProvider {
-  return {
+  const run = async () => {
+    if (behavior.error) throw behavior.error;
+    return behavior.result ?? okResult(`${name}-${model} response`);
+  };
+  const provider = {
     name,
     model,
     isConfigured: () => true,
-    complete: vi.fn(async () => {
+    complete: vi.fn(run),
+    generate: vi.fn(run),
+    stream: vi.fn(async () => {
       if (behavior.error) throw behavior.error;
-      return behavior.result ?? okResult(`${name}-${model} response`);
+      const iter = {
+        async *[Symbol.asyncIterator]() {
+          yield { type: "content" as const, content: "streamed" };
+          yield { type: "done" as const };
+        },
+      };
+      return iter;
     }),
+    structuredOutput: (async () => {
+      if (behavior.error) throw behavior.error;
+      return { content: "parsed" };
+    }) as LLMProvider["structuredOutput"],
   };
+  return provider as LLMProvider;
 }
 
 const okResult = (content: string): LLMCompletionResult => ({
@@ -74,7 +91,10 @@ describe("LLMRouter", () => {
         }
         return okResult("recovered");
       }),
-    };
+      generate: vi.fn(),
+      stream: vi.fn(),
+      structuredOutput: (async () => ({})) as LLMProvider["structuredOutput"],
+    } satisfies LLMProvider;
     const backup = makeProvider("groq", "backup", { result: okResult("backup") });
     const router = new LLMRouter([flaky, backup]);
 
@@ -164,14 +184,28 @@ describe("LLMRouter", () => {
     );
   });
 
+  it("stream reports cooldown (not a config error) when every model is parked", async () => {
+    const p1 = makeProvider("groq", "model-a", {
+      error: new LLMError("rate limited", { provider: "groq", model: "model-a", status: 429 }),
+    });
+    const router = new LLMRouter([p1]);
+
+    // First call fails and parks the only model (60s cooldown).
+    await expect(router.stream([{ role: "user", content: "hi" }])).rejects.toThrow(/All 1 LLM model\(s\) failed/);
+    // Immediate retry: the model is cooling down → distinct cooldown message,
+    // NOT the misleading "No LLM providers configured" config error.
+    await expect(router.stream([{ role: "user", content: "hi" }])).rejects.toThrow(
+      /temporarily unavailable \(cooldown\)/
+    );
+    // And the config error only fires when nothing is configured at all.
+    const empty = new LLMRouter([]);
+    await expect(empty.stream([{ role: "user", content: "hi" }])).rejects.toThrow(/No LLM providers configured/);
+  });
+
   it("does not report an unconfigured provider as available", () => {
     const configured = makeProvider("groq", "model-a", { result: okResult("ok") });
-    const unconfigured: LLMProvider = {
-      name: "openrouter",
-      model: "model-b:free",
-      isConfigured: () => false,
-      complete: vi.fn(async () => okResult("never called")),
-    };
+    const unconfigured = makeProvider("openrouter", "model-b:free", { result: okResult("never called") });
+    (unconfigured as { isConfigured: () => boolean }).isConfigured = () => false;
     const router = new LLMRouter([unconfigured, configured]);
     expect(router.isConfigured()).toBe(true);
   });
