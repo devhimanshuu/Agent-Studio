@@ -114,6 +114,9 @@ model Execution {
   status           ExecutionStatus @default(PENDING)
   inputData        Json
   finalOutput      Json?
+  plannerOutput    Json?           // Plan produced by the planner node
+  provider         String?         // LLM provider/model that served the planner
+  durationMs       Int?            // Total wall-clock time of the run
   stepCount        Int             @default(0)
   maxSteps         Int
   errorMessage     String?

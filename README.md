@@ -71,7 +71,7 @@ LLMProvider (interface)
 │   │   ├── config/env.ts      # Zod-validated environment
 │   │   ├── logger/            # Pino instance
 │   │   └── prisma.ts          # Prisma client singleton
-│   ├── middleware.ts / proxy.ts  # Clerk route protection
+│   ├── middleware.ts           # Clerk route protection (Next 15.5's proxy.ts rename isn't yet detected by Clerk 6.x)
 │   ├── providers/llm/         # LLMProvider, Groq/OpenRouter providers, LLMRouter, model rosters
 │   ├── repositories/          # Prisma repositories (+ interfaces)
 │   ├── services/              # Application services (+ interfaces)
