@@ -95,14 +95,20 @@ export default async function DashboardPage() {
         </Reveal>
 
         <Reveal delay={240}>
-          <div className="p-5 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-2 hover:border-indigo-500/50 transition-all h-full">
+          <Link
+            href="/dashboard/tools"
+            className="block p-5 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-2 hover:border-indigo-500/50 hover:bg-[#0d0d0d]/80 transition-all h-full group"
+          >
             <div className="flex items-center justify-between text-indigo-300 text-xs tracking-wider uppercase">
               <span>PERMITTED TOOLS</span>
-              <Shield className="h-4 w-4" />
+              <div className="flex items-center gap-1.5">
+                <Shield className="h-4 w-4" />
+                <ArrowUpRight className="h-3.5 w-3.5 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+              </div>
             </div>
             <div className="text-3xl font-pixel text-slate-100">{pad(toolCount)}</div>
             <p className="text-[11px] text-slate-400">System Tool Definitions</p>
-          </div>
+          </Link>
         </Reveal>
       </div>
 

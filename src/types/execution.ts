@@ -24,6 +24,8 @@ export interface ToolCallDTO {
   outputResult?: Record<string, unknown> | null;
   status: "SUCCESS" | "ERROR" | "BLOCKED" | "REJECTED";
   errorMessage?: string | null;
+  /** Wall-clock execution time of the tool call in ms. */
+  durationMs?: number | null;
   executedAt: Date;
 }
 

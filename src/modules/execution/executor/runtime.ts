@@ -1,7 +1,8 @@
 import { Logger } from "@/lib/logger";
 import { IExecutionRepository } from "@/repositories/interfaces/IExecutionRepository";
+import { IApprovalRepository } from "@/repositories/interfaces/IApprovalRepository";
 import { ToolCallDTO, StepStatus } from "@/types/execution";
-import { ToolRegistry } from "../tool-registry/toolRegistry";
+import { ToolRegistry } from "@/modules/tools";
 import { PermissionChecker } from "../tool-registry/permissionChecker";
 import { PlannerService } from "../planner/plannerService";
 import { ToolCallRecord } from "../state/agentState";
@@ -18,6 +19,8 @@ export interface ExecutionRuntime {
   permissionChecker: PermissionChecker;
   planner: PlannerService;
   executionRepo: IExecutionRepository;
+  /** Persists HITL approval requests when the graph pauses at the approval node. */
+  approvalRepo: IApprovalRepository;
   signal?: AbortSignal;
   /** Monotonic counter for persisted step numbers (one sequence per execution). */
   stepCounter: number;
@@ -64,5 +67,6 @@ export async function persistToolCall(
     outputResult: (record.output as Record<string, unknown> | undefined) ?? undefined,
     status,
     errorMessage: record.error,
+    durationMs: record.durationMs,
   });
 }

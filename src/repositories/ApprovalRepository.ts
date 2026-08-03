@@ -40,6 +40,26 @@ export class ApprovalRepository implements IApprovalRepository {
     return this.mapApproval(created);
   }
 
+  /** Race-proof create — concurrent creators for the same key resolve to one row. */
+  async upsertByIdempotencyKey(
+    request: Omit<ApprovalRequestDTO, "id" | "status" | "requestedAt">
+  ): Promise<ApprovalRequestDTO> {
+    const row = await prisma.approvalRequest.upsert({
+      where: { idempotencyKey: request.idempotencyKey },
+      update: {}, // already exists — keep the original row untouched
+      create: {
+        executionId: request.executionId,
+        userId: request.userId,
+        toolName: request.toolName,
+        action: request.action,
+        inputPayload: request.inputPayload as unknown as Prisma.InputJsonValue,
+        idempotencyKey: request.idempotencyKey,
+        status: "PENDING",
+      },
+    });
+    return this.mapApproval(row);
+  }
+
   async respond(input: RespondApprovalInput): Promise<ApprovalRequestDTO | null> {
     // Atomic compare-and-swap: only a PENDING request may be responded to.
     // `updateMany` (not `update`) guards the PENDING→terminal transition in

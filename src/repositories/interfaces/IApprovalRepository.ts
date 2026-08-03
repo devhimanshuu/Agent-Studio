@@ -6,6 +6,14 @@ export interface IApprovalRepository {
   findPendingByUserId(userId: string): Promise<ApprovalRequestDTO[]>;
   create(request: Omit<ApprovalRequestDTO, "id" | "status" | "requestedAt">): Promise<ApprovalRequestDTO>;
   /**
+   * Race-proof create keyed on the single-use idempotency key: concurrent
+   * requests for the same key resolve to one row (the @unique constraint would
+   * otherwise surface as an unhandled P2002).
+   */
+  upsertByIdempotencyKey(
+    request: Omit<ApprovalRequestDTO, "id" | "status" | "requestedAt">
+  ): Promise<ApprovalRequestDTO>;
+  /**
    * Atomically transitions a PENDING request to APPROVED/REJECTED. Returns null
    * when no PENDING row matched (i.e. the request was already responded to) —
    * the caller must treat that as a single-use violation.

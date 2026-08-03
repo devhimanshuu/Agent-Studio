@@ -163,6 +163,7 @@ model ToolCall {
   outputResult   Json?
   status         String      // SUCCESS | ERROR | BLOCKED | REJECTED
   errorMessage   String?
+  durationMs     Int?        // Wall-clock execution time of the tool call
   executedAt     DateTime    @default(now())
 
   execution      Execution   @relation(fields: [executionId], references: [id], onDelete: Cascade)
@@ -194,15 +195,17 @@ model ApprovalRequest {
 }
 
 model ToolDefinition {
-  id           String   @id @default(cuid())
-  name         String   @unique
-  displayName  String
-  description  String
-  type         ToolType @default(READ)
-  parameters   Json     // JSON Schema for tool parameters
-  requiresAuth Boolean  @default(false)
-  isSystem     Boolean  @default(true)
-  createdAt    DateTime @default(now())
+  id                String   @id @default(cuid())
+  name              String   @unique
+  displayName       String
+  description       String
+  category          String?  // COMPUTE | SEARCH | DATA | TASK
+  type              ToolType @default(READ)
+  parameters        Json     // JSON Schema for tool parameters
+  requiresAuth      Boolean  @default(false)
+  requiresApproval  Boolean  @default(false) // WRITE actions that need HITL
+  isSystem          Boolean  @default(true)
+  createdAt         DateTime @default(now())
 
   @@map("tool_definitions")
 }

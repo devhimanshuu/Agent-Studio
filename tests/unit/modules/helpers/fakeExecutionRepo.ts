@@ -64,6 +64,16 @@ export class FakeExecutionRepo implements IExecutionRepository {
     return c;
   }
 
+  async countToolCallsByTool(_userId?: string): Promise<Record<string, number>> {
+    const counts: Record<string, number> = {};
+    for (const call of this.toolCalls) counts[call.toolName] = (counts[call.toolName] ?? 0) + 1;
+    return counts;
+  }
+
+  async findToolCallsByToolName(toolName: string, _userId?: string, limit = 20): Promise<ToolCallDTO[]> {
+    return this.toolCalls.filter((c) => c.toolName === toolName).slice(0, limit);
+  }
+
   async setFinalOutput(id: string, output: Record<string, unknown>): Promise<ExecutionDTO> {
     const e = this.executions.get(id);
     if (e) {

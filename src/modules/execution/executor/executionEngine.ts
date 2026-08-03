@@ -1,10 +1,11 @@
 import { Logger, logger as defaultLogger } from "@/lib/logger";
 import { IExecutionRepository } from "@/repositories/interfaces/IExecutionRepository";
+import { IApprovalRepository } from "@/repositories/interfaces/IApprovalRepository";
 import { ExecutionStatus } from "@/types/execution";
 import { SkillDTO, SkillVersionDTO } from "@/types/skill";
 import { createInitialAgentState, ExecutionPlan, AgentState } from "../state/agentState";
 import { createExecutionGraph } from "../graph/buildExecutionGraph";
-import { ToolRegistry } from "../tool-registry/toolRegistry";
+import { ToolRegistry } from "@/modules/tools";
 import { PermissionChecker } from "../tool-registry/permissionChecker";
 import { PlannerService } from "../planner/plannerService";
 import { ExecutionRuntime } from "./runtime";
@@ -22,6 +23,8 @@ export interface ExecutionEngineDeps {
   permissionChecker: PermissionChecker;
   planner: PlannerService;
   executionRepo: IExecutionRepository;
+  /** Persists HITL approval requests created when the graph pauses. */
+  approvalRepo: IApprovalRepository;
   logger?: Logger;
   /** Wall-clock limit for the whole graph run. Default 120s. */
   timeoutMs?: number;
@@ -68,6 +71,7 @@ export class ExecutionEngine {
       permissionChecker: this.deps.permissionChecker,
       planner: this.deps.planner,
       executionRepo: this.deps.executionRepo,
+      approvalRepo: this.deps.approvalRepo,
       signal: input.signal,
       stepCounter: 0,
     };
@@ -116,10 +120,15 @@ export class ExecutionEngine {
     else if (error instanceof ExecutionCancelledError) status = "CANCELLED";
     else if (error instanceof StepLimitExceededError) status = "STEP_LIMIT_EXCEEDED";
 
+    // A user-initiated cancellation already carries a meaningful message
+    // ("User requested cancellation" written by ExecutionService) — don't
+    // clobber it with the generic unwinding message. Timeouts keep theirs.
+    const isUserCancellation = error instanceof ExecutionCancelledError;
+
     // Persist the terminal status + timing. Best-effort: the execution row may
     // have been removed meanwhile — never mask the original error.
     try {
-      await this.deps.executionRepo.updateStatus(executionId, status, message);
+      await this.deps.executionRepo.updateStatus(executionId, status, isUserCancellation ? undefined : message);
       await this.deps.executionRepo.setRuntimeDetails(executionId, { durationMs });
     } catch {
       // Ignore persistence failures in the error path.

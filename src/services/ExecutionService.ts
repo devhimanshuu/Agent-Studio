@@ -2,11 +2,13 @@ import { IExecutionService } from "./interfaces/IExecutionService";
 import { IExecutionRepository } from "@/repositories/interfaces/IExecutionRepository";
 import { ISkillRepository } from "@/repositories/interfaces/ISkillRepository";
 import { IAuditLogRepository } from "@/repositories/interfaces/IAuditLogRepository";
+import { IApprovalRepository } from "@/repositories/interfaces/IApprovalRepository";
+import { ApprovalRepository } from "@/repositories/ApprovalRepository";
 import { ExecutionDTO, StartExecutionInput } from "@/types/execution";
 import { LLMProvider, getLLMProvider } from "@/providers/llm";
 import { ExecutionEngine, EngineRunResult } from "@/modules/execution/executor/executionEngine";
 import { CancellationManager } from "@/modules/execution/executor/cancellation";
-import { ToolRegistry } from "@/modules/execution/tool-registry/toolRegistry";
+import { createToolRegistry } from "@/modules/tools";
 import { PermissionChecker } from "@/modules/execution/tool-registry/permissionChecker";
 import { PlannerService } from "@/modules/execution/planner/plannerService";
 import {
@@ -23,6 +25,8 @@ export interface ExecutionServiceDeps {
   /** Injected engine (tests) — defaults to a graph-first ExecutionEngine. */
   engine?: ExecutionEngine;
   cancellations?: CancellationManager;
+  /** Persists HITL approval requests created when runs pause. */
+  approvalRepo?: IApprovalRepository;
 }
 
 export class ExecutionService implements IExecutionService {
@@ -40,10 +44,14 @@ export class ExecutionService implements IExecutionService {
     this.engine =
       deps.engine ??
       new ExecutionEngine({
-        toolRegistry: new ToolRegistry(),
+        // Registry pre-loaded with the built-in tools (calculator, document
+        // search, record lookup, mock task creator). New tools self-register
+        // here via the tools module — zero runtime changes.
+        toolRegistry: createToolRegistry(),
         permissionChecker: new PermissionChecker(),
         planner: new PlannerService(llm),
         executionRepo: this.executionRepo,
+        approvalRepo: deps.approvalRepo ?? new ApprovalRepository(),
       });
   }
 

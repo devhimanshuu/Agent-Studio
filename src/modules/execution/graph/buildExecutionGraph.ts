@@ -7,7 +7,6 @@ import {
   toolExecutionNode,
   approvalNode,
   finishNode,
-  stepRequiresApproval,
 } from "./nodes";
 import { AgentState } from "../state/agentState";
 
@@ -28,7 +27,9 @@ function routeAfterPermission(state: AgentState): string {
 function routeAfterSelection(state: AgentState): string {
   const step = state.plan?.steps[state.currentStep - 1];
   if (!step) return "finish";
-  if (stepRequiresApproval(step, state.version)) return "approval";
+  // The merged approval decision (plan flag, version action list, or the
+  // tool's own requiresApproval contract) was stamped by tool_selection.
+  if (state.approvalPending) return "approval";
   return "tool_execution";
 }
 

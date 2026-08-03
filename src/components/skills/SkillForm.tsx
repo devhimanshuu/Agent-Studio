@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Plus, Trash2, Sparkles, Wrench, CheckSquare, ListChecks, Loader2 } from "lucide-react";
 import { createSkillSchema } from "@/validators/skillSchema";
+import { BUILT_IN_TOOL_CATALOG, TOOL_CATEGORIES } from "@/modules/tools";
 import { SkillDTO, SkillVersionDTO } from "@/types/skill";
 import { toast } from "@/stores/toastStore";
 
@@ -115,6 +116,40 @@ function JsonEditor({
         className={`${inputClass} font-mono text-[11px] leading-relaxed resize-y ${localError ? "border-red-500/60" : ""}`}
       />
       {localError && <p className={errorClass}>[ JSON ERROR ] {localError}</p>}
+    </div>
+  );
+}
+
+/** Quick-add picker of the built-in tools, grouped by registry category. */
+function AvailableTools({ selected, onAdd }: { selected: string[]; onAdd: (name: string) => void }) {
+  const available = BUILT_IN_TOOL_CATALOG.filter((t) => !selected.includes(t.name));
+  if (available.length === 0) return null;
+  return (
+    <div className="space-y-1.5 pt-2 border-t border-indigo-950/60">
+      <div className="text-[9px] font-mono uppercase tracking-widest text-slate-500">
+        AVAILABLE TOOLS BY CATEGORY
+      </div>
+      {TOOL_CATEGORIES.map((cat) => {
+        const tools = available.filter((t) => t.category === cat.id);
+        if (tools.length === 0) return null;
+        return (
+          <div key={cat.id} className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[9px] font-mono text-indigo-400/70 uppercase tracking-wider w-16 shrink-0">
+              {cat.label}
+            </span>
+            {tools.map((t) => (
+              <button
+                key={t.name}
+                type="button"
+                onClick={() => onAdd(t.name)}
+                className="px-2 py-0.5 rounded border border-indigo-900/50 bg-indigo-950/30 text-[10px] font-mono text-indigo-300 hover:border-indigo-400 hover:text-white transition-all cursor-pointer"
+              >
+                + {t.name}
+              </button>
+            ))}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -390,6 +425,10 @@ export function SkillForm({ mode, skill, initialDraft, onSubmit, isSubmitting = 
                 error={fieldMessage(errors.allowedTools)}
                 placeholder="e.g. calculator, document_search…"
               />
+              <AvailableTools
+                selected={field.value ?? []}
+                onAdd={(name) => field.onChange([...(field.value ?? []), name])}
+              />
             </div>
           )}
         />
@@ -405,7 +444,7 @@ export function SkillForm({ mode, skill, initialDraft, onSubmit, isSubmitting = 
                 label=""
                 values={field.value ?? []}
                 onChange={field.onChange}
-                placeholder="e.g. mock_task_creator…"
+                placeholder="e.g. create, add… (tool action names)"
               />
             </div>
           )}

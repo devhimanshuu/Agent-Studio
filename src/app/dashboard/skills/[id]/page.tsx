@@ -46,6 +46,10 @@ export default function SkillDetailPage() {
 
   const [confirm, setConfirm] = useState<"archive" | "delete" | null>(null);
   const [isPending, setIsPending] = useState(false);
+  // Execution input editor — previously the RUN button always sent `{}`, so a
+  // skill with required input fields could NEVER be executed from the UI.
+  const [runInput, setRunInput] = useState("{\n  \n}");
+  const [runInputError, setRunInputError] = useState<string | null>(null);
 
   const { data: skill, isLoading, isError, refetch } = useQuery({
     queryKey: ["skill", id],
@@ -76,13 +80,31 @@ export default function SkillDetailPage() {
   });
 
   const runMutation = useMutation({
-    mutationFn: (versionId: string) => executionsApi.start(versionId, {}),
+    mutationFn: ({ versionId, inputData }: { versionId: string; inputData: Record<string, unknown> }) =>
+      executionsApi.start(versionId, inputData),
     onSuccess: (execution) => {
       toast.success("Execution started", "Running the graph…");
       router.push(`/dashboard/executions/${execution.id}`);
     },
     onError: (e) => toast.error("Execution failed to start", e.message),
   });
+
+  const runDraft = () => {
+    if (!draft) return;
+    let inputData: Record<string, unknown>;
+    try {
+      const trimmed = runInput.trim();
+      inputData = trimmed ? JSON.parse(trimmed) : {};
+      if (Array.isArray(inputData) || inputData === null || typeof inputData !== "object") {
+        throw new Error("Must be a JSON object");
+      }
+    } catch {
+      setRunInputError("Invalid JSON input");
+      return;
+    }
+    setRunInputError(null);
+    runMutation.mutate({ versionId: draft.id, inputData });
+  };
 
   const runConfirm = async () => {
     if (!confirm || !skill) return;
@@ -162,7 +184,7 @@ export default function SkillDetailPage() {
             {draft && skill.status !== "ARCHIVED" && (
               <button
                 type="button"
-                onClick={() => runMutation.mutate(draft.id)}
+                onClick={runDraft}
                 disabled={runMutation.isPending}
                 title="Execute the current draft through the agent runtime"
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-indigo-400 bg-indigo-600 text-white font-semibold hover:bg-indigo-500 shadow-md shadow-indigo-500/30 transition-all cursor-pointer disabled:opacity-50"
@@ -215,6 +237,32 @@ export default function SkillDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Execution input editor */}
+      {draft && skill.status !== "ARCHIVED" && (
+        <div className="rounded border border-indigo-900/40 bg-[#0a0a0a]/60 p-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-400/80 flex items-center gap-1.5">
+              <Play className="h-3.5 w-3.5" /> Execution Input (JSON)
+            </div>
+            <span className="text-[10px] font-mono text-slate-600">Sent as user input to the skill</span>
+          </div>
+          <textarea
+            value={runInput}
+            onChange={(e) => {
+              setRunInput(e.target.value);
+              if (runInputError) setRunInputError(null);
+            }}
+            rows={4}
+            spellCheck={false}
+            placeholder="{ }"
+            className={`w-full rounded border bg-black/60 px-3 py-2 text-[11px] font-mono text-slate-300 placeholder:text-slate-600 focus:outline-none transition-colors resize-y ${
+              runInputError ? "border-red-500/60" : "border-indigo-900/50 focus:border-indigo-400"
+            }`}
+          />
+          {runInputError && <p className="text-[10px] font-mono text-red-400">[ JSON ERROR ] {runInputError}</p>}
+        </div>
+      )}
 
       {/* Draft details */}
       {draft ? (

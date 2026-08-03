@@ -48,6 +48,11 @@ export async function PATCH(
     if (error instanceof Error && "issues" in error) {
       return badRequest(error); // Zod validation failure → 400
     }
+    // Business-rule violations (e.g. editing an archived skill) are client
+    // errors → 400, not 500s.
+    if (message.includes("cannot be edited")) {
+      return badRequest(new Error(message));
+    }
     return serverError(error); // service/DB failure → 500
   }
 }

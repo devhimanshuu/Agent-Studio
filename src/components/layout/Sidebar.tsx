@@ -13,6 +13,7 @@ const navItems = [
   { name: "Skills Studio", href: "/dashboard/skills", icon: Sparkles, tag: "SKILL_V1" },
   { name: "Executions", href: "/dashboard/executions", icon: Play, tag: "TRACE_LOG" },
   { name: "Versions", href: "/versions", icon: GitCompare, tag: "DIFF_VIEW" },
+  { name: "Tool Registry", href: "/dashboard/tools", icon: Wrench, tag: "TOOL_V1" },
   { name: "Approvals", href: "/approvals", icon: CheckSquare, tag: "HITL_LOCK" },
 ];
 
@@ -106,7 +107,10 @@ export function Sidebar() {
         {/* Bottom Section */}
         <div className="space-y-2 pt-4">
           {!collapsed && (
-            <div className="p-3 rounded border border-indigo-900/40 bg-indigo-950/20 text-xs font-mono space-y-2">
+            <Link
+              href="/dashboard/tools"
+              className="block p-3 rounded border border-indigo-900/40 bg-indigo-950/20 text-xs font-mono space-y-2 hover:border-indigo-500/50 hover:bg-indigo-950/40 transition-all duration-150"
+            >
               <div className="font-semibold text-indigo-300 flex items-center gap-1.5">
                 <Wrench className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
                 <span>BOUNDED TOOLS</span>
@@ -114,7 +118,8 @@ export function Sidebar() {
               <p className="text-[11px] text-slate-400 leading-relaxed">
                 Calculator • Doc Search • Record Lookup • Task Creator
               </p>
-            </div>
+              <p className="text-[10px] text-indigo-400/80">[ VIEW REGISTRY ]</p>
+            </Link>
           )}
 
           <button

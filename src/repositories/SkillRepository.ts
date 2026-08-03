@@ -126,6 +126,9 @@ export class SkillRepository implements ISkillRepository {
   async updateDraft(skillId: string, userId: string, input: UpdateSkillInput): Promise<SkillVersionDTO> {
     const skill = await prisma.skill.findFirst({ where: { id: skillId, userId } });
     if (!skill) throw new Error("Skill not found");
+    if (skill.status === "ARCHIVED") {
+      throw new Error("Archived skills cannot be edited. Restore or duplicate them instead.");
+    }
 
     let draftId = skill.currentDraftId;
     const draft = draftId
@@ -281,27 +284,43 @@ export class SkillRepository implements ISkillRepository {
     if (!version || version.skillId !== skillId) {
       throw new Error("Version not found for this skill");
     }
-    if (version.status !== "DRAFT") {
-      throw new Error("Only draft versions can be published");
-    }
 
-    // Publish the version and flip the skill atomically. Clearing currentDraftId
-    // is critical: the published version is immutable and must stop being
-    // reported as the editable draft, otherwise the UI shows "DRAFT" on the
-    // published version and the same version can be re-published endlessly.
-    const [published] = await prisma.$transaction([
-      prisma.skillVersion.update({
-        where: { id: versionId },
+    // Publish the version and flip the skill atomically. The version update is
+    // a compare-and-swap (`updateMany … status: DRAFT`) so two concurrent
+    // publish requests for the same version can never both win: the loser's
+    // WHERE clause re-evaluates against the committed row, matches 0 rows, and
+    // throws INSIDE the interactive transaction — rolling back the skill
+    // update too. (A plain `update`, an outside-transaction status check, or
+    // an array-form transaction that throws AFTER commit would either allow
+    // double-publishing or leave the skill row referencing an unpublished
+    // version.)
+    // Clearing currentDraftId is critical: the published version is immutable
+    // and must stop being reported as the editable draft.
+    const published = await prisma.$transaction(async (tx) => {
+      const result = await tx.skillVersion.updateMany({
+        where: { id: versionId, skillId, status: "DRAFT" },
         data: {
           status: "PUBLISHED",
           publishedAt: new Date(),
         },
-      }),
-      prisma.skill.update({
+      });
+
+      if (result.count === 0) {
+        // Already published (or no longer a draft) — the CAS lost the race.
+        // Throw inside the transaction so nothing (incl. the skill flip)
+        // commits.
+        throw new Error("Only draft versions can be published");
+      }
+
+      await tx.skill.update({
         where: { id: skillId },
         data: { publishedVersionId: versionId, status: "PUBLISHED", currentDraftId: null },
-      }),
-    ]);
+      });
+
+      const row = await tx.skillVersion.findUnique({ where: { id: versionId } });
+      if (!row) throw new Error("Version not found for this skill");
+      return row;
+    });
 
     return this.mapVersion(published);
   }

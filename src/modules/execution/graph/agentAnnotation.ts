@@ -16,6 +16,7 @@ export const AgentStateAnnotation = Annotation.Root({
   input: Annotation<Record<string, unknown>>(),
   plan: Annotation<ExecutionPlan | null>(),
   currentStep: Annotation<number>(),
+  approvalPending: Annotation<boolean>(),
   toolCalls: Annotation<ToolCallRecord[]>({
     reducer: (a, b) => [...(a ?? []), ...b],
   }),

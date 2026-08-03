@@ -35,6 +35,8 @@ export interface ToolCallRecord {
   output?: unknown;
   error?: string;
   requiresApproval: boolean;
+  /** Wall-clock execution time in ms (includes retries). */
+  durationMs?: number;
 }
 
 export type ApprovalStatus = "NOT_REQUIRED" | "PENDING" | "APPROVED" | "REJECTED";
@@ -56,6 +58,9 @@ export interface AgentState {
   plan: ExecutionPlan | null;
   /** Number of plan steps already processed (0-based index of next step). */
   currentStep: number;
+  /** True when the CURRENT step must pause for human approval (plan flag,
+   * version action list, or the tool's own requiresApproval contract). */
+  approvalPending: boolean;
   /** Every tool call attempted during the run. */
   toolCalls: ToolCallRecord[];
   /** Collected outputs keyed by `step_<n>`. */
@@ -84,6 +89,7 @@ export function createInitialAgentState(input: {
     input: input.userInput,
     plan: null,
     currentStep: 0,
+    approvalPending: false,
     toolCalls: [],
     results: {},
     errors: [],

@@ -9,6 +9,12 @@ export interface IExecutionRepository {
   updateStatus(id: string, status: ExecutionDTO["status"], errorMessage?: string): Promise<ExecutionDTO>;
   addStep(executionId: string, step: Omit<ExecutionStepDTO, "id" | "executionId">): Promise<ExecutionStepDTO>;
   addToolCall(executionId: string, toolCall: Omit<ToolCallDTO, "id" | "executionId" | "executedAt">): Promise<ToolCallDTO>;
+  /** Aggregated usage counts per tool name (tools dashboard metric). Scoped to
+   * the owning user when provided. */
+  countToolCallsByTool(userId?: string): Promise<Record<string, number>>;
+  /** Most recent tool calls for a given tool (tool details page). Scoped to
+   * the owning user when provided — never leaks another user's invocations. */
+  findToolCallsByToolName(toolName: string, userId?: string, limit?: number): Promise<ToolCallDTO[]>;
   setFinalOutput(id: string, output: Record<string, unknown>): Promise<ExecutionDTO>;
   /** Persist runtime details captured during execution (provider used, plan, duration). */
   setRuntimeDetails(

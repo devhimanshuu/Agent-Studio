@@ -112,15 +112,35 @@ export class ExecutionRepository implements IExecutionRepository {
         outputResult: toolCall.outputResult as unknown as Prisma.InputJsonValue,
         status: toolCall.status,
         errorMessage: toolCall.errorMessage,
+        durationMs: toolCall.durationMs ?? null,
       },
     });
 
-    return {
-      ...created,
-      inputArgs: created.inputArgs as Record<string, unknown>,
-      outputResult: created.outputResult as Record<string, unknown> | null,
-      status: created.status as ToolCallDTO["status"],
-    };
+    return this.mapToolCall(created);
+  }
+
+  /** Aggregated usage counts per tool name (tools dashboard metric). Scoped to
+   * the owning user when provided. */
+  async countToolCallsByTool(userId?: string): Promise<Record<string, number>> {
+    const groups = await prisma.toolCall.groupBy({
+      by: ["toolName"],
+      where: userId ? { execution: { userId } } : undefined,
+      _count: { _all: true },
+    });
+    const counts: Record<string, number> = {};
+    for (const group of groups) counts[group.toolName] = group._count._all;
+    return counts;
+  }
+
+  /** Most recent tool calls for a given tool (tool details page). Scoped to
+   * the owning user when provided — never leaks another user's invocations. */
+  async findToolCallsByToolName(toolName: string, userId?: string, limit = 20): Promise<ToolCallDTO[]> {
+    const rows = await prisma.toolCall.findMany({
+      where: { toolName, ...(userId ? { execution: { userId } } : {}) },
+      orderBy: { executedAt: "desc" },
+      take: limit,
+    });
+    return rows.map((row) => this.mapToolCall(row));
   }
 
   async setFinalOutput(id: string, output: Record<string, unknown>): Promise<ExecutionDTO> {
@@ -182,18 +202,23 @@ export class ExecutionRepository implements IExecutionRepository {
         startedAt: s.startedAt,
         completedAt: s.completedAt,
       })),
-      toolCalls: (e.toolCalls || []).map((t: Prisma.ToolCallGetPayload<{}>) => ({
-        id: t.id,
-        executionId: t.executionId,
-        stepId: t.stepId,
-        toolName: t.toolName,
-        action: t.action,
-        inputArgs: t.inputArgs as Record<string, unknown>,
-        outputResult: t.outputResult as Record<string, unknown> | null,
-        status: t.status as ToolCallDTO["status"],
-        errorMessage: t.errorMessage,
-        executedAt: t.executedAt,
-      })),
+      toolCalls: (e.toolCalls || []).map((t: Prisma.ToolCallGetPayload<{}>) => this.mapToolCall(t)),
+    };
+  }
+
+  private mapToolCall(t: Prisma.ToolCallGetPayload<{}>): ToolCallDTO {
+    return {
+      id: t.id,
+      executionId: t.executionId,
+      stepId: t.stepId,
+      toolName: t.toolName,
+      action: t.action,
+      inputArgs: t.inputArgs as Record<string, unknown>,
+      outputResult: t.outputResult as Record<string, unknown> | null,
+      status: t.status as ToolCallDTO["status"],
+      errorMessage: t.errorMessage,
+      durationMs: t.durationMs,
+      executedAt: t.executedAt,
     };
   }
 }
