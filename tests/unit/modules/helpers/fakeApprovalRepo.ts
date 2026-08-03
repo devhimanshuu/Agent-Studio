@@ -21,7 +21,7 @@ export class FakeApprovalRepo implements IApprovalRepository {
   async findByUserId(userId: string): Promise<ApprovalRequestDTO[]> {
     return this.requests
       .filter((r) => r.userId === userId)
-      .sort((a, b) => b.requestedAt.getTime() - a.requestedAt.getTime());
+      .sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
   }
 
   async create(request: Omit<ApprovalRequestDTO, "id" | "status" | "requestedAt">): Promise<ApprovalRequestDTO> {

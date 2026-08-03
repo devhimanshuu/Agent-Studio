@@ -142,7 +142,7 @@ export function buildExecutionTimeline(
     });
   }
 
-  return events.sort((a, b) => a.at.getTime() - b.at.getTime());
+  return events.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
 }
 
 function nodeLabel(nodeName: string): string {

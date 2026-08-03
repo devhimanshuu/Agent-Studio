@@ -20,7 +20,7 @@ export class FakeAuditRepo implements IAuditLogRepository {
   }
 
   async findByUserId(userId: string): Promise<AuditLogDTO[]> {
-    return this.entries.filter((e) => e.userId === userId).sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    return this.entries.filter((e) => e.userId === userId).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
 
   async listForUser(userId: string, query: AuditLogQuery): Promise<AuditLogDTO[]> {
@@ -34,7 +34,7 @@ export class FakeAuditRepo implements IAuditLogRepository {
         (e) => e.action.toLowerCase().includes(q) || (e.executionId ?? "").toLowerCase().includes(q)
       );
     }
-    items.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     return items.slice(0, query.limit ?? 200);
   }
 }

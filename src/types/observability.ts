@@ -1,7 +1,7 @@
 /** A single event on the execution timeline, ordered by time. */
 export interface TimelineEvent {
   id: string;
-  at: Date;
+  at: Date | string;
   type: "execution" | "node" | "tool" | "approval" | "log";
   label: string;
   status?: string;

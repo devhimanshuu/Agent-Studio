@@ -45,7 +45,7 @@ export default async function DashboardPage() {
   const activeSkills = skillResult.items.filter((s) => s.status !== "ARCHIVED");
   const publishedSkills = skillResult.items.filter((s) => s.status === "PUBLISHED");
   const recentSkills = [...activeSkills]
-    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 5);
   const recentExecutions = [...executions].slice(0, 5);
 
