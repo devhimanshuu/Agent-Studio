@@ -30,6 +30,8 @@ export class ApprovalRepository implements IApprovalRepository {
       data: {
         executionId: request.executionId,
         userId: request.userId,
+        skillName: request.skillName ?? null,
+        plannerReason: request.plannerReason ?? null,
         toolName: request.toolName,
         action: request.action,
         inputPayload: request.inputPayload as unknown as Prisma.InputJsonValue,
@@ -50,6 +52,8 @@ export class ApprovalRepository implements IApprovalRepository {
       create: {
         executionId: request.executionId,
         userId: request.userId,
+        skillName: request.skillName ?? null,
+        plannerReason: request.plannerReason ?? null,
         toolName: request.toolName,
         action: request.action,
         inputPayload: request.inputPayload as unknown as Prisma.InputJsonValue,
@@ -94,6 +98,8 @@ export class ApprovalRepository implements IApprovalRepository {
       id: a.id,
       executionId: a.executionId,
       userId: a.userId,
+      skillName: a.skillName,
+      plannerReason: a.plannerReason,
       toolName: a.toolName,
       action: a.action,
       inputPayload: a.inputPayload as Record<string, unknown>,

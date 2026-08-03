@@ -14,10 +14,10 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { userId } = await auth();
-    if (!userId) return unauthorized();
+  const { userId } = await auth();
+  if (!userId) return unauthorized();
 
+  try {
     const { id } = await params;
     const skill = await skillService.getSkillForUser(id, userId);
     if (!skill) return notFound("Skill not found");
@@ -31,10 +31,10 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { userId } = await auth();
-    if (!userId) return unauthorized();
+  const { userId } = await auth();
+  if (!userId) return unauthorized();
 
+  try {
     const { id } = await params;
     const body = await request.json();
     const validated = updateSkillSchema.parse(body);
@@ -61,22 +61,18 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { userId } = await auth();
-    if (!userId) return unauthorized();
+  const { userId } = await auth();
+  if (!userId) return unauthorized();
 
+  try {
     const { id } = await params;
-    try {
-      await skillService.deleteSkill(id, userId);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "";
-      if (message.includes("access")) return forbidden();
-      if (message.includes("not found")) return notFound(message);
-      if (message.includes("cannot be deleted")) return badRequest(new Error(message));
-      throw error;
-    }
+    await skillService.deleteSkill(id, userId);
     return NextResponse.json({ success: true });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message.includes("access")) return forbidden();
+    if (message.includes("not found")) return notFound(message);
+    if (message.includes("cannot be deleted")) return badRequest(new Error(message));
     return serverError(error);
   }
 }

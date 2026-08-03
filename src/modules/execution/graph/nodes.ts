@@ -214,10 +214,14 @@ export const approvalNode: GraphNode = async (state, config) => {
   // Deterministic per (execution, step) idempotency key. The upsert is
   // race-proof: a re-pause (or a concurrent run of the same execution) can
   // never duplicate the request — the @unique key resolves to one row.
+  // Denormalizes skill name and planner reason onto the request so the review
+  // card can show them without extra joins.
   if (step) {
     await runtime.approvalRepo.upsertByIdempotencyKey({
       executionId: state.executionId,
       userId: state.skill?.userId ?? "",
+      skillName: state.skill?.name ?? null,
+      plannerReason: state.plan?.reasoning ?? null,
       toolName: step.toolName,
       action: step.action,
       inputPayload: step.input,

@@ -8,6 +8,7 @@ import {
   ArrowRight,
   Lock,
   Wrench,
+  Shield,
   ShieldCheck,
   UserCheck,
   Database,
@@ -24,6 +25,7 @@ import {
 import { SignInButton, SignUpButton, SignedIn, SignedOut } from "@clerk/nextjs";
 import { LiveExecutionTerminal } from "@/components/landing/LiveExecutionTerminal";
 import { PixelGridWave } from "@/components/landing/PixelGridWave";
+import { NeuralPatterns } from "@/components/landing/NeuralPatterns";
 import { Reveal } from "@/components/Reveal";
 
 const runtimeNodes = [
@@ -56,11 +58,11 @@ const runtimeNodes = [
     desc: "Each step runs through the tool registry with retry handling. Tool calls and their outputs are persisted for full auditability.",
   },
   {
-    tag: "APPROVAL NODE",
+    tag: "REVIEW NODE",
     accent: "text-amber-300 border-amber-500/40",
-    icon: Lock,
+    icon: Shield,
     title: "HITL Pause",
-    desc: "Actions flagged for approval park the run in PAUSED_FOR_APPROVAL. A single-use idempotency key guarantees the response happens once.",
+    desc: "Write actions flagged for human review park the run in PAUSED_FOR_APPROVAL. A single-use idempotency key guarantees the response happens once.",
   },
   {
     tag: "FINISH NODE",
@@ -73,12 +75,13 @@ const runtimeNodes = [
 
 export default function LandingPage() {
   return (
-    <div className="space-y-16 sm:space-y-24 px-4 sm:px-6 lg:px-10 py-8">
+    <div className="space-y-16 sm:space-y-24 px-4 sm:px-6 lg:px-10 pt-0">
       {/* SECTION 1: HERO SECTION & INTERACTIVE TERMINAL */}
-      <section className="relative overflow-hidden border-b border-indigo-950/80 -mx-4 sm:-mx-6 lg:-mx-10">
+      <section className="relative overflow-hidden border-b border-indigo-950/80 -mx-4 sm:-mx-6 lg:-mx-10 -mt-0">
         {/* Premium Animated Background Layers */}
         <div aria-hidden="true" className="pointer-events-none absolute inset-0">
           <PixelGridWave />
+          <NeuralPatterns />
           <div className="absolute inset-0 crt-lines" />
           <div className="absolute -top-48 -left-32 h-[520px] w-[520px] rounded-full bg-indigo-600/25 blur-[130px]" />
           <div className="absolute top-1/4 -right-40 h-[460px] w-[460px] rounded-full bg-cyan-500/15 blur-[130px]" />

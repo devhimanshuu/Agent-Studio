@@ -15,22 +15,19 @@ export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { userId } = await auth();
-    if (!userId) return unauthorized();
+  // Auth first — Clerk errors are never business-logic errors.
+  const { userId } = await auth();
+  if (!userId) return unauthorized();
 
+  try {
     const { id } = await params;
-    try {
-      const execution = await executionService.cancelExecutionForUser(id, userId);
-      return NextResponse.json({ success: true, data: execution });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "";
-      if (message.includes("not found") || message.includes("access")) {
-        return notFound("Execution not found");
-      }
-      throw error;
-    }
+    const execution = await executionService.cancelExecutionForUser(id, userId);
+    return NextResponse.json({ success: true, data: execution });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message.includes("not found") || message.includes("access")) {
+      return notFound("Execution not found");
+    }
     return serverError(error);
   }
 }

@@ -10,4 +10,10 @@ export interface IExecutionService {
   cancelExecution(id: string, userId?: string): Promise<ExecutionDTO>;
   /** Ownership-scoped cancel — throws when the execution belongs to someone else. */
   cancelExecutionForUser(id: string, userId: string): Promise<ExecutionDTO>;
+
+  /**
+   * Resume a paused execution after an approval was granted.
+   * Restores the execution to RUNNING status so the graph can continue.
+   */
+  resumeExecution(executionId: string, userId: string): Promise<ExecutionDTO>;
 }

@@ -11,10 +11,10 @@ const auditRepo = new AuditLogRepository();
 const skillService = new SkillService(skillRepo, auditRepo);
 
 export async function GET(request: Request) {
-  try {
-    const { userId } = await auth();
-    if (!userId) return unauthorized();
+  const { userId } = await auth();
+  if (!userId) return unauthorized();
 
+  try {
     const { searchParams } = new URL(request.url);
     const parsed = skillListQuerySchema.safeParse({
       search: searchParams.get("search") ?? undefined,
@@ -32,10 +32,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  try {
-    const { userId } = await auth();
-    if (!userId) return unauthorized();
+  const { userId } = await auth();
+  if (!userId) return unauthorized();
 
+  try {
     const body = await request.json();
     const validated = createSkillSchema.parse({ ...body, userId });
     const skill = await skillService.createSkill(validated);

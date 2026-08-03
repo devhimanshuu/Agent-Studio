@@ -14,10 +14,10 @@ const auditRepo = new AuditLogRepository();
 const executionService = new ExecutionService(executionRepo, skillRepo, auditRepo);
 
 export async function GET(_request: Request) {
-  try {
-    const { userId } = await auth();
-    if (!userId) return unauthorized();
+  const { userId } = await auth();
+  if (!userId) return unauthorized();
 
+  try {
     const executions = await executionService.getUserExecutions(userId);
     return NextResponse.json({ success: true, data: executions });
   } catch (error) {
@@ -26,10 +26,11 @@ export async function GET(_request: Request) {
 }
 
 export async function POST(request: Request) {
-  try {
-    const { userId } = await auth();
-    if (!userId) return unauthorized();
+  // Auth first — Clerk errors are never business-logic errors.
+  const { userId } = await auth();
+  if (!userId) return unauthorized();
 
+  try {
     const body = await request.json();
     const validated = startExecutionSchema.parse({ ...body, userId });
     const execution = await executionService.startExecution(validated);

@@ -3,7 +3,10 @@ import { IExecutionRepository } from "@/repositories/interfaces/IExecutionReposi
 import { ISkillRepository } from "@/repositories/interfaces/ISkillRepository";
 import { IAuditLogRepository } from "@/repositories/interfaces/IAuditLogRepository";
 import { IApprovalRepository } from "@/repositories/interfaces/IApprovalRepository";
+import { IApprovalHistoryRepository } from "@/repositories/interfaces/IApprovalHistoryRepository";
 import { ApprovalRepository } from "@/repositories/ApprovalRepository";
+import { ApprovalHistoryRepository } from "@/repositories/ApprovalHistoryRepository";
+import { ApprovalEngine } from "@/modules/approval";
 import { ExecutionDTO, StartExecutionInput } from "@/types/execution";
 import { LLMProvider, getLLMProvider } from "@/providers/llm";
 import { ExecutionEngine, EngineRunResult } from "@/modules/execution/executor/executionEngine";
@@ -27,11 +30,14 @@ export interface ExecutionServiceDeps {
   cancellations?: CancellationManager;
   /** Persists HITL approval requests created when runs pause. */
   approvalRepo?: IApprovalRepository;
+  /** Approval engine for HITL lifecycle management. */
+  approvalEngine?: ApprovalEngine;
 }
 
 export class ExecutionService implements IExecutionService {
   private cancellations: CancellationManager;
   private engine: ExecutionEngine;
+  private approvalEngine: ApprovalEngine;
 
   constructor(
     private executionRepo: IExecutionRepository,
@@ -41,6 +47,12 @@ export class ExecutionService implements IExecutionService {
   ) {
     this.cancellations = deps.cancellations ?? new CancellationManager();
     const llm = deps.llm ?? getLLMProvider();
+    const approvalRepo = deps.approvalRepo ?? new ApprovalRepository();
+    const historyRepo = new ApprovalHistoryRepository();
+
+    this.approvalEngine =
+      deps.approvalEngine ?? new ApprovalEngine(approvalRepo, historyRepo, this.executionRepo);
+
     this.engine =
       deps.engine ??
       new ExecutionEngine({
@@ -51,7 +63,7 @@ export class ExecutionService implements IExecutionService {
         permissionChecker: new PermissionChecker(),
         planner: new PlannerService(llm),
         executionRepo: this.executionRepo,
-        approvalRepo: deps.approvalRepo ?? new ApprovalRepository(),
+        approvalRepo,
       });
   }
 
@@ -158,5 +170,32 @@ export class ExecutionService implements IExecutionService {
     if (!execution) throw new Error("Execution not found or you do not have access to it");
     logger.info({ executionId: id, userId }, "Cancelling execution");
     return this.cancelExecution(id, userId);
+  }
+
+  async resumeExecution(executionId: string, userId: string): Promise<ExecutionDTO> {
+    const execution = await this.executionRepo.findByIdForUser(executionId, userId);
+    if (!execution) throw new Error("Execution not found or you do not have access to it");
+
+    // Load the skill and version that were used for this execution.
+    const version = await this.skillRepo.findVersionById(execution.skillVersionId);
+    if (!version) throw new Error("Skill version not found");
+
+    const skill = await this.skillRepo.findByIdForUser(version.skillId, userId);
+    if (!skill) throw new Error("Skill not found or you do not have access to it");
+
+    // Re-run the engine from the current state. The approval node will be
+    // idempotent (it already created the approval request and won't re-pause).
+    // We run this asynchronously — the caller polls the execution detail page
+    // for completion status.
+    this.engine.run({
+      executionId,
+      skill,
+      version,
+      userInput: execution.inputData,
+    }).catch((err) => {
+      logger.error({ executionId, err }, "Resume execution failed");
+    });
+
+    return execution;
   }
 }

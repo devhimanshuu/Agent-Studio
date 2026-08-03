@@ -14,10 +14,10 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { userId } = await auth();
-    if (!userId) return unauthorized();
+  const { userId } = await auth();
+  if (!userId) return unauthorized();
 
+  try {
     const { id } = await params;
     const body = await request.json();
     const parsed = publishSkillSchema.safeParse(body);

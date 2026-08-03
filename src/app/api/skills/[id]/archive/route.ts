@@ -13,10 +13,10 @@ export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { userId } = await auth();
-    if (!userId) return unauthorized();
+  const { userId } = await auth();
+  if (!userId) return unauthorized();
 
+  try {
     const { id } = await params;
     const archived = await skillService.archiveSkill(id, userId);
     return NextResponse.json({ success: true, data: archived });

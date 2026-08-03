@@ -1,7 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
-import { Sparkles, Play, CheckSquare, Shield, ArrowUpRight, Plus } from "lucide-react";
+import { Sparkles, Play, Shield, ArrowUpRight, Plus } from "lucide-react";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { Reveal } from "@/components/Reveal";
 import { SkillRepository } from "@/repositories/SkillRepository";
@@ -84,14 +84,20 @@ export default async function DashboardPage() {
         </Reveal>
 
         <Reveal delay={160}>
-          <div className="p-5 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-2 hover:border-amber-500/50 transition-all h-full">
+          <Link
+            href="/dashboard/review"
+            className="block p-5 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-2 hover:border-amber-500/50 hover:bg-[#0d0d0d]/80 transition-all h-full group"
+          >
             <div className="flex items-center justify-between text-amber-400 text-xs tracking-wider uppercase">
-              <span>PENDING APPROVALS</span>
-              <CheckSquare className="h-4 w-4" />
+              <span>REVIEW QUEUE</span>
+              <div className="flex items-center gap-1.5">
+                <Shield className="h-4 w-4" />
+                <ArrowUpRight className="h-3.5 w-3.5 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+              </div>
             </div>
             <div className="text-3xl font-pixel text-slate-100">{pad(pendingApprovals.length)}</div>
             <p className="text-[11px] text-slate-400">Requires Human Review</p>
-          </div>
+          </Link>
         </Reveal>
 
         <Reveal delay={240}>
@@ -177,16 +183,16 @@ export default async function DashboardPage() {
             <div className="p-6 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-4 h-full">
               <div className="flex items-center justify-between font-mono">
                 <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-                  <CheckSquare className="h-4 w-4 text-amber-400" />
-                  PENDING WRITE APPROVALS
+                  <Shield className="h-4 w-4 text-amber-400" />
+                  HUMAN REVIEW QUEUE
                 </h3>
-                <Link href="/approvals" className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1">
+                <Link href="/dashboard/review" className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1">
                   [ VIEW QUEUE ] <ArrowUpRight className="h-3 w-3" />
                 </Link>
               </div>
               {pendingApprovals.length === 0 ? (
                 <EmptyState
-                  title="No pending write approval requests"
+                  title="No pending review requests"
                   description="When an agent requests a write action requiring human review, it will appear here."
                 />
               ) : (
@@ -202,7 +208,7 @@ export default async function DashboardPage() {
                         </div>
                       </div>
                       <Link
-                        href="/approvals"
+                        href="/dashboard/review"
                         className="text-[10px] text-amber-400 hover:text-amber-300 shrink-0"
                       >
                         [ REVIEW ]

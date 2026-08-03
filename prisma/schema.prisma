@@ -177,6 +177,8 @@ model ApprovalRequest {
   id             String         @id @default(cuid())
   executionId    String
   userId         String
+  skillName      String?        // Denormalized from the Skill for the review card
+  plannerReason  String?        // Denormalized from the planner's reasoning
   toolName       String
   action         String
   inputPayload   Json
@@ -192,6 +194,20 @@ model ApprovalRequest {
   @@index([executionId])
   @@index([status])
   @@map("approval_requests")
+}
+
+model ApprovalHistory {
+  id             String         @id @default(cuid())
+  approvalId     String         // FK to ApprovalRequest
+  executionId    String
+  userId         String
+  action         String         // CREATED | APPROVED | REJECTED | CANCELLED | EXPIRED | RESUMED
+  details        Json
+  timestamp      DateTime       @default(now())
+
+  @@index([approvalId])
+  @@index([executionId])
+  @@map("approval_history")
 }
 
 model ToolDefinition {

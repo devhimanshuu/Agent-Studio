@@ -27,4 +27,11 @@ export const executionsApi = {
 
   cancel: (id: string): Promise<ExecutionDTO> =>
     fetch(`/api/executions/${id}/cancel`, { method: "POST" }).then((r) => handle<ExecutionDTO>(r)),
+
+  resume: (id: string, approvalId: string, idempotencyKey: string): Promise<ExecutionDTO> =>
+    fetch(`/api/executions/${id}/resume`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ approvalId, idempotencyKey }),
+    }).then((r) => handle<ExecutionDTO>(r)),
 };

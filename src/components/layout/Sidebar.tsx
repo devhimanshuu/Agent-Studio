@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useClerk } from "@clerk/nextjs";
-import { LayoutDashboard, Sparkles, Play, GitCompare, CheckSquare, Wrench, LogOut, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { LayoutDashboard, Sparkles, Play, GitCompare, Shield, Wrench, LogOut, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { clsx } from "clsx";
 import { SignOutModal } from "@/components/feedback/SignOutModal";
 
@@ -14,7 +14,7 @@ const navItems = [
   { name: "Executions", href: "/dashboard/executions", icon: Play, tag: "TRACE_LOG" },
   { name: "Versions", href: "/versions", icon: GitCompare, tag: "DIFF_VIEW" },
   { name: "Tool Registry", href: "/dashboard/tools", icon: Wrench, tag: "TOOL_V1" },
-  { name: "Approvals", href: "/approvals", icon: CheckSquare, tag: "HITL_LOCK" },
+  { name: "Human Review", href: "/dashboard/review", icon: Shield, tag: "HITL_V2" },
 ];
 
 const STORAGE_KEY = "agent-studio-sidebar-collapsed";

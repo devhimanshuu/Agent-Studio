@@ -15,10 +15,10 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { userId } = await auth();
-    if (!userId) return unauthorized();
+  const { userId } = await auth();
+  if (!userId) return unauthorized();
 
+  try {
     const { id } = await params;
     const execution = await executionService.getExecutionForUser(id, userId);
     if (!execution) return notFound("Execution not found");
