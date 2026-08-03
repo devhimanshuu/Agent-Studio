@@ -56,7 +56,7 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-10 max-w-6xl mx-auto">
       {/* Page Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-indigo-950/80 pb-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-indigo-950/80 pb-6">
         <Reveal delay={0}>
           <h1 className="text-xl sm:text-2xl font-pixel text-pixel-glow uppercase tracking-wide">
             SYSTEM DASHBOARD
@@ -77,102 +77,102 @@ export default async function DashboardPage() {
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-4 font-mono">
         <Reveal delay={0}>
-          <div className="p-5 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-2 hover:border-indigo-500/50 transition-all h-full">
-            <div className="flex items-center justify-between text-indigo-400 text-xs tracking-wider uppercase">
+          <div className="p-5 rounded border border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/80 space-y-2 hover:border-indigo-400 dark:hover:border-indigo-500/50 shadow-sm hover:shadow-xl transition-all h-full">
+            <div className="flex items-center justify-between text-indigo-700 dark:text-indigo-400 text-xs tracking-wider uppercase font-semibold">
               <span>ACTIVE SKILLS</span>
               <Sparkles className="h-4 w-4" />
             </div>
-            <div className="text-3xl font-pixel text-slate-100">{pad(activeSkills.length)}</div>
-            <p className="text-[11px] text-slate-400">Draft & Published Skills</p>
+            <div className="text-3xl font-pixel text-slate-900 dark:text-slate-100">{pad(activeSkills.length)}</div>
+            <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">Draft & Published Skills</p>
           </div>
         </Reveal>
 
         <Reveal delay={80}>
           <Link
             href="/dashboard/skills"
-            className="block p-5 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-2 hover:border-indigo-500/50 transition-all h-full"
+            className="block p-5 rounded border border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/80 space-y-2 hover:border-indigo-400 dark:hover:border-indigo-500/50 shadow-sm hover:shadow-xl transition-all h-full"
           >
-            <div className="flex items-center justify-between text-indigo-300 text-xs tracking-wider uppercase">
+            <div className="flex items-center justify-between text-indigo-700 dark:text-indigo-300 text-xs tracking-wider uppercase font-semibold">
               <span>PUBLISHED</span>
               <ArrowUpRight className="h-3.5 w-3.5" />
             </div>
-            <div className="text-3xl font-pixel text-slate-100">{pad(publishedSkills.length)}</div>
-            <p className="text-[11px] text-slate-400">Immutable Released Versions</p>
+            <div className="text-3xl font-pixel text-slate-900 dark:text-slate-100">{pad(publishedSkills.length)}</div>
+            <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">Immutable Released Versions</p>
           </Link>
         </Reveal>
 
         <Reveal delay={160}>
           <Link
             href="/dashboard/executions"
-            className="group block p-5 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-2 hover:border-emerald-500/50 transition-all h-full"
+            className="group block p-5 rounded border border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/80 space-y-2 hover:border-emerald-400 dark:hover:border-emerald-500/50 shadow-sm hover:shadow-xl transition-all h-full"
           >
-            <div className="flex items-center justify-between text-emerald-400 text-xs tracking-wider uppercase">
+            <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400 text-xs tracking-wider uppercase font-semibold">
               <span>EXECUTIONS</span>
               <div className="flex items-center gap-1.5">
                 <Play className="h-4 w-4" />
                 <ArrowUpRight className="h-3.5 w-3.5 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
               </div>
             </div>
-            <div className="text-3xl font-pixel text-slate-100">{pad(executions.length)}</div>
-            <p className="text-[11px] text-slate-400">Agent Step Runs</p>
+            <div className="text-3xl font-pixel text-slate-900 dark:text-slate-100">{pad(executions.length)}</div>
+            <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">Agent Step Runs</p>
           </Link>
         </Reveal>
 
         <Reveal delay={240}>
           <Link
             href="/dashboard/review"
-            className="block p-5 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-2 hover:border-amber-500/50 hover:bg-[#0d0d0d]/80 transition-all h-full group"
+            className="block p-5 rounded border border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/80 space-y-2 hover:border-amber-400 dark:hover:border-amber-500/50 shadow-sm hover:shadow-xl transition-all h-full group"
           >
-            <div className="flex items-center justify-between text-amber-400 text-xs tracking-wider uppercase">
+            <div className="flex items-center justify-between text-amber-700 dark:text-amber-400 text-xs tracking-wider uppercase font-semibold">
               <span>REVIEW QUEUE</span>
               <div className="flex items-center gap-1.5">
                 <Shield className="h-4 w-4" />
                 <ArrowUpRight className="h-3.5 w-3.5 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
               </div>
             </div>
-            <div className="text-3xl font-pixel text-slate-100">{pad(pendingApprovals.length)}</div>
-            <p className="text-[11px] text-slate-400">Requires Human Review</p>
+            <div className="text-3xl font-pixel text-slate-900 dark:text-slate-100">{pad(pendingApprovals.length)}</div>
+            <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">Requires Human Review</p>
           </Link>
         </Reveal>
 
         <Reveal delay={320}>
           <Link
             href="/dashboard/tools"
-            className="block p-5 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-2 hover:border-indigo-500/50 hover:bg-[#0d0d0d]/80 transition-all h-full group"
+            className="block p-5 rounded border border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/80 space-y-2 hover:border-indigo-400 dark:hover:border-indigo-500/50 shadow-sm hover:shadow-xl transition-all h-full group"
           >
-            <div className="flex items-center justify-between text-indigo-300 text-xs tracking-wider uppercase">
+            <div className="flex items-center justify-between text-indigo-700 dark:text-indigo-300 text-xs tracking-wider uppercase font-semibold">
               <span>PERMITTED TOOLS</span>
               <div className="flex items-center gap-1.5">
                 <Shield className="h-4 w-4" />
                 <ArrowUpRight className="h-3.5 w-3.5 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
               </div>
             </div>
-            <div className="text-3xl font-pixel text-slate-100">{pad(toolCount)}</div>
-            <p className="text-[11px] text-slate-400">System Tool Definitions</p>
+            <div className="text-3xl font-pixel text-slate-900 dark:text-slate-100">{pad(toolCount)}</div>
+            <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">System Tool Definitions</p>
           </Link>
         </Reveal>
 
         <Reveal delay={400}>
           <Link
             href="/dashboard/tools"
-            className="block p-5 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-2 hover:border-cyan-500/50 hover:bg-[#0d0d0d]/80 transition-all h-full group"
+            className="block p-5 rounded border border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/80 space-y-2 hover:border-cyan-400 dark:hover:border-cyan-500/50 shadow-sm hover:shadow-xl transition-all h-full group"
           >
-            <div className="flex items-center justify-between text-cyan-400 text-xs tracking-wider uppercase">
+            <div className="flex items-center justify-between text-cyan-700 dark:text-cyan-400 text-xs tracking-wider uppercase font-semibold">
               <span>MOST USED TOOL</span>
               <ArrowUpRight className="h-3.5 w-3.5 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
             </div>
-            <div className="text-lg font-pixel text-slate-100 truncate" title={mostUsedTool}>
+            <div className="text-lg font-pixel text-slate-900 dark:text-slate-100 truncate" title={mostUsedTool}>
               {mostUsedTool.toUpperCase()}
             </div>
-            <p className="text-[11px] text-slate-400">{pad(mostUsedToolCount)} Invocations</p>
+            <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">{pad(mostUsedToolCount)} Invocations</p>
           </Link>
         </Reveal>
       </div>
 
       {/* Section Divider with Monospace Tag */}
-      <div className="border-t border-indigo-950/80 pt-6">
+      <div className="border-t border-slate-200 dark:border-indigo-950/80 pt-6">
         <Reveal delay={0}>
-          <div className="text-xs font-mono text-indigo-400/80 uppercase tracking-widest mb-6">
+          <div className="text-xs font-mono text-indigo-700 dark:text-indigo-400/80 uppercase tracking-widest mb-6 font-semibold">
             // RECENT EXECUTIONS · RECENT ACTIVITY & REVIEW QUEUE
           </div>
         </Reveal>
@@ -180,13 +180,13 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Recent Executions */}
           <Reveal delay={0}>
-            <div className="p-6 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-4 h-full">
+            <div className="p-6 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-4 h-full shadow-sm">
               <div className="flex items-center justify-between font-mono">
-                <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-                  <Play className="h-4 w-4 text-emerald-400" />
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-200 flex items-center gap-2">
+                  <Play className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                   RECENT EXECUTIONS
                 </h3>
-                <Link href="/dashboard/executions" className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+                <Link href="/dashboard/executions" className="text-xs text-indigo-700 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 flex items-center gap-1 font-semibold">
                   [ VIEW ALL ] <ArrowUpRight className="h-3 w-3" />
                 </Link>
               </div>
@@ -197,18 +197,18 @@ export default async function DashboardPage() {
                   action={
                     <Link
                       href="/dashboard/skills"
-                      className="px-3 py-1.5 rounded border border-indigo-500/40 bg-indigo-950/40 text-xs font-mono text-indigo-300 hover:border-indigo-400 transition-colors"
+                      className="px-3 py-1.5 rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-xs font-mono text-indigo-700 dark:text-indigo-300 hover:border-indigo-400 transition-colors"
                     >
                       [ BROWSE SKILLS ]
                     </Link>
                   }
                 />
               ) : (
-                <ul className="divide-y divide-indigo-950/60">
+                <ul className="divide-y divide-slate-200 dark:divide-indigo-950/60">
                   {recentExecutions.map((e) => (
                     <li key={e.id} className="py-2.5 flex items-center justify-between gap-3">
                       <div className="min-w-0 space-y-0.5">
-                        <div className="text-xs font-mono text-slate-200 truncate">
+                        <div className="text-xs font-mono text-slate-900 dark:text-slate-200 truncate font-medium">
                           {e.skillName ?? "Unknown skill"}
                         </div>
                         <div className="text-[10px] font-mono text-slate-500">
@@ -219,7 +219,7 @@ export default async function DashboardPage() {
                         <ExecutionStatusBadge status={e.status} />
                         <Link
                           href={`/dashboard/executions/${e.id}`}
-                          className="text-[10px] text-indigo-400 hover:text-indigo-300 flex items-center gap-0.5"
+                          className="text-[10px] text-indigo-700 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 flex items-center gap-0.5 font-semibold"
                         >
                           [ TRACE ] <ArrowUpRight className="h-2.5 w-2.5" />
                         </Link>
@@ -233,13 +233,13 @@ export default async function DashboardPage() {
 
           {/* Recent Activity */}
           <Reveal delay={100}>
-            <div className="p-6 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-4 h-full">
+            <div className="p-6 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-4 h-full shadow-sm">
               <div className="flex items-center justify-between font-mono">
-                <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-                  <ScrollText className="h-4 w-4 text-indigo-400" />
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-200 flex items-center gap-2">
+                  <ScrollText className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
                   RECENT ACTIVITY
                 </h3>
-                <Link href="/dashboard/audit" className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+                <Link href="/dashboard/audit" className="text-xs text-indigo-700 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 flex items-center gap-1 font-semibold">
                   [ FULL AUDIT ] <ArrowUpRight className="h-3 w-3" />
                 </Link>
               </div>
@@ -249,11 +249,11 @@ export default async function DashboardPage() {
                   description="Skill edits, publishes, executions, and approvals will appear here as an audit trail."
                 />
               ) : (
-                <ul className="divide-y divide-indigo-950/60">
+                <ul className="divide-y divide-slate-200 dark:divide-indigo-950/60">
                   {auditLogs.slice(0, 5).map((a) => (
                     <li key={a.id} className="py-2.5 flex items-center justify-between gap-3">
                       <div className="min-w-0 space-y-0.5">
-                        <div className="text-xs font-mono text-slate-200 truncate">{a.action}</div>
+                        <div className="text-xs font-mono text-slate-900 dark:text-slate-200 truncate font-medium">{a.action}</div>
                         <div className="text-[10px] font-mono text-slate-500">
                           {formatDate(a.timestamp)} · {formatTime(a.timestamp)}
                         </div>
@@ -268,13 +268,13 @@ export default async function DashboardPage() {
 
           {/* Recent Skills */}
           <Reveal delay={0}>
-            <div className="p-6 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-4 h-full">
+            <div className="p-6 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-4 h-full shadow-sm">
               <div className="flex items-center justify-between font-mono">
-                <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-indigo-400" />
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-200 flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
                   RECENT SKILLS
                 </h3>
-                <Link href="/dashboard/skills" className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+                <Link href="/dashboard/skills" className="text-xs text-indigo-700 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 flex items-center gap-1 font-semibold">
                   [ VIEW ALL ] <ArrowUpRight className="h-3 w-3" />
                 </Link>
               </div>
@@ -285,18 +285,18 @@ export default async function DashboardPage() {
                   action={
                     <Link
                       href="/dashboard/skills/new"
-                      className="px-3 py-1.5 rounded border border-indigo-500/40 bg-indigo-950/40 text-xs font-mono text-indigo-300 hover:border-indigo-400 transition-colors"
+                      className="px-3 py-1.5 rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-xs font-mono text-indigo-700 dark:text-indigo-300 hover:border-indigo-400 transition-colors"
                     >
                       [ CREATE SKILL ]
                     </Link>
                   }
                 />
               ) : (
-                <ul className="divide-y divide-indigo-950/60">
+                <ul className="divide-y divide-slate-200 dark:divide-indigo-950/60">
                   {recentSkills.map((s) => (
                     <li key={s.id} className="py-2.5 flex items-center justify-between gap-3">
                       <div className="min-w-0 space-y-0.5">
-                        <div className="text-xs font-mono text-slate-200 truncate">{s.name}</div>
+                        <div className="text-xs font-mono text-slate-900 dark:text-slate-200 truncate font-medium">{s.name}</div>
                         <div className="text-[10px] font-mono text-slate-500">
                           v{s.currentDraft?.versionNumber ?? s.publishedVersion?.versionNumber ?? 1}
                         </div>
@@ -305,7 +305,7 @@ export default async function DashboardPage() {
                         <StatusBadge status={s.status} />
                         <Link
                           href={`/dashboard/skills/${s.id}`}
-                          className="text-[10px] text-indigo-400 hover:text-indigo-300 flex items-center gap-0.5"
+                          className="text-[10px] text-indigo-700 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 flex items-center gap-0.5 font-semibold"
                         >
                           [ OPEN ] <ArrowUpRight className="h-2.5 w-2.5" />
                         </Link>
@@ -319,13 +319,13 @@ export default async function DashboardPage() {
 
           {/* Pending Approvals Queue */}
           <Reveal delay={100}>
-            <div className="p-6 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-4 h-full">
+            <div className="p-6 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-4 h-full shadow-sm">
               <div className="flex items-center justify-between font-mono">
-                <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-                  <Shield className="h-4 w-4 text-amber-400" />
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-200 flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                   HUMAN REVIEW QUEUE
                 </h3>
-                <Link href="/dashboard/review" className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1">
+                <Link href="/dashboard/review" className="text-xs text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-300 flex items-center gap-1 font-semibold">
                   [ VIEW QUEUE ] <ArrowUpRight className="h-3 w-3" />
                 </Link>
               </div>
@@ -335,11 +335,11 @@ export default async function DashboardPage() {
                   description="When an agent requests a write action requiring human review, it will appear here."
                 />
               ) : (
-                <ul className="divide-y divide-indigo-950/60">
+                <ul className="divide-y divide-slate-200 dark:divide-indigo-950/60">
                   {pendingApprovals.map((a) => (
                     <li key={a.id} className="py-2.5 flex items-center justify-between gap-3">
                       <div className="min-w-0 space-y-0.5">
-                        <div className="text-xs font-mono text-slate-200 truncate">
+                        <div className="text-xs font-mono text-slate-900 dark:text-slate-200 truncate font-medium">
                           {a.toolName} · {a.action}
                         </div>
                         <div className="text-[10px] font-mono text-slate-500">
@@ -348,7 +348,7 @@ export default async function DashboardPage() {
                       </div>
                       <Link
                         href="/dashboard/review"
-                        className="text-[10px] text-amber-400 hover:text-amber-300 shrink-0"
+                        className="text-[10px] text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-300 shrink-0 font-semibold"
                       >
                         [ REVIEW ]
                       </Link>

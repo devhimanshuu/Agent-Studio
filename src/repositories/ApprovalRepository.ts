@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { IApprovalRepository } from "./interfaces/IApprovalRepository";
 import { ApprovalRequestDTO, RespondApprovalInput } from "@/types/approval";
 import { prisma } from "@/lib/prisma";
+import { ensureUserExists } from "@/lib/user";
 
 export class ApprovalRepository implements IApprovalRepository {
   async findById(id: string): Promise<ApprovalRequestDTO | null> {
@@ -36,6 +37,7 @@ export class ApprovalRepository implements IApprovalRepository {
   }
 
   async create(request: Omit<ApprovalRequestDTO, "id" | "status" | "requestedAt">): Promise<ApprovalRequestDTO> {
+    await ensureUserExists(request.userId);
     const created = await prisma.approvalRequest.create({
       data: {
         executionId: request.executionId,
@@ -56,6 +58,7 @@ export class ApprovalRepository implements IApprovalRepository {
   async upsertByIdempotencyKey(
     request: Omit<ApprovalRequestDTO, "id" | "status" | "requestedAt">
   ): Promise<ApprovalRequestDTO> {
+    await ensureUserExists(request.userId);
     const row = await prisma.approvalRequest.upsert({
       where: { idempotencyKey: request.idempotencyKey },
       update: {}, // already exists — keep the original row untouched

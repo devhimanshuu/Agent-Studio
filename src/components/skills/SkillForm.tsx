@@ -23,8 +23,8 @@ interface SkillFormProps {
 }
 
 const inputClass =
-  "w-full rounded border border-indigo-900/50 bg-[#0a0a0a] px-3 py-2 text-xs text-slate-100 font-mono placeholder:text-slate-600 focus:border-indigo-400 focus:outline-none transition-colors";
-const labelClass = "text-[10px] font-mono uppercase tracking-widest text-indigo-400/80";
+  "w-full rounded border border-slate-300 dark:border-indigo-900/50 bg-white dark:bg-[#0a0a0a] px-3 py-2 text-xs text-slate-900 dark:text-slate-100 font-mono placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:border-indigo-500 focus:outline-none transition-colors shadow-sm";
+const labelClass = "text-[10px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400/80 font-semibold";
 const errorClass = "text-[10px] font-mono text-red-400 mt-1";
 
 function FieldError({ message }: { message?: string }) {
@@ -125,8 +125,8 @@ function AvailableTools({ selected, onAdd }: { selected: string[]; onAdd: (name:
   const available = BUILT_IN_TOOL_CATALOG.filter((t) => !selected.includes(t.name));
   if (available.length === 0) return null;
   return (
-    <div className="space-y-1.5 pt-2 border-t border-indigo-950/60">
-      <div className="text-[9px] font-mono uppercase tracking-widest text-slate-500">
+    <div className="space-y-1.5 pt-2 border-t border-slate-200 dark:border-indigo-950/60">
+      <div className="text-[9px] font-mono uppercase tracking-widest text-slate-600 dark:text-slate-500 font-medium">
         AVAILABLE TOOLS BY CATEGORY
       </div>
       {TOOL_CATEGORIES.map((cat) => {
@@ -142,7 +142,7 @@ function AvailableTools({ selected, onAdd }: { selected: string[]; onAdd: (name:
                 key={t.name}
                 type="button"
                 onClick={() => onAdd(t.name)}
-                className="px-2 py-0.5 rounded border border-indigo-900/50 bg-indigo-950/30 text-[10px] font-mono text-indigo-300 hover:border-indigo-400 hover:text-white transition-all cursor-pointer"
+                className="px-2 py-0.5 rounded border border-indigo-300 dark:border-indigo-900/50 bg-indigo-50 dark:bg-indigo-950/30 text-[10px] font-mono text-indigo-700 dark:text-indigo-300 hover:border-indigo-400 transition-all cursor-pointer font-medium"
               >
                 + {t.name}
               </button>
@@ -185,7 +185,7 @@ function TagsInput({
         {values.map((v) => (
           <span
             key={v}
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-indigo-900/50 bg-indigo-950/40 text-[10px] font-mono text-indigo-200"
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-indigo-300 dark:border-indigo-900/50 bg-indigo-50 dark:bg-indigo-950/40 text-[10px] font-mono text-indigo-800 dark:text-indigo-200 font-medium"
           >
             {v}
             <button
@@ -334,7 +334,7 @@ export function SkillForm({ mode, skill, initialDraft, onSubmit, isSubmitting = 
       </div>
 
       {/* Examples */}
-      <div className="rounded border border-indigo-900/40 bg-[#0a0a0a]/60 p-4 space-y-4">
+      <div className="rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 p-4 space-y-4 shadow-sm">
         <div className="flex items-center justify-between">
           <label className={`${labelClass} flex items-center gap-1.5`}>
             <ListChecks className="h-3.5 w-3.5" /> Examples
@@ -342,7 +342,7 @@ export function SkillForm({ mode, skill, initialDraft, onSubmit, isSubmitting = 
           <button
             type="button"
             onClick={() => append({ input: {}, output: {}, description: "" })}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-indigo-500/40 bg-indigo-950/40 text-[10px] font-mono text-indigo-300 hover:border-indigo-400 hover:text-white transition-all cursor-pointer"
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-[10px] font-mono text-indigo-700 dark:text-indigo-300 hover:border-indigo-400 transition-all cursor-pointer font-semibold"
           >
             <Plus className="h-3 w-3" /> ADD EXAMPLE
           </button>
@@ -354,7 +354,7 @@ export function SkillForm({ mode, skill, initialDraft, onSubmit, isSubmitting = 
 
         <div className="space-y-4">
           {fields.map((field, index) => (
-            <div key={field.id} className="rounded border border-indigo-900/30 bg-black/40 p-3 space-y-3">
+            <div key={field.id} className="rounded border border-slate-200 dark:border-indigo-900/30 bg-slate-50/80 dark:bg-black/40 p-3 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-mono uppercase tracking-widest text-indigo-400/70">
                   EXAMPLE #{index + 1}
@@ -414,7 +414,7 @@ export function SkillForm({ mode, skill, initialDraft, onSubmit, isSubmitting = 
           control={control}
           name="allowedTools"
           render={({ field }) => (
-            <div className="rounded border border-indigo-900/40 bg-[#0a0a0a]/60 p-4 space-y-2">
+            <div className="rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 p-4 space-y-2 shadow-sm">
               <label className={`${labelClass} flex items-center gap-1.5`}>
                 <Wrench className="h-3.5 w-3.5" /> Allowed Tools * <span className="text-slate-500">(min 1)</span>
               </label>
@@ -436,7 +436,7 @@ export function SkillForm({ mode, skill, initialDraft, onSubmit, isSubmitting = 
           control={control}
           name="actionsRequiringApproval"
           render={({ field }) => (
-            <div className="rounded border border-indigo-900/40 bg-[#0a0a0a]/60 p-4 space-y-2">
+            <div className="rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 p-4 space-y-2 shadow-sm">
               <label className={`${labelClass} flex items-center gap-1.5`}>
                 <CheckSquare className="h-3.5 w-3.5" /> Actions Requiring Approval
               </label>
@@ -482,7 +482,7 @@ export function SkillForm({ mode, skill, initialDraft, onSubmit, isSubmitting = 
       </div>
 
       {/* Submit */}
-      <div className="flex justify-end pt-2 border-t border-indigo-950/60">
+      <div className="flex justify-end pt-2 border-t border-slate-200 dark:border-indigo-950/60">
         <button
           type="submit"
           disabled={isSubmitting}

@@ -1,9 +1,13 @@
 import { Prisma } from "@prisma/client";
 import { IAuditLogRepository, AuditLogDTO, AuditLogQuery } from "./interfaces/IAuditLogRepository";
 import { prisma } from "@/lib/prisma";
+import { ensureUserExists } from "@/lib/user";
 
 export class AuditLogRepository implements IAuditLogRepository {
   async log(entry: Omit<AuditLogDTO, "id" | "timestamp">): Promise<AuditLogDTO> {
+    if (entry.userId) {
+      await ensureUserExists(entry.userId);
+    }
     const created = await prisma.auditLog.create({
       data: {
         userId: entry.userId,

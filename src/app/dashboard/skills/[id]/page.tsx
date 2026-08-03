@@ -30,8 +30,8 @@ import { toast } from "@/stores/toastStore";
 function JsonPreview({ label, value }: { label: string; value?: Record<string, unknown> | null }) {
   return (
     <div>
-      <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-400/80 mb-1.5">{label}</div>
-      <pre className="rounded border border-indigo-900/40 bg-black/60 p-3 text-[10px] text-slate-400 font-mono overflow-x-auto max-h-48 overflow-y-auto whitespace-pre">
+      <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400/80 mb-1.5 font-semibold">{label}</div>
+      <pre className="rounded border border-slate-200 dark:border-indigo-900/40 bg-slate-50 dark:bg-black/60 p-3 text-[10px] text-slate-800 dark:text-slate-400 font-mono overflow-x-auto max-h-48 overflow-y-auto whitespace-pre shadow-sm">
         {JSON.stringify(value ?? {}, null, 2)}
       </pre>
     </div>
@@ -46,8 +46,6 @@ export default function SkillDetailPage() {
 
   const [confirm, setConfirm] = useState<"archive" | "delete" | null>(null);
   const [isPending, setIsPending] = useState(false);
-  // Execution input editor — previously the RUN button always sent `{}`, so a
-  // skill with required input fields could NEVER be executed from the UI.
   const [runInput, setRunInput] = useState("{\n  \n}");
   const [runInputError, setRunInputError] = useState<string | null>(null);
 
@@ -98,8 +96,8 @@ export default function SkillDetailPage() {
       if (Array.isArray(inputData) || inputData === null || typeof inputData !== "object") {
         throw new Error("Must be a JSON object");
       }
-    } catch {
-      setRunInputError("Invalid JSON input");
+    } catch (err) {
+      setRunInputError(err instanceof Error ? err.message : "Invalid JSON input payload");
       return;
     }
     setRunInputError(null);
@@ -111,16 +109,15 @@ export default function SkillDetailPage() {
     setIsPending(true);
     try {
       if (confirm === "archive") {
-        await skillsApi.archive(id);
+        await skillsApi.archive(skill.id);
         toast.success("Skill archived");
+        invalidate();
       } else {
-        await skillsApi.delete(id);
+        await skillsApi.delete(skill.id);
         toast.success("Skill deleted");
         router.push("/dashboard/skills");
-        return;
       }
       setConfirm(null);
-      invalidate();
     } catch (e) {
       toast.error(confirm === "archive" ? "Archive failed" : "Delete failed", e instanceof Error ? e.message : undefined);
     } finally {
@@ -137,7 +134,7 @@ export default function SkillDetailPage() {
         action={
           <Link
             href="/dashboard/skills"
-            className="px-4 py-2 rounded border border-indigo-400 bg-indigo-600 text-white text-xs font-mono font-semibold hover:bg-indigo-500 transition-all"
+            className="px-4 py-2 rounded border border-indigo-400 bg-indigo-600 text-white text-xs font-mono font-semibold hover:bg-indigo-500 transition-all cursor-pointer"
           >
             [ BACK TO REGISTRY ]
           </Link>
@@ -151,10 +148,10 @@ export default function SkillDetailPage() {
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="border-b border-indigo-950/80 pb-5 space-y-3">
+      <div className="border-b border-slate-200 dark:border-indigo-950/80 pb-5 space-y-3">
         <Link
           href="/dashboard/skills"
-          className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest text-indigo-400 hover:text-indigo-300 transition-colors"
+          className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400 hover:text-indigo-900 transition-colors font-semibold"
         >
           <ChevronLeft className="h-3 w-3" /> BACK TO REGISTRY
         </Link>
@@ -165,19 +162,19 @@ export default function SkillDetailPage() {
               <h1 className="text-xl sm:text-3xl font-pixel text-pixel-glow uppercase tracking-tight">{skill.name}</h1>
               <StatusBadge status={skill.status} />
             </div>
-            <p className="text-sm text-slate-400 font-mono max-w-2xl">{skill.purpose}</p>
+            <p className="text-sm text-slate-600 dark:text-slate-400 font-mono max-w-2xl">{skill.purpose}</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
             <Link
               href={`/dashboard/skills/${skill.id}/edit`}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-indigo-500/40 bg-indigo-950/40 text-indigo-200 hover:border-indigo-400 hover:text-white transition-all"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-200 hover:border-indigo-400 transition-all font-semibold shadow-sm"
             >
               <Pencil className="h-3.5 w-3.5" /> [ EDIT DRAFT ]
             </Link>
             <Link
               href={`/dashboard/skills/${skill.id}/versions`}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-indigo-500/40 bg-indigo-950/40 text-indigo-200 hover:border-indigo-400 hover:text-white transition-all"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-200 hover:border-indigo-400 transition-all font-semibold shadow-sm"
             >
               <GitCompare className="h-3.5 w-3.5" /> [ VERSIONS ]
             </Link>
@@ -213,7 +210,7 @@ export default function SkillDetailPage() {
             type="button"
             onClick={() => duplicateMutation.mutate()}
             disabled={duplicateMutation.isPending}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded border border-indigo-900/40 text-[10px] font-mono text-slate-400 hover:text-indigo-300 hover:border-indigo-500/40 transition-all cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded border border-slate-300 dark:border-indigo-900/40 text-[10px] font-mono text-slate-700 dark:text-slate-400 hover:text-indigo-700 hover:border-indigo-400 transition-all cursor-pointer font-medium disabled:opacity-50"
           >
             <Copy className="h-3 w-3" /> DUPLICATE
           </button>
@@ -221,7 +218,7 @@ export default function SkillDetailPage() {
             <button
               type="button"
               onClick={() => setConfirm("archive")}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded border border-indigo-900/40 text-[10px] font-mono text-slate-400 hover:text-amber-300 hover:border-amber-500/40 transition-all cursor-pointer"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded border border-slate-300 dark:border-indigo-900/40 text-[10px] font-mono text-slate-700 dark:text-slate-400 hover:text-amber-700 hover:border-amber-400 transition-all cursor-pointer font-medium"
             >
               <Archive className="h-3 w-3" /> ARCHIVE
             </button>
@@ -230,7 +227,7 @@ export default function SkillDetailPage() {
             <button
               type="button"
               onClick={() => setConfirm("delete")}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded border border-indigo-900/40 text-[10px] font-mono text-slate-400 hover:text-red-400 hover:border-red-500/40 transition-all cursor-pointer"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded border border-slate-300 dark:border-indigo-900/40 text-[10px] font-mono text-slate-700 dark:text-slate-400 hover:text-red-700 hover:border-red-400 transition-all cursor-pointer font-medium"
             >
               <Trash2 className="h-3 w-3" /> DELETE
             </button>
@@ -240,12 +237,12 @@ export default function SkillDetailPage() {
 
       {/* Execution input editor */}
       {draft && skill.status !== "ARCHIVED" && (
-        <div className="rounded border border-indigo-900/40 bg-[#0a0a0a]/60 p-4 space-y-2">
+        <div className="rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 p-4 space-y-2 shadow-sm">
           <div className="flex items-center justify-between">
-            <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-400/80 flex items-center gap-1.5">
-              <Play className="h-3.5 w-3.5" /> Execution Input (JSON)
+            <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400/80 flex items-center gap-1.5 font-semibold">
+              <Play className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /> Execution Input (JSON)
             </div>
-            <span className="text-[10px] font-mono text-slate-600">Sent as user input to the skill</span>
+            <span className="text-[10px] font-mono text-slate-500">Sent as user input to the skill</span>
           </div>
           <textarea
             value={runInput}
@@ -256,56 +253,56 @@ export default function SkillDetailPage() {
             rows={4}
             spellCheck={false}
             placeholder="{ }"
-            className={`w-full rounded border bg-black/60 px-3 py-2 text-[11px] font-mono text-slate-300 placeholder:text-slate-600 focus:outline-none transition-colors resize-y ${
-              runInputError ? "border-red-500/60" : "border-indigo-900/50 focus:border-indigo-400"
+            className={`w-full rounded border bg-white dark:bg-black/60 px-3 py-2 text-[11px] font-mono text-slate-900 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none transition-colors resize-y shadow-sm ${
+              runInputError ? "border-red-500" : "border-slate-300 dark:border-indigo-900/50 focus:border-indigo-500"
             }`}
           />
-          {runInputError && <p className="text-[10px] font-mono text-red-400">[ JSON ERROR ] {runInputError}</p>}
+          {runInputError && <p className="text-[10px] font-mono text-red-600 dark:text-red-400 font-semibold">[ JSON ERROR ] {runInputError}</p>}
         </div>
       )}
 
       {/* Draft details */}
       {draft ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <div className="rounded border border-indigo-900/40 bg-[#0a0a0a]/60 p-5 space-y-4">
-            <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-400/80 border-b border-indigo-950/60 pb-2">
+          <div className="rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 p-5 space-y-4 shadow-sm">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400/80 border-b border-slate-200 dark:border-indigo-950/60 pb-2 font-semibold">
               DRAFT v{draft.versionNumber} · {draft.status}
             </div>
 
             <div className="space-y-1.5">
-              <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-400/80">Instructions</div>
-              <p className="text-xs text-slate-300 font-mono leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400/80 font-semibold">Instructions</div>
+              <p className="text-xs text-slate-800 dark:text-slate-300 font-mono leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto">
                 {draft.instructions || "No instructions provided."}
               </p>
             </div>
 
-            <div className="flex items-center gap-2 text-[11px] font-mono text-slate-400 flex-wrap">
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded border border-indigo-900/50 bg-indigo-950/30">
-                <Wrench className="h-3 w-3 text-indigo-400" /> {draft.allowedTools.join(", ") || "none"}
+            <div className="flex items-center gap-2 text-[11px] font-mono text-slate-600 dark:text-slate-400 flex-wrap font-medium">
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded border border-indigo-300 dark:border-indigo-900/50 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-800 dark:text-indigo-300">
+                <Wrench className="h-3 w-3 text-indigo-600 dark:text-indigo-400" /> {draft.allowedTools.join(", ") || "none"}
               </span>
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded border border-amber-900/50 bg-amber-950/30">
-                <CheckSquare className="h-3 w-3 text-amber-400" /> {draft.actionsRequiringApproval.join(", ") || "none"}
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded border border-amber-300 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300">
+                <CheckSquare className="h-3 w-3 text-amber-600 dark:text-amber-400" /> {draft.actionsRequiringApproval.join(", ") || "none"}
               </span>
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded border border-indigo-900/50 bg-indigo-950/30">
-                <Code2 className="h-3 w-3 text-indigo-400" /> max {draft.maxExecutionSteps} steps
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded border border-indigo-300 dark:border-indigo-900/50 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-800 dark:text-indigo-300">
+                <Code2 className="h-3 w-3 text-indigo-600 dark:text-indigo-400" /> max {draft.maxExecutionSteps} steps
               </span>
             </div>
 
             {draft.notes && (
               <div className="space-y-1">
-                <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-400/80 flex items-center gap-1">
-                  <StickyNote className="h-3 w-3" /> Notes
+                <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400/80 flex items-center gap-1 font-semibold">
+                  <StickyNote className="h-3 w-3 text-indigo-600 dark:text-indigo-400" /> Notes
                 </div>
-                <p className="text-xs text-slate-400 font-mono">{draft.notes}</p>
+                <p className="text-xs text-slate-600 dark:text-slate-400 font-mono">{draft.notes}</p>
               </div>
             )}
 
             {draft.examples.length > 0 && (
               <div className="space-y-1">
-                <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-400/80">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400/80 font-semibold">
                   Examples ({draft.examples.length})
                 </div>
-                <p className="text-xs text-slate-500 font-mono">
+                <p className="text-xs text-slate-600 dark:text-slate-500 font-mono">
                   {draft.examples.map((ex, i) => ex.description || `Example ${i + 1}`).join(" • ")}
                 </p>
               </div>
@@ -324,7 +321,7 @@ export default function SkillDetailPage() {
           action={
             <Link
               href={`/dashboard/skills/${skill.id}/edit`}
-              className="px-4 py-2 rounded border border-indigo-400 bg-indigo-600 text-white text-xs font-mono font-semibold hover:bg-indigo-500 transition-all"
+              className="px-4 py-2 rounded border border-indigo-400 bg-indigo-600 text-white text-xs font-mono font-semibold hover:bg-indigo-500 transition-all cursor-pointer"
             >
               [ CREATE DRAFT ]
             </Link>

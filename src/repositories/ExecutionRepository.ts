@@ -8,6 +8,7 @@ import {
   ExecutionQuery,
 } from "@/types/execution";
 import { prisma } from "@/lib/prisma";
+import { ensureUserExists } from "@/lib/user";
 
 export class ExecutionRepository implements IExecutionRepository {
   async findById(id: string): Promise<ExecutionDTO | null> {
@@ -50,6 +51,7 @@ export class ExecutionRepository implements IExecutionRepository {
   }
 
   async create(input: StartExecutionInput, maxSteps: number, skillName?: string): Promise<ExecutionDTO> {
+    await ensureUserExists(input.userId);
     const execution = await prisma.execution.create({
       data: {
         userId: input.userId,

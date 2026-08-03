@@ -49,7 +49,7 @@ export function Sidebar() {
     <>
       <aside
         className={clsx(
-          "border-r border-slate-400 dark:border-indigo-900/40 bg-slate-300/90 dark:bg-black/60 flex flex-col justify-between font-mono transition-all duration-300 ease-in-out shrink-0 select-none h-full overflow-y-auto",
+          "border-r border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-black/60 flex flex-col justify-between font-mono transition-all duration-300 ease-in-out shrink-0 select-none h-full overflow-y-auto backdrop-blur-md shadow-sm",
           collapsed ? "w-16 p-2" : "w-64 p-4"
         )}
       >

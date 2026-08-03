@@ -101,18 +101,18 @@ export default function ExecutionsPage() {
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-indigo-950/80 pb-5">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-indigo-950/80 pb-5">
         <div>
           <h1 className="text-xl sm:text-2xl font-pixel text-pixel-glow uppercase tracking-wide">
             EXECUTION HISTORY & TRACES
           </h1>
-          <p className="text-xs text-slate-400 mt-1 font-mono">
+          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 font-mono">
             Graph-first agent runs: planner output, node timeline, tool calls, approval events, and replay.
           </p>
         </div>
         <Link
           href="/dashboard/skills"
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded border border-indigo-400 bg-indigo-600 text-white font-semibold hover:bg-indigo-500 shadow-md shadow-indigo-500/30 transition-all text-xs font-mono"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded border border-indigo-400 bg-indigo-600 text-white font-semibold hover:bg-indigo-500 shadow-md shadow-indigo-500/30 transition-all text-xs font-mono cursor-pointer"
         >
           <Play className="h-4 w-4" />
           RUN A SKILL
@@ -122,20 +122,20 @@ export default function ExecutionsPage() {
       {/* Search / Filter / Sort toolbar */}
       <div className="flex flex-wrap items-center gap-3 font-mono">
         <label className="relative flex-1 min-w-[220px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-indigo-400/70" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400/70" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by id, skill, provider, or error…"
-            className="w-full rounded border border-indigo-900/50 bg-black/50 pl-9 pr-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/70 focus:ring-1 focus:ring-indigo-500/30 transition-all"
+            className="w-full rounded border border-slate-300 dark:border-indigo-900/50 bg-white dark:bg-black/50 pl-9 pr-3 py-2 text-xs text-slate-900 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 transition-all shadow-sm"
           />
         </label>
 
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value as ExecutionStatus | "")}
-          className="rounded border border-indigo-900/50 bg-black/50 px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-indigo-500/70 cursor-pointer"
+          className="rounded border border-slate-300 dark:border-indigo-900/50 bg-white dark:bg-black/50 px-3 py-2 text-xs text-slate-900 dark:text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-sm"
           aria-label="Filter by status"
         >
           {statusOptions.map((s) => (
@@ -148,7 +148,7 @@ export default function ExecutionsPage() {
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-          className="rounded border border-indigo-900/50 bg-black/50 px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-indigo-500/70 cursor-pointer"
+          className="rounded border border-slate-300 dark:border-indigo-900/50 bg-white dark:bg-black/50 px-3 py-2 text-xs text-slate-900 dark:text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-sm"
           aria-label="Sort by"
         >
           <option value="startedAt">SORT: STARTED</option>
@@ -159,7 +159,7 @@ export default function ExecutionsPage() {
         <button
           type="button"
           onClick={() => setSortOrder((o) => (o === "desc" ? "asc" : "desc"))}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-indigo-500/40 bg-indigo-950/40 text-xs text-indigo-200 hover:border-indigo-400 hover:text-white transition-all cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-xs text-indigo-700 dark:text-indigo-200 hover:border-indigo-400 font-semibold transition-all cursor-pointer shadow-sm"
         >
           <RefreshCw className="h-3.5 w-3.5" /> {sortOrder === "desc" ? "DESC" : "ASC"}
         </button>
@@ -192,7 +192,7 @@ export default function ExecutionsPage() {
           action={
             <Link
               href="/dashboard/skills"
-              className="px-4 py-2 rounded border border-indigo-400 bg-indigo-600 text-white text-xs font-mono font-semibold hover:bg-indigo-500 transition-all"
+              className="px-4 py-2 rounded border border-indigo-400 bg-indigo-600 text-white text-xs font-mono font-semibold hover:bg-indigo-500 transition-all cursor-pointer"
             >
               [ BROWSE SKILLS ]
             </Link>
@@ -203,16 +203,16 @@ export default function ExecutionsPage() {
           {data.map((execution: ExecutionDTO) => (
             <div
               key={execution.id}
-              className="group rounded border border-indigo-900/50 bg-[#0a0a0a]/80 p-4 hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-300"
+              className="group rounded border border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/80 p-4 hover:border-indigo-400 dark:hover:border-indigo-500/50 shadow-sm hover:shadow-lg transition-all duration-300"
             >
               <Link href={`/dashboard/executions/${execution.id}`} className="block">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-sm font-mono font-semibold text-slate-100">{shortId(execution.id)}</span>
+                    <span className="text-sm font-mono font-semibold text-slate-900 dark:text-slate-100">{shortId(execution.id)}</span>
                     <ExecutionStatusBadge status={execution.status} />
                     {execution.replayedFromExecutionId && (
                       <span
-                        className="px-1.5 py-0.5 rounded border border-indigo-500/40 bg-indigo-950/40 text-[9px] font-mono uppercase tracking-wider text-indigo-300"
+                        className="px-1.5 py-0.5 rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-[9px] font-mono uppercase tracking-wider text-indigo-700 dark:text-indigo-300 font-semibold"
                         title={`Replayed from ${execution.replayedFromExecutionId}`}
                       >
                         REPLAY
@@ -220,35 +220,35 @@ export default function ExecutionsPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-4 text-[10px] font-mono text-slate-500">
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3 w-3 text-indigo-400/70" />
+                    <span className="flex items-center gap-1 font-medium">
+                      <Clock className="h-3 w-3 text-indigo-600 dark:text-indigo-400/70" />
                       {formatDate(execution.startedAt)}
                     </span>
-                    <span className="flex items-center gap-1">
-                      <Zap className="h-3 w-3 text-indigo-400/70" />
+                    <span className="flex items-center gap-1 font-medium">
+                      <Zap className="h-3 w-3 text-indigo-600 dark:text-indigo-400/70" />
                       {execution.durationMs != null ? `${(execution.durationMs / 1000).toFixed(1)}s` : "—"}
                     </span>
-                    <span className="flex items-center gap-1">
-                      <GitBranch className="h-3 w-3 text-indigo-400/70" />
+                    <span className="flex items-center gap-1 font-medium">
+                      <GitBranch className="h-3 w-3 text-indigo-600 dark:text-indigo-400/70" />
                       {execution.skillName ?? `v${shortId(execution.skillVersionId)}`}
                     </span>
-                    {execution.provider && <span className="text-indigo-300/80">{execution.provider}</span>}
-                    <ArrowUpRight className="h-3 w-3 text-indigo-400" />
+                    {execution.provider && <span className="text-indigo-700 dark:text-indigo-300/80 font-medium">{execution.provider}</span>}
+                    <ArrowUpRight className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
                   </div>
                 </div>
                 {execution.errorMessage && (
-                  <p className="mt-2 text-[11px] font-mono text-red-400/90 truncate">
+                  <p className="mt-2 text-[11px] font-mono text-red-600 dark:text-red-400/90 truncate font-semibold">
                     [ ERROR ] {execution.errorMessage}
                   </p>
                 )}
               </Link>
               {/* Row actions */}
-              <div className="mt-2.5 flex items-center gap-2 border-t border-indigo-950/60 pt-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <div className="mt-2.5 flex items-center gap-2 border-t border-slate-200 dark:border-indigo-950/60 pt-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                 <button
                   type="button"
                   onClick={() => replayMutation.mutate(execution.id)}
                   disabled={replayMutation.isPending}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-indigo-500/40 bg-indigo-950/40 text-[10px] font-mono text-indigo-200 hover:border-indigo-400 hover:text-white transition-all cursor-pointer disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-[10px] font-mono text-indigo-700 dark:text-indigo-200 hover:border-indigo-400 transition-all cursor-pointer font-semibold disabled:opacity-50"
                 >
                   <RotateCcw className="h-3 w-3" /> [ REPLAY ]
                 </button>
@@ -256,13 +256,13 @@ export default function ExecutionsPage() {
                   type="button"
                   onClick={() => downloadExport(execution.id)}
                   disabled={downloading === execution.id}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-emerald-500/40 bg-emerald-950/40 text-[10px] font-mono text-emerald-200 hover:border-emerald-400 hover:text-white transition-all cursor-pointer disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-[10px] font-mono text-emerald-700 dark:text-emerald-200 hover:border-emerald-400 transition-all cursor-pointer font-semibold disabled:opacity-50"
                 >
                   <Download className="h-3 w-3" /> [ EXPORT JSON ]
                 </button>
                 <Link
                   href={`/dashboard/executions/${execution.id}`}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-indigo-900/50 bg-black/40 text-[10px] font-mono text-slate-400 hover:border-indigo-400 hover:text-white transition-all"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-slate-300 dark:border-indigo-900/50 bg-slate-100 dark:bg-black/40 text-[10px] font-mono text-slate-700 dark:text-slate-400 hover:border-indigo-400 font-semibold transition-all"
                 >
                   <ArrowUpRight className="h-3 w-3" /> OPEN TRACE
                 </Link>

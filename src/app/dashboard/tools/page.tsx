@@ -2,85 +2,79 @@ import React from "react";
 import Link from "next/link";
 import {
   Wrench,
-  ArrowUpRight,
-  Activity,
-  ShieldCheck,
-  Lock,
   Calculator,
   Search,
   Database,
   ClipboardList,
+  ShieldCheck,
+  Lock,
+  ArrowUpRight,
   Layers,
+  Activity,
 } from "lucide-react";
-import { auth } from "@clerk/nextjs/server";
-import { createToolRegistry, isToolCategory, TOOL_CATEGORIES, getToolCategory } from "@/modules/tools";
+import { ToolDefinitionRepository } from "@/repositories/ToolDefinitionRepository";
 import { ExecutionRepository } from "@/repositories/ExecutionRepository";
-import { listToolDefinitions, probeHealth } from "@/lib/tools";
-import { Reveal } from "@/components/Reveal";
+import { createToolRegistry, TOOL_CATEGORIES, getToolCategory } from "@/modules/tools";
+import { probeHealth } from "@/lib/tools";
+import { ToolCategory, ToolDefinitionDTO } from "@/types/tool";
 import { EmptyState } from "@/components/feedback/EmptyState";
-import { ToolDefinitionDTO, ToolCategory } from "@/types/tool";
+import { Reveal } from "@/components/Reveal";
 import { clsx } from "clsx";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
-/** Safe fallback so a future taxonomy category without a dedicated palette
- * still renders instead of crashing the dashboard. */
 const DEFAULT_CATEGORY_THEME = {
   icon: Wrench,
-  chip: "border-slate-500/40 bg-slate-950/40 text-slate-300",
-  header: "border-slate-500/40",
-  text: "text-slate-400",
-  cardHover: "hover:border-slate-500/50 hover:shadow-slate-500/10",
+  chip: "border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-semibold",
+  header: "border-indigo-300 dark:border-indigo-500/40",
+  text: "text-indigo-700 dark:text-indigo-400 font-semibold",
+  cardHover: "hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-indigo-500/10",
 };
 
-/** Category → icon + accent palette. UI concern; the taxonomy (modules/tools)
- * stays UI-agnostic and supplies labels/descriptions/ordering. Adding a new
- * category to TOOL_CATEGORIES is safe — unknown ids fall back to the default
- * palette above. */
 const categoryTheme: Record<
   ToolCategory,
   { icon: typeof Calculator; chip: string; header: string; text: string; cardHover: string }
 > = {
   COMPUTE: {
     icon: Calculator,
-    chip: "border-indigo-500/40 bg-indigo-950/40 text-indigo-300",
-    header: "border-indigo-500/40",
-    text: "text-indigo-400",
-    cardHover: "hover:border-indigo-500/50 hover:shadow-indigo-500/10",
+    chip: "border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-semibold",
+    header: "border-indigo-300 dark:border-indigo-500/40",
+    text: "text-indigo-700 dark:text-indigo-400 font-semibold",
+    cardHover: "hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-indigo-500/10",
   },
   SEARCH: {
     icon: Search,
-    chip: "border-emerald-500/40 bg-emerald-950/40 text-emerald-300",
-    header: "border-emerald-500/40",
-    text: "text-emerald-400",
-    cardHover: "hover:border-emerald-500/50 hover:shadow-emerald-500/10",
+    chip: "border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-semibold",
+    header: "border-emerald-300 dark:border-emerald-500/40",
+    text: "text-emerald-700 dark:text-emerald-400 font-semibold",
+    cardHover: "hover:border-emerald-400 dark:hover:border-emerald-500/50 hover:shadow-emerald-500/10",
   },
   DATA: {
     icon: Database,
-    chip: "border-sky-500/40 bg-sky-950/40 text-sky-300",
-    header: "border-sky-500/40",
-    text: "text-sky-400",
-    cardHover: "hover:border-sky-500/50 hover:shadow-sky-500/10",
+    chip: "border-sky-300 dark:border-sky-500/40 bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 font-semibold",
+    header: "border-sky-300 dark:border-sky-500/40",
+    text: "text-sky-700 dark:text-sky-400 font-semibold",
+    cardHover: "hover:border-sky-400 dark:hover:border-sky-500/50 hover:shadow-sky-500/10",
   },
   TASK: {
     icon: ClipboardList,
-    chip: "border-amber-500/40 bg-amber-950/40 text-amber-300",
-    header: "border-amber-500/40",
-    text: "text-amber-400",
-    cardHover: "hover:border-amber-500/50 hover:shadow-amber-500/10",
+    chip: "border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 font-semibold",
+    header: "border-amber-300 dark:border-amber-500/40",
+    text: "text-amber-700 dark:text-amber-400 font-semibold",
+    cardHover: "hover:border-amber-400 dark:hover:border-amber-500/50 hover:shadow-amber-500/10",
   },
 };
 
 const healthStyles: Record<string, string> = {
-  healthy: "text-emerald-400 border-emerald-500/40 bg-emerald-950/30",
-  degraded: "text-amber-400 border-amber-500/40 bg-amber-950/30",
-  unavailable: "text-red-400 border-red-500/40 bg-red-950/30",
+  healthy: "text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/30 font-semibold",
+  degraded: "text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 font-semibold",
+  unavailable: "text-red-700 dark:text-red-400 border-red-300 dark:border-red-500/40 bg-red-50 dark:bg-red-950/30 font-semibold",
 };
 
 const healthDot: Record<string, string> = {
-  healthy: "bg-emerald-400",
-  degraded: "bg-amber-400",
-  unavailable: "bg-red-400",
+  healthy: "bg-emerald-500",
+  degraded: "bg-amber-500",
+  unavailable: "bg-red-500",
 };
 
 export default async function ToolsDashboardPage({
@@ -88,58 +82,61 @@ export default async function ToolsDashboardPage({
 }: {
   searchParams: Promise<{ category?: string }>;
 }) {
-  const { userId } = await auth();
-  const { category } = await searchParams;
-  // Category-first filtering: ?category=COMPUTE narrows the registry view.
-  const activeCategory = isToolCategory(category) ? category : null;
+  const params = await searchParams;
+  const activeCategory = (params.category as ToolCategory) || undefined;
 
-  const registry = createToolRegistry();
+  const definitionRepo = new ToolDefinitionRepository();
   const executionRepo = new ExecutionRepository();
-  // Usage counts are scoped to the signed-in user — never aggregate other
-  // users' invocations.
-  const [definitions, usageCounts] = userId
-    ? await Promise.all([listToolDefinitions(), executionRepo.countToolCallsByTool(userId)])
-    : [await listToolDefinitions(), {} as Record<string, number>];
+  const registry = createToolRegistry();
 
-  // Probe health for every registered tool (independent, never throws).
-  const health = new Map<string, Awaited<ReturnType<typeof probeHealth>>>();
-  for (const tool of registry.listTools()) {
-    health.set(tool.name, await probeHealth(tool));
+  const [definitions, usageCounts, healthList] = await Promise.all([
+    definitionRepo.list(),
+    executionRepo.countToolCallsByTool(),
+    Promise.all(
+      registry.listTools().map(async (tool) => {
+        const probe = await probeHealth(tool);
+        return { toolName: tool.name, ...probe };
+      })
+    ),
+  ]);
+
+  const health = new Map(healthList.map((h) => [h.toolName, h]));
+
+  const categoryCounts: Record<string, number> = {};
+  for (const cat of TOOL_CATEGORIES) {
+    categoryCounts[cat.id] = definitions.filter((d) => d.category === cat.id).length;
   }
 
-  const totalUsage = Object.values(usageCounts).reduce((sum, n) => sum + n, 0);
-  const categoryCounts = registry.countToolsByCategory();
-  const visibleCategories = TOOL_CATEGORIES.filter((c) => !activeCategory || c.id === activeCategory);
-
-  // Group definitions by their effective category (runtime tool wins, then the
-  // DB catalog row, then a safe default).
   const byCategory = new Map<ToolCategory, ToolDefinitionDTO[]>();
-  for (const definition of definitions) {
-    const tool = registry.getTool(definition.name);
-    // Effective category: runtime tool wins, then the DB catalog row, then
-    // COMPUTE as the intentional safe default for stale/unmatched rows (a
-    // removed tool's catalog row stays grouped rather than disappearing).
-    const effective = tool?.category ?? definition.category ?? "COMPUTE";
-    const group = byCategory.get(effective) ?? [];
-    group.push(definition);
-    byCategory.set(effective, group);
+  for (const def of definitions) {
+    if (!def.category) continue;
+    const list = byCategory.get(def.category) ?? [];
+    list.push(def);
+    byCategory.set(def.category, list);
   }
+
+  const visibleCategories = activeCategory
+    ? TOOL_CATEGORIES.filter((c) => c.id === activeCategory)
+    : TOOL_CATEGORIES;
+
+  const totalUsage = Object.values(usageCounts).reduce((a: number, b: number) => a + b, 0);
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-indigo-950/80 pb-6">
-        <Reveal delay={0}>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-pixel text-pixel-glow uppercase tracking-wide">TOOL REGISTRY</h1>
-            <p className="text-xs text-slate-400 mt-1 font-mono">
-              The pluggable tool framework — every tool is categorized at registration and executes through the registry.
-            </p>
-          </div>
-        </Reveal>
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-indigo-950/80 pb-5">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-pixel text-pixel-glow uppercase tracking-wide flex items-center gap-3">
+            <Wrench className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+            PERMITTED TOOLS MATRIX
+          </h1>
+          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 font-mono">
+            System tool definitions with strict schema validation, single-use HITL approval locks, and health telemetry.
+          </p>
+        </div>
         <Reveal delay={100}>
-          <div className="flex items-center gap-2 text-[10px] font-mono text-slate-400 px-3 py-2 rounded border border-indigo-900/50 bg-[#0a0a0a]/80">
-            <Layers className="h-3.5 w-3.5 text-indigo-400" />
+          <div className="flex items-center gap-2 text-[10px] font-mono text-slate-700 dark:text-slate-400 px-3 py-2 rounded border border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/80 shadow-sm font-semibold">
+            <Layers className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
             {pad(TOOL_CATEGORIES.length)} CATEGORIES · {pad(registry.listTools().length)} TOOLS · {pad(totalUsage)} CALLS
           </div>
         </Reveal>
@@ -150,10 +147,10 @@ export default async function ToolsDashboardPage({
         <Link
           href="/dashboard/tools"
           className={clsx(
-            "inline-flex items-center gap-1.5 px-3 py-1.5 rounded border text-[10px] uppercase tracking-wider transition-all",
+            "inline-flex items-center gap-1.5 px-3 py-1.5 rounded border text-[10px] uppercase tracking-wider transition-all font-semibold",
             !activeCategory
               ? "border-indigo-400 bg-indigo-600 text-white shadow-sm shadow-indigo-500/30"
-              : "border-indigo-900/50 bg-[#0a0a0a]/60 text-slate-400 hover:border-indigo-400 hover:text-white"
+              : "border-slate-300 dark:border-indigo-900/50 bg-white dark:bg-[#0a0a0a]/60 text-slate-700 dark:text-slate-400 hover:border-indigo-400"
           )}
         >
           ALL · {pad(registry.listTools().length)}
@@ -166,10 +163,10 @@ export default async function ToolsDashboardPage({
               key={c.id}
               href={`/dashboard/tools?category=${c.id}`}
               className={clsx(
-                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded border text-[10px] uppercase tracking-wider transition-all",
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded border text-[10px] uppercase tracking-wider transition-all font-semibold",
                 active
                   ? "border-indigo-400 bg-indigo-600 text-white shadow-sm shadow-indigo-500/30"
-                  : clsx("bg-[#0a0a0a]/60", theme.chip, "hover:brightness-125")
+                  : clsx("bg-white dark:bg-[#0a0a0a]/60", theme.chip)
               )}
             >
               <theme.icon className="h-3 w-3" />
@@ -181,7 +178,7 @@ export default async function ToolsDashboardPage({
 
       {definitions.length === 0 ? (
         <EmptyState
-          icon={<Wrench className="h-6 w-6" />}
+          icon={<Wrench className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />}
           title="No tools registered"
           description="The tool catalog is empty. Built-in tools self-register on first run."
         />
@@ -199,17 +196,17 @@ export default async function ToolsDashboardPage({
                 <Reveal delay={catIndex * 40}>
                   <div className={clsx("flex flex-wrap items-center justify-between gap-2 border-b pb-3 mb-4", theme.header)}>
                     <div className="flex items-center gap-3">
-                      <span className={clsx("p-2 rounded border", theme.chip)}>
+                      <span className={clsx("p-2 rounded border shadow-sm", theme.chip)}>
                         <theme.icon className="h-4 w-4" />
                       </span>
                       <div>
                         <h2 className={clsx("text-sm font-mono font-semibold uppercase tracking-widest", theme.text)}>
                           {categoryMeta.label}
                         </h2>
-                        <p className="text-[10px] font-mono text-slate-500">{categoryMeta.description}</p>
+                        <p className="text-[10px] font-mono text-slate-600 dark:text-slate-500 font-medium">{categoryMeta.description}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 text-[10px] font-mono text-slate-500">
+                    <div className="flex items-center gap-3 text-[10px] font-mono text-slate-600 dark:text-slate-500 font-medium">
                       <span>{pad(toolsInCategory.length)} TOOLS</span>
                       <span className="flex items-center gap-1">
                         <ShieldCheck className="h-3 w-3" /> {pad(categoryUsage)} CALLS
@@ -228,51 +225,51 @@ export default async function ToolsDashboardPage({
                         <Link
                           href={`/dashboard/tools/${definition.name}?category=${cat.id}`}
                           className={clsx(
-                            "block h-full rounded border border-indigo-900/50 bg-[#0a0a0a]/80 p-5 space-y-3 hover:-translate-y-1 hover:shadow-lg transition-all duration-300",
+                            "block h-full rounded border border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/80 p-5 space-y-3 hover:-translate-y-1 shadow-sm hover:shadow-lg transition-all duration-300",
                             theme.cardHover
                           )}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="space-y-1 min-w-0">
-                              <h3 className="text-sm font-semibold text-slate-100 font-mono truncate">{definition.displayName}</h3>
-                              <p className="text-[10px] font-mono text-indigo-400/80 truncate">{definition.name}</p>
+                              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 font-mono truncate">{definition.displayName}</h3>
+                              <p className="text-[10px] font-mono text-indigo-700 dark:text-indigo-400/80 truncate font-medium">{definition.name}</p>
                             </div>
-                            <ArrowUpRight className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+                            <ArrowUpRight className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
                           </div>
 
-                          <p className="text-[11px] text-slate-500 font-mono leading-relaxed line-clamp-2">{definition.description}</p>
+                          <p className="text-[11px] text-slate-600 dark:text-slate-400 font-mono leading-relaxed line-clamp-2">{definition.description}</p>
 
                           <div className="flex flex-wrap items-center gap-1.5 text-[9px] font-mono pt-1">
-                            <span className={clsx("px-1.5 py-0.5 rounded border uppercase tracking-wider", theme.chip)}>
+                            <span className={clsx("px-1.5 py-0.5 rounded border uppercase tracking-wider font-semibold", theme.chip)}>
                               {cat.label}
                             </span>
                             <span
                               className={clsx(
-                                "px-1.5 py-0.5 rounded border uppercase tracking-wider",
+                                "px-1.5 py-0.5 rounded border uppercase tracking-wider font-semibold",
                                 definition.type === "WRITE"
-                                  ? "border-amber-500/40 bg-amber-950/40 text-amber-300"
-                                  : "border-sky-500/40 bg-sky-950/40 text-sky-300"
+                                  ? "border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300"
+                                  : "border-sky-300 dark:border-sky-500/40 bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300"
                               )}
                             >
                               {definition.type}
                             </span>
                             {definition.requiresApproval && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-amber-500/40 bg-amber-950/40 text-amber-300 uppercase tracking-wider">
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 uppercase tracking-wider font-semibold">
                                 <Lock className="h-2.5 w-2.5" /> HITL
                               </span>
                             )}
                             {tool?.enabled === false && (
-                              <span className="px-1.5 py-0.5 rounded border border-red-500/40 bg-red-950/40 text-red-300 uppercase tracking-wider">
+                              <span className="px-1.5 py-0.5 rounded border border-red-300 dark:border-red-500/40 bg-red-50 dark:bg-red-950/40 text-red-800 dark:text-red-300 uppercase tracking-wider font-semibold">
                                 DISABLED
                               </span>
                             )}
                           </div>
 
-                          <div className="flex items-center justify-between pt-2 border-t border-indigo-950/60 text-[10px] font-mono">
+                          <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-indigo-950/60 text-[10px] font-mono">
                             {probe ? (
                               <span
                                 className={clsx(
-                                  "inline-flex items-center gap-1.5 px-2 py-0.5 rounded border uppercase tracking-wider",
+                                  "inline-flex items-center gap-1.5 px-2 py-0.5 rounded border uppercase tracking-wider font-semibold",
                                   healthStyles[probe.status] ?? healthStyles.unavailable
                                 )}
                               >
@@ -280,9 +277,9 @@ export default async function ToolsDashboardPage({
                                 {probe.status}
                               </span>
                             ) : (
-                              <span className="text-slate-600">NO PROBE</span>
+                              <span className="text-slate-500">NO PROBE</span>
                             )}
-                            <span className="inline-flex items-center gap-1 text-slate-400">
+                            <span className="inline-flex items-center gap-1 text-slate-600 dark:text-slate-400 font-medium">
                               <Activity className="h-3 w-3" />
                               {pad(usage)} CALLS
                             </span>

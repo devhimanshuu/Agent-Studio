@@ -41,6 +41,9 @@ export async function POST(request: Request) {
     const skill = await skillService.createSkill(validated);
     return NextResponse.json({ success: true, data: skill }, { status: 201 });
   } catch (error) {
+    if (error instanceof SyntaxError) {
+      return badRequest(new Error("Invalid JSON body"));
+    }
     if (error instanceof Error && "issues" in error) {
       return badRequest(error); // Zod validation failure → 400
     }

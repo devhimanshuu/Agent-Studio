@@ -10,6 +10,7 @@ import {
   SkillListResult,
 } from "@/types/skill";
 import { prisma } from "@/lib/prisma";
+import { ensureUserExists } from "@/lib/user";
 
 export class SkillRepository implements ISkillRepository {
   async findById(id: string): Promise<SkillDTO | null> {
@@ -76,6 +77,7 @@ export class SkillRepository implements ISkillRepository {
     // Create the skill + first draft and set the currentDraftId pointer
     // atomically so a crash between the two writes can't orphan a skill.
     const skill = await prisma.$transaction(async (tx) => {
+      await ensureUserExists(input.userId, tx);
       const created = await tx.skill.create({
         data: {
           userId: input.userId,
@@ -213,6 +215,7 @@ export class SkillRepository implements ISkillRepository {
     const source = skill.versions[0];
 
     const duplicated = await prisma.$transaction(async (tx) => {
+      await ensureUserExists(userId, tx);
       const created = await tx.skill.create({
         data: {
           userId,
