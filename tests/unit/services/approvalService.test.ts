@@ -19,6 +19,9 @@ class FakeApprovalRepo implements IApprovalRepository {
   async findPendingByUserId(): Promise<ApprovalRequestDTO[]> {
     return [];
   }
+  async findByUserId(): Promise<ApprovalRequestDTO[]> {
+    return [];
+  }
   async create(request: Omit<ApprovalRequestDTO, "id" | "status" | "requestedAt">): Promise<ApprovalRequestDTO> {
     return this.upsertByIdempotencyKey(request);
   }

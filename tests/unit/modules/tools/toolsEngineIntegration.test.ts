@@ -7,6 +7,7 @@ import { SkillDTO, SkillVersionDTO } from "@/types/skill";
 import { StubLLM } from "../helpers/stubLLM";
 import { FakeExecutionRepo } from "../helpers/fakeExecutionRepo";
 import { FakeApprovalRepo } from "../helpers/fakeApprovalRepo";
+import { FakeLogRepo } from "../helpers/fakeLogRepo";
 
 function makeSkill(): SkillDTO {
   return {
@@ -47,6 +48,7 @@ function makeEngine(plan: unknown, version: SkillVersionDTO) {
     planner: new PlannerService(new StubLLM({ plan })),
     executionRepo: repo,
     approvalRepo,
+    logRepo: new FakeLogRepo(),
     timeoutMs: 5_000,
   });
   return { engine, repo, approvalRepo };

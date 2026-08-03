@@ -7,6 +7,7 @@ import { SkillDTO, SkillVersionDTO } from "@/types/skill";
 import { StubLLM } from "./helpers/stubLLM";
 import { FakeExecutionRepo } from "./helpers/fakeExecutionRepo";
 import { FakeApprovalRepo } from "./helpers/fakeApprovalRepo";
+import { FakeLogRepo } from "./helpers/fakeLogRepo";
 import { makeTool } from "./tools/helpers/makeTool";
 
 function makeSkill(): SkillDTO {
@@ -61,6 +62,7 @@ function makeEngine(plan: unknown, version: SkillVersionDTO) {
     planner: new PlannerService(new StubLLM({ plan })),
     executionRepo: repo,
     approvalRepo,
+    logRepo: new FakeLogRepo(),
     timeoutMs: 5_000,
   });
   return { engine, repo, approvalRepo };
@@ -214,6 +216,7 @@ describe("ExecutionEngine (graph-first runtime)", () => {
       ),
       executionRepo: repo,
       approvalRepo: new FakeApprovalRepo(),
+      logRepo: new FakeLogRepo(),
       timeoutMs: 5_000,
     });
 
@@ -271,5 +274,155 @@ describe("ExecutionEngine (graph-first runtime)", () => {
     expect(details.details.provider).toBe("stub/stub-model");
     expect(details.details.plannerOutput).toBeDefined();
     expect(details.details.durationMs).toBeTypeOf("number");
+  });
+
+  it("resumes past an APPROVED step instead of re-pausing forever (regression)", async () => {
+    // A write-style tool: echoes the input (so the resumed step produces a
+    // deterministic, non-NaN result regardless of the action payload).
+    const registry = new ToolRegistry();
+    registry.registerTool(
+      makeTool({
+        name: "calculator",
+        description: "Echo tool",
+        inputSchema: { type: "object" },
+        execute: async (input) => ({ ...input }),
+      })
+    );
+    const repo = new FakeExecutionRepo();
+    const approvalRepo = new FakeApprovalRepo();
+    const plan = {
+      reasoning: "Create a task.",
+      requiredTools: ["calculator"],
+      steps: [{ stepNumber: 1, toolName: "calculator", action: "create_record", input: { note: "x" }, requiresApproval: false }],
+      expectedOutput: "done",
+    };
+    const version = makeVersion({ actionsRequiringApproval: ["create_record"] });
+    const engine = new ExecutionEngine({
+      toolRegistry: registry,
+      permissionChecker: new PermissionChecker(),
+      planner: new PlannerService(new StubLLM({ plan })),
+      executionRepo: repo,
+      approvalRepo,
+      logRepo: new FakeLogRepo(),
+      timeoutMs: 5_000,
+    });
+
+    // First run pauses at step 1 (write action needing approval).
+    const first = await engine.run({ executionId: "exec-resume", skill: makeSkill(), version, userInput: {} });
+    expect(first.status).toBe("PAUSED_FOR_APPROVAL");
+    expect(approvalRepo.requests).toHaveLength(1);
+
+    // Simulate the reviewer approving the request (engine's approve() flow).
+    await approvalRepo.respond({
+      approvalId: approvalRepo.requests[0].id,
+      userId: "u1",
+      approved: true,
+      idempotencyKey: approvalRepo.requests[0].idempotencyKey,
+    });
+
+    // Re-run the graph (what resumeExecution does after restoring state).
+    // The restored state carries the persisted plan + currentStep; the engine
+    // must NOT re-park at the approval node — it should execute the approved
+    // step and complete.
+    const resumed = await engine.run({
+      executionId: "exec-resume",
+      skill: makeSkill(),
+      version,
+      userInput: {},
+      resume: {
+        plan: plan as never,
+        currentStep: 0,
+        results: {},
+        toolCalls: [],
+        providerUsed: "stub/stub-model",
+        persistedStepCount: repo.steps.length,
+      },
+    });
+
+    expect(resumed.status).toBe("COMPLETED");
+    // The approved tool call actually ran.
+    expect(repo.toolCalls.filter((c) => c.status === "SUCCESS")).toHaveLength(1);
+    // No duplicate approval request was created on resume.
+    expect(approvalRepo.requests).toHaveLength(1);
+    // The planner was restored, not re-invoked (no second LLM call).
+    expect(resumed.providerUsed).toBe("stub/stub-model");
+  });
+
+  it("restores prior results so the resumed finish output is complete (regression)", async () => {
+    const plan = {
+      reasoning: "Two steps.",
+      requiredTools: ["calculator"],
+      steps: [
+        { stepNumber: 1, toolName: "calculator", action: "add", input: { a: 1, b: 2 }, requiresApproval: false },
+        { stepNumber: 2, toolName: "calculator", action: "create_record", input: { note: "x" }, requiresApproval: false },
+      ],
+      expectedOutput: "done",
+    };
+    const version = makeVersion({
+      actionsRequiringApproval: ["create_record"],
+      allowedTools: ["calculator"],
+    });
+
+    // Echo tool so step 2 returns its input deterministically.
+    const registry = new ToolRegistry();
+    registry.registerTool(
+      makeTool({
+        name: "calculator",
+        description: "Echo tool",
+        inputSchema: { type: "object" },
+        execute: async (input) => ({ ...input }),
+      })
+    );
+    const repo = new FakeExecutionRepo();
+    const approvalRepo = new FakeApprovalRepo();
+    const engine = new ExecutionEngine({
+      toolRegistry: registry,
+      permissionChecker: new PermissionChecker(),
+      planner: new PlannerService(new StubLLM({ plan })),
+      executionRepo: repo,
+      approvalRepo,
+      logRepo: new FakeLogRepo(),
+      timeoutMs: 5_000,
+    });
+
+    // Step 1 runs, step 2 pauses.
+    await engine.run({ executionId: "exec-two", skill: makeSkill(), version, userInput: {} });
+    expect(approvalRepo.requests).toHaveLength(1);
+    await approvalRepo.respond({
+      approvalId: approvalRepo.requests[0].id,
+      userId: "u1",
+      approved: true,
+      idempotencyKey: approvalRepo.requests[0].idempotencyKey,
+    });
+
+    const resumed = await engine.run({
+      executionId: "exec-two",
+      skill: makeSkill(),
+      version,
+      userInput: {},
+      resume: {
+        plan: plan as never,
+        currentStep: 1, // step 1 already executed
+        results: { step_1: 3 },
+        toolCalls: [
+          {
+            stepNumber: 1,
+            toolName: "calculator",
+            action: "add",
+            input: { a: 1, b: 2 },
+            output: 3,
+            status: "SUCCESS",
+            requiresApproval: false,
+          },
+        ],
+        providerUsed: "stub/stub-model",
+        persistedStepCount: 4,
+      },
+    });
+
+    expect(resumed.status).toBe("COMPLETED");
+    // Both step 1 (restored) and step 2 (resumed) appear in the final output.
+    // (The tool receives `action` merged into its input and echoes it back.)
+    expect(resumed.finalOutput?.results).toEqual({ step_1: 3, step_2: { action: "create_record", note: "x" } });
   });
 });
