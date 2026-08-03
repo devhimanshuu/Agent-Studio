@@ -20,6 +20,13 @@ class FakeApprovalRepo implements IApprovalRepository {
     return [];
   }
   async create(request: Omit<ApprovalRequestDTO, "id" | "status" | "requestedAt">): Promise<ApprovalRequestDTO> {
+    return this.upsertByIdempotencyKey(request);
+  }
+  async upsertByIdempotencyKey(
+    request: Omit<ApprovalRequestDTO, "id" | "status" | "requestedAt">
+  ): Promise<ApprovalRequestDTO> {
+    const existing = [...this.requests.values()].find((r) => r.idempotencyKey === request.idempotencyKey);
+    if (existing) return existing;
     const created: ApprovalRequestDTO = { ...request, id: `req-${this.requests.size + 1}`, status: "PENDING", requestedAt: new Date() };
     this.requests.set(created.id, created);
     return created;

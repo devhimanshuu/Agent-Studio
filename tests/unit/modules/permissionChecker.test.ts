@@ -1,23 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { PermissionChecker } from "@/modules/execution/tool-registry/permissionChecker";
-import { ToolRegistry } from "@/modules/execution/tool-registry/toolRegistry";
+import { ToolRegistry } from "@/modules/tools";
+import { makeTool } from "./tools/helpers/makeTool";
 
 function makeRegistry() {
   const registry = new ToolRegistry();
-  registry.registerTool({
-    name: "calculator",
-    description: "Math",
-    parameters: {},
-    enabled: true,
-    execute: async () => 0,
-  });
-  registry.registerTool({
-    name: "disabled_tool",
-    description: "Off",
-    parameters: {},
-    enabled: false,
-    execute: async () => 0,
-  });
+  registry.registerTool(makeTool({ name: "calculator", description: "Math" }));
+  registry.registerTool(makeTool({ name: "disabled_tool", description: "Off", enabled: false }));
   return registry;
 }
 
@@ -51,5 +40,11 @@ describe("PermissionChecker", () => {
     const registry = makeRegistry();
     const verdict = checker.check("calculator", [], registry);
     expect(verdict.ok).toBe(false);
+  });
+
+  it("rejects a tool on the blocked list", () => {
+    const registry = makeRegistry();
+    const verdict = checker.check("calculator", ["calculator"], registry, ["calculator"]);
+    expect(verdict).toEqual({ ok: false, reason: "TOOL_BLOCKED", toolName: "calculator" });
   });
 });
