@@ -8,7 +8,7 @@ import { ApprovalHistoryRepository } from "@/repositories/ApprovalHistoryReposit
 import { AuditLogRepository } from "@/repositories/AuditLogRepository";
 import { ExecutionRepository } from "@/repositories/ExecutionRepository";
 import { ApprovalEngine } from "@/modules/approval";
-import { unauthorized, forbidden, badRequest, serverError } from "@/lib/api/handlers";
+import { unauthorized, forbidden, notFound, badRequest, serverError } from "@/lib/api/handlers";
 
 const approvalRepo = new ApprovalRepository();
 const auditRepo = new AuditLogRepository();
@@ -21,19 +21,14 @@ export async function GET(_request: Request) {
   const { userId } = await auth();
   if (!userId) return unauthorized();
 
-  // Return ALL approvals for the user (not just pending) — the review UI needs
-  // both the pending queue and history.
-  const executionList = await executionRepo.findByUserId(userId);
-  const executionIds = executionList.map((e) => e.id);
-
-  const allRequests = await Promise.all(
-    executionIds.map((eid) => approvalRepo.findByExecutionId(eid))
-  );
-  const flat = allRequests.flat().sort(
-    (a, b) => b.requestedAt.getTime() - a.requestedAt.getTime()
-  );
-
-  return NextResponse.json({ success: true, data: flat });
+  try {
+    // Return ALL approvals for the user (not just pending) — the review UI needs
+    // both the pending queue and history. Single query, ownership-scoped.
+    const requests = await approvalRepo.findByUserId(userId);
+    return NextResponse.json({ success: true, data: requests });
+  } catch (error) {
+    return serverError(error);
+  }
 }
 
 export async function POST(request: Request) {
@@ -66,10 +61,11 @@ export async function POST(request: Request) {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
-    // Ownership / not-found → 403 (don't leak which request ids exist).
-    if (message.includes("not found") || message.includes("access")) {
-      return forbidden();
-    }
+    // Ownership violations → 403 (authenticated user touching someone else's
+    // review request). Genuinely missing requests → 404, NOT 403 — a 403 for a
+    // nonexistent id would be indistinguishable from an ownership error.
+    if (message.includes("access")) return forbidden();
+    if (message.includes("not found")) return notFound(message);
     if (error instanceof z.ZodError) return badRequest(error);
     if (error instanceof Error && "issues" in error) {
       return badRequest(error); // Zod validation failure → 400

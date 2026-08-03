@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeft,
@@ -14,10 +14,14 @@ import {
   Wrench,
   RefreshCw,
   Ban,
-  Braces,
+  Download,
+  RotateCcw,
+  ScrollText,
+  Shield,
 } from "lucide-react";
 import { executionsApi } from "@/lib/api/executions";
 import { ExecutionStatusBadge } from "@/components/executions/ExecutionStatusBadge";
+import { ExecutionTimeline, TimelineLegend } from "@/components/executions/ExecutionTimeline";
 import { LoadingSkeleton } from "@/components/feedback/LoadingSkeleton";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { toast } from "@/stores/toastStore";
@@ -36,6 +40,12 @@ const stepStatusStyles: Record<string, string> = {
   SKIPPED: "border-slate-500/40 bg-slate-950/30 text-slate-400",
 };
 
+const logLevelStyles: Record<string, string> = {
+  INFO: "border-indigo-500/30 text-indigo-300",
+  WARN: "border-amber-500/30 text-amber-300",
+  ERROR: "border-red-500/30 text-red-300",
+};
+
 function JsonPreview({ label, value }: { label: string; value: unknown }) {
   return (
     <div>
@@ -49,14 +59,17 @@ function JsonPreview({ label, value }: { label: string; value: unknown }) {
 
 export default function ExecutionDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const id = params.id;
   const [isCancelling, setIsCancelling] = useState(false);
 
-  const { data: execution, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["execution", id],
-    queryFn: () => executionsApi.get(id),
+    queryFn: () => executionsApi.detail(id),
   });
+
+  const execution = data?.execution;
 
   const cancelMutation = useMutation({
     mutationFn: () => executionsApi.cancel(id),
@@ -67,6 +80,32 @@ export default function ExecutionDetailPage() {
     },
     onError: (e) => toast.error("Cancel failed", e.message),
   });
+
+  const replayMutation = useMutation({
+    mutationFn: () => executionsApi.replay(id),
+    onSuccess: (execution) => {
+      toast.success("Execution replayed", "A new linked run was created");
+      queryClient.invalidateQueries({ queryKey: ["executions"] });
+      router.push(`/dashboard/executions/${execution.id}`);
+    },
+    onError: (e) => toast.error("Replay failed", e.message),
+  });
+
+  const downloadExport = useCallback(async () => {
+    try {
+      const report = await executionsApi.exportReport(id);
+      const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `execution-${id}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Export downloaded");
+    } catch (e) {
+      toast.error("Export failed", e instanceof Error ? e.message : undefined);
+    }
+  }, [id]);
 
   if (isLoading) return <LoadingSkeleton rows={5} />;
   if (isError || !execution) {
@@ -91,7 +130,7 @@ export default function ExecutionDetailPage() {
     execution.status === "RUNNING" || execution.status === "PENDING" || execution.status === "PAUSED_FOR_APPROVAL";
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header */}
       <div className="border-b border-indigo-950/80 pb-5 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -101,13 +140,28 @@ export default function ExecutionDetailPage() {
           >
             <ChevronLeft className="h-3 w-3" /> BACK TO EXECUTIONS
           </Link>
-          <div className="flex items-center gap-2 font-mono text-xs">
+          <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
             <button
               type="button"
               onClick={() => refetch()}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-indigo-500/40 bg-indigo-950/40 text-indigo-200 hover:border-indigo-400 hover:text-white transition-all cursor-pointer"
             >
               <RefreshCw className="h-3.5 w-3.5" /> [ REFRESH ]
+            </button>
+            <button
+              type="button"
+              onClick={() => replayMutation.mutate()}
+              disabled={replayMutation.isPending}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-cyan-500/40 bg-cyan-950/40 text-cyan-200 hover:border-cyan-400 hover:text-white transition-all cursor-pointer disabled:opacity-50"
+            >
+              <RotateCcw className="h-3.5 w-3.5" /> [ REPLAY ]
+            </button>
+            <button
+              type="button"
+              onClick={downloadExport}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-emerald-500/40 bg-emerald-950/40 text-emerald-200 hover:border-emerald-400 hover:text-white transition-all cursor-pointer"
+            >
+              <Download className="h-3.5 w-3.5" /> [ EXPORT JSON ]
             </button>
             {canCancel && (
               <button
@@ -131,11 +185,17 @@ export default function ExecutionDetailPage() {
             EXECUTION TRACE
           </h1>
           <ExecutionStatusBadge status={execution.status} />
+          {execution.replayedFromExecutionId && (
+            <span className="px-2 py-0.5 rounded border border-cyan-500/40 bg-cyan-950/40 text-[10px] font-mono uppercase tracking-wider text-cyan-300">
+              REPLAYED RUN
+            </span>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-4 text-[11px] font-mono text-slate-400">
           <span className="flex items-center gap-1.5">
-            <GitBranch className="h-3.5 w-3.5 text-indigo-400" /> version {execution.skillVersionId}
+            <GitBranch className="h-3.5 w-3.5 text-indigo-400" />
+            {execution.skillName ?? `version ${execution.skillVersionId}`}
           </span>
           <span className="flex items-center gap-1.5">
             <Clock className="h-3.5 w-3.5 text-indigo-400" /> started {formatDate(execution.startedAt)}
@@ -170,12 +230,21 @@ export default function ExecutionDetailPage() {
         <JsonPreview label="Planner Output (Plan)" value={execution.plannerOutput} />
       </div>
       {execution.finalOutput && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <JsonPreview label="Final Output" value={execution.finalOutput} />
-        </div>
+        <JsonPreview label="Final Output" value={execution.finalOutput} />
       )}
 
-      {/* Node Timeline */}
+      {/* Unified Timeline */}
+      <div className="rounded border border-indigo-900/40 bg-[#0a0a0a]/60 p-5 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-indigo-950/60 pb-2">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-400/80 flex items-center gap-1.5">
+            <ListChecks className="h-3.5 w-3.5" /> Unified Execution Timeline
+          </div>
+          <TimelineLegend />
+        </div>
+        <ExecutionTimeline events={data?.timeline ?? []} />
+      </div>
+
+      {/* Node Steps */}
       <div className="rounded border border-indigo-900/40 bg-[#0a0a0a]/60 p-5 space-y-3">
         <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-400/80 flex items-center gap-1.5 border-b border-indigo-950/60 pb-2">
           <ListChecks className="h-3.5 w-3.5" /> Node Timeline
@@ -251,6 +320,77 @@ export default function ExecutionDetailPage() {
               </li>
             ))}
           </ul>
+        )}
+      </div>
+
+      {/* Approval Events */}
+      <div className="rounded border border-indigo-900/40 bg-[#0a0a0a]/60 p-5 space-y-3">
+        <div className="text-[10px] font-mono uppercase tracking-widest text-amber-400/80 flex items-center gap-1.5 border-b border-indigo-950/60 pb-2">
+          <Shield className="h-3.5 w-3.5" /> Approval Events
+        </div>
+        {!data?.approvals || data.approvals.length === 0 ? (
+          <p className="text-[11px] text-slate-500">No approval checkpoints in this execution.</p>
+        ) : (
+          <ul className="space-y-2">
+            {data.approvals.map((approval) => (
+              <li key={approval.id} className="rounded border border-amber-900/40 bg-amber-950/10 p-3 space-y-1.5">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <span className="text-[11px] font-mono font-semibold text-amber-200">
+                    {approval.toolName} · {approval.action}
+                  </span>
+                  <span
+                    className={clsx(
+                      "px-1.5 py-0.5 rounded border text-[9px] font-mono uppercase",
+                      approval.status === "APPROVED"
+                        ? "border-emerald-500/40 text-emerald-300"
+                        : approval.status === "REJECTED"
+                          ? "border-red-500/40 text-red-300"
+                          : "border-amber-500/40 text-amber-300"
+                    )}
+                  >
+                    {approval.status}
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-500">{formatDate(approval.requestedAt)}</span>
+                </div>
+                {approval.skillName && (
+                  <p className="text-[10px] font-mono text-slate-400">skill: {approval.skillName}</p>
+                )}
+                {approval.plannerReason && (
+                  <p className="text-[10px] font-mono text-slate-500 italic">“{approval.plannerReason}”</p>
+                )}
+                {approval.rejectionReason && (
+                  <p className="text-[10px] font-mono text-red-400">[ REASON ] {approval.rejectionReason}</p>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Structured Logs */}
+      <div className="rounded border border-indigo-900/40 bg-[#0a0a0a]/60 p-5 space-y-3">
+        <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-400/80 flex items-center gap-1.5 border-b border-indigo-950/60 pb-2">
+          <ScrollText className="h-3.5 w-3.5" /> Structured Execution Logs
+        </div>
+        {!data?.logs || data.logs.length === 0 ? (
+          <p className="text-[11px] text-slate-500">No structured logs recorded for this execution.</p>
+        ) : (
+          <div className="max-h-80 overflow-y-auto space-y-1 font-mono">
+            {data.logs.map((log) => (
+              <div key={log.id} className="flex items-start gap-2 rounded border border-indigo-950/50 bg-black/40 px-2.5 py-1.5 text-[10px]">
+                <span className="text-slate-600 shrink-0">{formatDate(log.timestamp)}</span>
+                <span className={clsx("shrink-0 px-1.5 py-0.5 rounded border text-[9px] uppercase tracking-wider", logLevelStyles[log.level])}>
+                  {log.level}
+                </span>
+                <span className="text-indigo-300/90 shrink-0">{log.event}</span>
+                {log.status && <span className="text-slate-500 shrink-0">[{log.status}]</span>}
+                {log.durationMs != null && <span className="text-indigo-400/70 shrink-0">{(log.durationMs / 1000).toFixed(3)}s</span>}
+                {Object.keys(log.metadata ?? {}).length > 0 && (
+                  <span className="text-slate-600 truncate">{JSON.stringify(log.metadata)}</span>
+                )}
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

@@ -214,15 +214,10 @@ export default function ReviewQueuePage() {
     queryFn: () => apiFetch<ApprovalRequestDTO[]>("/api/approvals"),
   });
 
-  const { data: history } = useQuery({
-    queryKey: ["review-history"],
-    queryFn: async () => {
-      const res = await fetch("/api/approvals");
-      const json = await res.json();
-      if (!json.success) return [];
-      return json.data as ApprovalRequestDTO[];
-    },
-  });
+  // History is derived from the same single /api/approvals response (the API
+  // returns pending + resolved requests in one ownership-scoped query) — no
+  // second network call.
+  const history = approvals;
 
   const approveMutation = useMutation({
     mutationFn: async ({
@@ -232,17 +227,26 @@ export default function ReviewQueuePage() {
       approvalId: string;
       idempotencyKey: string;
     }) => {
-      return apiFetch("/api/approvals", {
+      // Step 1: approve the request (PENDING → APPROVED).
+      const approved = await apiFetch<ApprovalRequestDTO>("/api/approvals", {
         method: "POST",
         body: JSON.stringify({ approvalId, approved: true, idempotencyKey }),
       });
+      // Step 2: resume the paused execution so the approved action actually
+      // runs. Without this, the run would stay PAUSED_FOR_APPROVAL forever.
+      await apiFetch(`/api/executions/${approved.executionId}/resume`, {
+        method: "POST",
+        body: JSON.stringify({ approvalId, idempotencyKey }),
+      });
+      return approved;
     },
     onSuccess: () => {
-      toast.success("Action approved — execution will resume");
+      toast.success("Action approved — execution resumed");
       queryClient.invalidateQueries({ queryKey: ["reviews"] });
       queryClient.invalidateQueries({ queryKey: ["review-history"] });
+      queryClient.invalidateQueries({ queryKey: ["executions"] });
     },
-    onError: (e: Error) => toast.error("Failed to approve", e.message),
+    onError: (e: Error) => toast.error("Failed to approve & resume", e.message),
   });
 
   const rejectMutation = useMutation({
@@ -295,7 +299,7 @@ export default function ReviewQueuePage() {
   });
 
   const pendingRequests = (approvals ?? []).filter((a) => a.status === "PENDING");
-  const historyRequests = (history ?? []).filter((a) => a.status !== "PENDING");
+  const historyRequests = (approvals ?? []).filter((a) => a.status !== "PENDING");
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
 
   const withProcessing = (id: string, fn: () => void) => {

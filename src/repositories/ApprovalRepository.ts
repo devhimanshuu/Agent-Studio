@@ -25,6 +25,16 @@ export class ApprovalRepository implements IApprovalRepository {
     return list.map(this.mapApproval);
   }
 
+  /** Single query — avoids the N+1 the review page previously triggered by
+   * loading all executions and querying approvals per execution. */
+  async findByUserId(userId: string): Promise<ApprovalRequestDTO[]> {
+    const list = await prisma.approvalRequest.findMany({
+      where: { userId },
+      orderBy: { requestedAt: "desc" },
+    });
+    return list.map(this.mapApproval);
+  }
+
   async create(request: Omit<ApprovalRequestDTO, "id" | "status" | "requestedAt">): Promise<ApprovalRequestDTO> {
     const created = await prisma.approvalRequest.create({
       data: {

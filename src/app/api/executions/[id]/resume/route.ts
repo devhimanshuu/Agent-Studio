@@ -8,7 +8,7 @@ import { AuditLogRepository } from "@/repositories/AuditLogRepository";
 import { ApprovalRepository } from "@/repositories/ApprovalRepository";
 import { ApprovalHistoryRepository } from "@/repositories/ApprovalHistoryRepository";
 import { ApprovalEngine } from "@/modules/approval";
-import { unauthorized, badRequest, serverError, notFound } from "@/lib/api/handlers";
+import { unauthorized, forbidden, badRequest, serverError, notFound } from "@/lib/api/handlers";
 
 const resumeSchema = z.object({
   approvalId: z.string().min(1, "Approval ID is required"),
@@ -43,8 +43,11 @@ export async function POST(
     if (!approval || approval.executionId !== executionId) {
       return notFound("Approval request not found");
     }
+    // The user is authenticated but does not own this approval — 403, not 401
+    // (401 would tell the client the session is missing and could trigger a
+    // re-login loop for a fully signed-in user).
     if (approval.userId !== userId) {
-      return unauthorized();
+      return forbidden();
     }
 
     // The approval must be in APPROVED status.
@@ -80,9 +83,10 @@ export async function POST(
     if (error instanceof z.ZodError) return badRequest(error);
     if (error instanceof Error) {
       const message = error.message;
-      if (message.includes("not found") || message.includes("access")) {
-        return notFound(message);
-      }
+      // Ownership violations are 403 (never 404 — don't leak existence);
+      // genuinely missing resources are 404.
+      if (message.includes("access")) return forbidden();
+      if (message.includes("not found")) return notFound(message);
       if (message.includes("already been resumed") || message.includes("duplicate")) {
         return badRequest(error);
       }

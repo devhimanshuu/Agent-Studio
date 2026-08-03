@@ -4,7 +4,7 @@ import { SkillRepository } from "@/repositories/SkillRepository";
 import { AuditLogRepository } from "@/repositories/AuditLogRepository";
 import { publishSkillSchema } from "@/validators/skillSchema";
 import { auth } from "@clerk/nextjs/server";
-import { unauthorized, badRequest, serverError, forbidden } from "@/lib/api/handlers";
+import { unauthorized, badRequest, serverError, forbidden, notFound } from "@/lib/api/handlers";
 
 const skillRepo = new SkillRepository();
 const auditRepo = new AuditLogRepository();
@@ -27,7 +27,11 @@ export async function POST(
     return NextResponse.json({ success: true, data: published });
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
-    if (message.includes("not found") || message.includes("access")) return forbidden();
+    // Ownership violation (skill exists but belongs to someone else) → 403.
+    // Genuinely missing skill/version → 404 (an owner passing a bad id should
+    // see "not found", not a misleading 403).
+    if (message.includes("access")) return forbidden();
+    if (message.includes("not found")) return notFound(message);
     // Business-rule violations (e.g. re-publishing a published version or
     // publishing an archived skill) are client errors → 400, not 500s.
     if (message.includes("cannot be published") || message.includes("Only draft")) {

@@ -3,7 +3,7 @@ import { SkillService } from "@/services/SkillService";
 import { SkillRepository } from "@/repositories/SkillRepository";
 import { AuditLogRepository } from "@/repositories/AuditLogRepository";
 import { auth } from "@clerk/nextjs/server";
-import { unauthorized, serverError, forbidden } from "@/lib/api/handlers";
+import { unauthorized, serverError, forbidden, notFound } from "@/lib/api/handlers";
 
 const skillRepo = new SkillRepository();
 const auditRepo = new AuditLogRepository();
@@ -22,7 +22,8 @@ export async function POST(
     return NextResponse.json({ success: true, data: archived });
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
-    if (message.includes("not found") || message.includes("access")) return forbidden();
+    if (message.includes("access")) return forbidden();
+    if (message.includes("not found")) return notFound(message);
     return serverError(error);
   }
 }

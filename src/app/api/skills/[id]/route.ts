@@ -42,9 +42,8 @@ export async function PATCH(
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
-    if (message.includes("not found") || message.includes("access")) {
-      return forbidden();
-    }
+    if (message.includes("access")) return forbidden();
+    if (message.includes("not found")) return notFound(message);
     if (error instanceof Error && "issues" in error) {
       return badRequest(error); // Zod validation failure → 400
     }

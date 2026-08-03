@@ -18,6 +18,12 @@ export class FakeApprovalRepo implements IApprovalRepository {
     return this.requests.filter((r) => r.userId === userId && r.status === "PENDING");
   }
 
+  async findByUserId(userId: string): Promise<ApprovalRequestDTO[]> {
+    return this.requests
+      .filter((r) => r.userId === userId)
+      .sort((a, b) => b.requestedAt.getTime() - a.requestedAt.getTime());
+  }
+
   async create(request: Omit<ApprovalRequestDTO, "id" | "status" | "requestedAt">): Promise<ApprovalRequestDTO> {
     return this.upsertByIdempotencyKey(request);
   }

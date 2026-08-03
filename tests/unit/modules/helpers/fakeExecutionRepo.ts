@@ -1,5 +1,5 @@
 import { IExecutionRepository } from "@/repositories/interfaces/IExecutionRepository";
-import { ExecutionDTO, ExecutionStepDTO, ToolCallDTO, StartExecutionInput } from "@/types/execution";
+import { ExecutionDTO, ExecutionStepDTO, ToolCallDTO, StartExecutionInput, ExecutionQuery } from "@/types/execution";
 
 export class FakeExecutionRepo implements IExecutionRepository {
   executions = new Map<string, ExecutionDTO>();
@@ -22,12 +22,13 @@ export class FakeExecutionRepo implements IExecutionRepository {
     return [...this.executions.values()].filter((e) => e.userId === userId);
   }
 
-  async create(input: StartExecutionInput, maxSteps: number): Promise<ExecutionDTO> {
+  async create(input: StartExecutionInput, maxSteps: number, skillName?: string): Promise<ExecutionDTO> {
     this.seq += 1;
     const execution: ExecutionDTO = {
       id: `exec-${this.seq}`,
       userId: input.userId,
       skillVersionId: input.skillVersionId,
+      skillName: skillName ?? null,
       status: "RUNNING",
       inputData: input.inputData,
       finalOutput: null,
@@ -72,6 +73,68 @@ export class FakeExecutionRepo implements IExecutionRepository {
 
   async findToolCallsByToolName(toolName: string, _userId?: string, limit = 20): Promise<ToolCallDTO[]> {
     return this.toolCalls.filter((c) => c.toolName === toolName).slice(0, limit);
+  }
+
+  async listForUser(userId: string, query: ExecutionQuery): Promise<ExecutionDTO[]> {
+    let items = [...this.executions.values()].filter((e) => e.userId === userId);
+    if (query.status) items = items.filter((e) => e.status === query.status);
+    if (query.skillName) items = items.filter((e) => e.skillName?.toLowerCase().includes(query.skillName!.toLowerCase()));
+    if (query.search) {
+      const q = query.search.toLowerCase();
+      items = items.filter(
+        (e) =>
+          e.id.toLowerCase().includes(q) ||
+          (e.skillName ?? "").toLowerCase().includes(q) ||
+          (e.provider ?? "").toLowerCase().includes(q) ||
+          (e.errorMessage ?? "").toLowerCase().includes(q)
+      );
+    }
+    const sortBy = query.sortBy ?? "startedAt";
+    const dir = query.sortOrder === "asc" ? 1 : -1;
+    items.sort((a, b) => {
+      const av = a[sortBy as keyof ExecutionDTO];
+      const bv = b[sortBy as keyof ExecutionDTO];
+      if (av instanceof Date && bv instanceof Date) return (av.getTime() - bv.getTime()) * dir;
+      return String(av ?? "").localeCompare(String(bv ?? "")) * dir;
+    });
+    return items.slice(0, query.limit ?? 100);
+  }
+
+  async setReplayedFrom(id: string, replayedFromExecutionId: string): Promise<ExecutionDTO> {
+    const e = this.executions.get(id);
+    if (e) e.replayedFromExecutionId = replayedFromExecutionId;
+    return e!;
+  }
+
+  async getMetrics(userId: string): Promise<{
+    total: number;
+    completed: number;
+    failed: number;
+    cancelled: number;
+    paused: number;
+    avgDurationMs: number;
+    mostUsedSkills: { skillName: string; count: number }[];
+  }> {
+    const items = [...this.executions.values()].filter((e) => e.userId === userId);
+    const total = items.length;
+    const completed = items.filter((e) => e.status === "COMPLETED").length;
+    const failed = items.filter((e) => e.status === "FAILED" || e.status === "STEP_LIMIT_EXCEEDED").length;
+    const cancelled = items.filter((e) => e.status === "CANCELLED").length;
+    const paused = items.filter((e) => e.status === "PAUSED_FOR_APPROVAL").length;
+    const durations = items.map((e) => e.durationMs).filter((d): d is number => d != null);
+    const avgDurationMs =
+      durations.length > 0 ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : 0;
+    const skillCounts = new Map<string, number>();
+    for (const e of items) skillCounts.set(e.skillName ?? "Unknown skill", (skillCounts.get(e.skillName ?? "Unknown skill") ?? 0) + 1);
+    const mostUsedSkills = [...skillCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([skillName, count]) => ({ skillName, count }));
+    return { total, completed, failed, cancelled, paused, avgDurationMs, mostUsedSkills };
+  }
+
+  async getApprovalSummary(_userId: string): Promise<{ total: number; pending: number }> {
+    return { total: 0, pending: 0 };
   }
 
   async setFinalOutput(id: string, output: Record<string, unknown>): Promise<ExecutionDTO> {

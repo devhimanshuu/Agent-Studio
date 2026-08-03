@@ -41,10 +41,25 @@ export interface ExecutionStepDTO {
   toolCalls?: ToolCallDTO[];
 }
 
+export interface ExecutionLogDTO {
+  id: string;
+  executionId: string;
+  event: string;
+  level: "INFO" | "WARN" | "ERROR";
+  status?: string | null;
+  durationMs?: number | null;
+  metadata: Record<string, unknown>;
+  timestamp: Date;
+}
+
 export interface ExecutionDTO {
   id: string;
   userId: string;
   skillVersionId: string;
+  /** Denormalized skill name for history/search/metrics. */
+  skillName?: string | null;
+  /** Set when this run was created by replaying a previous execution. */
+  replayedFromExecutionId?: string | null;
   status: ExecutionStatus;
   inputData: Record<string, unknown>;
   finalOutput?: Record<string, unknown> | null;
@@ -61,6 +76,20 @@ export interface ExecutionDTO {
   completedAt?: Date | null;
   steps?: ExecutionStepDTO[];
   toolCalls?: ToolCallDTO[];
+  /** Structured execution logs (observability). */
+  logs?: ExecutionLogDTO[];
+}
+
+export interface ExecutionQuery {
+  search?: string;
+  status?: ExecutionStatus | "";
+  skillName?: string;
+  provider?: string;
+  from?: string;
+  to?: string;
+  sortBy?: "startedAt" | "durationMs" | "status";
+  sortOrder?: "asc" | "desc";
+  limit?: number;
 }
 
 export interface StartExecutionInput {

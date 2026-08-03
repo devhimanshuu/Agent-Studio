@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { logger } from "@/lib/logger";
 
+export { isValidIsoDate } from "./dates";
+
 export type ApiError = {
   success: false;
   error: string;

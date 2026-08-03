@@ -4,11 +4,14 @@ import { ISkillRepository } from "@/repositories/interfaces/ISkillRepository";
 import { IAuditLogRepository } from "@/repositories/interfaces/IAuditLogRepository";
 import { IApprovalRepository } from "@/repositories/interfaces/IApprovalRepository";
 import { IApprovalHistoryRepository } from "@/repositories/interfaces/IApprovalHistoryRepository";
+import { IExecutionLogRepository } from "@/repositories/interfaces/IExecutionLogRepository";
 import { ApprovalRepository } from "@/repositories/ApprovalRepository";
 import { ApprovalHistoryRepository } from "@/repositories/ApprovalHistoryRepository";
+import { ExecutionLogRepository } from "@/repositories/ExecutionLogRepository";
 import { ApprovalEngine } from "@/modules/approval";
 import { ExecutionDTO, StartExecutionInput } from "@/types/execution";
 import { LLMProvider, getLLMProvider } from "@/providers/llm";
+import { ExecutionPlan, ToolCallRecord } from "@/modules/execution/state/agentState";
 import { ExecutionEngine, EngineRunResult } from "@/modules/execution/executor/executionEngine";
 import { CancellationManager } from "@/modules/execution/executor/cancellation";
 import { createToolRegistry } from "@/modules/tools";
@@ -32,6 +35,8 @@ export interface ExecutionServiceDeps {
   approvalRepo?: IApprovalRepository;
   /** Approval engine for HITL lifecycle management. */
   approvalEngine?: ApprovalEngine;
+  /** Persists structured execution logs (observability). */
+  logRepo?: IExecutionLogRepository;
 }
 
 export class ExecutionService implements IExecutionService {
@@ -64,6 +69,7 @@ export class ExecutionService implements IExecutionService {
         planner: new PlannerService(llm),
         executionRepo: this.executionRepo,
         approvalRepo,
+        logRepo: deps.logRepo ?? new ExecutionLogRepository(),
       });
   }
 
@@ -93,12 +99,12 @@ export class ExecutionService implements IExecutionService {
     validateVersionForExecution(version);
     validateUserInput(input.inputData, version);
 
-    const execution = await this.executionRepo.create(input, version.maxExecutionSteps || 10);
+    const execution = await this.executionRepo.create(input, version.maxExecutionSteps || 10, skill.name);
     await this.auditRepo.log({
       userId: input.userId,
       executionId: execution.id,
       action: "EXECUTION_STARTED",
-      details: { skillId: skill.id, skillVersionId: version.id },
+      details: { skillId: skill.id, skillVersionId: version.id, skillName: skill.name },
     });
 
     const signal = this.cancellations.create(execution.id);
@@ -183,18 +189,81 @@ export class ExecutionService implements IExecutionService {
     const skill = await this.skillRepo.findByIdForUser(version.skillId, userId);
     if (!skill) throw new Error("Skill not found or you do not have access to it");
 
-    // Re-run the engine from the current state. The approval node will be
-    // idempotent (it already created the approval request and won't re-pause).
-    // We run this asynchronously — the caller polls the execution detail page
-    // for completion status.
+    // Phase 6 contract: resume EXACTLY where the run paused — restore state
+    // from the database, do NOT restart the graph. Reusing the persisted plan
+    // means no second LLM call and no re-execution of already-done steps.
+    const plan = execution.plannerOutput as unknown as ExecutionPlan | null;
+    if (!plan) {
+      throw new Error("No plan available to resume this execution");
+    }
+
+    // Steps already completed before the pause = successful persisted tool
+    // calls (every plan step produces exactly one tool call, incl. `none`
+    // pass-throughs). The next unexecuted step index is therefore the count.
+    const executedCalls = (execution.toolCalls ?? []).filter((c) => c.status === "SUCCESS");
+    const currentStep = executedCalls.length;
+
+    // Rebuild results + tool call records from the persisted trace so the
+    // finish node assembles the complete output (not just the resumed tail).
+    const results: Record<string, unknown> = {};
+    const toolCalls: ToolCallRecord[] = [];
+    for (let i = 0; i < executedCalls.length; i += 1) {
+      const call = executedCalls[i];
+      const step = plan.steps[i];
+      const output = call.outputResult ?? call.inputArgs;
+      results[`step_${step?.stepNumber ?? i + 1}`] = output;
+      toolCalls.push({
+        stepNumber: step?.stepNumber ?? i + 1,
+        toolName: call.toolName,
+        action: call.action,
+        input: call.inputArgs,
+        output,
+        status: "SUCCESS",
+        requiresApproval: false,
+        durationMs: call.durationMs ?? undefined,
+      });
+    }
+
+    // Continue the graph from the restored state, asynchronously — the caller
+    // polls the execution detail page for completion. Unlike startExecution
+    // (which awaits the run), the engine here must STILL persist the terminal
+    // state when it finishes: ExecutionEngine.run only writes runtime details
+    // on success — the service owns writing COMPLETED + finalOutput, exactly
+    // like startExecution does after its await. Without this, an approved +
+    // resumed run would stay RUNNING forever (failures do persist via the
+    // engine's handleFailure, so only the success path was broken).
     this.engine.run({
       executionId,
       skill,
       version,
       userInput: execution.inputData,
-    }).catch((err) => {
-      logger.error({ executionId, err }, "Resume execution failed");
-    });
+      resume: {
+        plan,
+        currentStep,
+        results,
+        toolCalls,
+        providerUsed: execution.provider ?? null,
+        persistedStepCount: execution.stepCount,
+      },
+    })
+      .then(async (result) => {
+        if (result.status === "COMPLETED") {
+          await this.executionRepo.setFinalOutput(executionId, result.finalOutput ?? {});
+          await this.auditRepo.log({
+            userId,
+            executionId,
+            action: "EXECUTION_COMPLETED",
+            details: { resumed: true },
+          });
+        } else if (result.status === "PAUSED_FOR_APPROVAL") {
+          // The resumed run paused again at a later step — persist the pause.
+          await this.executionRepo.updateStatus(executionId, "PAUSED_FOR_APPROVAL");
+        }
+        logger.info({ executionId, status: result.status }, "Resumed execution finished");
+      })
+      .catch(async (err) => {
+        logger.error({ executionId, err }, "Resume execution failed");
+      });
 
     return execution;
   }

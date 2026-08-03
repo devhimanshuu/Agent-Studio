@@ -61,12 +61,14 @@ export class ApprovalEngine {
       details: { toolName: request.toolName, action: request.action },
     });
 
-    // Mark the execution as RUNNING so the resume endpoint can pick it up.
-    // The resume endpoint does the actual state restoration — this just clears
-    // the paused flag so the execution is eligible for resume.
+    // NOTE: the execution is NOT flipped to RUNNING here on purpose. The
+    // caller (POST /api/approvals → the review UI) must then call
+    // POST /api/executions/[id]/resume, whose resumeAfterApproval performs the
+    // actual state restoration (history RESUMED entry, step-limit check, and
+    // RUNNING status) before re-invoking the graph.
     logger.info(
       { executionId: request.executionId, approvalId },
-      "Approval granted — execution will resume"
+      "Approval granted — caller should resume the execution"
     );
 
     return updated;

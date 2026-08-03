@@ -42,6 +42,17 @@ export const plannerNode: GraphNode = async (state, config) => {
 
   runtime.logger.info({ executionId, skillId: skill.id }, "Planner Started");
   try {
+    // Resume path: the plan was already persisted when the run paused — reuse
+    // it instead of paying another LLM call AND risking a different plan.
+    if (state.plan) {
+      await persistNodeStep(runtime, "planner", "SUCCESS", {
+        restored: true,
+        steps: state.plan.steps.length,
+      });
+      runtime.logger.info({ executionId, steps: state.plan.steps.length }, "Planner restored from persisted state");
+      return { executionStatus: "RUNNING", providerUsed: state.providerUsed };
+    }
+
     const plan = await runtime.planner.plan({ skill, version, userInput: input });
     if (plan.steps.length > version.maxExecutionSteps) {
       throw new StepLimitExceededError(
@@ -112,7 +123,18 @@ export const toolSelectionNode: GraphNode = async (state, config) => {
   const tool = runtime.toolRegistry.getTool(step.toolName);
   // Stamp the merged approval decision into state so the conditional edge can
   // route to the approval node WITHOUT needing registry access.
-  const approvalPending = stepRequiresApproval(step, version, tool);
+  let approvalPending = stepRequiresApproval(step, version, tool);
+  if (approvalPending) {
+    // Resume path: this execution+step may already have an APPROVED request
+    // (the run was paused, reviewed, and is being re-invoked). If so, do NOT
+    // pause again — route straight to tool execution so the approved action
+    // actually runs. Without this, a resumed run re-parks at the approval
+    // node forever: approvalNode unconditionally returns PAUSED_FOR_APPROVAL.
+    const existing = await runtime.approvalRepo.findByIdempotencyKey(
+      `appr-${state.executionId}-step-${step.stepNumber}`
+    );
+    if (existing?.status === "APPROVED") approvalPending = false;
+  }
   await persistNodeStep(runtime, "tool_selection", "SUCCESS", {
     stepNumber: step.stepNumber,
     tool: step.toolName,

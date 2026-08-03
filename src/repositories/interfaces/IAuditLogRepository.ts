@@ -8,7 +8,17 @@ export interface AuditLogDTO {
   timestamp: Date;
 }
 
+export interface AuditLogQuery {
+  search?: string;
+  action?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+}
+
 export interface IAuditLogRepository {
   log(entry: Omit<AuditLogDTO, "id" | "timestamp">): Promise<AuditLogDTO>;
   findByUserId(userId: string): Promise<AuditLogDTO[]>;
+  /** Filterable audit history for the observability / audit pages. */
+  listForUser(userId: string, query: AuditLogQuery): Promise<AuditLogDTO[]>;
 }

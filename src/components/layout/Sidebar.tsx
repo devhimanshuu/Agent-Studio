@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useClerk } from "@clerk/nextjs";
-import { LayoutDashboard, Sparkles, Play, GitCompare, Shield, Wrench, LogOut, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { LayoutDashboard, Sparkles, Play, GitCompare, Shield, Wrench, LogOut, ChevronsLeft, ChevronsRight, Gauge, ScrollText } from "lucide-react";
 import { clsx } from "clsx";
 import { SignOutModal } from "@/components/feedback/SignOutModal";
 
@@ -12,7 +12,10 @@ const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, tag: "SYS_01" },
   { name: "Skills Studio", href: "/dashboard/skills", icon: Sparkles, tag: "SKILL_V1" },
   { name: "Executions", href: "/dashboard/executions", icon: Play, tag: "TRACE_LOG" },
+  { name: "Observability", href: "/dashboard/history", icon: Gauge, tag: "OBS_07" },
+  { name: "Audit Log", href: "/dashboard/audit", icon: ScrollText, tag: "AUDIT" },
   { name: "Versions", href: "/versions", icon: GitCompare, tag: "DIFF_VIEW" },
+  { name: "Compare", href: "/dashboard/compare", icon: GitCompare, tag: "DIFF_07" },
   { name: "Tool Registry", href: "/dashboard/tools", icon: Wrench, tag: "TOOL_V1" },
   { name: "Human Review", href: "/dashboard/review", icon: Shield, tag: "HITL_V2" },
 ];
@@ -72,7 +75,12 @@ export function Sidebar() {
           {/* Navigation Items */}
           <nav className="space-y-1.5">
             {navItems.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              // Only the exact /dashboard path highlights the Dashboard item —
+              // otherwise `/dashboard` would match every `/dashboard/*` subpage
+              // and two nav items would appear selected at once.
+              const isActive =
+                pathname === item.href ||
+                (item.href !== "/dashboard" && pathname.startsWith(`${item.href}/`));
               const Icon = item.icon;
               return (
                 <Link

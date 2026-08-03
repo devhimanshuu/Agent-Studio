@@ -1,4 +1,6 @@
-import { ExecutionDTO } from "@/types/execution";
+import { ExecutionDTO, ExecutionQuery } from "@/types/execution";
+import { ObservabilityMetrics } from "@/types/observability";
+import { ExecutionDetail } from "@/modules/history/executionHistoryService";
 import { ApiResponse } from "./skills";
 
 async function handle<T>(res: Response): Promise<T> {
@@ -12,11 +14,37 @@ async function handle<T>(res: Response): Promise<T> {
   return json.data;
 }
 
-export const executionsApi = {
-  list: (): Promise<ExecutionDTO[]> => fetch("/api/executions").then((r) => handle<ExecutionDTO[]>(r)),
+function buildQuery(query: ExecutionQuery = {}): string {
+  const params = new URLSearchParams();
+  if (query.search) params.set("search", query.search);
+  if (query.status) params.set("status", query.status);
+  if (query.skillName) params.set("skillName", query.skillName);
+  if (query.provider) params.set("provider", query.provider);
+  if (query.from) params.set("from", query.from);
+  if (query.to) params.set("to", query.to);
+  if (query.sortBy) params.set("sortBy", query.sortBy);
+  if (query.sortOrder) params.set("sortOrder", query.sortOrder);
+  if (query.limit) params.set("limit", String(query.limit));
+  const qs = params.toString();
+  return qs ? `/api/executions?${qs}` : "/api/executions";
+}
 
-  get: (id: string): Promise<ExecutionDTO> =>
-    fetch(`/api/executions/${id}`).then((r) => handle<ExecutionDTO>(r)),
+export const executionsApi = {
+  /** List with optional search / filter / sort (history + observability pages). */
+  list: (query: ExecutionQuery = {}): Promise<ExecutionDTO[]> =>
+    fetch(buildQuery(query)).then((r) => handle<ExecutionDTO[]>(r)),
+
+  /** Full trace: execution + logs + timeline + approvals. */
+  detail: (id: string): Promise<ExecutionDetail> =>
+    fetch(`/api/executions/${id}/detail`).then((r) => handle<ExecutionDetail>(r)),
+
+  /** JSON export of the full execution report. */
+  exportReport: (id: string): Promise<ExecutionDetail & { exportedAt: string }> =>
+    fetch(`/api/executions/${id}/export`).then((r) => handle<ExecutionDetail & { exportedAt: string }>(r)),
+
+  /** Observability widgets. */
+  metrics: (): Promise<ObservabilityMetrics> =>
+    fetch("/api/executions/metrics").then((r) => handle<ObservabilityMetrics>(r)),
 
   start: (skillVersionId: string, inputData: Record<string, unknown>): Promise<ExecutionDTO> =>
     fetch("/api/executions", {
@@ -27,6 +55,10 @@ export const executionsApi = {
 
   cancel: (id: string): Promise<ExecutionDTO> =>
     fetch(`/api/executions/${id}/cancel`, { method: "POST" }).then((r) => handle<ExecutionDTO>(r)),
+
+  /** Replay a previous execution — creates a NEW linked run, never mutates history. */
+  replay: (id: string): Promise<ExecutionDTO> =>
+    fetch(`/api/executions/${id}/replay`, { method: "POST" }).then((r) => handle<ExecutionDTO>(r)),
 
   resume: (id: string, approvalId: string, idempotencyKey: string): Promise<ExecutionDTO> =>
     fetch(`/api/executions/${id}/resume`, {

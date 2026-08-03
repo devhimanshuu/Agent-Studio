@@ -1,6 +1,7 @@
 import { Logger } from "@/lib/logger";
 import { IExecutionRepository } from "@/repositories/interfaces/IExecutionRepository";
 import { IApprovalRepository } from "@/repositories/interfaces/IApprovalRepository";
+import { IExecutionLogRepository } from "@/repositories/interfaces/IExecutionLogRepository";
 import { ToolCallDTO, StepStatus } from "@/types/execution";
 import { ToolRegistry } from "@/modules/tools";
 import { PermissionChecker } from "../tool-registry/permissionChecker";
@@ -21,6 +22,8 @@ export interface ExecutionRuntime {
   executionRepo: IExecutionRepository;
   /** Persists HITL approval requests when the graph pauses at the approval node. */
   approvalRepo: IApprovalRepository;
+  /** Persists structured execution logs (observability). */
+  logRepo: IExecutionLogRepository;
   signal?: AbortSignal;
   /** Monotonic counter for persisted step numbers (one sequence per execution). */
   stepCounter: number;
@@ -54,7 +57,7 @@ export async function persistNodeStep(
   });
 }
 
-/** Persist one tool call as a ToolCall row. */
+/** Persist one tool call as a ToolCall row + a structured execution log. */
 export async function persistToolCall(
   runtime: ExecutionRuntime,
   record: ToolCallRecord,
@@ -68,5 +71,18 @@ export async function persistToolCall(
     status,
     errorMessage: record.error,
     durationMs: record.durationMs,
+  });
+
+  await runtime.logRepo.log({
+    executionId: runtime.executionId,
+    event: status === "SUCCESS" ? "TOOL_EXECUTED" : "TOOL_FAILED",
+    level: status === "SUCCESS" ? "INFO" : "ERROR",
+    status,
+    durationMs: record.durationMs,
+    metadata: {
+      toolName: record.toolName,
+      action: record.action,
+      error: record.error,
+    },
   });
 }

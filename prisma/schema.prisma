@@ -108,32 +108,56 @@ model SkillVersion {
 }
 
 model Execution {
-  id               String          @id @default(cuid())
-  userId           String
-  skillVersionId   String
-  status           ExecutionStatus @default(PENDING)
-  inputData        Json
-  finalOutput      Json?
-  plannerOutput    Json?           // Plan produced by the planner node
-  provider         String?         // LLM provider/model that served the planner
-  durationMs       Int?            // Total wall-clock time of the run
-  stepCount        Int             @default(0)
-  maxSteps         Int
-  errorMessage     String?
-  startedAt        DateTime        @default(now())
-  completedAt      DateTime?
+  id                     String          @id @default(cuid())
+  userId                 String
+  skillVersionId         String
+  skillName              String?         // Denormalized for history/search/metrics
+  status                 ExecutionStatus @default(PENDING)
+  inputData              Json
+  finalOutput            Json?
+  plannerOutput          Json?           // Plan produced by the planner node
+  provider               String?         // LLM provider/model that served the planner
+  durationMs             Int?            // Total wall-clock time of the run
+  stepCount              Int             @default(0)
+  maxSteps               Int
+  errorMessage           String?
+  startedAt              DateTime        @default(now())
+  completedAt            DateTime?
+  replayedFromExecutionId String?        // Set when this run was created by a replay
 
-  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  skillVersion     SkillVersion    @relation(fields: [skillVersionId], references: [id])
-  steps            ExecutionStep[]
-  toolCalls        ToolCall[]
-  approvalRequests ApprovalRequest[]
-  auditLogs        AuditLog[]
+  user                   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skillVersion           SkillVersion    @relation(fields: [skillVersionId], references: [id])
+  replayedFrom           Execution?      @relation("ExecutionReplay", fields: [replayedFromExecutionId], references: [id], onDelete: SetNull)
+  replays                Execution[]     @relation("ExecutionReplay")
+  steps                  ExecutionStep[]
+  toolCalls              ToolCall[]
+  logs                   ExecutionLog[]
+  approvalRequests       ApprovalRequest[]
+  auditLogs              AuditLog[]
 
   @@index([userId])
   @@index([skillVersionId])
   @@index([status])
+  @@index([startedAt])
+  @@index([replayedFromExecutionId])
   @@map("executions")
+}
+
+model ExecutionLog {
+  id          String   @id @default(cuid())
+  executionId String
+  event       String   // e.g. EXECUTION_STARTED, PLANNER_FINISHED, TOOL_SELECTED, APPROVAL_REQUESTED
+  level       String   // INFO | WARN | ERROR
+  status      String?  // e.g. SUCCESS | FAILED | AWAITING_APPROVAL
+  durationMs  Int?
+  metadata    Json
+  timestamp   DateTime @default(now())
+
+  execution   Execution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([executionId])
+  @@index([timestamp])
+  @@map("execution_logs")
 }
 
 model ExecutionStep {
@@ -224,6 +248,20 @@ model ToolDefinition {
   createdAt         DateTime @default(now())
 
   @@map("tool_definitions")
+}
+
+model VersionComparison {
+  id         String   @id @default(cuid())
+  userId     String
+  skillId    String
+  versionAId String
+  versionBId String
+  result     Json     // Serialized VersionDiffDTO
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([skillId])
+  @@map("version_comparisons")
 }
 
 model AuditLog {

@@ -1,6 +1,12 @@
 import { Prisma } from "@prisma/client";
 import { IExecutionRepository } from "./interfaces/IExecutionRepository";
-import { ExecutionDTO, ExecutionStepDTO, ToolCallDTO, StartExecutionInput } from "@/types/execution";
+import {
+  ExecutionDTO,
+  ExecutionStepDTO,
+  ToolCallDTO,
+  StartExecutionInput,
+  ExecutionQuery,
+} from "@/types/execution";
 import { prisma } from "@/lib/prisma";
 
 export class ExecutionRepository implements IExecutionRepository {
@@ -43,11 +49,12 @@ export class ExecutionRepository implements IExecutionRepository {
     return executions.map((e) => this.mapExecution(e));
   }
 
-  async create(input: StartExecutionInput, maxSteps: number): Promise<ExecutionDTO> {
+  async create(input: StartExecutionInput, maxSteps: number, skillName?: string): Promise<ExecutionDTO> {
     const execution = await prisma.execution.create({
       data: {
         userId: input.userId,
         skillVersionId: input.skillVersionId,
+        skillName: skillName ?? null,
         inputData: input.inputData as unknown as Prisma.InputJsonValue,
         maxSteps,
         status: "RUNNING",
@@ -59,6 +66,116 @@ export class ExecutionRepository implements IExecutionRepository {
     });
 
     return this.mapExecution(execution);
+  }
+
+  async listForUser(userId: string, query: ExecutionQuery): Promise<ExecutionDTO[]> {
+    const where: Prisma.ExecutionWhereInput = { userId };
+
+    if (query.status) where.status = query.status as Prisma.EnumExecutionStatusFilter;
+    if (query.skillName) where.skillName = { contains: query.skillName, mode: "insensitive" };
+    if (query.provider) where.provider = { contains: query.provider, mode: "insensitive" };
+
+    // Defense in depth: routes validate these params and return 400 first, but
+    // the repo must never 500 on a bad value from ANY caller. Invalid dates are
+    // skipped (no filter); unknown sort keys/orders fall back to the defaults.
+    const from = query.from ? new Date(query.from) : undefined;
+    const to = query.to ? new Date(query.to) : undefined;
+    const fromValid = from !== undefined && !Number.isNaN(from.getTime());
+    const toValid = to !== undefined && !Number.isNaN(to.getTime());
+    if (fromValid || toValid) {
+      where.startedAt = {
+        ...(fromValid ? { gte: from } : {}),
+        ...(toValid ? { lte: to } : {}),
+      };
+    }
+    // Free-text search: execution id prefix, skill name, provider, or error message.
+    if (query.search) {
+      where.OR = [
+        { id: { contains: query.search, mode: "insensitive" } },
+        { skillName: { contains: query.search, mode: "insensitive" } },
+        { provider: { contains: query.search, mode: "insensitive" } },
+        { errorMessage: { contains: query.search, mode: "insensitive" } },
+      ];
+    }
+
+    const sortBy: "startedAt" | "durationMs" | "status" = ["startedAt", "durationMs", "status"].includes(
+      query.sortBy as string
+    )
+      ? (query.sortBy as "startedAt" | "durationMs" | "status")
+      : "startedAt";
+    const sortOrder: "asc" | "desc" = query.sortOrder === "asc" ? "asc" : "desc";
+
+    const executions = await prisma.execution.findMany({
+      where,
+      include: {
+        steps: { orderBy: { stepNumber: "asc" } },
+        toolCalls: { orderBy: { executedAt: "asc" } },
+      },
+      orderBy: { [sortBy]: sortOrder },
+      // Prisma throws on negative/NaN takes — clamp finite limits into 0..200
+      // (limit 0 still returns an empty page, as callers expect), default 100.
+      take: Number.isFinite(query.limit)
+        ? Math.min(Math.max(Math.floor(query.limit!), 0), 200)
+        : 100,
+    });
+
+    return executions.map((e) => this.mapExecution(e));
+  }
+
+  async setReplayedFrom(id: string, replayedFromExecutionId: string): Promise<ExecutionDTO> {
+    const updated = await prisma.execution.update({
+      where: { id },
+      data: { replayedFromExecutionId },
+      include: { steps: true, toolCalls: true },
+    });
+    return this.mapExecution(updated);
+  }
+
+  async getMetrics(userId: string): Promise<{
+    total: number;
+    completed: number;
+    failed: number;
+    cancelled: number;
+    paused: number;
+    avgDurationMs: number;
+    mostUsedSkills: { skillName: string; count: number }[];
+  }> {
+    const executions = await prisma.execution.findMany({
+      where: { userId },
+      select: { status: true, durationMs: true, skillName: true },
+    });
+
+    const total = executions.length;
+    const completed = executions.filter((e) => e.status === "COMPLETED").length;
+    const failed = executions.filter((e) => e.status === "FAILED" || e.status === "STEP_LIMIT_EXCEEDED").length;
+    const cancelled = executions.filter((e) => e.status === "CANCELLED").length;
+    const paused = executions.filter((e) => e.status === "PAUSED_FOR_APPROVAL").length;
+
+    const durations = executions
+      .map((e) => e.durationMs)
+      .filter((d): d is number => d != null);
+    const avgDurationMs =
+      durations.length > 0 ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : 0;
+
+    const skillCounts = new Map<string, number>();
+    for (const e of executions) {
+      const key = e.skillName || "Unknown skill";
+      skillCounts.set(key, (skillCounts.get(key) ?? 0) + 1);
+    }
+    const mostUsedSkills = [...skillCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([skillName, count]) => ({ skillName, count }));
+
+    return { total, completed, failed, cancelled, paused, avgDurationMs, mostUsedSkills };
+  }
+
+  async getApprovalSummary(userId: string): Promise<{ total: number; pending: number }> {
+    const [total, pending] = await Promise.all([
+      prisma.approvalRequest.count({ where: { userId } }),
+      prisma.approvalRequest.count({ where: { userId, status: "PENDING" } }),
+    ]);
+    return { total, pending };
   }
 
   async updateStatus(id: string, status: ExecutionDTO["status"], errorMessage?: string): Promise<ExecutionDTO> {
@@ -181,6 +298,8 @@ export class ExecutionRepository implements IExecutionRepository {
       id: e.id,
       userId: e.userId,
       skillVersionId: e.skillVersionId,
+      skillName: e.skillName,
+      replayedFromExecutionId: e.replayedFromExecutionId,
       status: e.status,
       inputData: e.inputData as Record<string, unknown>,
       finalOutput: e.finalOutput as Record<string, unknown> | null,

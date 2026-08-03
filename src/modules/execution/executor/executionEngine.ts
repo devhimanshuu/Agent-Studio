@@ -1,9 +1,10 @@
 import { Logger, logger as defaultLogger } from "@/lib/logger";
 import { IExecutionRepository } from "@/repositories/interfaces/IExecutionRepository";
 import { IApprovalRepository } from "@/repositories/interfaces/IApprovalRepository";
+import { IExecutionLogRepository } from "@/repositories/interfaces/IExecutionLogRepository";
 import { ExecutionStatus } from "@/types/execution";
 import { SkillDTO, SkillVersionDTO } from "@/types/skill";
-import { createInitialAgentState, ExecutionPlan, AgentState } from "../state/agentState";
+import { createInitialAgentState, ExecutionPlan, AgentState, ToolCallRecord } from "../state/agentState";
 import { createExecutionGraph } from "../graph/buildExecutionGraph";
 import { ToolRegistry } from "@/modules/tools";
 import { PermissionChecker } from "../tool-registry/permissionChecker";
@@ -25,6 +26,8 @@ export interface ExecutionEngineDeps {
   executionRepo: IExecutionRepository;
   /** Persists HITL approval requests created when the graph pauses. */
   approvalRepo: IApprovalRepository;
+  /** Persists structured execution logs (observability). */
+  logRepo: IExecutionLogRepository;
   logger?: Logger;
   /** Wall-clock limit for the whole graph run. Default 120s. */
   timeoutMs?: number;
@@ -36,6 +39,25 @@ export interface EngineRunInput {
   version: SkillVersionDTO;
   userInput: Record<string, unknown>;
   signal?: AbortSignal;
+  /**
+   * Resume a previously paused run: restore the plan + progress from the
+   * persisted execution instead of replanning from scratch. The graph then
+   * continues from the exact step that needed approval — it does NOT restart.
+   */
+  resume?: {
+    /** The plan persisted when the run originally paused. */
+    plan: ExecutionPlan;
+    /** Index of the next plan step to execute (0-based). */
+    currentStep: number;
+    /** Outputs already produced before the pause (keyed `step_<n>`). */
+    results: Record<string, unknown>;
+    /** Tool calls recorded before the pause. */
+    toolCalls: ToolCallRecord[];
+    /** Provider/model that served the original plan. */
+    providerUsed: string | null;
+    /** Highest node-step number already persisted (continue numbering). */
+    persistedStepCount: number;
+  };
 }
 
 export interface EngineRunResult {
@@ -72,13 +94,33 @@ export class ExecutionEngine {
       planner: this.deps.planner,
       executionRepo: this.deps.executionRepo,
       approvalRepo: this.deps.approvalRepo,
+      logRepo: this.deps.logRepo,
       signal: input.signal,
       stepCounter: 0,
     };
 
     logger.info({ executionId, skillId: skill.id, versionNumber: version.versionNumber }, "Execution Started");
+    await this.deps.logRepo.log({
+      executionId,
+      event: "EXECUTION_STARTED",
+      level: "INFO",
+      status: "RUNNING",
+      metadata: { skillId: skill.id, versionNumber: version.versionNumber },
+    });
 
     const initialState = createInitialAgentState({ executionId, skill, version, userInput });
+    if (input.resume) {
+      // Restore the paused run's plan + progress so the graph continues from
+      // the exact step that needed approval (Phase 6: restore state from the
+      // database, do NOT restart the graph). The planner node is skipped for
+      // restored runs (see plannerNode), and the node-step counter resumes.
+      initialState.plan = input.resume.plan;
+      initialState.currentStep = input.resume.currentStep;
+      initialState.results = input.resume.results;
+      initialState.toolCalls = input.resume.toolCalls;
+      initialState.providerUsed = input.resume.providerUsed;
+      runtime.stepCounter = input.resume.persistedStepCount;
+    }
 
     try {
       const finalState: AgentState = await withTimeout(
@@ -88,10 +130,19 @@ export class ExecutionEngine {
       );
 
       const status = finalState.executionStatus;
+      const durationMs = Date.now() - startedAt;
       await this.deps.executionRepo.setRuntimeDetails(executionId, {
         provider: finalState.providerUsed ?? undefined,
         plannerOutput: (finalState.plan as unknown as Record<string, unknown>) ?? undefined,
-        durationMs: Date.now() - startedAt,
+        durationMs,
+      });
+      await this.deps.logRepo.log({
+        executionId,
+        event: "EXECUTION_FINISHED",
+        level: status === "COMPLETED" ? "INFO" : "WARN",
+        status,
+        durationMs,
+        metadata: { provider: finalState.providerUsed },
       });
       logger.info({ executionId, status }, "Execution Finished");
 
@@ -130,6 +181,14 @@ export class ExecutionEngine {
     try {
       await this.deps.executionRepo.updateStatus(executionId, status, isUserCancellation ? undefined : message);
       await this.deps.executionRepo.setRuntimeDetails(executionId, { durationMs });
+      await this.deps.logRepo.log({
+        executionId,
+        event: "EXECUTION_FAILED",
+        level: status === "CANCELLED" ? "WARN" : "ERROR",
+        status,
+        durationMs,
+        metadata: { error: message },
+      });
     } catch {
       // Ignore persistence failures in the error path.
     }
