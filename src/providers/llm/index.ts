@@ -5,7 +5,7 @@ import { LLMRouter, LLMRouterOptions } from "./LLMRouter";
 import { ALL_FALLBACK_MODELS } from "./modelLists";
 import { env } from "@/lib/config/env";
 
-export type { LLMProvider, LLMChatMessage, LLMCompletionOptions, LLMCompletionResult, LLMTool, LLMToolCall } from "./LLMProvider";
+export type { LLMProvider, LLMChatMessage, LLMCompletionOptions, LLMCompletionResult, LLMStreamChunk, LLMTool, LLMToolCall } from "./LLMProvider";
 export { LLMError } from "./LLMProvider";
 export { GroqProvider } from "./GroqProvider";
 export { OpenRouterProvider } from "./OpenRouterProvider";

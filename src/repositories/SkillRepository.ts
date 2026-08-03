@@ -166,32 +166,36 @@ export class SkillRepository implements ISkillRepository {
       });
     }
 
-    const updated = await prisma.skillVersion.update({
-      where: { id: draftId! },
-      data: {
-        ...(input.inputSchema && { inputSchema: input.inputSchema as unknown as Prisma.InputJsonValue }),
-        ...(input.outputSchema && { outputSchema: input.outputSchema as unknown as Prisma.InputJsonValue }),
-        ...(input.instructions !== undefined && { instructions: input.instructions }),
-        ...(input.examples && { examples: input.examples as unknown as Prisma.InputJsonValue }),
-        ...(input.allowedTools && { allowedTools: input.allowedTools as unknown as Prisma.InputJsonValue }),
-        ...(input.actionsRequiringApproval && {
-          actionsRequiringApproval: input.actionsRequiringApproval as unknown as Prisma.InputJsonValue,
-        }),
-        ...(input.maxExecutionSteps !== undefined && { maxExecutionSteps: input.maxExecutionSteps }),
-        ...(input.notes !== undefined && { notes: input.notes }),
-      },
-    });
-
-    // Keep the top-level skill name/purpose in sync with the draft, and always
-    // bump updatedAt so recently edited skills surface in updatedAt sorting.
-    await prisma.skill.update({
-      where: { id: skillId },
-      data: {
-        ...(input.name !== undefined && { name: input.name }),
-        ...(input.purpose !== undefined && { purpose: input.purpose }),
-        updatedAt: new Date(),
-      },
-    });
+    // Update the draft AND sync the skill row atomically. Splitting these into
+    // two separate writes could leave the skill name/purpose/updatedAt stale if
+    // the second query failed (or the process crashed) after the version saved.
+    const [updated] = await prisma.$transaction([
+      prisma.skillVersion.update({
+        where: { id: draftId! },
+        data: {
+          ...(input.inputSchema && { inputSchema: input.inputSchema as unknown as Prisma.InputJsonValue }),
+          ...(input.outputSchema && { outputSchema: input.outputSchema as unknown as Prisma.InputJsonValue }),
+          ...(input.instructions !== undefined && { instructions: input.instructions }),
+          ...(input.examples && { examples: input.examples as unknown as Prisma.InputJsonValue }),
+          ...(input.allowedTools && { allowedTools: input.allowedTools as unknown as Prisma.InputJsonValue }),
+          ...(input.actionsRequiringApproval && {
+            actionsRequiringApproval: input.actionsRequiringApproval as unknown as Prisma.InputJsonValue,
+          }),
+          ...(input.maxExecutionSteps !== undefined && { maxExecutionSteps: input.maxExecutionSteps }),
+          ...(input.notes !== undefined && { notes: input.notes }),
+        },
+      }),
+      // Keep the top-level skill name/purpose in sync with the draft, and always
+      // bump updatedAt so recently edited skills surface in updatedAt sorting.
+      prisma.skill.update({
+        where: { id: skillId },
+        data: {
+          ...(input.name !== undefined && { name: input.name }),
+          ...(input.purpose !== undefined && { purpose: input.purpose }),
+          updatedAt: new Date(),
+        },
+      }),
+    ]);
 
     return this.mapVersion(updated);
   }

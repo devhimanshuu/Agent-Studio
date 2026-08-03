@@ -1,10 +1,75 @@
 import React from "react";
 import Link from "next/link";
-import { Sparkles, CheckSquare, GitCompare, Terminal, ArrowRight, Lock, Wrench, ShieldCheck, UserCheck, Database, Zap, HelpCircle, ChevronDown } from "lucide-react";
+import {
+  Sparkles,
+  CheckSquare,
+  GitCompare,
+  Terminal,
+  ArrowRight,
+  Lock,
+  Wrench,
+  ShieldCheck,
+  UserCheck,
+  Database,
+  Zap,
+  HelpCircle,
+  ChevronDown,
+  GitBranch,
+  RefreshCw,
+  ListChecks,
+  Braces,
+  Flag,
+  Activity,
+} from "lucide-react";
 import { SignInButton, SignUpButton, SignedIn, SignedOut } from "@clerk/nextjs";
 import { LiveExecutionTerminal } from "@/components/landing/LiveExecutionTerminal";
 import { PixelGridWave } from "@/components/landing/PixelGridWave";
 import { Reveal } from "@/components/Reveal";
+
+const runtimeNodes = [
+  {
+    tag: "PLANNER NODE",
+    accent: "text-indigo-300 border-indigo-500/40",
+    icon: ListChecks,
+    title: "Plan Generation",
+    desc: "The LLM is one dependency of one node. It emits a deterministic, schema-validated execution plan — never touches tools directly.",
+  },
+  {
+    tag: "PERMISSION NODE",
+    accent: "text-emerald-300 border-emerald-500/40",
+    icon: ShieldCheck,
+    title: "Tool Authorization",
+    desc: "Every planned tool must exist, be enabled, and be listed in the skill's allowedTools — anything else is rejected before it can run.",
+  },
+  {
+    tag: "SELECTION NODE",
+    accent: "text-cyan-300 border-cyan-500/40",
+    icon: GitBranch,
+    title: "Step Routing",
+    desc: "The graph routes step-by-step via conditional edges: approve, execute, or finish — the plan is walked deterministically.",
+  },
+  {
+    tag: "EXECUTION NODE",
+    accent: "text-violet-300 border-violet-500/40",
+    icon: Wrench,
+    title: "Tool Execution",
+    desc: "Each step runs through the tool registry with retry handling. Tool calls and their outputs are persisted for full auditability.",
+  },
+  {
+    tag: "APPROVAL NODE",
+    accent: "text-amber-300 border-amber-500/40",
+    icon: Lock,
+    title: "HITL Pause",
+    desc: "Actions flagged for approval park the run in PAUSED_FOR_APPROVAL. A single-use idempotency key guarantees the response happens once.",
+  },
+  {
+    tag: "FINISH NODE",
+    accent: "text-emerald-300 border-emerald-500/40",
+    icon: Flag,
+    title: "Output Assembly",
+    desc: "Collected step results are assembled into the final output and persisted alongside the full node timeline.",
+  },
+];
 
 export default function LandingPage() {
   return (
@@ -34,7 +99,7 @@ export default function LandingPage() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-60"></span>
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-400"></span>
               </span>
-              DEFINE · VALIDATE · VERSION · EXECUTE
+              GRAPH-FIRST RUNTIME · LLM AUTO-FAILOVER · HITL LOCK
             </div>
           </div>
 
@@ -54,13 +119,15 @@ export default function LandingPage() {
           >
             <p className="text-xl sm:text-2xl text-slate-100 font-medium leading-snug tracking-tight font-sans">
               Build, validate, version, and execute{" "}
-              <span className="text-gradient-glow font-semibold">dynamic AI skills</span> safely.
+              <span className="text-gradient-glow font-semibold">dynamic AI skills</span> on a{" "}
+              <span className="text-slate-200 border-b border-indigo-500/30 pb-0.5">graph-first agent runtime</span>.
             </p>
             <p className="text-sm sm:text-base text-slate-400 leading-relaxed font-mono-tech">
               Every tool call is restricted to{" "}
-              <span className="text-slate-200 border-b border-indigo-500/30 pb-0.5">authorized schemas</span>, and any write action requires explicit{" "}
+              <span className="text-slate-200 border-b border-indigo-500/30 pb-0.5">authorized schemas</span>, write actions require explicit{" "}
               <span className="text-indigo-300 font-medium border-b border-indigo-400/40 pb-0.5">Human-in-the-Loop approval</span> protected by{" "}
-              <span className="text-slate-200 border-b border-indigo-500/30 pb-0.5">single-use idempotency tokens</span>.
+              <span className="text-slate-200 border-b border-indigo-500/30 pb-0.5">single-use idempotency tokens</span>, and every AI call{" "}
+              <span className="text-emerald-300 border-b border-emerald-400/40 pb-0.5">auto-fails over across 12 free models</span>.
             </p>
           </div>
 
@@ -121,8 +188,8 @@ export default function LandingPage() {
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 font-mono text-center">
         <Reveal delay={0}>
           <div className="p-4 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-1 h-full">
-            <div className="text-2xl font-pixel text-slate-100">99.99%</div>
-            <div className="text-[11px] text-indigo-400">HITL Approval Reliability</div>
+            <div className="text-2xl font-pixel text-slate-100">12</div>
+            <div className="text-[11px] text-indigo-400">LLM Models · Auto-Failover Roster</div>
           </div>
         </Reveal>
         <Reveal delay={80}>
@@ -134,27 +201,125 @@ export default function LandingPage() {
         <Reveal delay={160}>
           <div className="p-4 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-1 h-full">
             <div className="text-2xl font-pixel text-slate-100">100%</div>
-            <div className="text-[11px] text-amber-400">Single-Use Token Security</div>
+            <div className="text-[11px] text-amber-400">Single-Use Token Enforcement</div>
           </div>
         </Reveal>
         <Reveal delay={240}>
           <div className="p-4 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-1 h-full">
-            <div className="text-2xl font-pixel text-slate-100">SAAS READY</div>
-            <div className="text-[11px] text-indigo-300">Multi-Tenant PostgreSQL</div>
+            <div className="text-2xl font-pixel text-slate-100">TRACED</div>
+            <div className="text-[11px] text-indigo-300">Every Execution · Node Timeline</div>
           </div>
         </Reveal>
       </section>
 
-      {/* SECTION 3: 4 CORE SAAS PILLARS (#features) */}
+      {/* SECTION 3: THE GRAPH-FIRST RUNTIME (#runtime) */}
+      <section id="runtime" className="space-y-8 pt-4">
+        <Reveal>
+          <div className="flex items-center justify-between text-xs font-mono text-indigo-400/80 uppercase tracking-widest border-b border-indigo-950/80 pb-3">
+            <span>// 01. THE GRAPH-FIRST AGENT RUNTIME</span>
+            <span>LANGGRAPH EXECUTION ENGINE</span>
+          </div>
+        </Reveal>
+
+        {/* Flow legend */}
+        <Reveal delay={60}>
+          <div className="text-[11px] font-mono text-slate-500 overflow-x-auto whitespace-nowrap pb-1">
+            <span className="text-indigo-300">START</span>
+            <span className="text-slate-600"> → </span>
+            <span>planner</span>
+            <span className="text-slate-600"> → </span>
+            <span>permission</span>
+            <span className="text-slate-600"> → </span>
+            <span>tool_selection</span>
+            <span className="text-slate-600"> ⇄ </span>
+            <span>tool_execution</span>
+            <span className="text-slate-600"> → </span>
+            <span className="text-amber-300">approval?</span>
+            <span className="text-slate-600"> → </span>
+            <span>finish</span>
+            <span className="text-slate-600"> → </span>
+            <span className="text-emerald-300">END</span>
+          </div>
+        </Reveal>
+
+        {/* Node cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-4 font-mono">
+          {runtimeNodes.map((node, i) => (
+            <Reveal key={node.tag} delay={i * 60}>
+              <div className="p-4 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-2 hover:-translate-y-1 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-300 h-full flex flex-col">
+                <div className="flex items-center justify-between">
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded border bg-black/40 ${node.accent}`}>
+                    {node.tag}
+                  </span>
+                  <node.icon className="h-3.5 w-3.5 text-indigo-400/70" />
+                </div>
+                <h3 className="text-xs font-bold text-slate-100">{node.title}</h3>
+                <p className="text-[10px] text-slate-400 font-serif leading-relaxed flex-1">{node.desc}</p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+
+        {/* Execution trace panel */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 font-mono">
+          <Reveal delay={0}>
+            <div className="p-5 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-3 h-full">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-400/80 border-b border-indigo-950/60 pb-2 flex items-center gap-1.5">
+                <Braces className="h-3.5 w-3.5" /> PERSISTED EXECUTION TRACE
+              </div>
+              <pre className="text-[10px] text-slate-400 overflow-x-auto leading-relaxed">
+{`{
+  "status": "COMPLETED",
+  "provider": "groq/llama-3.3-70b-versatile",
+  "durationMs": 1842,
+  "maxSteps": 10,
+  "plannerOutput": {
+    "reasoning": "Resolve the refund first…",
+    "requiredTools": ["calculator"],
+    "steps": 3
+  },
+  "nodeTimeline": [
+    "planner → permission → tool_selection",
+    "→ tool_execution → finish"
+  ]
+}`}
+              </pre>
+            </div>
+          </Reveal>
+          <Reveal delay={100}>
+            <div className="p-5 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-3 h-full">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-400/80 border-b border-indigo-950/60 pb-2 flex items-center gap-1.5">
+                <Activity className="h-3.5 w-3.5" /> WHY GRAPH-FIRST?
+              </div>
+              <ul className="text-[11px] text-slate-400 font-serif space-y-3 leading-relaxed">
+                <li>
+                  <span className="text-slate-200 font-bold">The LLM is a node dependency, not the system.</span>{" "}
+                  The runtime walks a deterministic LangGraph — the same plan executes identically with any provider.
+                </li>
+                <li>
+                  <span className="text-slate-200 font-bold">Every step is persisted.</span>{" "}
+                  Planner output, provider used, duration, node timeline, and tool calls survive the run for replay and audit.
+                </li>
+                <li>
+                  <span className="text-slate-200 font-bold">Failure is handled like any node.</span>{" "}
+                  Provider failures, timeouts, unauthorized tools, and step-limit breaches all resolve to explicit terminal states.
+                </li>
+              </ul>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* SECTION 4: CORE SAAS PILLARS (#features) */}
       <section id="features" className="space-y-8 pt-4">
         <Reveal>
           <div className="flex items-center justify-between text-xs font-mono text-indigo-400/80 uppercase tracking-widest border-b border-indigo-950/80 pb-3">
-            <span>// 01. CORE SAAS CAPABILITIES</span>
+            <span>// 02. CORE SAAS CAPABILITIES</span>
             <span>ENTERPRISE GUARANTEES</span>
           </div>
         </Reveal>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-4 gap-6 font-mono">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 font-mono">
           {/* Pillar 1 */}
           <Reveal delay={0}>
             <div className="p-6 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-3 hover:border-indigo-500/50 hover:-translate-y-1 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-300 h-full">
@@ -173,51 +338,79 @@ export default function LandingPage() {
           <Reveal delay={80}>
             <div className="p-6 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-3 hover:border-indigo-500/50 hover:-translate-y-1 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-300 h-full">
               <div className="flex items-center justify-between text-indigo-400 text-xs">
-                <span className="font-pixel text-sm">02. BOUNDED SYSTEM TOOLS</span>
-                <Wrench className="h-4 w-4" />
+                <span className="font-pixel text-sm">02. GRAPH-FIRST RUNTIME</span>
+                <GitBranch className="h-4 w-4" />
               </div>
-              <h3 className="text-base font-semibold text-slate-100">Strict Tool Authorization</h3>
+              <h3 className="text-base font-semibold text-slate-100">LangGraph Execution Engine</h3>
               <p className="text-xs text-slate-400 font-serif leading-relaxed">
-                Agents operate strictly within allowed tools. Unpermitted tool requests are intercepted and rejected at the execution graph level.
+                Skills execute deterministically through independent nodes — planner, permission, selection, execution, approval, finish — each writing to strongly typed state.
               </p>
             </div>
           </Reveal>
 
           {/* Pillar 3 */}
           <Reveal delay={160}>
-            <div className="p-6 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-3 hover:border-amber-500/50 hover:-translate-y-1 hover:shadow-lg hover:shadow-amber-500/10 transition-all duration-300 h-full">
-              <div className="flex items-center justify-between text-amber-400 text-xs">
-                <span className="font-pixel text-sm">03. HUMAN-IN-THE-LOOP (HITL)</span>
-                <CheckSquare className="h-4 w-4" />
+            <div className="p-6 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-3 hover:border-emerald-500/50 hover:-translate-y-1 hover:shadow-lg hover:shadow-emerald-500/10 transition-all duration-300 h-full">
+              <div className="flex items-center justify-between text-emerald-400 text-xs">
+                <span className="font-pixel text-sm">03. BOUNDED SYSTEM TOOLS</span>
+                <Wrench className="h-4 w-4" />
               </div>
-              <h3 className="text-base font-semibold text-slate-100">Single-Use Idempotency Approval Locks</h3>
+              <h3 className="text-base font-semibold text-slate-100">Strict Tool Authorization</h3>
               <p className="text-xs text-slate-400 font-serif leading-relaxed">
-                Write actions automatically pause agent execution into a pending state. Approval triggers a single-use token preventing duplicate writes.
+                Agents operate strictly within allowed tools. Unpermitted tool requests are intercepted and rejected at the permission node before execution.
               </p>
             </div>
           </Reveal>
 
           {/* Pillar 4 */}
           <Reveal delay={240}>
-            <div className="p-6 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-3 hover:border-emerald-500/50 hover:-translate-y-1 hover:shadow-lg hover:shadow-emerald-500/10 transition-all duration-300 h-full">
-              <div className="flex items-center justify-between text-emerald-400 text-xs">
-                <span className="font-pixel text-sm">04. VERSIONING & DIFF ENGINE</span>
+            <div className="p-6 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-3 hover:border-amber-500/50 hover:-translate-y-1 hover:shadow-lg hover:shadow-amber-500/10 transition-all duration-300 h-full">
+              <div className="flex items-center justify-between text-amber-400 text-xs">
+                <span className="font-pixel text-sm">04. HUMAN-IN-THE-LOOP (HITL)</span>
+                <CheckSquare className="h-4 w-4" />
+              </div>
+              <h3 className="text-base font-semibold text-slate-100">Single-Use Idempotency Approval Locks</h3>
+              <p className="text-xs text-slate-400 font-serif leading-relaxed">
+                Write actions automatically pause agent execution into a pending state. Approval consumes a single-use token — enforced atomically, so a key can never respond twice.
+              </p>
+            </div>
+          </Reveal>
+
+          {/* Pillar 5 */}
+          <Reveal delay={320}>
+            <div className="p-6 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-3 hover:border-indigo-500/50 hover:-translate-y-1 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-300 h-full">
+              <div className="flex items-center justify-between text-indigo-400 text-xs">
+                <span className="font-pixel text-sm">05. VERSIONING & DIFF ENGINE</span>
                 <GitCompare className="h-4 w-4" />
               </div>
               <h3 className="text-base font-semibold text-slate-100">Draft & Published Version Control</h3>
               <p className="text-xs text-slate-400 font-serif leading-relaxed">
-                Publish drafts into immutable numeric versions (v1, v2, v3). Compare versions side-by-side with full diff inspection and rerun support.
+                Publish drafts into immutable numeric versions (v1, v2, v3). Editing a published skill auto-rotates a fresh draft — published versions never change.
+              </p>
+            </div>
+          </Reveal>
+
+          {/* Pillar 6 */}
+          <Reveal delay={400}>
+            <div className="p-6 rounded border border-indigo-900/50 bg-[#0a0a0a]/80 space-y-3 hover:border-cyan-500/50 hover:-translate-y-1 hover:shadow-lg hover:shadow-cyan-500/10 transition-all duration-300 h-full">
+              <div className="flex items-center justify-between text-cyan-400 text-xs">
+                <span className="font-pixel text-sm">06. LLM AUTO-FAILOVER</span>
+                <RefreshCw className="h-4 w-4" />
+              </div>
+              <h3 className="text-base font-semibold text-slate-100">Multi-Provider Router with Circuit Breakers</h3>
+              <p className="text-xs text-slate-400 font-serif leading-relaxed">
+                12 free models across Groq and OpenRouter are tried in order. Failures trigger adaptive cooldowns (429 → 60s, 5xx → 30s, 404 → 10min, bad key → vendor park).
               </p>
             </div>
           </Reveal>
         </div>
       </section>
 
-      {/* SECTION 4: BOUNDED TOOL SUITE BREAKDOWN (#tools) */}
+      {/* SECTION 5: BOUNDED TOOL SUITE BREAKDOWN (#tools) */}
       <section id="tools" className="space-y-6 pt-4 font-mono">
         <Reveal>
           <div className="flex items-center justify-between text-xs text-indigo-400/80 uppercase tracking-widest border-b border-indigo-950/80 pb-3">
-            <span>// 02. BOUNDED SYSTEM TOOL MATRIX</span>
+            <span>// 03. BOUNDED SYSTEM TOOL MATRIX</span>
             <span>PRE-BUILT SANDBOXED TOOLS</span>
           </div>
         </Reveal>
@@ -265,13 +458,13 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* SECTION 5: SECURITY & GUARDRAILS (#guardrails) */}
+      {/* SECTION 6: SECURITY & GUARDRAILS (#guardrails) */}
       <section id="guardrails" className="p-5 sm:p-8 rounded border border-indigo-900/50 bg-[#0a0a0a]/90 space-y-6 font-mono">
         <Reveal>
           <div className="flex items-center justify-between border-b border-indigo-950 pb-4 text-xs">
             <div className="flex items-center gap-2 text-indigo-400">
               <ShieldCheck className="h-5 w-5" />
-              <span className="font-pixel text-sm">03. ENTERPRISE SECURITY GUARDRAILS</span>
+              <span className="font-pixel text-sm">04. ENTERPRISE SECURITY GUARDRAILS</span>
             </div>
             <span className="text-emerald-400 text-[10px]">[ ZERO TRUST RUNTIME ]</span>
           </div>
@@ -284,7 +477,7 @@ export default function LandingPage() {
                 <Lock className="h-4 w-4 text-amber-400" /> Single-Use Idempotency Tokens
               </h4>
               <p className="text-slate-400 font-serif leading-relaxed text-[11px]">
-                Every approved write action generates a single-use token. Retries or duplicate submissions are automatically blocked.
+                Every approved write action generates a single-use token, enforced atomically in the database — replays and concurrent duplicates are blocked.
               </p>
             </div>
           </Reveal>
@@ -310,26 +503,59 @@ export default function LandingPage() {
               </p>
             </div>
           </Reveal>
+
+          <Reveal delay={300}>
+            <div className="space-y-2">
+              <h4 className="font-bold text-slate-100 flex items-center gap-1.5">
+                <RefreshCw className="h-4 w-4 text-cyan-400" /> LLM Circuit Breakers
+              </h4>
+              <p className="text-slate-400 font-serif leading-relaxed text-[11px]">
+                A single model failure never fails a run — the router parks it in an adaptive cooldown and transparently moves on to the next.
+              </p>
+            </div>
+          </Reveal>
+
+          <Reveal delay={400}>
+            <div className="space-y-2">
+              <h4 className="font-bold text-slate-100 flex items-center gap-1.5">
+                <Database className="h-4 w-4 text-indigo-400" /> Atomic Database Writes
+              </h4>
+              <p className="text-slate-400 font-serif leading-relaxed text-[11px]">
+                Skill creation, draft rotation, publish, and execution persistence commit in single transactions — a crash can never orphan data.
+              </p>
+            </div>
+          </Reveal>
+
+          <Reveal delay={500}>
+            <div className="space-y-2">
+              <h4 className="font-bold text-slate-100 flex items-center gap-1.5">
+                <Activity className="h-4 w-4 text-emerald-400" /> Full Audit Trails
+              </h4>
+              <p className="text-slate-400 font-serif leading-relaxed text-[11px]">
+                Every mutation writes a structured log and an audit row (SKILL_PUBLISHED, APPROVAL_GRANTED, …) traced back to the acting user.
+              </p>
+            </div>
+          </Reveal>
         </div>
       </section>
 
-      {/* SECTION 6: FREQUENTLY ASKED QUESTIONS (#faq) */}
+      {/* SECTION 7: FREQUENTLY ASKED QUESTIONS (#faq) */}
       <section id="faq" className="space-y-6 pt-4 font-mono">
         <Reveal>
           <div className="flex items-center justify-between text-xs text-indigo-400/80 uppercase tracking-widest border-b border-indigo-950/80 pb-3">
-            <span>// 04. FREQUENTLY ASKED QUESTIONS</span>
+            <span>// 05. FREQUENTLY ASKED QUESTIONS</span>
             <span>FAQ & DETAILS</span>
           </div>
         </Reveal>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-4 gap-6 text-xs">
+        <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 text-xs">
           <Reveal delay={0}>
             <div className="p-5 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-2 h-full">
               <h4 className="font-bold text-slate-100 flex items-center gap-2">
                 <HelpCircle className="h-4 w-4 text-indigo-400" /> How does Human-in-the-Loop (HITL) approval work?
               </h4>
               <p className="text-slate-400 font-serif leading-relaxed text-[11px]">
-                When an agent executes a tool specified in <code className="text-indigo-300">actionsRequiringApproval</code>, execution pauses in a pending state. Users review the payload and approve or reject it in the UI.
+                When an agent executes a tool specified in <code className="text-indigo-300">actionsRequiringApproval</code>, execution pauses in a pending state. Users review the payload and approve or reject it.
               </p>
             </div>
           </Reveal>
@@ -340,7 +566,7 @@ export default function LandingPage() {
                 <HelpCircle className="h-4 w-4 text-indigo-400" /> What prevents duplicate write execution?
               </h4>
               <p className="text-slate-400 font-serif leading-relaxed text-[11px]">
-                Every approved write action generates a single-use idempotency key. Once consumed by the execution engine, the key is invalidated forever.
+                Every approved write action carries a single-use idempotency key, enforced atomically. Once consumed, replaying the same key — even concurrently — is rejected.
               </p>
             </div>
           </Reveal>
@@ -351,7 +577,7 @@ export default function LandingPage() {
                 <HelpCircle className="h-4 w-4 text-indigo-400" /> Can agents call unauthorized tools?
               </h4>
               <p className="text-slate-400 font-serif leading-relaxed text-[11px]">
-                No. Tool availability is restricted to the exact <code className="text-indigo-300">allowedTools</code> list defined in the skill schema. Unpermitted tool calls are rejected automatically.
+                No. Tool availability is restricted to the exact <code className="text-indigo-300">allowedTools</code> list defined in the skill schema. Unpermitted tool calls are rejected at the permission node.
               </p>
             </div>
           </Reveal>
@@ -359,17 +585,39 @@ export default function LandingPage() {
           <Reveal delay={240}>
             <div className="p-5 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-2 h-full">
               <h4 className="font-bold text-slate-100 flex items-center gap-2">
+                <HelpCircle className="h-4 w-4 text-indigo-400" /> What happens when an LLM provider goes down?
+              </h4>
+              <p className="text-slate-400 font-serif leading-relaxed text-[11px]">
+                Nothing breaks. The router parks the failed model in a cooldown and transparently retries the next of 12 configured models across Groq and OpenRouter.
+              </p>
+            </div>
+          </Reveal>
+
+          <Reveal delay={320}>
+            <div className="p-5 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-2 h-full">
+              <h4 className="font-bold text-slate-100 flex items-center gap-2">
+                <HelpCircle className="h-4 w-4 text-indigo-400" /> Can I trace how an execution ran?
+              </h4>
+              <p className="text-slate-400 font-serif leading-relaxed text-[11px]">
+                Every run persists its planner output, serving provider, duration, node-by-node timeline, and tool calls — inspectable in the execution trace view.
+              </p>
+            </div>
+          </Reveal>
+
+          <Reveal delay={400}>
+            <div className="p-5 rounded border border-indigo-900/40 bg-[#0a0a0a]/60 space-y-2 h-full">
+              <h4 className="font-bold text-slate-100 flex items-center gap-2">
                 <HelpCircle className="h-4 w-4 text-indigo-400" /> How does skill version control work?
               </h4>
               <p className="text-slate-400 font-serif leading-relaxed text-[11px]">
-                Skills start as a Draft. Publishing creates an immutable numeric version (v1, v2). You can compare version diffs side-by-side and rerun previous versions anytime.
+                Skills start as a Draft. Publishing creates an immutable numeric version (v1, v2), and editing a published skill auto-rotates a fresh draft so published versions never change.
               </p>
             </div>
           </Reveal>
         </div>
       </section>
 
-      {/* SECTION 7: BOTTOM CTA & FOOTER */}
+      {/* SECTION 8: BOTTOM CTA & FOOTER */}
       <section className="text-center space-y-6 pt-6 border-t border-indigo-950/80 font-mono">
         <Reveal delay={0}>
           <div className="text-xs text-indigo-400/80 uppercase tracking-widest">
@@ -399,6 +647,7 @@ export default function LandingPage() {
             <span>© 2026. All Systems Operational.</span>
           </div>
           <div className="flex items-center gap-4 text-slate-400">
+            <a href="#runtime" className="hover:text-indigo-300">Runtime</a>
             <a href="#features" className="hover:text-indigo-300">Features</a>
             <a href="#tools" className="hover:text-indigo-300">Tools</a>
             <a href="#guardrails" className="hover:text-indigo-300">Guardrails</a>

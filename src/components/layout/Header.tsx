@@ -24,6 +24,7 @@ export function Header() {
           {/* SaaS Section Navigation (Visible on Landing Page) */}
           {isLanding && (
             <nav className="hidden lg:flex items-center gap-6 text-xs text-slate-300">
+              <a href="#runtime" className="hover:text-indigo-400 transition-colors">[ RUNTIME ]</a>
               <a href="#features" className="hover:text-indigo-400 transition-colors">[ FEATURES ]</a>
               <a href="#tools" className="hover:text-indigo-400 transition-colors">[ TOOLS ]</a>
               <a href="#guardrails" className="hover:text-indigo-400 transition-colors">[ GUARDRAILS ]</a>

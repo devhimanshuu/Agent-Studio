@@ -7,6 +7,7 @@ import { Reveal } from "@/components/Reveal";
 import { SkillRepository } from "@/repositories/SkillRepository";
 import { ExecutionRepository } from "@/repositories/ExecutionRepository";
 import { ApprovalRepository } from "@/repositories/ApprovalRepository";
+import { ToolDefinitionRepository } from "@/repositories/ToolDefinitionRepository";
 import { StatusBadge } from "@/components/skills/StatusBadge";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -21,14 +22,16 @@ export default async function DashboardPage() {
   const skillRepo = new SkillRepository();
   const executionRepo = new ExecutionRepository();
   const approvalRepo = new ApprovalRepository();
+  const toolRepo = new ToolDefinitionRepository();
 
-  const [skillResult, executions, pendingApprovals] = userId
+  const [skillResult, executions, pendingApprovals, toolCount] = userId
     ? await Promise.all([
         skillRepo.list(userId, {}),
         executionRepo.findByUserId(userId),
         approvalRepo.findPendingByUserId(userId),
+        toolRepo.count(),
       ])
-    : [{ items: [], total: 0 }, [], []];
+    : [{ items: [], total: 0 }, [], [], 0];
 
   const activeSkills = skillResult.items.filter((s) => s.status !== "ARCHIVED");
   const recentSkills = [...activeSkills]
@@ -97,7 +100,7 @@ export default async function DashboardPage() {
               <span>PERMITTED TOOLS</span>
               <Shield className="h-4 w-4" />
             </div>
-            <div className="text-3xl font-pixel text-slate-100">04</div>
+            <div className="text-3xl font-pixel text-slate-100">{pad(toolCount)}</div>
             <p className="text-[11px] text-slate-400">System Tool Definitions</p>
           </div>
         </Reveal>

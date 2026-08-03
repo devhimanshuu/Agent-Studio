@@ -1,5 +1,7 @@
-import { LLMProvider, LLMChatMessage, LLMCompletionOptions, LLMCompletionResult, LLMError } from "./LLMProvider";
-import { chatCompletionRequest } from "./http";
+import { z } from "zod";
+import { LLMProvider, LLMChatMessage, LLMCompletionOptions, LLMCompletionResult, LLMError, LLMStreamChunk } from "./LLMProvider";
+import { chatCompletionRequest, streamChatCompletion } from "./http";
+import { requestStructuredOutput } from "./structuredOutput";
 import { env } from "@/lib/config/env";
 
 const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
@@ -18,10 +20,7 @@ export class OpenRouterProvider implements LLMProvider {
     return Boolean(env.OPENROUTER_API_KEY);
   }
 
-  async complete(
-    messages: LLMChatMessage[],
-    options?: LLMCompletionOptions
-  ): Promise<LLMCompletionResult> {
+  private ensureConfigured(): void {
     if (!env.OPENROUTER_API_KEY) {
       throw new LLMError("OpenRouter API key is not configured", {
         provider: this.name,
@@ -29,20 +28,49 @@ export class OpenRouterProvider implements LLMProvider {
         retryable: false,
       });
     }
+  }
 
+  private extraHeaders(): Record<string, string> {
+    // Attribution headers required by OpenRouter for the leaderboard.
+    return {
+      "HTTP-Referer": env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+      "X-OpenRouter-Title": "Agent Studio",
+    };
+  }
+
+  async complete(messages: LLMChatMessage[], options?: LLMCompletionOptions): Promise<LLMCompletionResult> {
+    this.ensureConfigured();
     return chatCompletionRequest({
       endpoint: OPENROUTER_ENDPOINT,
-      apiKey: env.OPENROUTER_API_KEY,
+      apiKey: env.OPENROUTER_API_KEY!,
       model: this.model,
       messages,
       options,
       providerName: this.name,
       timeoutMs: options?.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-      // Attribution headers required by OpenRouter for the leaderboard.
-      extraHeaders: {
-        "HTTP-Referer": env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-OpenRouter-Title": "Agent Studio",
-      },
+      extraHeaders: this.extraHeaders(),
     });
+  }
+
+  generate(messages: LLMChatMessage[], options?: LLMCompletionOptions): Promise<LLMCompletionResult> {
+    return this.complete(messages, options);
+  }
+
+  stream(messages: LLMChatMessage[], options?: LLMCompletionOptions): Promise<AsyncIterable<LLMStreamChunk>> {
+    this.ensureConfigured();
+    return streamChatCompletion({
+      endpoint: OPENROUTER_ENDPOINT,
+      apiKey: env.OPENROUTER_API_KEY!,
+      model: this.model,
+      messages,
+      options,
+      providerName: this.name,
+      timeoutMs: options?.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+      extraHeaders: this.extraHeaders(),
+    });
+  }
+
+  structuredOutput<T>(messages: LLMChatMessage[], schema: z.ZodType<T>, options?: LLMCompletionOptions): Promise<T> {
+    return requestStructuredOutput(this, messages, schema, options);
   }
 }

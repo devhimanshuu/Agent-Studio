@@ -1,3 +1,5 @@
+import type { z } from "zod";
+
 /**
  * LLM provider abstraction.
  *
@@ -50,12 +52,33 @@ export interface LLMCompletionResult {
   };
 }
 
+/** One token-level unit emitted while streaming a completion. */
+export interface LLMStreamChunk {
+  type: "content" | "tool_call" | "done";
+  content?: string;
+  toolCall?: LLMToolCall;
+}
+
 export interface LLMProvider {
   readonly name: string;
   /** The exact model ID this provider instance talks to (e.g. `llama-3.3-70b-versatile`). */
   readonly model: string;
   /** Complete a single-turn chat conversation against the bound model. */
   complete(messages: LLMChatMessage[], options?: LLMCompletionOptions): Promise<LLMCompletionResult>;
+  /** Alias of `complete` — the spec-facing name for generation. */
+  generate(messages: LLMChatMessage[], options?: LLMCompletionOptions): Promise<LLMCompletionResult>;
+  /** Stream tokens from the bound model as an async iterable. */
+  stream(messages: LLMChatMessage[], options?: LLMCompletionOptions): Promise<AsyncIterable<LLMStreamChunk>>;
+  /**
+   * Ask the model for a JSON object validated against a Zod schema. Throws an
+   * LLMError (retryable) when the model output cannot be parsed/validated so
+   * the router can fail over to another model.
+   */
+  structuredOutput<T>(
+    messages: LLMChatMessage[],
+    schema: z.ZodType<T>,
+    options?: LLMCompletionOptions
+  ): Promise<T>;
   /** Whether this provider is configured (API key present, etc.). */
   isConfigured(): boolean;
 }

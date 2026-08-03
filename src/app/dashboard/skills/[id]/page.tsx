@@ -17,8 +17,10 @@ import {
   Loader2,
   Code2,
   StickyNote,
+  Play,
 } from "lucide-react";
 import { skillsApi } from "@/lib/api/skills";
+import { executionsApi } from "@/lib/api/executions";
 import { StatusBadge } from "@/components/skills/StatusBadge";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { LoadingSkeleton } from "@/components/feedback/LoadingSkeleton";
@@ -71,6 +73,15 @@ export default function SkillDetailPage() {
       invalidate();
     },
     onError: (e) => toast.error("Duplicate failed", e.message),
+  });
+
+  const runMutation = useMutation({
+    mutationFn: (versionId: string) => executionsApi.start(versionId, {}),
+    onSuccess: (execution) => {
+      toast.success("Execution started", "Running the graph…");
+      router.push(`/dashboard/executions/${execution.id}`);
+    },
+    onError: (e) => toast.error("Execution failed to start", e.message),
   });
 
   const runConfirm = async () => {
@@ -148,6 +159,18 @@ export default function SkillDetailPage() {
             >
               <GitCompare className="h-3.5 w-3.5" /> [ VERSIONS ]
             </Link>
+            {draft && skill.status !== "ARCHIVED" && (
+              <button
+                type="button"
+                onClick={() => runMutation.mutate(draft.id)}
+                disabled={runMutation.isPending}
+                title="Execute the current draft through the agent runtime"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-indigo-400 bg-indigo-600 text-white font-semibold hover:bg-indigo-500 shadow-md shadow-indigo-500/30 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {runMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+                [ RUN DRAFT v{draft.versionNumber} ]
+              </button>
+            )}
             {draft && skill.status !== "ARCHIVED" && (
               <button
                 type="button"

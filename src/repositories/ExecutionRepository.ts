@@ -17,6 +17,19 @@ export class ExecutionRepository implements IExecutionRepository {
     return this.mapExecution(execution);
   }
 
+  async findByIdForUser(id: string, userId: string): Promise<ExecutionDTO | null> {
+    const execution = await prisma.execution.findFirst({
+      where: { id, userId },
+      include: {
+        steps: { orderBy: { stepNumber: "asc" } },
+        toolCalls: { orderBy: { executedAt: "asc" } },
+      },
+    });
+
+    if (!execution) return null;
+    return this.mapExecution(execution);
+  }
+
   async findByUserId(userId: string): Promise<ExecutionDTO[]> {
     const executions = await prisma.execution.findMany({
       where: { userId },
@@ -54,7 +67,9 @@ export class ExecutionRepository implements IExecutionRepository {
       data: {
         status,
         ...(errorMessage && { errorMessage }),
-        ...(status === "COMPLETED" || status === "FAILED" || status === "CANCELLED" ? { completedAt: new Date() } : {}),
+        ...(status === "COMPLETED" || status === "FAILED" || status === "CANCELLED" || status === "STEP_LIMIT_EXCEEDED"
+          ? { completedAt: new Date() }
+          : {}),
       },
       include: { steps: true, toolCalls: true },
     });
@@ -62,7 +77,7 @@ export class ExecutionRepository implements IExecutionRepository {
     return this.mapExecution(updated);
   }
 
-  async addStep(executionId: string, step: Omit<ExecutionStepDTO, "id">): Promise<ExecutionStepDTO> {
+  async addStep(executionId: string, step: Omit<ExecutionStepDTO, "id" | "executionId">): Promise<ExecutionStepDTO> {
     const created = await prisma.executionStep.create({
       data: {
         executionId,
@@ -70,6 +85,8 @@ export class ExecutionRepository implements IExecutionRepository {
         nodeName: step.nodeName,
         stateSnapshot: step.stateSnapshot as unknown as Prisma.InputJsonValue,
         status: step.status,
+        ...(step.startedAt && { startedAt: step.startedAt }),
+        ...(step.completedAt && { completedAt: step.completedAt }),
       },
     });
 
@@ -84,7 +101,7 @@ export class ExecutionRepository implements IExecutionRepository {
     };
   }
 
-  async addToolCall(executionId: string, toolCall: Omit<ToolCallDTO, "id" | "executedAt">): Promise<ToolCallDTO> {
+  async addToolCall(executionId: string, toolCall: Omit<ToolCallDTO, "id" | "executionId" | "executedAt">): Promise<ToolCallDTO> {
     const created = await prisma.toolCall.create({
       data: {
         executionId,
@@ -120,6 +137,25 @@ export class ExecutionRepository implements IExecutionRepository {
     return this.mapExecution(updated);
   }
 
+  async setRuntimeDetails(
+    id: string,
+    details: { provider?: string; plannerOutput?: Record<string, unknown>; durationMs?: number }
+  ): Promise<ExecutionDTO> {
+    const updated = await prisma.execution.update({
+      where: { id },
+      data: {
+        ...(details.provider !== undefined && { provider: details.provider }),
+        ...(details.plannerOutput !== undefined && {
+          plannerOutput: details.plannerOutput as unknown as Prisma.InputJsonValue,
+        }),
+        ...(details.durationMs !== undefined && { durationMs: details.durationMs }),
+      },
+      include: { steps: true, toolCalls: true },
+    });
+
+    return this.mapExecution(updated);
+  }
+
   private mapExecution(e: Prisma.ExecutionGetPayload<{ include: { steps: true; toolCalls: true } }>): ExecutionDTO {
     return {
       id: e.id,
@@ -128,6 +164,9 @@ export class ExecutionRepository implements IExecutionRepository {
       status: e.status,
       inputData: e.inputData as Record<string, unknown>,
       finalOutput: e.finalOutput as Record<string, unknown> | null,
+      plannerOutput: e.plannerOutput as Record<string, unknown> | null,
+      provider: e.provider,
+      durationMs: e.durationMs,
       stepCount: e.stepCount,
       maxSteps: e.maxSteps,
       errorMessage: e.errorMessage,

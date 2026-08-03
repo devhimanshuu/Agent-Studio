@@ -82,10 +82,10 @@ export function LiveExecutionTerminal() {
           <div className="p-2.5 rounded bg-indigo-950/30 border border-indigo-900/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-slate-200 animate-fadeIn">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-              <span>STEP 1: Input JSON Schema Validation</span>
+              <span>planner NODE · deterministic plan generated</span>
             </div>
             <span className="text-[10px] text-emerald-400 px-2 py-0.5 rounded bg-emerald-950/50 border border-emerald-500/30 shrink-0">
-              PASSED (0ms)
+              3 STEPS (0ms)
             </span>
           </div>
         )}
@@ -94,10 +94,10 @@ export function LiveExecutionTerminal() {
           <div className="p-2.5 rounded bg-indigo-950/30 border border-indigo-900/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-slate-200 animate-fadeIn">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-indigo-400 shrink-0" />
-              <span>STEP 2: Permitted Tool Check (calculator:eval)</span>
+              <span>permission + tool_selection · calculator:eval</span>
             </div>
             <span className="text-[10px] text-indigo-300 px-2 py-0.5 rounded bg-indigo-950/50 border border-indigo-500/30 shrink-0">
-              SUCCESS: result=450
+              AUTHORIZED: result=450
             </span>
           </div>
         )}
@@ -107,7 +107,7 @@ export function LiveExecutionTerminal() {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2 font-semibold text-amber-300">
                 <Lock className="h-4 w-4 shrink-0" />
-                <span>STEP 3: Write Action PAUSED — Requires Human Approval</span>
+                <span>approval NODE · write action PAUSED for HITL</span>
               </div>
               <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
                 AWAITING HITL
@@ -132,13 +132,13 @@ export function LiveExecutionTerminal() {
             <div className="p-2.5 rounded bg-emerald-950/30 border border-emerald-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-emerald-200">
               <div className="flex items-center gap-2">
                 <ShieldAlert className="h-4 w-4 text-emerald-400 shrink-0" />
-                <span>STEP 3: Single-Use Idempotency Token Consumed</span>
+                <span>token consumed · write approved (single-use enforced)</span>
               </div>
               <span className="text-[10px] text-emerald-400 font-bold shrink-0">APPROVED & WRITTEN</span>
             </div>
 
             <div className="p-3 rounded bg-indigo-950/50 border border-indigo-500/40 space-y-1 text-slate-100 font-mono">
-              <div className="text-xs text-indigo-300 font-semibold">// FINAL OUTPUT GENERATED</div>
+              <div className="text-xs text-indigo-300 font-semibold">// finish NODE · FINAL OUTPUT GENERATED</div>
               <pre className="text-[11px] text-slate-300 overflow-x-auto">
                 &#123; "status": "COMPLETED", "stepsCount": 3, "output": &#123; "ticketId": "TASK-9042", "refundCalculated": 450 &#125; &#125;
               </pre>

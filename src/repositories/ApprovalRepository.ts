@@ -40,16 +40,28 @@ export class ApprovalRepository implements IApprovalRepository {
     return this.mapApproval(created);
   }
 
-  async respond(input: RespondApprovalInput): Promise<ApprovalRequestDTO> {
-    const updated = await prisma.approvalRequest.update({
-      where: { id: input.approvalId },
+  async respond(input: RespondApprovalInput): Promise<ApprovalRequestDTO | null> {
+    // Atomic compare-and-swap: only a PENDING request may be responded to.
+    // `updateMany` (not `update`) guards the PENDING→terminal transition in
+    // the database, so two concurrent responses carrying the same idempotency
+    // key can never both win — exactly one UPDATE matches, the loser gets
+    // count 0 and returns null. A plain `update` would race (both read PENDING,
+    // both write) and could even flip an APPROVED row back to REJECTED.
+    const result = await prisma.approvalRequest.updateMany({
+      where: { id: input.approvalId, status: "PENDING" },
       data: {
         status: input.approved ? "APPROVED" : "REJECTED",
         rejectionReason: input.rejectionReason,
         respondedAt: new Date(),
       },
     });
-    return this.mapApproval(updated);
+
+    if (result.count === 0) return null;
+
+    const updated = await prisma.approvalRequest.findUnique({
+      where: { id: input.approvalId },
+    });
+    return updated ? this.mapApproval(updated) : null;
   }
 
   async findByIdempotencyKey(key: string): Promise<ApprovalRequestDTO | null> {

@@ -1,0 +1,133 @@
+import { LLMProvider, LLMError, LLMChatMessage } from "@/providers/llm";
+import { SkillDTO, SkillVersionDTO } from "@/types/skill";
+import { logger } from "@/lib/logger";
+import { ExecutionPlan } from "../state/agentState";
+import { executionPlanSchema } from "./planSchema";
+import { withRetries } from "../executor/retry";
+
+export interface PlanInput {
+  skill: SkillDTO;
+  version: SkillVersionDTO;
+  userInput: Record<string, unknown>;
+}
+
+export interface PlannerServiceOptions {
+  /** Total planner attempts including the first (LLM transient failures retried). */
+  maxRetries?: number;
+  /** Per-attempt LLM request timeout in ms. */
+  timeoutMs?: number;
+  /** Cap on output tokens for the plan JSON. Default 2000. */
+  maxTokens?: number;
+}
+
+/**
+ * The planner turns a skill + user input into a deterministic ExecutionPlan.
+ *
+ * The LLM is deliberately a DEPENDENCY here, not the orchestrator: the planner
+ * node is just one step in the LangGraph — if the LLM fails (after retries and
+ * provider failover), the graph fails deterministically like any other node.
+ */
+export class PlannerService {
+  private lastUsed: string | null = null;
+
+  constructor(
+    private llm: LLMProvider,
+    private options: PlannerServiceOptions = {}
+  ) {}
+
+  /** The provider/model that last served a plan, e.g. `groq/llama-3.3-70b-versatile`. */
+  get providerLabel(): string | null {
+    return this.lastUsed;
+  }
+
+  async plan(input: PlanInput): Promise<ExecutionPlan> {
+    const messages = buildPlannerMessages(input);
+
+    const plan = await withRetries(
+      () =>
+        this.llm.structuredOutput(messages, executionPlanSchema, {
+          temperature: 0,
+          // Always cap the plan JSON so a runaway model reply can't blow past
+          // the context window or inflate cost — previously the cap was
+          // silently dropped whenever a timeoutMs was configured.
+          maxTokens: this.options.maxTokens ?? 2000,
+          ...(this.options.timeoutMs !== undefined && { timeoutMs: this.options.timeoutMs }),
+        }),
+      {
+        attempts: this.options.maxRetries ?? 2,
+        isRetryable: (error) => error instanceof LLMError && error.retryable,
+        onRetry: (attempt, error) =>
+          logger.warn(
+            { attempt, error: error instanceof Error ? error.message : "unknown" },
+            "Planner transient failure — retrying"
+          ),
+      }
+    );
+
+    this.lastUsed = this.captureProviderUsed(this.llm);
+    // `.default(false)` fills requiresApproval at parse time — normalize so the
+    // runtime sees a non-optional boolean on every step.
+    return {
+      ...plan,
+      steps: plan.steps.map((step) => ({ ...step, requiresApproval: step.requiresApproval ?? false })),
+    };
+  }
+
+  private captureProviderUsed(llm: LLMProvider): string | null {
+    // The router exposes the exact provider/model that served the call.
+    const router = llm as LLMProvider & { lastUsed?: string | null };
+    if (typeof router.lastUsed === "string" && router.lastUsed) return router.lastUsed;
+    return `${llm.name}/${llm.model}`;
+  }
+}
+
+function buildPlannerMessages({ skill, version, userInput }: PlanInput): LLMChatMessage[] {
+  const system: LLMChatMessage = {
+    role: "system",
+    content: [
+      "You are the PLANNING module of a deterministic AI agent runtime.",
+      "You produce an execution plan for a skill. The plan is later executed step-by-step by the runtime; you do NOT execute anything yourself.",
+      "Constraints:",
+      "- Use ONLY tools from the allowedTools list.",
+      "- Mark a step requiresApproval=true when its action is in actionsRequiringApproval.",
+      "- Do not exceed maxExecutionSteps total steps.",
+      "- steps must be ordered by stepNumber starting at 1.",
+    ].join("\n"),
+  };
+
+  const user: LLMChatMessage = {
+    role: "user",
+    content: JSON.stringify(
+      {
+        skillName: skill.name,
+        purpose: skill.purpose,
+        instructions: version.instructions,
+        inputSchema: version.inputSchema,
+        outputSchema: version.outputSchema,
+        examples: version.examples,
+        allowedTools: version.allowedTools,
+        actionsRequiringApproval: version.actionsRequiringApproval,
+        maxExecutionSteps: version.maxExecutionSteps,
+        userInput,
+        outputShape: {
+          reasoning: "string — why this plan",
+          requiredTools: ["string[] — tools this plan needs"],
+          steps: [
+            {
+              stepNumber: "number, from 1",
+              toolName: "string — one of allowedTools, or \"none\"",
+              action: "string — the specific action to invoke",
+              input: "object — arguments for the tool",
+              requiresApproval: "boolean",
+            },
+          ],
+          expectedOutput: "string — the final answer shape",
+        },
+      },
+      null,
+      2
+    ),
+  };
+
+  return [system, user];
+}

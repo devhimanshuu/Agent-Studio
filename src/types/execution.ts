@@ -46,6 +46,12 @@ export interface ExecutionDTO {
   status: ExecutionStatus;
   inputData: Record<string, unknown>;
   finalOutput?: Record<string, unknown> | null;
+  /** Plan produced by the planner node (execution timeline / UI). */
+  plannerOutput?: Record<string, unknown> | null;
+  /** LLM provider/model that served the planner, e.g. `groq/llama-3.3-70b-versatile`. */
+  provider?: string | null;
+  /** Wall-clock duration of the run in ms. */
+  durationMs?: number | null;
   stepCount: number;
   maxSteps: number;
   errorMessage?: string | null;
