@@ -1,5 +1,16 @@
 # Agent Studio — Dynamic User-Defined Skills Agent Platform
 
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://agent-studio-v1.vercel.app/)
+[![Database](https://img.shields.io/badge/Database-Neon_Postgres-02E693?style=for-the-badge&logo=postgresql&logoColor=white)](https://neon.tech)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Strict_Mode-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Tests](https://img.shields.io/badge/Tests-184_Passing-brightgreen?style=for-the-badge&logo=vitest&logoColor=white)](https://vitest.dev)
+
+> 🔗 **Live Application**: [https://agent-studio-v1.vercel.app](https://agent-studio-v1.vercel.app)  
+> 💻 **GitHub Repository**: [https://github.com/devhimanshuu/Agent-Studio](https://github.com/devhimanshuu/Agent-Studio)  
+> 🎯 **Assessment Option**: Option B — Hard Difficulty (Weight: 2.0)  
+
+---
+
 > Enterprise-grade AI Agent Platform where users can create, schema-validate, version, publish, and execute reusable AI Skills — under strict tool permissions and Human-in-the-Loop (HITL) write-approval guardrails, with full observability.
 
 ---

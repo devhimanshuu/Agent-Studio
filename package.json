@@ -2,6 +2,11 @@
   "name": "agent-studio",
   "version": "1.0.0",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/devhimanshuu/Agent-Studio"
+  },
+  "homepage": "https://agent-studio-v1.vercel.app",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

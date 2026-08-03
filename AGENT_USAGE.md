@@ -81,3 +81,24 @@ This document records how AI coding agents were used to build Agent Studio, what
 - Tool executions are mock/sandboxed (no real external side effects yet).
 - Rate limiter is in-memory (single-instance; swap for Redis/Upstash when scaling horizontally).
 - LLM model rosters rotate on free tiers — the router's 404 cooldown handles decommissioned models gracefully.
+
+---
+
+## 🧠 Key Engineering Trade-offs & Candidate Reflections
+
+1. **Graph-First vs. Unconstrained LLM Loop**:
+   - *Decision*: I chose a LangGraph graph-first execution model where the LLM is restricted to the `PlannerNode`.
+   - *Rationale*: Unconstrained autonomous agent loops can run into infinite tool-call cycles and unpredictable API costs. A graph enforces deterministic node transitions (`planner → permission → tool_selection ⇄ tool_execution → approval? → finish`).
+
+2. **Atomic Idempotency for HITL Approvals**:
+   - *Decision*: Single-use idempotency tokens (`appr-<executionId>-step-<stepNumber>`) enforced via atomic database Compare-And-Swap (CAS) transitions.
+   - *Rationale*: Guarantees that write operations (like `mock_task_creator`) can never be double-executed, even under concurrent HTTP retries or accidental double-clicks.
+
+3. **Multi-Vendor Failover Router**:
+   - *Decision*: Built `LLMRouter` with adaptive circuit-breaker cooldowns across 12 models.
+   - *Rationale*: External AI APIs fail (429 rate limits, 5xx server drops). Failover ensures zero downtime for end-users.
+
+4. **Immutable Version Control & Draft Rotation**:
+   - *Decision*: Published skill versions are immutable (`v1`, `v2`). Editing a published skill auto-rotates a fresh draft.
+   - *Rationale*: Protects active production agent executions from breaking when a user edits prompt instructions or tool permissions.
+
