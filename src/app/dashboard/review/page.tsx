@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { SkeletonGrid } from "@/components/feedback/Skeleton";
 import { EmptyState } from "@/components/feedback/EmptyState";
-import { Reveal } from "@/components/Reveal";
 import { toast } from "@/stores/toastStore";
 import { clsx } from "clsx";
 import { ApprovalRequestDTO } from "@/types/approval";

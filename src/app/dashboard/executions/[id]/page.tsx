@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -63,7 +63,6 @@ export default function ExecutionDetailPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const id = params.id;
-  const [isCancelling, setIsCancelling] = useState(false);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["execution", id],

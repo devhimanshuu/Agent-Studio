@@ -40,7 +40,7 @@ export default function HistoryPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  const { data: metrics, isLoading: metricsLoading } = useQuery({
+  const { data: metrics } = useQuery({
     queryKey: ["metrics"],
     queryFn: () => executionsApi.metrics(),
   });

@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { respondApprovalSchema } from "@/validators/approvalSchema";
-import { ApprovalService } from "@/services/ApprovalService";
 import { ApprovalRepository } from "@/repositories/ApprovalRepository";
 import { ApprovalHistoryRepository } from "@/repositories/ApprovalHistoryRepository";
 import { AuditLogRepository } from "@/repositories/AuditLogRepository";
@@ -15,7 +14,6 @@ const approvalRepo = new ApprovalRepository();
 const auditRepo = new AuditLogRepository();
 const historyRepo = new ApprovalHistoryRepository();
 const executionRepo = new ExecutionRepository();
-const approvalService = new ApprovalService(approvalRepo, auditRepo);
 const approvalEngine = new ApprovalEngine(approvalRepo, historyRepo, executionRepo);
 
 export async function GET(_request: Request) {
