@@ -243,11 +243,11 @@ export default function ReviewPage() {
   return (
     <div className="space-y-6 max-w-6xl mx-auto font-mono">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-indigo-950/80 pb-5">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-indigo-950/80 pb-5">
         <div>
-          <h1 className="text-xl sm:text-2xl font-pixel text-pixel-glow uppercase tracking-wide flex items-center gap-3">
-            <Shield className="h-6 w-6 text-amber-600 dark:text-amber-400" />
-            HUMAN REVIEW QUEUE
+          <h1 className="text-lg sm:text-2xl font-pixel text-pixel-glow uppercase tracking-wide flex items-center gap-2 sm:gap-3">
+            <Shield className="h-5 w-5 sm:h-6 sm:w-6 text-amber-600 dark:text-amber-400 shrink-0" />
+            <span>HUMAN REVIEW QUEUE</span>
           </h1>
           <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
             Human-in-the-Loop authorization: review, approve, or reject paused agent tool calls.

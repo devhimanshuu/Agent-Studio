@@ -95,21 +95,21 @@ export default function LandingPage() {
           />
         </div>
 
-        <div className="relative z-10 space-y-8 py-16 sm:py-20 lg:py-24 px-4 sm:px-6 lg:px-10">
+        <div className="relative z-10 space-y-6 sm:space-y-8 py-10 sm:py-20 lg:py-24 px-3 sm:px-6 lg:px-10">
           {/* Announcement Pill */}
           <div className="animate-fadeInUp">
-            <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full border border-indigo-300 dark:border-indigo-400/30 bg-indigo-50/90 dark:bg-indigo-500/10 text-[11px] font-mono text-indigo-700 dark:text-indigo-200 uppercase tracking-widest backdrop-blur-sm shadow-sm">
-              <span className="relative flex h-2 w-2">
+            <div className="inline-flex max-w-full items-center gap-2 sm:gap-2.5 px-3 sm:px-4 py-1.5 rounded-full border border-indigo-300 dark:border-indigo-400/30 bg-indigo-50/90 dark:bg-indigo-500/10 text-[10px] sm:text-[11px] font-mono text-indigo-700 dark:text-indigo-200 uppercase tracking-wider sm:tracking-widest backdrop-blur-sm shadow-sm leading-snug">
+              <span className="relative flex h-2 w-2 shrink-0">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-500 dark:bg-indigo-400 opacity-60"></span>
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-600 dark:bg-indigo-400"></span>
               </span>
-              GRAPH-FIRST RUNTIME · LLM AUTO-FAILOVER · HITL LOCK
+              <span className="truncate">GRAPH-FIRST RUNTIME · LLM AUTO-FAILOVER · HITL LOCK</span>
             </div>
           </div>
 
           {/* Pixel Block Headline */}
           <h1
-            className="glitch animate-fadeInUp text-4xl sm:text-6xl lg:text-7xl font-pixel uppercase tracking-tight leading-tight max-w-5xl text-slate-900 dark:text-slate-100"
+            className="glitch animate-fadeInUp text-2xl sm:text-5xl md:text-6xl lg:text-7xl font-pixel uppercase tracking-tight leading-tight max-w-5xl text-slate-900 dark:text-slate-100 break-words"
             style={{ animationDelay: "100ms" }}
             data-text="DYNAMIC AI SKILLS PLATFORM"
           >
@@ -121,12 +121,12 @@ export default function LandingPage() {
             className="animate-fadeInUp space-y-3 max-w-3xl font-mono-tech"
             style={{ animationDelay: "300ms" }}
           >
-            <p className="text-xl sm:text-2xl text-slate-900 dark:text-slate-100 font-medium leading-snug tracking-tight font-sans">
+            <p className="text-lg sm:text-2xl text-slate-900 dark:text-slate-100 font-medium leading-snug tracking-tight font-sans">
               Build, validate, version, and execute{" "}
               <span className="text-gradient-glow font-semibold">dynamic AI skills</span> on a{" "}
               <span className="text-slate-800 dark:text-slate-200 border-b border-indigo-400/40 dark:border-indigo-500/30 pb-0.5">graph-first agent runtime</span>.
             </p>
-            <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed font-mono-tech">
+            <p className="text-xs sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed font-mono-tech">
               Every tool call is restricted to{" "}
               <span className="text-slate-800 dark:text-slate-200 border-b border-indigo-400/40 dark:border-indigo-500/30 pb-0.5">authorized schemas</span>, write actions require explicit{" "}
               <span className="text-indigo-700 dark:text-indigo-300 font-medium border-b border-indigo-400/50 pb-0.5">Human-in-the-Loop approval</span> protected by{" "}
@@ -138,24 +138,24 @@ export default function LandingPage() {
           {/* Dynamic Auth Status Indicator */}
           <div className="animate-fadeInUp font-mono text-xs" style={{ animationDelay: "350ms" }}>
             <SignedIn>
-              <div className="inline-flex max-w-full items-center gap-2 px-3 py-1.5 rounded border border-emerald-400/40 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 shadow-sm">
+              <div className="inline-flex max-w-full items-center gap-2 px-3 py-1.5 rounded border border-emerald-400/40 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 shadow-sm text-[11px]">
                 <UserCheck className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                <span>AUTHENTICATED · WORKSPACE ACCESS GRANTED</span>
+                <span className="truncate">AUTHENTICATED · WORKSPACE ACCESS GRANTED</span>
               </div>
             </SignedIn>
           </div>
 
           {/* CTAs */}
-          <div className="animate-fadeInUp flex flex-wrap items-center gap-4 pt-2 font-mono text-xs" style={{ animationDelay: "400ms" }}>
+          <div className="animate-fadeInUp flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 pt-2 font-mono text-xs" style={{ animationDelay: "400ms" }}>
             <SignedOut>
               <SignUpButton mode="modal">
-                <button className="inline-flex items-center gap-2 px-6 py-3.5 rounded border border-indigo-500 bg-indigo-600 text-white font-semibold hover:bg-indigo-500 shadow-lg shadow-indigo-500/25 transition-all text-sm cursor-pointer">
+                <button className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded border border-indigo-500 bg-indigo-600 text-white font-semibold hover:bg-indigo-500 shadow-lg shadow-indigo-500/25 transition-all text-sm cursor-pointer w-full sm:w-auto">
                   [ GET STARTED FREE ] <ArrowRight className="h-4 w-4" />
                 </button>
               </SignUpButton>
 
               <SignInButton mode="modal">
-                <button className="px-5 py-3.5 rounded border border-indigo-300 dark:border-indigo-500/40 bg-white dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-200 hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/60 shadow-sm transition-all text-sm cursor-pointer">
+                <button className="px-5 py-3.5 rounded border border-indigo-300 dark:border-indigo-500/40 bg-white dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-200 hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/60 shadow-sm transition-all text-sm cursor-pointer w-full sm:w-auto text-center">
                   [ SIGN IN ]
                 </button>
               </SignInButton>
@@ -165,7 +165,7 @@ export default function LandingPage() {
               href="https://github.com/devhimanshuu/Agent-Studio"
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-3.5 rounded border border-indigo-300 dark:border-indigo-500/40 bg-white dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/60 shadow-sm transition-all text-xs"
+              className="inline-flex items-center justify-center gap-2 px-4 py-3.5 rounded border border-indigo-300 dark:border-indigo-500/40 bg-white dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/60 shadow-sm transition-all text-xs w-full sm:w-auto"
             >
               <Terminal className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
               [ VIEW ON GITHUB ]

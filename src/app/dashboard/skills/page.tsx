@@ -97,9 +97,9 @@ export default function SkillsDashboardPage() {
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-indigo-950/80 pb-5">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-indigo-950/80 pb-5">
         <div>
-          <h1 className="text-xl sm:text-2xl font-pixel text-pixel-glow uppercase tracking-wide">
+          <h1 className="text-lg sm:text-2xl font-pixel text-pixel-glow uppercase tracking-wide">
             SKILLS REGISTRY
           </h1>
           <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 font-mono">
@@ -108,7 +108,7 @@ export default function SkillsDashboardPage() {
         </div>
         <Link
           href="/dashboard/skills/new"
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded border border-indigo-400 bg-indigo-600 text-white font-semibold hover:bg-indigo-500 shadow-md shadow-indigo-500/30 transition-all text-xs font-mono cursor-pointer"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded border border-indigo-400 bg-indigo-600 text-white font-semibold hover:bg-indigo-500 shadow-md shadow-indigo-500/30 transition-all text-xs font-mono cursor-pointer w-full sm:w-auto"
         >
           <Plus className="h-4 w-4" />
           CREATE NEW SKILL

@@ -53,12 +53,12 @@ export function ConfirmDialog({
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 pt-5">
+        <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-5">
           <button
             type="button"
             onClick={onClose}
             disabled={isPending}
-            className="px-4 py-2 rounded border border-indigo-500/40 bg-indigo-950/40 text-xs font-mono text-indigo-200 hover:border-indigo-400 hover:text-white transition-all cursor-pointer disabled:opacity-50"
+            className="w-full sm:w-auto px-4 py-2 rounded border border-indigo-500/40 bg-indigo-950/40 text-xs font-mono text-indigo-200 hover:border-indigo-400 hover:text-white transition-all cursor-pointer disabled:opacity-50 text-center"
           >
             [ CANCEL ]
           </button>
@@ -67,9 +67,10 @@ export function ConfirmDialog({
             onClick={onConfirm}
             disabled={isPending}
             className={
-              isDanger
+              (isDanger
                 ? "px-4 py-2 rounded border border-red-400 bg-red-600 text-xs font-mono font-semibold text-white hover:bg-red-500 shadow-md shadow-red-500/30 transition-all cursor-pointer disabled:opacity-50"
-                : "px-4 py-2 rounded border border-amber-400 bg-amber-600 text-xs font-mono font-semibold text-black hover:bg-amber-500 shadow-md shadow-amber-500/30 transition-all cursor-pointer disabled:opacity-50"
+                : "px-4 py-2 rounded border border-amber-400 bg-amber-600 text-xs font-mono font-semibold text-black hover:bg-amber-500 shadow-md shadow-amber-500/30 transition-all cursor-pointer disabled:opacity-50") +
+              " w-full sm:w-auto text-center"
             }
           >
             {isPending ? "[ PROCESSING ]" : `[ ${confirmLabel} ]`}

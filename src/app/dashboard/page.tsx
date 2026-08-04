@@ -54,11 +54,11 @@ export default async function DashboardPage() {
   const mostUsedToolCount = mostUsedTool !== "—" ? (toolUsage[mostUsedTool] ?? 0) : 0;
 
   return (
-    <div className="space-y-10 max-w-6xl mx-auto">
+    <div className="space-y-6 sm:space-y-10 max-w-6xl mx-auto">
       {/* Page Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-indigo-950/80 pb-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-indigo-950/80 pb-5 sm:pb-6">
         <Reveal delay={0}>
-          <h1 className="text-xl sm:text-2xl font-pixel text-pixel-glow uppercase tracking-wide">
+          <h1 className="text-lg sm:text-2xl font-pixel text-pixel-glow uppercase tracking-wide">
             SYSTEM DASHBOARD
           </h1>
         </Reveal>
@@ -66,7 +66,7 @@ export default async function DashboardPage() {
         <Reveal delay={100}>
           <Link
             href="/dashboard/skills"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded border border-indigo-400 bg-indigo-600 text-white font-semibold hover:bg-indigo-500 shadow-md shadow-indigo-500/30 transition-all text-xs font-mono"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded border border-indigo-400 bg-indigo-600 text-white font-semibold hover:bg-indigo-500 shadow-md shadow-indigo-500/30 transition-all text-xs font-mono w-full sm:w-auto justify-center"
           >
             <Plus className="h-4 w-4" />
             CREATE NEW SKILL

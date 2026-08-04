@@ -48,7 +48,7 @@ export function FooterPortfolioWidget() {
 
   return (
     <div
-      className={`fixed bottom-5 left-1/2 -translate-x-1/2 z-50 font-mono transition-all duration-500 ${
+      className={`fixed bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 z-50 font-mono transition-all duration-500 ${
         isVisible ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-6 pointer-events-none"
       }`}
     >

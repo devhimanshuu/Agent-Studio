@@ -82,6 +82,13 @@
   }
 }
 
+@media (max-width: 640px) {
+  body {
+    background-attachment: scroll;
+    background-size: 16px 16px;
+  }
+}
+
 /* Custom Font Utilities */
 .font-pixel {
   font-family: 'Silkscreen', 'Press Start 2P', monospace;

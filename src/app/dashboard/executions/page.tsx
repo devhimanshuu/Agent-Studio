@@ -101,9 +101,9 @@ export default function ExecutionsPage() {
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-indigo-950/80 pb-5">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-indigo-950/80 pb-5">
         <div>
-          <h1 className="text-xl sm:text-2xl font-pixel text-pixel-glow uppercase tracking-wide">
+          <h1 className="text-lg sm:text-2xl font-pixel text-pixel-glow uppercase tracking-wide">
             EXECUTION HISTORY & TRACES
           </h1>
           <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 font-mono">
@@ -112,7 +112,7 @@ export default function ExecutionsPage() {
         </div>
         <Link
           href="/dashboard/skills"
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded border border-indigo-400 bg-indigo-600 text-white font-semibold hover:bg-indigo-500 shadow-md shadow-indigo-500/30 transition-all text-xs font-mono cursor-pointer"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded border border-indigo-400 bg-indigo-600 text-white font-semibold hover:bg-indigo-500 shadow-md shadow-indigo-500/30 transition-all text-xs font-mono cursor-pointer w-full sm:w-auto"
         >
           <Play className="h-4 w-4" />
           RUN A SKILL
@@ -120,8 +120,8 @@ export default function ExecutionsPage() {
       </div>
 
       {/* Search / Filter / Sort toolbar */}
-      <div className="flex flex-wrap items-center gap-3 font-mono">
-        <label className="relative flex-1 min-w-[220px]">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 font-mono">
+        <label className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400/70" />
           <input
             type="text"
@@ -132,37 +132,39 @@ export default function ExecutionsPage() {
           />
         </label>
 
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value as ExecutionStatus | "")}
-          className="rounded border border-slate-300 dark:border-indigo-900/50 bg-white dark:bg-black/50 px-3 py-2 text-xs text-slate-900 dark:text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-sm"
-          aria-label="Filter by status"
-        >
-          {statusOptions.map((s) => (
-            <option key={s || "all"} value={s}>
-              {s === "" ? "ALL STATUSES" : s}
-            </option>
-          ))}
-        </select>
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value as ExecutionStatus | "")}
+            className="flex-1 sm:flex-initial rounded border border-slate-300 dark:border-indigo-900/50 bg-white dark:bg-black/50 px-3 py-2 text-xs text-slate-900 dark:text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-sm"
+            aria-label="Filter by status"
+          >
+            {statusOptions.map((s) => (
+              <option key={s || "all"} value={s}>
+                {s === "" ? "ALL STATUSES" : s}
+              </option>
+            ))}
+          </select>
 
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-          className="rounded border border-slate-300 dark:border-indigo-900/50 bg-white dark:bg-black/50 px-3 py-2 text-xs text-slate-900 dark:text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-sm"
-          aria-label="Sort by"
-        >
-          <option value="startedAt">SORT: STARTED</option>
-          <option value="durationMs">SORT: DURATION</option>
-          <option value="status">SORT: STATUS</option>
-        </select>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+            className="flex-1 sm:flex-initial rounded border border-slate-300 dark:border-indigo-900/50 bg-white dark:bg-black/50 px-3 py-2 text-xs text-slate-900 dark:text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-sm"
+            aria-label="Sort by"
+          >
+            <option value="startedAt">SORT: STARTED</option>
+            <option value="durationMs">SORT: DURATION</option>
+            <option value="status">SORT: STATUS</option>
+          </select>
 
-        <button
-          type="button"
-          onClick={() => setSortOrder((o) => (o === "desc" ? "asc" : "desc"))}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-xs text-indigo-700 dark:text-indigo-200 hover:border-indigo-400 font-semibold transition-all cursor-pointer shadow-sm"
-        >
-          <RefreshCw className="h-3.5 w-3.5" /> {sortOrder === "desc" ? "DESC" : "ASC"}
-        </button>
+          <button
+            type="button"
+            onClick={() => setSortOrder((o) => (o === "desc" ? "asc" : "desc"))}
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-xs text-indigo-700 dark:text-indigo-200 hover:border-indigo-400 font-semibold transition-all cursor-pointer shadow-sm"
+          >
+            <RefreshCw className="h-3.5 w-3.5" /> {sortOrder === "desc" ? "DESC" : "ASC"}
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -219,7 +221,7 @@ export default function ExecutionsPage() {
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-4 text-[10px] font-mono text-slate-500">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[10px] font-mono text-slate-500">
                     <span className="flex items-center gap-1 font-medium">
                       <Clock className="h-3 w-3 text-indigo-600 dark:text-indigo-400/70" />
                       {formatDate(execution.startedAt)}
@@ -243,7 +245,7 @@ export default function ExecutionsPage() {
                 )}
               </Link>
               {/* Row actions */}
-              <div className="mt-2.5 flex items-center gap-2 border-t border-slate-200 dark:border-indigo-950/60 pt-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-slate-200 dark:border-indigo-950/60 pt-2.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200">
                 <button
                   type="button"
                   onClick={() => replayMutation.mutate(execution.id)}
