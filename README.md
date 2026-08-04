@@ -7,7 +7,6 @@
 
 > 🔗 **Live Application**: [https://agent-studio-v1.vercel.app](https://agent-studio-v1.vercel.app)  
 > 💻 **GitHub Repository**: [https://github.com/devhimanshuu/Agent-Studio](https://github.com/devhimanshuu/Agent-Studio)  
-> 🎯 **Assessment Option**: Option B — Hard Difficulty (Weight: 2.0)  
 
 ---
 
