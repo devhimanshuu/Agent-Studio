@@ -20,10 +20,10 @@ export function createLLMRouterFromConfig(config: LLMProviderConfig): LLMRouter 
   const providers: LLMProvider[] = [];
   for (const entry of ALL_FALLBACK_MODELS) {
     if (entry.provider === "groq" && config.groqApiKey) {
-      providers.push(new GroqProvider(entry.model));
+      providers.push(new GroqProvider(entry.model, config.groqApiKey));
     }
     if (entry.provider === "openrouter" && config.openRouterApiKey) {
-      providers.push(new OpenRouterProvider(entry.model));
+      providers.push(new OpenRouterProvider(entry.model, config.openRouterApiKey));
     }
   }
   return new LLMRouter(providers);

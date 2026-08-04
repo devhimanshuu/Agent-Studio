@@ -116,6 +116,7 @@ describe("ExecutionService.resumeExecution", () => {
       10,
       "S"
     );
+    await execRepo.updateStatus(execution.id, "PAUSED_FOR_APPROVAL");
     await execRepo.setRuntimeDetails(execution.id, {
       provider: "groq/x",
       plannerOutput: {
@@ -169,6 +170,7 @@ describe("ExecutionService.resumeExecution", () => {
       10,
       "S"
     );
+    await execRepo.updateStatus(execution.id, "PAUSED_FOR_APPROVAL");
 
     const service = new ExecutionService(execRepo, skillRepo, auditRepo, {
       approvalRepo,

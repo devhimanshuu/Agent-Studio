@@ -1,11 +1,23 @@
 import { z } from "zod";
+import { MAX_JSON_PAYLOAD_BYTES } from "@/lib/api/payloadValidation";
 
-// A JSON object must be a plain object (not array/null) and JSON-serializable.
+// A JSON object must be a plain object (not array/null), JSON-serializable,
+// and must not exceed the 1MB per-payload storage boundary.
 const jsonSchema = z
   .record(z.string(), z.unknown())
   .refine((val) => val !== null && typeof val === "object" && !Array.isArray(val), {
     message: "Must be a valid JSON object",
-  });
+  })
+  .refine(
+    (val) => {
+      try {
+        return Buffer.byteLength(JSON.stringify(val), "utf8") <= MAX_JSON_PAYLOAD_BYTES;
+      } catch {
+        return false;
+      }
+    },
+    { message: "JSON object exceeds maximum size of 1MB" }
+  );
 
 export const skillExampleSchema = z.object({
   input: jsonSchema,

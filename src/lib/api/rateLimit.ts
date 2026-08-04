@@ -20,13 +20,6 @@ const MAX_HITS = 20; // 20 actions / minute / user — generous for real use.
 
 const buckets = new Map<string, Bucket>();
 
-function prune(windowStart: number): void {
-  for (const [key, bucket] of buckets) {
-    bucket.hits = bucket.hits.filter((t) => t >= windowStart);
-    if (bucket.hits.length === 0) buckets.delete(key);
-  }
-}
-
 /**
  * Checks + records a call for `key`. When the limit is exceeded, returns a
  * 429 response with `Retry-After`; otherwise returns null (caller proceeds).
@@ -35,10 +28,19 @@ export function rateLimit(key: string): NextResponse | null {
   const now = Date.now();
   const windowStart = now - WINDOW_MS;
 
-  prune(windowStart);
+  let bucket = buckets.get(key);
+  if (!bucket) {
+    bucket = { hits: [] };
+    buckets.set(key, bucket);
+  }
 
-  const bucket = buckets.get(key) ?? { hits: [] };
+  // Key-level lazy pruning — O(K) where K is number of hits for this specific key
   bucket.hits = bucket.hits.filter((t) => t >= windowStart);
+
+  if (bucket.hits.length === 0) {
+    bucket = { hits: [] };
+    buckets.set(key, bucket);
+  }
 
   if (bucket.hits.length >= MAX_HITS) {
     const retryAfterSec = Math.ceil((bucket.hits[0] + WINDOW_MS - now) / 1000);
@@ -56,6 +58,5 @@ export function rateLimit(key: string): NextResponse | null {
   }
 
   bucket.hits.push(now);
-  buckets.set(key, bucket);
   return null;
 }

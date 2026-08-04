@@ -14,20 +14,24 @@ const DEFAULT_TIMEOUT_MS = 120_000;
 export class OpenRouterProvider implements LLMProvider {
   readonly name = "openrouter";
 
-  constructor(readonly model: string) {}
+  constructor(readonly model: string, private apiKey?: string) {}
 
   isConfigured(): boolean {
-    return Boolean(env.OPENROUTER_API_KEY);
+    return Boolean(this.apiKey || env.OPENROUTER_API_KEY);
   }
 
   private ensureConfigured(): void {
-    if (!env.OPENROUTER_API_KEY) {
+    if (!this.effectiveApiKey) {
       throw new LLMError("OpenRouter API key is not configured", {
         provider: this.name,
         model: this.model,
         retryable: false,
       });
     }
+  }
+
+  private get effectiveApiKey(): string {
+    return this.apiKey || env.OPENROUTER_API_KEY || "";
   }
 
   private extraHeaders(): Record<string, string> {
@@ -42,7 +46,7 @@ export class OpenRouterProvider implements LLMProvider {
     this.ensureConfigured();
     return chatCompletionRequest({
       endpoint: OPENROUTER_ENDPOINT,
-      apiKey: env.OPENROUTER_API_KEY!,
+      apiKey: this.effectiveApiKey,
       model: this.model,
       messages,
       options,
@@ -60,7 +64,7 @@ export class OpenRouterProvider implements LLMProvider {
     this.ensureConfigured();
     return streamChatCompletion({
       endpoint: OPENROUTER_ENDPOINT,
-      apiKey: env.OPENROUTER_API_KEY!,
+      apiKey: this.effectiveApiKey,
       model: this.model,
       messages,
       options,

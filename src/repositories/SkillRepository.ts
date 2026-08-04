@@ -76,45 +76,48 @@ export class SkillRepository implements ISkillRepository {
   async create(input: CreateSkillInput): Promise<SkillDTO> {
     // Create the skill + first draft and set the currentDraftId pointer
     // atomically so a crash between the two writes can't orphan a skill.
-    const skill = await prisma.$transaction(async (tx) => {
-      await ensureUserExists(input.userId, tx);
-      const created = await tx.skill.create({
-        data: {
-          userId: input.userId,
-          name: input.name,
-          purpose: input.purpose,
-          versions: {
-            create: {
-              versionNumber: 1,
-              status: "DRAFT",
-              inputSchema: (input.inputSchema ?? {}) as unknown as Prisma.InputJsonValue,
-              outputSchema: (input.outputSchema ?? {}) as unknown as Prisma.InputJsonValue,
-              instructions: input.instructions ?? "",
-              examples: (input.examples ?? []) as unknown as Prisma.InputJsonValue,
-              allowedTools: (input.allowedTools ?? []) as unknown as Prisma.InputJsonValue,
-              actionsRequiringApproval: (input.actionsRequiringApproval ?? []) as unknown as Prisma.InputJsonValue,
-              maxExecutionSteps: input.maxExecutionSteps ?? 10,
-              notes: input.notes ?? null,
+    const skill = await prisma.$transaction(
+      async (tx) => {
+        await ensureUserExists(input.userId, tx);
+        const created = await tx.skill.create({
+          data: {
+            userId: input.userId,
+            name: input.name,
+            purpose: input.purpose,
+            versions: {
+              create: {
+                versionNumber: 1,
+                status: "DRAFT",
+                inputSchema: (input.inputSchema ?? {}) as unknown as Prisma.InputJsonValue,
+                outputSchema: (input.outputSchema ?? {}) as unknown as Prisma.InputJsonValue,
+                instructions: input.instructions ?? "",
+                examples: (input.examples ?? []) as unknown as Prisma.InputJsonValue,
+                allowedTools: (input.allowedTools ?? []) as unknown as Prisma.InputJsonValue,
+                actionsRequiringApproval: (input.actionsRequiringApproval ?? []) as unknown as Prisma.InputJsonValue,
+                maxExecutionSteps: input.maxExecutionSteps ?? 10,
+                notes: input.notes ?? null,
+              },
             },
           },
-        },
-        include: {
-          versions: true,
-        },
-      });
-
-      const firstVersion = created.versions[0];
-      if (firstVersion) {
-        // Return the updated row so the response includes the currentDraftId
-        // pointer (the `created` snapshot above is stale, pre-update).
-        return tx.skill.update({
-          where: { id: created.id },
-          data: { currentDraftId: firstVersion.id },
-          include: { versions: true },
+          include: {
+            versions: true,
+          },
         });
-      }
-      return created;
-    });
+
+        const firstVersion = created.versions[0];
+        if (firstVersion) {
+          // Return the updated row so the response includes the currentDraftId
+          // pointer (the `created` snapshot above is stale, pre-update).
+          return tx.skill.update({
+            where: { id: created.id },
+            data: { currentDraftId: firstVersion.id },
+            include: { versions: true },
+          });
+        }
+        return created;
+      },
+      { maxWait: 5000, timeout: 10000 }
+    );
 
     return this.mapSkill(skill);
   }
@@ -126,81 +129,76 @@ export class SkillRepository implements ISkillRepository {
    * Skill-level fields (name/purpose) are synced on the Skill row.
    */
   async updateDraft(skillId: string, userId: string, input: UpdateSkillInput): Promise<SkillVersionDTO> {
-    const skill = await prisma.skill.findFirst({ where: { id: skillId, userId } });
-    if (!skill) throw new Error("Skill not found");
-    if (skill.status === "ARCHIVED") {
-      throw new Error("Archived skills cannot be edited. Restore or duplicate them instead.");
-    }
+    const updated = await prisma.$transaction(
+      async (tx) => {
+        const skill = await tx.skill.findFirst({ where: { id: skillId, userId } });
+        if (!skill) throw new Error("Skill not found");
+        if (skill.status === "ARCHIVED") {
+          throw new Error("Archived skills cannot be edited. Restore or duplicate them instead.");
+        }
 
-    let draftId = skill.currentDraftId;
-    const draft = draftId
-      ? await prisma.skillVersion.findUnique({ where: { id: draftId } })
-      : null;
+        let draftId = skill.currentDraftId;
+        const draft = draftId
+          ? await tx.skillVersion.findUnique({ where: { id: draftId } })
+          : null;
 
-    if (!draft || draft.status !== "DRAFT") {
-      // Rotate a new draft from the most recent version (published or draft).
-      // Wrapped in a transaction so the new version + currentDraftId pointer
-      // commit atomically — a crash between the two writes would otherwise
-      // leave the skill pointing at a stale draft.
-      draftId = await prisma.$transaction(async (tx) => {
-        const latest = await tx.skillVersion.findFirst({
-          where: { skillId },
-          orderBy: { versionNumber: "desc" },
-        });
-        const nextNumber = (latest?.versionNumber ?? 0) + 1;
-        const created = await tx.skillVersion.create({
+        if (!draft || draft.status !== "DRAFT") {
+          const latest = await tx.skillVersion.findFirst({
+            where: { skillId },
+            orderBy: { versionNumber: "desc" },
+          });
+          const nextNumber = (latest?.versionNumber ?? 0) + 1;
+          const created = await tx.skillVersion.create({
+            data: {
+              skillId,
+              versionNumber: nextNumber,
+              status: "DRAFT",
+              inputSchema: (latest?.inputSchema ?? {}) as unknown as Prisma.InputJsonValue,
+              outputSchema: (latest?.outputSchema ?? {}) as unknown as Prisma.InputJsonValue,
+              instructions: latest?.instructions ?? "",
+              examples: (latest?.examples ?? []) as unknown as Prisma.InputJsonValue,
+              allowedTools: (latest?.allowedTools ?? []) as unknown as Prisma.InputJsonValue,
+              actionsRequiringApproval: (latest?.actionsRequiringApproval ?? []) as unknown as Prisma.InputJsonValue,
+              maxExecutionSteps: latest?.maxExecutionSteps ?? 10,
+              notes: latest?.notes ?? null,
+            },
+          });
+          await tx.skill.update({
+            where: { id: skillId },
+            data: { currentDraftId: created.id },
+          });
+          draftId = created.id;
+        }
+
+        const updatedVersion = await tx.skillVersion.update({
+          where: { id: draftId! },
           data: {
-            skillId,
-            versionNumber: nextNumber,
-            status: "DRAFT",
-            inputSchema: (latest?.inputSchema ?? {}) as unknown as Prisma.InputJsonValue,
-            outputSchema: (latest?.outputSchema ?? {}) as unknown as Prisma.InputJsonValue,
-            instructions: latest?.instructions ?? "",
-            examples: (latest?.examples ?? []) as unknown as Prisma.InputJsonValue,
-            allowedTools: (latest?.allowedTools ?? []) as unknown as Prisma.InputJsonValue,
-            actionsRequiringApproval: (latest?.actionsRequiringApproval ?? []) as unknown as Prisma.InputJsonValue,
-            maxExecutionSteps: latest?.maxExecutionSteps ?? 10,
-            notes: latest?.notes ?? null,
+            ...(input.inputSchema && { inputSchema: input.inputSchema as unknown as Prisma.InputJsonValue }),
+            ...(input.outputSchema && { outputSchema: input.outputSchema as unknown as Prisma.InputJsonValue }),
+            ...(input.instructions !== undefined && { instructions: input.instructions }),
+            ...(input.examples && { examples: input.examples as unknown as Prisma.InputJsonValue }),
+            ...(input.allowedTools && { allowedTools: input.allowedTools as unknown as Prisma.InputJsonValue }),
+            ...(input.actionsRequiringApproval && {
+              actionsRequiringApproval: input.actionsRequiringApproval as unknown as Prisma.InputJsonValue,
+            }),
+            ...(input.maxExecutionSteps !== undefined && { maxExecutionSteps: input.maxExecutionSteps }),
+            ...(input.notes !== undefined && { notes: input.notes }),
           },
         });
+
         await tx.skill.update({
           where: { id: skillId },
-          data: { currentDraftId: created.id },
+          data: {
+            ...(input.name !== undefined && { name: input.name }),
+            ...(input.purpose !== undefined && { purpose: input.purpose }),
+            updatedAt: new Date(),
+          },
         });
-        return created.id;
-      });
-    }
 
-    // Update the draft AND sync the skill row atomically. Splitting these into
-    // two separate writes could leave the skill name/purpose/updatedAt stale if
-    // the second query failed (or the process crashed) after the version saved.
-    const [updated] = await prisma.$transaction([
-      prisma.skillVersion.update({
-        where: { id: draftId! },
-        data: {
-          ...(input.inputSchema && { inputSchema: input.inputSchema as unknown as Prisma.InputJsonValue }),
-          ...(input.outputSchema && { outputSchema: input.outputSchema as unknown as Prisma.InputJsonValue }),
-          ...(input.instructions !== undefined && { instructions: input.instructions }),
-          ...(input.examples && { examples: input.examples as unknown as Prisma.InputJsonValue }),
-          ...(input.allowedTools && { allowedTools: input.allowedTools as unknown as Prisma.InputJsonValue }),
-          ...(input.actionsRequiringApproval && {
-            actionsRequiringApproval: input.actionsRequiringApproval as unknown as Prisma.InputJsonValue,
-          }),
-          ...(input.maxExecutionSteps !== undefined && { maxExecutionSteps: input.maxExecutionSteps }),
-          ...(input.notes !== undefined && { notes: input.notes }),
-        },
-      }),
-      // Keep the top-level skill name/purpose in sync with the draft, and always
-      // bump updatedAt so recently edited skills surface in updatedAt sorting.
-      prisma.skill.update({
-        where: { id: skillId },
-        data: {
-          ...(input.name !== undefined && { name: input.name }),
-          ...(input.purpose !== undefined && { purpose: input.purpose }),
-          updatedAt: new Date(),
-        },
-      }),
-    ]);
+        return updatedVersion;
+      },
+      { maxWait: 5000, timeout: 10000 }
+    );
 
     return this.mapVersion(updated);
   }
@@ -214,43 +212,44 @@ export class SkillRepository implements ISkillRepository {
 
     const source = skill.versions[0];
 
-    const duplicated = await prisma.$transaction(async (tx) => {
-      await ensureUserExists(userId, tx);
-      const created = await tx.skill.create({
-        data: {
-          userId,
-          name: `${skill.name} (Copy)`,
-          purpose: skill.purpose,
-          versions: {
-            create: {
-              versionNumber: 1,
-              status: "DRAFT",
-              inputSchema: (source?.inputSchema ?? {}) as unknown as Prisma.InputJsonValue,
-              outputSchema: (source?.outputSchema ?? {}) as unknown as Prisma.InputJsonValue,
-              instructions: source?.instructions ?? "",
-              examples: (source?.examples ?? []) as unknown as Prisma.InputJsonValue,
-              allowedTools: (source?.allowedTools ?? []) as unknown as Prisma.InputJsonValue,
-              actionsRequiringApproval: (source?.actionsRequiringApproval ?? []) as unknown as Prisma.InputJsonValue,
-              maxExecutionSteps: source?.maxExecutionSteps ?? 10,
-              notes: source?.notes ?? null,
+    const duplicated = await prisma.$transaction(
+      async (tx) => {
+        await ensureUserExists(userId, tx);
+        const created = await tx.skill.create({
+          data: {
+            userId,
+            name: `${skill.name} (Copy)`,
+            purpose: skill.purpose,
+            versions: {
+              create: {
+                versionNumber: 1,
+                status: "DRAFT",
+                inputSchema: (source?.inputSchema ?? {}) as unknown as Prisma.InputJsonValue,
+                outputSchema: (source?.outputSchema ?? {}) as unknown as Prisma.InputJsonValue,
+                instructions: source?.instructions ?? "",
+                examples: (source?.examples ?? []) as unknown as Prisma.InputJsonValue,
+                allowedTools: (source?.allowedTools ?? []) as unknown as Prisma.InputJsonValue,
+                actionsRequiringApproval: (source?.actionsRequiringApproval ?? []) as unknown as Prisma.InputJsonValue,
+                maxExecutionSteps: source?.maxExecutionSteps ?? 10,
+                notes: source?.notes ?? null,
+              },
             },
           },
-        },
-        include: { versions: true },
-      });
-
-      const firstVersion = created.versions[0];
-      if (firstVersion) {
-        // Return the updated row so the response includes the currentDraftId
-        // pointer (the `created` snapshot above is stale, pre-update).
-        return tx.skill.update({
-          where: { id: created.id },
-          data: { currentDraftId: firstVersion.id },
           include: { versions: true },
         });
-      }
-      return created;
-    });
+
+        const firstVersion = created.versions[0];
+        if (firstVersion) {
+          return tx.skill.update({
+            where: { id: created.id },
+            data: { currentDraftId: firstVersion.id },
+            include: { versions: true },
+          });
+        }
+        return created;
+      },
+      { maxWait: 5000, timeout: 10000 }
+    );
 
     return this.mapSkill(duplicated);
   }
@@ -288,42 +287,31 @@ export class SkillRepository implements ISkillRepository {
       throw new Error("Version not found for this skill");
     }
 
-    // Publish the version and flip the skill atomically. The version update is
-    // a compare-and-swap (`updateMany … status: DRAFT`) so two concurrent
-    // publish requests for the same version can never both win: the loser's
-    // WHERE clause re-evaluates against the committed row, matches 0 rows, and
-    // throws INSIDE the interactive transaction — rolling back the skill
-    // update too. (A plain `update`, an outside-transaction status check, or
-    // an array-form transaction that throws AFTER commit would either allow
-    // double-publishing or leave the skill row referencing an unpublished
-    // version.)
-    // Clearing currentDraftId is critical: the published version is immutable
-    // and must stop being reported as the editable draft.
-    const published = await prisma.$transaction(async (tx) => {
-      const result = await tx.skillVersion.updateMany({
-        where: { id: versionId, skillId, status: "DRAFT" },
-        data: {
-          status: "PUBLISHED",
-          publishedAt: new Date(),
-        },
-      });
+    const published = await prisma.$transaction(
+      async (tx) => {
+        const result = await tx.skillVersion.updateMany({
+          where: { id: versionId, skillId, status: "DRAFT" },
+          data: {
+            status: "PUBLISHED",
+            publishedAt: new Date(),
+          },
+        });
 
-      if (result.count === 0) {
-        // Already published (or no longer a draft) — the CAS lost the race.
-        // Throw inside the transaction so nothing (incl. the skill flip)
-        // commits.
-        throw new Error("Only draft versions can be published");
-      }
+        if (result.count === 0) {
+          throw new Error("Only draft versions can be published");
+        }
 
-      await tx.skill.update({
-        where: { id: skillId },
-        data: { publishedVersionId: versionId, status: "PUBLISHED", currentDraftId: null },
-      });
+        await tx.skill.update({
+          where: { id: skillId },
+          data: { publishedVersionId: versionId, status: "PUBLISHED", currentDraftId: null },
+        });
 
-      const row = await tx.skillVersion.findUnique({ where: { id: versionId } });
-      if (!row) throw new Error("Version not found for this skill");
-      return row;
-    });
+        const row = await tx.skillVersion.findUnique({ where: { id: versionId } });
+        if (!row) throw new Error("Version not found for this skill");
+        return row;
+      },
+      { maxWait: 5000, timeout: 10000 }
+    );
 
     return this.mapVersion(published);
   }

@@ -1,5 +1,6 @@
 import { SkillDTO, SkillVersionDTO } from "@/types/skill";
 import { InvalidSkillError, InvalidInputError } from "./errors";
+import { validateJsonByteSize } from "@/lib/api/payloadValidation";
 
 /** Validate the skill is executable (exists, not archived). */
 export function validateSkillForExecution(skill: SkillDTO | null): void {
@@ -21,9 +22,11 @@ export function validateVersionForExecution(version: SkillVersionDTO | null): vo
  * Lightweight structural validation of the user input against the version's
  * input schema: any `required` property declared by the JSON schema must be
  * present. (Deep JSON-schema validation can be layered on later without
- * touching the runtime.)
+ * touching the runtime.) Also enforces JSON byte size boundaries (1MB max).
  */
 export function validateUserInput(input: Record<string, unknown>, version: SkillVersionDTO): void {
+  validateJsonByteSize(input, undefined, "Execution input data");
+
   const required = version.inputSchema?.required;
   if (Array.isArray(required)) {
     for (const key of required) {

@@ -182,6 +182,13 @@ export class ExecutionService implements IExecutionService {
     const execution = await this.executionRepo.findByIdForUser(executionId, userId);
     if (!execution) throw new Error("Execution not found or you do not have access to it");
 
+    if (execution.status === "RUNNING") {
+      throw new Error("Execution is already running");
+    }
+
+    // Mark status as RUNNING in database before launching graph run to prevent double-resumes
+    await this.executionRepo.updateStatus(executionId, "RUNNING");
+
     // Load the skill and version that were used for this execution.
     const version = await this.skillRepo.findVersionById(execution.skillVersionId);
     if (!version) throw new Error("Skill version not found");
@@ -224,19 +231,17 @@ export class ExecutionService implements IExecutionService {
       });
     }
 
+    // Bind cancellation manager signal so user-requested cancellation can abort the resumed run
+    const signal = this.cancellations.create(executionId);
+
     // Continue the graph from the restored state, asynchronously — the caller
-    // polls the execution detail page for completion. Unlike startExecution
-    // (which awaits the run), the engine here must STILL persist the terminal
-    // state when it finishes: ExecutionEngine.run only writes runtime details
-    // on success — the service owns writing COMPLETED + finalOutput, exactly
-    // like startExecution does after its await. Without this, an approved +
-    // resumed run would stay RUNNING forever (failures do persist via the
-    // engine's handleFailure, so only the success path was broken).
+    // polls the execution detail page for completion.
     this.engine.run({
       executionId,
       skill,
       version,
       userInput: execution.inputData,
+      signal,
       resume: {
         plan,
         currentStep,
@@ -262,9 +267,17 @@ export class ExecutionService implements IExecutionService {
         logger.info({ executionId, status: result.status }, "Resumed execution finished");
       })
       .catch(async (err) => {
-        logger.error({ executionId, err }, "Resume execution failed");
+        logger.error({ executionId, err }, "Resume execution failed catastrophically");
+        await this.executionRepo.updateStatus(
+          executionId,
+          "FAILED",
+          err instanceof Error ? err.message : "Resume error occurred"
+        ).catch(() => {});
+      })
+      .finally(() => {
+        this.cancellations.dispose(executionId);
       });
 
-    return execution;
+    return (await this.executionRepo.findById(executionId)) ?? execution;
   }
 }

@@ -8,6 +8,7 @@ import {
   ExecutionQuery,
 } from "@/types/execution";
 import { prisma } from "@/lib/prisma";
+import { validateJsonByteSize } from "@/lib/api/payloadValidation";
 import { ensureUserExists } from "@/lib/user";
 
 export class ExecutionRepository implements IExecutionRepository {
@@ -142,34 +143,40 @@ export class ExecutionRepository implements IExecutionRepository {
     avgDurationMs: number;
     mostUsedSkills: { skillName: string; count: number }[];
   }> {
-    const executions = await prisma.execution.findMany({
-      where: { userId },
-      select: { status: true, durationMs: true, skillName: true },
-    });
+    const [statusCounts, avgDuration, skillGroups] = await Promise.all([
+      prisma.execution.groupBy({
+        by: ["status"],
+        where: { userId },
+        _count: { _all: true },
+      }),
+      prisma.execution.aggregate({
+        where: { userId, durationMs: { not: null } },
+        _avg: { durationMs: true },
+      }),
+      prisma.execution.groupBy({
+        by: ["skillName"],
+        where: { userId, skillName: { not: null } },
+        _count: { _all: true },
+        orderBy: { _count: { skillName: "desc" } },
+        take: 5,
+      }),
+    ]);
 
-    const total = executions.length;
-    const completed = executions.filter((e) => e.status === "COMPLETED").length;
-    const failed = executions.filter((e) => e.status === "FAILED" || e.status === "STEP_LIMIT_EXCEEDED").length;
-    const cancelled = executions.filter((e) => e.status === "CANCELLED").length;
-    const paused = executions.filter((e) => e.status === "PAUSED_FOR_APPROVAL").length;
+    const countsMap = new Map(statusCounts.map((g) => [g.status, g._count._all]));
+    const total = Array.from(countsMap.values()).reduce((a, b) => a + b, 0);
 
-    const durations = executions
-      .map((e) => e.durationMs)
-      .filter((d): d is number => d != null);
-    const avgDurationMs =
-      durations.length > 0 ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : 0;
-
-    const skillCounts = new Map<string, number>();
-    for (const e of executions) {
-      const key = e.skillName || "Unknown skill";
-      skillCounts.set(key, (skillCounts.get(key) ?? 0) + 1);
-    }
-    const mostUsedSkills = [...skillCounts.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([skillName, count]) => ({ skillName, count }));
-
-    return { total, completed, failed, cancelled, paused, avgDurationMs, mostUsedSkills };
+    return {
+      total,
+      completed: countsMap.get("COMPLETED") ?? 0,
+      failed: (countsMap.get("FAILED") ?? 0) + (countsMap.get("STEP_LIMIT_EXCEEDED") ?? 0),
+      cancelled: countsMap.get("CANCELLED") ?? 0,
+      paused: countsMap.get("PAUSED_FOR_APPROVAL") ?? 0,
+      avgDurationMs: Math.round(avgDuration._avg.durationMs ?? 0),
+      mostUsedSkills: skillGroups.map((g) => ({
+        skillName: g.skillName || "Unknown skill",
+        count: g._count._all,
+      })),
+    };
   }
 
   async getApprovalSummary(userId: string): Promise<{ total: number; pending: number }> {
@@ -263,6 +270,9 @@ export class ExecutionRepository implements IExecutionRepository {
   }
 
   async setFinalOutput(id: string, output: Record<string, unknown>): Promise<ExecutionDTO> {
+    // Enforce 1MB JSON storage boundary before writing to the Prisma Json column.
+    validateJsonByteSize(output, undefined, "Final execution output");
+
     const updated = await prisma.execution.update({
       where: { id },
       data: {

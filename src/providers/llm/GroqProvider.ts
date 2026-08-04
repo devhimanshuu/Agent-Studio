@@ -14,14 +14,14 @@ const DEFAULT_TIMEOUT_MS = 120_000;
 export class GroqProvider implements LLMProvider {
   readonly name = "groq";
 
-  constructor(readonly model: string) {}
+  constructor(readonly model: string, private apiKey?: string) {}
 
   isConfigured(): boolean {
-    return Boolean(env.GROQ_API_KEY);
+    return Boolean(this.apiKey || env.GROQ_API_KEY);
   }
 
   private ensureConfigured(): void {
-    if (!env.GROQ_API_KEY) {
+    if (!this.effectiveApiKey) {
       throw new LLMError("Groq API key is not configured", {
         provider: this.name,
         model: this.model,
@@ -30,11 +30,15 @@ export class GroqProvider implements LLMProvider {
     }
   }
 
+  private get effectiveApiKey(): string {
+    return this.apiKey || env.GROQ_API_KEY || "";
+  }
+
   async complete(messages: LLMChatMessage[], options?: LLMCompletionOptions): Promise<LLMCompletionResult> {
     this.ensureConfigured();
     return chatCompletionRequest({
       endpoint: GROQ_ENDPOINT,
-      apiKey: env.GROQ_API_KEY!,
+      apiKey: this.effectiveApiKey,
       model: this.model,
       messages,
       options,
@@ -51,7 +55,7 @@ export class GroqProvider implements LLMProvider {
     this.ensureConfigured();
     return streamChatCompletion({
       endpoint: GROQ_ENDPOINT,
-      apiKey: env.GROQ_API_KEY!,
+      apiKey: this.effectiveApiKey,
       model: this.model,
       messages,
       options,

@@ -29,32 +29,35 @@ export class ToolDefinitionRepository implements IToolDefinitionRepository {
    * start / page load; only diverging rows are touched. */
   async syncCatalog(items: ToolCatalogItem[]): Promise<number> {
     await prisma.$transaction(
-      items.map((item) =>
-        prisma.toolDefinition.upsert({
-          where: { name: item.name },
-          update: {
-            displayName: item.displayName,
-            description: item.description,
-            category: item.category,
-            type: item.type,
-            parameters: item.parameters as unknown as Prisma.InputJsonValue,
-            requiresApproval: item.requiresApproval,
-            requiresAuth: item.requiresAuth,
-            isSystem: item.isSystem,
-          },
-          create: {
-            name: item.name,
-            displayName: item.displayName,
-            description: item.description,
-            category: item.category,
-            type: item.type,
-            parameters: item.parameters as unknown as Prisma.InputJsonValue,
-            requiresApproval: item.requiresApproval,
-            requiresAuth: item.requiresAuth,
-            isSystem: item.isSystem,
-          },
-        })
-      )
+      async (tx) => {
+        for (const item of items) {
+          await tx.toolDefinition.upsert({
+            where: { name: item.name },
+            update: {
+              displayName: item.displayName,
+              description: item.description,
+              category: item.category,
+              type: item.type,
+              parameters: item.parameters as unknown as Prisma.InputJsonValue,
+              requiresApproval: item.requiresApproval,
+              requiresAuth: item.requiresAuth,
+              isSystem: item.isSystem,
+            },
+            create: {
+              name: item.name,
+              displayName: item.displayName,
+              description: item.description,
+              category: item.category,
+              type: item.type,
+              parameters: item.parameters as unknown as Prisma.InputJsonValue,
+              requiresApproval: item.requiresApproval,
+              requiresAuth: item.requiresAuth,
+              isSystem: item.isSystem,
+            },
+          });
+        }
+      },
+      { maxWait: 5000, timeout: 10000 }
     );
     return prisma.toolDefinition.count();
   }
