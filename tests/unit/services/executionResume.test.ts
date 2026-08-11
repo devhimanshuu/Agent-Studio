@@ -1,11 +1,38 @@
 import { describe, it, expect } from "vitest";
 import { ExecutionService } from "@/services/ExecutionService";
 import { ExecutionEngine } from "@/modules/execution/executor/executionEngine";
+import { ApprovalEngine } from "@/modules/approval";
+import { IApprovalHistoryRepository } from "@/repositories/interfaces/IApprovalHistoryRepository";
 import { FakeExecutionRepo } from "../modules/helpers/fakeExecutionRepo";
 import { FakeSkillRepo } from "../modules/helpers/fakeSkillRepo";
 import { FakeAuditRepo } from "../modules/helpers/fakeAuditRepo";
 import { FakeApprovalRepo } from "../modules/helpers/fakeApprovalRepo";
 import { FakeLogRepo } from "../modules/helpers/fakeLogRepo";
+
+/** Minimal in-memory history repo for the approval engine. */
+class FakeHistoryRepo implements IApprovalHistoryRepository {
+  entries: { approvalId: string; executionId: string; userId: string; action: string; details: Record<string, unknown>; timestamp: Date }[] = [];
+
+  async log(input: {
+    approvalId: string;
+    executionId: string;
+    userId: string;
+    action: "CREATED" | "APPROVED" | "REJECTED" | "CANCELLED" | "EXPIRED" | "RESUMED";
+    details: Record<string, unknown>;
+  }) {
+    const entry = { ...input, timestamp: new Date() };
+    this.entries.push(entry);
+    return entry as never;
+  }
+
+  async findByApprovalId(approvalId: string) {
+    return this.entries.filter((e) => e.approvalId === approvalId) as never;
+  }
+
+  async findByExecutionId(executionId: string) {
+    return this.entries.filter((e) => e.executionId === executionId) as never;
+  }
+}
 
 describe("ExecutionService.resumeExecution", () => {
   it("restores the persisted plan + progress instead of restarting the graph", async () => {
@@ -154,6 +181,79 @@ describe("ExecutionService.resumeExecution", () => {
     // The resumed completion was audited.
     const audits = await auditRepo.listForUser("u1", { action: "EXECUTION_COMPLETED" });
     expect(audits.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("resume route composition: resumeAfterApproval then resumeExecution succeeds (regression)", async () => {
+    const execRepo = new FakeExecutionRepo();
+    const skillRepo = new FakeSkillRepo();
+    const auditRepo = new FakeAuditRepo();
+    const approvalRepo = new FakeApprovalRepo();
+    const historyRepo = new FakeHistoryRepo();
+    const logRepo = new FakeLogRepo();
+
+    const skill = await skillRepo.create({ userId: "u1", name: "S", purpose: "p", allowedTools: ["calculator"] });
+    const version = (await skillRepo.findVersionsBySkillId(skill.id))[0];
+    const execution = await execRepo.create(
+      { userId: "u1", skillVersionId: version.id, inputData: {} },
+      10,
+      "S"
+    );
+    await execRepo.updateStatus(execution.id, "PAUSED_FOR_APPROVAL");
+    await execRepo.setRuntimeDetails(execution.id, {
+      provider: "groq/x",
+      plannerOutput: {
+        reasoning: "r",
+        requiredTools: ["calculator"],
+        steps: [{ stepNumber: 1, toolName: "calculator", action: "create", input: { note: "x" }, requiresApproval: true }],
+        expectedOutput: "done",
+      },
+    });
+
+    // An APPROVED approval request, as POST /api/approvals would have left it.
+    const approval = await approvalRepo.upsertByIdempotencyKey({
+      executionId: execution.id,
+      userId: "u1",
+      skillName: "S",
+      plannerReason: "needs review",
+      toolName: "calculator",
+      action: "create",
+      inputPayload: { note: "x" },
+      idempotencyKey: `appr-${execution.id}-step-1`,
+    });
+    await approvalRepo.respond({
+      approvalId: approval.id,
+      userId: "u1",
+      approved: true,
+      idempotencyKey: approval.idempotencyKey,
+    });
+
+    const engineInputs: unknown[] = [];
+    // Keep the run pending so the execution stays RUNNING deterministically
+    // (a resolving run would flip it to COMPLETED in the continuation).
+    const engine = {
+      run: (input: unknown) => {
+        engineInputs.push(input);
+        return new Promise(() => {});
+      },
+    } as unknown as ExecutionEngine;
+
+    const service = new ExecutionService(execRepo, skillRepo, auditRepo, {
+      approvalRepo,
+      logRepo,
+      engine,
+    });
+    // Mirrors POST /api/executions/[id]/resume: ApprovalEngine bookkeeping
+    // first, then the service re-invokes the graph.
+    const approvalEngine = new ApprovalEngine(approvalRepo, historyRepo, execRepo);
+    await approvalEngine.resumeAfterApproval(approval.id, "u1");
+
+    const result = await service.resumeExecution(execution.id, "u1");
+    expect(result.id).toBe(execution.id);
+    // The resumed run was actually launched, and the execution is RUNNING again.
+    expect(engineInputs).toHaveLength(1);
+    expect((engineInputs[0] as { resume?: unknown }).resume).toBeDefined();
+    const fresh = await execRepo.findById(execution.id);
+    expect(fresh?.status).toBe("RUNNING");
   });
 
   it("throws when there is no persisted plan to resume from", async () => {

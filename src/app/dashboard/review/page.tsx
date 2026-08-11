@@ -16,6 +16,7 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { toast } from "@/stores/toastStore";
 import { clsx } from "clsx";
 import { ApprovalRequestDTO } from "@/types/approval";
+import { executionsApi } from "@/lib/api/executions";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -56,9 +57,9 @@ function ReviewCard({
   isProcessing,
 }: {
   request: ApprovalRequestDTO;
-  onApprove: () => void;
-  onReject: (reason: string) => void;
-  onCancel: () => void;
+  onApprove: (request: ApprovalRequestDTO) => void;
+  onReject: (request: ApprovalRequestDTO, reason: string) => void;
+  onCancel: (request: ApprovalRequestDTO) => void;
   isProcessing: boolean;
 }) {
   const [showRejectInput, setShowRejectInput] = useState(false);
@@ -129,7 +130,7 @@ function ReviewCard({
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={onApprove}
+              onClick={() => onApprove(request)}
               disabled={isProcessing}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded border border-emerald-500/40 bg-emerald-600 dark:bg-emerald-950/40 text-white dark:text-emerald-300 text-[10px] font-mono font-semibold uppercase tracking-wider hover:bg-emerald-500 transition-all disabled:opacity-50 cursor-pointer shadow-sm"
             >
@@ -145,7 +146,7 @@ function ReviewCard({
             </button>
             <button
               type="button"
-              onClick={onCancel}
+              onClick={() => onCancel(request)}
               disabled={isProcessing}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-slate-300 dark:border-slate-500/40 bg-slate-100 dark:bg-slate-950/40 text-slate-700 dark:text-slate-400 text-[10px] font-mono uppercase tracking-wider hover:bg-slate-200 transition-all disabled:opacity-50 cursor-pointer shadow-sm"
             >
@@ -168,7 +169,7 @@ function ReviewCard({
               <button
                 type="button"
                 onClick={() => {
-                  onReject(rejectReason);
+                  onReject(request, rejectReason);
                   setShowRejectInput(false);
                   setRejectReason("");
                 }}
@@ -189,21 +190,35 @@ export default function ReviewPage() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<"PENDING" | "HISTORY">("PENDING");
 
-  const { data: pendingData, isLoading: pendingLoading } = useQuery<ApprovalRequestDTO[]>({
-    queryKey: ["approvals", "pending"],
-    queryFn: () => apiFetch("/api/approvals/pending"),
-  });
-
-  const { data: historyData, isLoading: historyLoading } = useQuery<ApprovalRequestDTO[]>({
-    queryKey: ["approvals", "history"],
+  // Single query — GET /api/approvals returns every request for this user
+  // (pending + history). The tabs filter client-side; no separate pending
+  // route exists on the backend.
+  const { data: approvalsData, isLoading } = useQuery<ApprovalRequestDTO[]>({
+    queryKey: ["approvals"],
     queryFn: () => apiFetch("/api/approvals"),
-    enabled: tab === "HISTORY",
   });
 
+  const pendingList = (approvalsData ?? []).filter((r) => r.status === "PENDING");
+  const historyList = (approvalsData ?? []).filter((r) => r.status !== "PENDING");
+
+  // Approve = respond approved (single-use idempotency key) THEN resume the
+  // paused execution. The engine marks the request APPROVED; the resume route
+  // performs duplicate prevention, step-limit enforcement, and re-invokes the
+  // graph from the restored state.
   const approveMutation = useMutation({
-    mutationFn: (id: string) => apiFetch(`/api/approvals/${id}/approve`, { method: "POST" }),
+    mutationFn: async (request: ApprovalRequestDTO) => {
+      await apiFetch("/api/approvals", {
+        method: "POST",
+        body: JSON.stringify({
+          approvalId: request.id,
+          approved: true,
+          idempotencyKey: request.idempotencyKey,
+        }),
+      });
+      await executionsApi.resume(request.executionId, request.id, request.idempotencyKey);
+    },
     onSuccess: () => {
-      toast.success("Action approved", "Execution resumes automatically");
+      toast.success("Action approved", "Execution is resuming");
       queryClient.invalidateQueries({ queryKey: ["approvals"] });
       queryClient.invalidateQueries({ queryKey: ["executions"] });
     },
@@ -211,10 +226,15 @@ export default function ReviewPage() {
   });
 
   const rejectMutation = useMutation({
-    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
-      apiFetch(`/api/approvals/${id}/reject`, {
+    mutationFn: ({ request, reason }: { request: ApprovalRequestDTO; reason: string }) =>
+      apiFetch("/api/approvals", {
         method: "POST",
-        body: JSON.stringify({ reason }),
+        body: JSON.stringify({
+          approvalId: request.id,
+          approved: false,
+          rejectionReason: reason || undefined,
+          idempotencyKey: request.idempotencyKey,
+        }),
       }),
     onSuccess: () => {
       toast.success("Action rejected");
@@ -225,7 +245,11 @@ export default function ReviewPage() {
   });
 
   const cancelMutation = useMutation({
-    mutationFn: (id: string) => apiFetch(`/api/approvals/${id}/cancel`, { method: "POST" }),
+    mutationFn: (request: ApprovalRequestDTO) =>
+      apiFetch(`/api/approvals/${request.id}/cancel`, {
+        method: "POST",
+        body: JSON.stringify({ idempotencyKey: request.idempotencyKey }),
+      }),
     onSuccess: () => {
       toast.success("Workflow cancelled");
       queryClient.invalidateQueries({ queryKey: ["approvals"] });
@@ -234,8 +258,6 @@ export default function ReviewPage() {
     onError: (e) => toast.error("Cancel failed", e.message),
   });
 
-  const pendingList = pendingData ?? [];
-  const historyList = (historyData ?? []).filter((r) => r.status !== "PENDING");
   const isProcessing =
     approveMutation.isPending || rejectMutation.isPending || cancelMutation.isPending;
 
@@ -287,7 +309,7 @@ export default function ReviewPage() {
       {/* Tab Content */}
       {tab === "PENDING" && (
         <div>
-          {pendingLoading ? (
+          {isLoading ? (
             <SkeletonGrid cards={3} />
           ) : pendingList.length === 0 ? (
             <EmptyState
@@ -301,9 +323,9 @@ export default function ReviewPage() {
                 <ReviewCard
                   key={req.id}
                   request={req}
-                  onApprove={() => approveMutation.mutate(req.id)}
-                  onReject={(reason) => rejectMutation.mutate({ id: req.id, reason })}
-                  onCancel={() => cancelMutation.mutate(req.id)}
+                  onApprove={(request) => approveMutation.mutate(request)}
+                  onReject={(request, reason) => rejectMutation.mutate({ request, reason })}
+                  onCancel={(request) => cancelMutation.mutate(request)}
                   isProcessing={isProcessing}
                 />
               ))}
@@ -314,7 +336,7 @@ export default function ReviewPage() {
 
       {tab === "HISTORY" && (
         <div>
-          {historyLoading ? (
+          {isLoading ? (
             <SkeletonGrid cards={3} />
           ) : historyList.length === 0 ? (
             <EmptyState

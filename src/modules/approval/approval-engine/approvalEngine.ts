@@ -1,7 +1,7 @@
 import { IApprovalRepository } from "@/repositories/interfaces/IApprovalRepository";
 import { IApprovalHistoryRepository } from "@/repositories/interfaces/IApprovalHistoryRepository";
 import { IExecutionRepository } from "@/repositories/interfaces/IExecutionRepository";
-import { ApprovalRequestDTO, ApprovalHistoryAction } from "@/types/approval";
+import { ApprovalRequestDTO } from "@/types/approval";
 import { StepLimitExceededError } from "@/modules/execution/executor/errors";
 import { logger } from "@/lib/logger";
 
@@ -63,9 +63,11 @@ export class ApprovalEngine {
 
     // NOTE: the execution is NOT flipped to RUNNING here on purpose. The
     // caller (POST /api/approvals → the review UI) must then call
-    // POST /api/executions/[id]/resume, whose resumeAfterApproval performs the
-    // actual state restoration (history RESUMED entry, step-limit check, and
-    // RUNNING status) before re-invoking the graph.
+    // POST /api/executions/[id]/resume, whose resumeAfterApproval performs
+    // the duplicate/step-limit checks and logs the RESUMED history entry, and
+    // whose resumeExecution flips the execution to RUNNING before re-invoking
+    // the graph. (The RUNNING flip lives in resumeExecution so its
+    // "already running" guard can reject concurrent double-resumes.)
     logger.info(
       { executionId: request.executionId, approvalId },
       "Approval granted — caller should resume the execution"
@@ -198,8 +200,11 @@ export class ApprovalEngine {
 
   /**
    * Resume a paused execution after its approval request was approved.
-   * Creates a Running execution step for the approved tool, records the
-   * history entry, and returns the execution ID for the caller to re-run.
+   * Records the RESUMED history entry (duplicate prevention) and enforces the
+   * step limit, then returns the execution ID for the caller to re-run. The
+   * execution itself is flipped to RUNNING by ExecutionService.resumeExecution
+   * right before the graph is re-invoked — this method only does bookkeeping so
+   * the service's "already running" guard can reject concurrent double-resumes.
    *
    * Throws StepLimitExceededError if the execution has already hit its max steps.
    */
@@ -251,9 +256,6 @@ export class ApprovalEngine {
         step: execution.stepCount + 1,
       },
     });
-
-    // Mark the execution as RUNNING again.
-    await this.executionRepo.updateStatus(request.executionId, "RUNNING");
 
     logger.info(
       { executionId: request.executionId, approvalId, step: execution.stepCount + 1 },

@@ -178,7 +178,10 @@ describe("ApprovalEngine", () => {
       expect(historyRepo.log).toHaveBeenCalledWith(
         expect.objectContaining({ action: "RESUMED" })
       );
-      expect(executionRepo.updateStatus).toHaveBeenCalledWith("exec-1", "RUNNING");
+      // The RUNNING flip is owned by ExecutionService.resumeExecution (right
+      // before the graph re-invocation) so its "already running" guard rejects
+      // concurrent double-resumes. resumeAfterApproval only does bookkeeping.
+      expect(executionRepo.updateStatus).not.toHaveBeenCalledWith("exec-1", "RUNNING");
     });
 
     it("prevents duplicate resume (already RESUMED)", async () => {
