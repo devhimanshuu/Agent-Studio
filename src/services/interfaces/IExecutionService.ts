@@ -16,4 +16,11 @@ export interface IExecutionService {
    * Restores the execution to RUNNING status so the graph can continue.
    */
   resumeExecution(executionId: string, userId: string): Promise<ExecutionDTO>;
+
+  /**
+   * Safe Step Recovery: Retries a failed or stopped execution by recovering completed safe steps
+   * and resuming execution directly from the failed step index without repeating prior completed steps.
+   */
+  retryFailedExecution(executionId: string, userId: string): Promise<ExecutionDTO>;
 }
+

@@ -66,4 +66,9 @@ export const executionsApi = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ approvalId, idempotencyKey }),
     }).then((r) => handle<ExecutionDTO>(r)),
+
+  /** Step-level safe retry / recovery: resumes a failed run from the failed step. */
+  retry: (id: string): Promise<ExecutionDTO> =>
+    fetch(`/api/executions/${id}/retry`, { method: "POST" }).then((r) => handle<ExecutionDTO>(r)),
 };
+

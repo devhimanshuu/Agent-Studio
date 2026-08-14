@@ -19,8 +19,13 @@ export { calculatorTool } from "./calculator/calculatorTool";
 export { documentSearchTool } from "./document-search/documentSearchTool";
 export { recordLookupTool } from "./record-lookup/recordLookupTool";
 export { mockTaskCreatorTool } from "./mock-task/mockTaskCreatorTool";
+export { aiExtractionTool } from "./ai-extraction/aiExtractionTool";
+export { aiClassificationTool } from "./ai-classification/aiClassificationTool";
+export { deterministicConditionTool } from "./deterministic-condition/conditionTool";
+export { finalReportTool } from "./final-report/finalReportTool";
 
-/** Production registry pre-loaded with the four built-in tools. */
+/** Production registry pre-loaded with all built-in tools. */
 export function createToolRegistry(): ToolRegistry {
   return ToolRegistry.withBuiltInTools();
 }
+

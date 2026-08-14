@@ -70,8 +70,9 @@ describe("Category-first ToolRegistry", () => {
     expect(counts).toMatchObject({ COMPUTE: 2, SEARCH: 0, DATA: 0, TASK: 1 });
   });
 
-  it("the built-in registry covers every category exactly once", () => {
+  it("the built-in registry covers every category comprehensively", () => {
     const registry = createToolRegistry();
-    expect(registry.countToolsByCategory()).toEqual({ COMPUTE: 1, SEARCH: 1, DATA: 1, TASK: 1 });
+    expect(registry.countToolsByCategory()).toEqual({ COMPUTE: 2, SEARCH: 1, DATA: 3, TASK: 2 });
   });
 });
+

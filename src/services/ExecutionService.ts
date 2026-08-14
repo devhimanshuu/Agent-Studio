@@ -280,4 +280,105 @@ export class ExecutionService implements IExecutionService {
 
     return (await this.executionRepo.findById(executionId)) ?? execution;
   }
+
+  async retryFailedExecution(executionId: string, userId: string): Promise<ExecutionDTO> {
+    const execution = await this.executionRepo.findByIdForUser(executionId, userId);
+    if (!execution) throw new Error("Execution not found or you do not have access to it");
+
+    if (execution.status === "RUNNING") {
+      throw new Error("Execution is already running");
+    }
+
+    const version = await this.skillRepo.findVersionById(execution.skillVersionId);
+    if (!version) throw new Error("Skill version not found");
+
+    const skill = await this.skillRepo.findByIdForUser(version.skillId, userId);
+    if (!skill) throw new Error("Skill not found or you do not have access to it");
+
+    const plan = execution.plannerOutput as unknown as ExecutionPlan | null;
+    if (!plan) {
+      throw new Error("No plan available to recover this execution");
+    }
+
+    // Mark status as RUNNING
+    await this.executionRepo.updateStatus(executionId, "RUNNING");
+
+    await this.auditRepo.log({
+      userId,
+      executionId,
+      action: "EXECUTION_RECOVERY_STARTED",
+      details: { recoveredFromStatus: execution.status, skillName: skill.name },
+    });
+
+    const executedCalls = (execution.toolCalls ?? []).filter((c) => c.status === "SUCCESS");
+    const currentStep = executedCalls.length;
+
+    const results: Record<string, unknown> = {};
+    const toolCalls: ToolCallRecord[] = [];
+    for (let i = 0; i < executedCalls.length; i += 1) {
+      const call = executedCalls[i];
+      const step = plan.steps[i];
+      const output = call.outputResult ?? call.inputArgs;
+      results[`step_${step?.stepNumber ?? i + 1}`] = output;
+      toolCalls.push({
+        stepNumber: step?.stepNumber ?? i + 1,
+        toolName: call.toolName,
+        action: call.action,
+        input: call.inputArgs,
+        output,
+        status: "SUCCESS",
+        requiresApproval: false,
+        durationMs: call.durationMs ?? undefined,
+      });
+    }
+
+    const signal = this.cancellations.create(executionId);
+
+    this.engine
+      .run({
+        executionId,
+        skill,
+        version,
+        userInput: execution.inputData,
+        signal,
+        resume: {
+          plan,
+          currentStep,
+          results,
+          toolCalls,
+          providerUsed: execution.provider ?? null,
+          persistedStepCount: execution.stepCount,
+        },
+      })
+      .then(async (result) => {
+        if (result.status === "COMPLETED") {
+          await this.executionRepo.setFinalOutput(executionId, result.finalOutput ?? {});
+          await this.auditRepo.log({
+            userId,
+            executionId,
+            action: "EXECUTION_COMPLETED",
+            details: { recovered: true, skippedSafeSteps: currentStep },
+          });
+        } else if (result.status === "PAUSED_FOR_APPROVAL") {
+          await this.executionRepo.updateStatus(executionId, "PAUSED_FOR_APPROVAL");
+        }
+        logger.info({ executionId, status: result.status, skippedSafeSteps: currentStep }, "Recovered execution finished");
+      })
+      .catch(async (err) => {
+        logger.error({ executionId, err }, "Recovery execution failed");
+        await this.executionRepo
+          .updateStatus(
+            executionId,
+            "FAILED",
+            err instanceof Error ? err.message : "Recovery error occurred"
+          )
+          .catch(() => {});
+      })
+      .finally(() => {
+        this.cancellations.dispose(executionId);
+      });
+
+    return (await this.executionRepo.findById(executionId)) ?? execution;
+  }
 }
+

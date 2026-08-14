@@ -72,6 +72,77 @@ async function main() {
       requiresApproval: true,
       isSystem: true,
     },
+    {
+      name: "ai_extraction",
+      displayName: "AI Extraction",
+      description: "Extracts structured JSON entities and fields from unstructured text or prior step results.",
+      category: "DATA",
+      type: ToolType.READ,
+      parameters: {
+        type: "object",
+        properties: {
+          text: { type: "string" },
+          fieldsToExtract: { type: "array", items: { type: "string" } },
+        },
+        required: ["text", "fieldsToExtract"],
+      },
+      requiresApproval: false,
+      isSystem: true,
+    },
+    {
+      name: "ai_classification",
+      displayName: "AI Classification",
+      description: "Classifies text into bounded discrete categories with confidence and decision rationale.",
+      category: "DATA",
+      type: ToolType.READ,
+      parameters: {
+        type: "object",
+        properties: {
+          input: { type: "string" },
+          categories: { type: "array", items: { type: "string" } },
+        },
+        required: ["input", "categories"],
+      },
+      requiresApproval: false,
+      isSystem: true,
+    },
+    {
+      name: "deterministic_condition",
+      displayName: "Deterministic Condition Evaluator",
+      description: "Evaluates deterministic business rules against workflow state, producing an auditable decision path explanation.",
+      category: "COMPUTE",
+      type: ToolType.READ,
+      parameters: {
+        type: "object",
+        properties: {
+          field: { type: "string" },
+          operator: { type: "string" },
+          threshold: {},
+          actualValue: {},
+        },
+        required: ["field", "operator", "threshold", "actualValue"],
+      },
+      requiresApproval: false,
+      isSystem: true,
+    },
+    {
+      name: "final_report",
+      displayName: "Final Report Generator",
+      description: "Consolidates workflow results, evaluations, and external actions into a structured executive report.",
+      category: "TASK",
+      type: ToolType.READ,
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          summary: { type: "string" },
+          stepResults: { type: "object" },
+        },
+        required: ["title", "summary"],
+      },
+      requiresApproval: false,
+      isSystem: true,
+    },
   ];
 
   for (const tool of tools) {
@@ -98,7 +169,7 @@ async function main() {
   console.log(`✅ Seeded User: ${user.name} (${user.id})`);
 
   // 3. Seed Sample Demo Skill with Versions
-  const demoSkillName = "Financial & Tax Calculator";
+  const demoSkillName = "Customer Refund Bounded Workflow";
   let skill = await prisma.skill.findFirst({
     where: { userId: user.id, name: demoSkillName },
   });
@@ -108,41 +179,56 @@ async function main() {
       data: {
         userId: user.id,
         name: demoSkillName,
-        purpose: "Calculates invoice subtotal, tax rates, and discount deductions using math tools.",
+        purpose: "Bounded multi-step workflow: retrieves customer policy, extracts refund parameters, evaluates deterministic rules, requests human approval for disbursements, and generates a final audit report.",
         status: SkillStatus.PUBLISHED,
         versions: {
           create: [
             {
               versionNumber: 1,
               status: SkillStatus.PUBLISHED,
-              instructions: "Evaluate the given expression and apply tax calculations accurately.",
+              instructions: "Execute bounded refund validation: 1. Extract refund amount and reason. 2. Evaluate if amount > $500. 3. If high value, request manager approval. 4. Generate final report.",
               inputSchema: {
                 type: "object",
                 properties: {
-                  expression: { type: "string" },
+                  customerName: { type: "string" },
+                  requestText: { type: "string" },
                 },
-                required: ["expression"],
+                required: ["customerName", "requestText"],
               },
               outputSchema: {
                 type: "object",
                 properties: {
-                  result: { type: "number" },
+                  report: { type: "object" },
+                  status: { type: "string" },
                 },
               },
               examples: [
-                { input: { expression: "450 * 1.18" }, output: { result: 531 } },
+                {
+                  input: {
+                    customerName: "Alice Smith",
+                    requestText: "Customer requested a $750.00 refund due to shipping damage on order #8812",
+                  },
+                  output: { status: "COMPLETED" },
+                },
               ],
-              allowedTools: ["calculator"],
-              actionsRequiringApproval: [],
+              allowedTools: [
+                "ai_extraction",
+                "ai_classification",
+                "deterministic_condition",
+                "mock_task_creator",
+                "final_report",
+              ],
+              actionsRequiringApproval: ["create_task"],
               maxExecutionSteps: 10,
-              changelog: "Initial published version v1",
+              changelog: "v1: Bounded workflow automation with deterministic rule explainer & HITL safety gate",
             },
           ],
         },
       },
     });
-    console.log(`✅ Seeded Demo Skill: ${skill.name}`);
+    console.log(`✅ Seeded Demo Workflow: ${skill.name}`);
   }
+
 
   console.log("🎉 Database seeding completed successfully!");
 }

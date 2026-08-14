@@ -83,6 +83,16 @@ export default function ExecutionDetailPage() {
     onError: (e) => toast.error("Cancel failed", e.message),
   });
 
+  const retryMutation = useMutation({
+    mutationFn: () => executionsApi.retry(id),
+    onSuccess: () => {
+      toast.success("Safe Step Recovery Started", "Resuming directly from failed step without repeating completed safe steps");
+      queryClient.invalidateQueries({ queryKey: ["execution", id] });
+      queryClient.invalidateQueries({ queryKey: ["executions"] });
+    },
+    onError: (e) => toast.error("Recovery failed", e.message),
+  });
+
   const replayMutation = useMutation({
     mutationFn: () => executionsApi.replay(id),
     onSuccess: (execution) => {
@@ -128,6 +138,7 @@ export default function ExecutionDetailPage() {
   }
 
   const isRunning = execution.status === "RUNNING" || execution.status === "PAUSED_FOR_APPROVAL";
+  const isRecoverable = execution.status === "FAILED" || execution.status === "CANCELLED" || execution.status === "STEP_LIMIT_EXCEEDED";
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto font-mono">
@@ -175,6 +186,17 @@ export default function ExecutionDetailPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 text-xs">
+            {isRecoverable && (
+              <button
+                type="button"
+                onClick={() => retryMutation.mutate()}
+                disabled={retryMutation.isPending}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-amber-400 bg-amber-600 text-white font-semibold hover:bg-amber-500 transition-all cursor-pointer disabled:opacity-50 shadow-sm animate-pulse"
+                title="Recover run by resuming from failed step without repeating completed safe steps"
+              >
+                <RotateCcw className="h-3.5 w-3.5" /> [ RETRY SAFE STEP ]
+              </button>
+            )}
             {isRunning && (
               <button
                 type="button"
@@ -191,7 +213,7 @@ export default function ExecutionDetailPage() {
               disabled={replayMutation.isPending}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-200 hover:border-indigo-400 font-semibold transition-all cursor-pointer disabled:opacity-50 shadow-sm"
             >
-              <RotateCcw className="h-3.5 w-3.5" /> [ REPLAY ]
+              <RotateCcw className="h-3.5 w-3.5" /> [ REPLAY / RERUN ]
             </button>
             <button
               type="button"
@@ -209,6 +231,7 @@ export default function ExecutionDetailPage() {
             </button>
           </div>
         </div>
+
 
         {execution.errorMessage && (
           <div className="rounded border border-red-300 dark:border-red-500/40 bg-red-50 dark:bg-red-950/30 p-3 text-xs text-red-800 dark:text-red-300 font-semibold">
@@ -280,35 +303,78 @@ export default function ExecutionDetailPage() {
           <p className="text-[11px] text-slate-500">No tool calls recorded.</p>
         ) : (
           <ul className="space-y-2">
-            {execution.toolCalls.map((call) => (
-              <li key={call.id} className="rounded border border-slate-200 dark:border-indigo-950/60 bg-slate-50 dark:bg-black/40 p-3 space-y-1.5">
-                <div className="flex flex-wrap items-center gap-2.5">
-                  <span className="text-[11px] font-mono font-semibold text-indigo-900 dark:text-indigo-200">{call.toolName}</span>
-                  <span className="text-[10px] font-mono text-slate-600 dark:text-slate-400 font-medium">· {call.action}</span>
-                  <span
-                    className={clsx(
-                      "px-1.5 py-0.5 rounded border text-[9px] font-mono uppercase font-semibold",
-                      call.status === "SUCCESS"
-                        ? "border-emerald-400 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300"
-                        : call.status === "BLOCKED"
-                          ? "border-amber-400 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300"
-                          : call.status === "ERROR" || call.status === "REJECTED"
-                            ? "border-red-400 dark:border-red-500/40 bg-red-50 dark:bg-red-950/40 text-red-800 dark:text-red-300"
-                            : "border-slate-300 dark:border-slate-500/40 bg-slate-100 dark:bg-slate-950/40 text-slate-700 dark:text-slate-400"
-                    )}
-                  >
-                    {call.status}
-                  </span>
-                  {call.errorMessage && <span className="text-[10px] font-mono text-red-600 dark:text-red-400 font-semibold">[ {call.errorMessage} ]</span>}
-                </div>
-                <pre className="text-[10px] text-slate-600 dark:text-slate-500 font-mono overflow-x-auto">
-                  {JSON.stringify(call.inputArgs)}
-                  {call.outputResult !== null && call.outputResult !== undefined
-                    ? ` → ${JSON.stringify(call.outputResult).slice(0, 200)}`
-                    : ""}
-                </pre>
-              </li>
-            ))}
+            {execution.toolCalls.map((call) => {
+              const outputObj = typeof call.outputResult === "object" && call.outputResult !== null ? (call.outputResult as Record<string, unknown>) : null;
+              const decisionExplanation = outputObj?.decisionExplanation as string | undefined;
+              const reasoning = outputObj?.reasoning as string | undefined;
+              const formattedMarkdown = outputObj?.formattedMarkdown as string | undefined;
+
+              return (
+                <li key={call.id} className="rounded border border-slate-200 dark:border-indigo-950/60 bg-slate-50 dark:bg-black/40 p-3.5 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <span className="text-[11px] font-mono font-semibold text-indigo-900 dark:text-indigo-200">{call.toolName}</span>
+                    <span className="text-[10px] font-mono text-slate-600 dark:text-slate-400 font-medium">· {call.action}</span>
+                    <span
+                      className={clsx(
+                        "px-1.5 py-0.5 rounded border text-[9px] font-mono uppercase font-semibold",
+                        call.status === "SUCCESS"
+                          ? "border-emerald-400 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300"
+                          : call.status === "BLOCKED"
+                            ? "border-amber-400 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300"
+                            : call.status === "ERROR" || call.status === "REJECTED"
+                              ? "border-red-400 dark:border-red-500/40 bg-red-50 dark:bg-red-950/40 text-red-800 dark:text-red-300"
+                              : "border-slate-300 dark:border-slate-500/40 bg-slate-100 dark:bg-slate-950/40 text-slate-700 dark:text-slate-400"
+                      )}
+                    >
+                      {call.status}
+                    </span>
+                    {call.errorMessage && <span className="text-[10px] font-mono text-red-600 dark:text-red-400 font-semibold">[ {call.errorMessage} ]</span>}
+                  </div>
+
+                  {/* Decision Path Explainer Callout */}
+                  {decisionExplanation && (
+                    <div className="rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50/80 dark:bg-indigo-950/30 p-2.5 text-xs text-indigo-900 dark:text-indigo-200 flex items-start gap-2">
+                      <GitBranch className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+                      <div>
+                        <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
+                          Execution Path Decision Explainer
+                        </div>
+                        <p className="mt-0.5 text-xs font-mono">{decisionExplanation}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {reasoning && !decisionExplanation && (
+                    <div className="rounded border border-cyan-300 dark:border-cyan-500/40 bg-cyan-50/80 dark:bg-cyan-950/30 p-2.5 text-xs text-cyan-900 dark:text-cyan-200 flex items-start gap-2">
+                      <Zap className="h-4 w-4 text-cyan-600 dark:text-cyan-400 shrink-0 mt-0.5" />
+                      <div>
+                        <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-cyan-700 dark:text-cyan-300">
+                          AI Classification Reasoning
+                        </div>
+                        <p className="mt-0.5 text-xs font-mono">{reasoning}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <pre className="text-[10px] text-slate-600 dark:text-slate-500 font-mono overflow-x-auto">
+                    {JSON.stringify(call.inputArgs)}
+                    {call.outputResult !== null && call.outputResult !== undefined
+                      ? ` → ${JSON.stringify(call.outputResult).slice(0, 200)}`
+                      : ""}
+                  </pre>
+
+                  {formattedMarkdown && (
+                    <details className="text-[11px] font-mono mt-1 text-slate-700 dark:text-slate-300 cursor-pointer">
+                      <summary className="text-indigo-600 dark:text-indigo-400 hover:underline">View Rendered Markdown Report</summary>
+                      <div className="mt-2 p-3 rounded bg-white dark:bg-black/60 border border-slate-200 dark:border-indigo-950/60 whitespace-pre-wrap">
+                        {formattedMarkdown}
+                      </div>
+                    </details>
+                  )}
+                </li>
+              );
+            })}
+
           </ul>
         )}
       </div>

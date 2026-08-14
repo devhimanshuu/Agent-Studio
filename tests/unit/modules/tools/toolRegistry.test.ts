@@ -40,8 +40,18 @@ describe("ToolRegistry", () => {
   it("self-registers all built-in tools through the factory", () => {
     const registry = createToolRegistry();
     const names = registry.getAvailableTools().map((t) => t.name).sort();
-    expect(names).toEqual(["calculator", "document_search", "mock_task_creator", "record_lookup"]);
+    expect(names).toEqual([
+      "ai_classification",
+      "ai_extraction",
+      "calculator",
+      "deterministic_condition",
+      "document_search",
+      "final_report",
+      "mock_task_creator",
+      "record_lookup",
+    ]);
   });
+
 
   it("validateTool returns issues for malformed input and throws for unknown tools", () => {
     const registry = new ToolRegistry();
