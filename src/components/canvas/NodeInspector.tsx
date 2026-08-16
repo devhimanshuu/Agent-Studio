@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { Trash2, GitBranch } from "lucide-react";
+import React, { useRef, useState } from "react";
+import { Trash2, GitBranch, Braces, Boxes, CornerUpRight } from "lucide-react";
 import { BUILT_IN_TOOL_CATALOG } from "@/modules/tools";
 import type { CanvasNode, CanvasNodeData } from "./graphUtils";
 import { GraphNodeType } from "@/types/graph";
@@ -10,6 +10,10 @@ interface NodeInspectorProps {
   node: CanvasNode;
   onUpdate: (patch: Partial<CanvasNodeData>) => void;
   onDelete: () => void;
+  /** Ids of every node on the canvas — used for `{{ results.<nodeId> }}` reference autocomplete. */
+  allNodeIds?: string[];
+  /** Opens a subgraph node for nested editing (canvas pushes the inner graph). */
+  onOpenSubgraph?: (node: CanvasNode) => void;
 }
 
 const inputClass =
@@ -26,7 +30,131 @@ function Field({ label, children, hint }: { label: string; children: React.React
   );
 }
 
-export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) {
+/** Rough token estimate — prompts are prose, ~4 chars/token is a decent proxy. */
+function estimateTokens(text: string): number {
+  return Math.max(1, Math.ceil(text.trim().length / 4));
+}
+
+/**
+ * Prompt editor with one-click template references (`{{ input.x }}`,
+ * `{{ results.<nodeId> }}`, `{{ item }}`) inserted at the caret, plus a live
+ * token estimate.
+ */
+function PromptField({
+  label,
+  hint,
+  value,
+  onChange,
+  rows = 5,
+  allNodeIds,
+  showItem = false,
+}: {
+  label: string;
+  hint?: string;
+  value: string;
+  onChange: (v: string) => void;
+  rows?: number;
+  allNodeIds?: string[];
+  showItem?: boolean;
+}) {
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+
+  const references = [
+    ...(showItem ? ["item"] : []),
+    "input",
+    ...(allNodeIds ?? []).map((id) => `results.${id}`),
+  ];
+
+  const insertReference = (path: string) => {
+    const el = ref.current;
+    if (!el) {
+      onChange(`${value}${value && !value.endsWith("\n") ? "\n" : ""}{{ ${path} }}`);
+      return;
+    }
+    const start = el.selectionStart ?? value.length;
+    const end = el.selectionEnd ?? value.length;
+    const snippet = `{{ ${path} }}`;
+    onChange(`${value.slice(0, start)}${snippet}${value.slice(end)}`);
+    // Restore focus + caret after the inserted snippet.
+    requestAnimationFrame(() => {
+      el.focus();
+      const pos = start + snippet.length;
+      el.setSelectionRange(pos, pos);
+    });
+  };
+
+  const tokens = estimateTokens(value);
+
+  return (
+    <Field label={label} hint={hint}>
+      <textarea
+        ref={ref}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={rows}
+        spellCheck={false}
+        placeholder="System prompt for this node…"
+        className={`${inputClass} resize-y leading-relaxed`}
+      />
+      {references.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          <span className="inline-flex items-center gap-0.5 text-[8px] text-slate-500 self-center">
+            <Braces className="h-2.5 w-2.5" /> refs:
+          </span>
+          {references.map((path) => (
+            <button
+              key={path}
+              type="button"
+              onClick={() => insertReference(path)}
+              className="rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/50 px-1 py-0.5 text-[8px] font-mono text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors cursor-pointer"
+              title={`Insert {{ ${path} }} at the cursor`}
+            >
+              {path}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="text-[8px] text-slate-500 text-right">
+        ~{tokens} tokens
+        {tokens > 2000 && <span className="text-amber-500 font-bold"> · long prompt</span>}
+      </div>
+    </Field>
+  );
+}
+
+function useJsonField(
+  initial: Record<string, string> | undefined,
+  onCommit: (value: Record<string, string>) => void
+) {
+  const [raw, setRaw] = useState(() => (initial && Object.keys(initial).length > 0 ? JSON.stringify(initial, null, 2) : ""));
+  const [error, setError] = useState<string | null>(null);
+
+  const handle = (text: string) => {
+    setRaw(text);
+    if (!text.trim()) {
+      setError(null);
+      onCommit({});
+      return;
+    }
+    try {
+      const parsed = JSON.parse(text) as unknown;
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("Must be a JSON object of string → template");
+      }
+      for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+        if (typeof v !== "string") throw new Error(`Mapping "${k}" must be a template string`);
+      }
+      setError(null);
+      onCommit(parsed as Record<string, string>);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Invalid JSON");
+    }
+  };
+
+  return { raw, setRaw, error, handle };
+}
+
+export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubgraph }: NodeInspectorProps) {
   const [templateRaw, setTemplateRaw] = useState(() =>
     node.data.inputTemplate && Object.keys(node.data.inputTemplate).length > 0
       ? JSON.stringify(node.data.inputTemplate, null, 2)
@@ -34,6 +162,9 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
   );
   const [templateError, setTemplateError] = useState<string | null>(null);
   const type = (node.type ?? "agent") as GraphNodeType;
+
+  const inputMap = useJsonField(node.data.inputMapping, (v) => onUpdate({ inputMapping: v }));
+  const outputMap = useJsonField(node.data.outputMapping, (v) => onUpdate({ outputMapping: v }));
 
   const handleTemplate = (text: string) => {
     setTemplateRaw(text);
@@ -57,13 +188,13 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <div className="text-[10px] uppercase tracking-widest text-indigo-400/80 font-bold">
+        <div className="text-[10px] uppercase tracking-widest text-indigo-600 dark:text-indigo-400/80 font-bold">
           {type.toUpperCase()} NODE
         </div>
         <button
           type="button"
           onClick={onDelete}
-          className="inline-flex items-center gap-1 px-2 py-1 rounded border border-red-400/50 text-[9px] font-mono text-red-400 hover:bg-red-950/40 transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1 px-2 py-1 rounded border border-red-300 dark:border-red-400/50 text-[9px] font-mono text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
         >
           <Trash2 className="h-3 w-3" /> DELETE
         </button>
@@ -78,28 +209,28 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
       </Field>
 
       {type === "agent" && (
-        <Field label="Agent Prompt" hint="System prompt for this specialist agent. Receives the accumulated workflow context.">
-          <textarea
-            value={node.data.prompt ?? ""}
-            onChange={(e) => onUpdate({ prompt: e.target.value })}
-            rows={6}
-            className={`${inputClass} resize-y leading-relaxed`}
-          />
-        </Field>
+        <PromptField
+          label="Agent Prompt"
+          hint="System prompt for this specialist agent. Receives the accumulated workflow context."
+          value={node.data.prompt ?? ""}
+          onChange={(v) => onUpdate({ prompt: v })}
+          rows={6}
+          allNodeIds={allNodeIds}
+        />
       )}
 
       {type === "supervisor" && (
         <>
-          <Field label="Supervisor Prompt" hint="The model picks the next node among the outgoing edge labels.">
-            <textarea
-              value={node.data.prompt ?? ""}
-              onChange={(e) => onUpdate({ prompt: e.target.value })}
-              rows={5}
-              className={`${inputClass} resize-y leading-relaxed`}
-            />
-          </Field>
+          <PromptField
+            label="Supervisor Prompt"
+            hint="The model picks the next node among the outgoing edge labels."
+            value={node.data.prompt ?? ""}
+            onChange={(v) => onUpdate({ prompt: v })}
+            rows={5}
+            allNodeIds={allNodeIds}
+          />
           <Field label="Routing Hint" hint="Add label text to each outgoing edge — the supervisor returns one of them.">
-            <div className="rounded border border-violet-500/30 bg-violet-950/20 p-2 text-[9px] text-violet-300">
+            <div className="rounded border border-violet-300 dark:border-violet-500/30 bg-violet-50 dark:bg-violet-950/20 p-2 text-[9px] text-violet-700 dark:text-violet-300">
               <GitBranch className="h-3 w-3 inline mr-1" />
               Supervisor routes by edge label. Click an edge to rename it.
             </div>
@@ -161,14 +292,14 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
             </select>
           </Field>
           {node.data.routerMode === "ai" ? (
-            <Field label="Router Prompt" hint={'The model returns { "next": "<edge label>" }.'}>
-              <textarea
-                value={node.data.routerPrompt ?? ""}
-                onChange={(e) => onUpdate({ routerPrompt: e.target.value })}
-                rows={4}
-                className={`${inputClass} resize-y`}
-              />
-            </Field>
+            <PromptField
+              label="Router Prompt"
+              hint={'The model returns { "next": "<edge label>" }.'}
+              value={node.data.routerPrompt ?? ""}
+              onChange={(v) => onUpdate({ routerPrompt: v })}
+              rows={4}
+              allNodeIds={allNodeIds}
+            />
           ) : (
             <Field
               label="Condition Expression"
@@ -192,14 +323,38 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
       )}
 
       {type === "approval" && (
-        <Field label="Approval Reason" hint="Shown to the human reviewer in the review queue.">
-          <textarea
-            value={node.data.approvalReason ?? ""}
-            onChange={(e) => onUpdate({ approvalReason: e.target.value })}
-            rows={3}
-            className={`${inputClass} resize-y`}
-          />
-        </Field>
+        <>
+          <Field label="Approval Reason" hint="Shown to the human reviewer in the review queue.">
+            <textarea
+              value={node.data.approvalReason ?? ""}
+              onChange={(e) => onUpdate({ approvalReason: e.target.value })}
+              rows={3}
+              className={`${inputClass} resize-y`}
+            />
+          </Field>
+          <Field
+            label="Auto-Approve Condition (optional)"
+            hint="Leave empty to always require approval. When set, the gate auto-passes if the condition is true — e.g. results.risk.decision == &quot;low&quot;"
+          >
+            <input
+              value={node.data.autoApproveCondition ?? ""}
+              onChange={(e) => onUpdate({ autoApproveCondition: e.target.value || undefined })}
+              placeholder="results.risk.decision == &quot;low&quot;"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Escalate After (minutes, optional)" hint="A pending request auto-escalates (leaves the review queue) after this long.">
+            <input
+              type="number"
+              min={1}
+              max={10080}
+              value={node.data.escalateAfterMin ?? ""}
+              onChange={(e) => onUpdate({ escalateAfterMin: e.target.value ? Math.max(1, Math.min(10080, Number(e.target.value) || 1)) : undefined })}
+              placeholder="e.g. 60"
+              className={inputClass}
+            />
+          </Field>
+        </>
       )}
 
       {type === "loop" && (
@@ -213,6 +368,58 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
             className={inputClass}
           />
         </Field>
+      )}
+
+      {type === "subgraph" && (
+        <>
+          <Field label="Inner Graph">
+            <div className="rounded border border-slate-300 dark:border-indigo-900/50 bg-slate-50 dark:bg-black/40 p-2 space-y-1">
+              <div className="text-[9px] font-mono text-slate-700 dark:text-slate-300">
+                {node.data.subgraph?.nodes?.length ?? 0} nodes · {node.data.subgraph?.edges?.length ?? 0} edges
+              </div>
+              <button
+                type="button"
+                onClick={() => onOpenSubgraph?.(node)}
+                disabled={!node.data.subgraph || !onOpenSubgraph}
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded border border-slate-400 dark:border-slate-600 bg-white dark:bg-[#0a0a0a] px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors cursor-pointer disabled:opacity-40"
+              >
+                <CornerUpRight className="h-3 w-3" /> OPEN SUBGRAPH EDITOR
+              </button>
+            </div>
+          </Field>
+          <Field
+            label="Input Mapping (JSON)"
+            hint={'Inner variables → parent state. Example: { "in_agent": "{{ results.agent_1.output }}" }'}
+          >
+            <textarea
+              value={inputMap.raw}
+              onChange={(e) => inputMap.handle(e.target.value)}
+              rows={3}
+              spellCheck={false}
+              placeholder='{ "in_1": "{{ results.agent_1.output }}" }'
+              className={`${inputClass} resize-y text-[9px] leading-relaxed ${inputMap.error ? "border-red-500/60" : ""}`}
+            />
+            {inputMap.error && <p className="text-[8px] font-mono text-red-400">[ JSON ERROR ] {inputMap.error}</p>}
+          </Field>
+          <Field
+            label="Output Mapping (JSON)"
+            hint={'Outer result keys → inner results. Example: { "summary": "results.summarizer.content" }'}
+          >
+            <textarea
+              value={outputMap.raw}
+              onChange={(e) => outputMap.handle(e.target.value)}
+              rows={3}
+              spellCheck={false}
+              placeholder='{ "summary": "results.summarizer.content" }'
+              className={`${inputClass} resize-y text-[9px] leading-relaxed ${outputMap.error ? "border-red-500/60" : ""}`}
+            />
+            {outputMap.error && <p className="text-[8px] font-mono text-red-400">[ JSON ERROR ] {outputMap.error}</p>}
+          </Field>
+          <div className="flex items-center gap-1.5 text-[8px] text-slate-500">
+            <Boxes className="h-3 w-3" /> Inside, nodes reference inputs as <code>input.&lt;key&gt;</code> and outputs as{" "}
+            <code>results.&lt;innerNodeId&gt;</code>.
+          </div>
+        </>
       )}
 
       {type === "parallel" && (
@@ -249,7 +456,7 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
         </>
       )}
 
-      <div className="border-t border-slate-700/60 pt-2">
+      <div className="border-t border-slate-200 dark:border-slate-700/60 pt-2">
         <p className="text-[8px] text-slate-500 leading-tight">
           {'Edges: drag from the right handle to connect. Click an edge then edit its label in the inspector to set a branch condition.'}
         </p>

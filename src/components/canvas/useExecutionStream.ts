@@ -14,8 +14,11 @@ export interface TraceState {
   nodeDetails: Record<string, string>;
   /** Edges traversed during the run, keyed by persisted edge id (or `source->target`). */
   traversedEdges: Record<string, TraversedEdge>;
+  /** Cumulative per-node latency (ms) — sum + count for averaging (heatmap). */
+  nodeDurations: Record<string, { total: number; count: number }>;
   executionStatus: string | null;
-  events: Array<{ type: string; nodeId?: string; detail?: string; at: number }>;
+  /** Full ordered event log — drives the time-scrubber. */
+  events: ExecutionEvent[];
   connected: boolean;
 }
 
@@ -23,19 +26,69 @@ const initialTrace: TraceState = {
   nodeStatuses: {},
   nodeDetails: {},
   traversedEdges: {},
+  nodeDurations: {},
   executionStatus: null,
   events: [],
   connected: false,
 };
 
+/** Replay a prefix of the event log into the derived trace state (time-scrub). */
+export function replayEvents(events: ExecutionEvent[]): {
+  nodeStatuses: TraceState["nodeStatuses"];
+  nodeDetails: TraceState["nodeDetails"];
+  traversedEdges: TraceState["traversedEdges"];
+  nodeDurations: TraceState["nodeDurations"];
+  executionStatus: string | null;
+} {
+  const state: ReturnType<typeof replayEvents> = {
+    nodeStatuses: {},
+    nodeDetails: {},
+    traversedEdges: {},
+    nodeDurations: {},
+    executionStatus: null,
+  };
+  for (const event of events) {
+    switch (event.type) {
+      case "node:start":
+        state.nodeStatuses[event.nodeId] = "RUNNING";
+        state.nodeDetails[event.nodeId] = "executing…";
+        break;
+      case "node:end":
+        state.nodeStatuses[event.nodeId] = event.status;
+        if (event.detail) state.nodeDetails[event.nodeId] = event.detail;
+        if (typeof event.durationMs === "number") {
+          const prev = state.nodeDurations[event.nodeId] ?? { total: 0, count: 0 };
+          state.nodeDurations[event.nodeId] = { total: prev.total + event.durationMs, count: prev.count + 1 };
+        }
+        break;
+      case "edge:traverse": {
+        const key = event.edgeId ?? `${event.sourceId}->${event.targetId}`;
+        state.traversedEdges[key] = { sourceId: event.sourceId, targetId: event.targetId, label: event.label };
+        break;
+      }
+      case "execution:status":
+        state.executionStatus = event.status;
+        break;
+      default:
+        break;
+    }
+  }
+  return state;
+}
+
 /**
- * Subscribes to the SSE execution stream for one execution and derives the
- * live node statuses that drive the pulsing canvas.
+ * Subscribes to an SSE execution stream (real runs or ghost previews) and
+ * derives the live node statuses that drive the pulsing canvas.
  */
-export function useExecutionStream(executionId: string | null) {
+export function useExecutionStream(
+  executionId: string | null,
+  options?: { endpoint?: (id: string) => string }
+) {
   const [trace, setTrace] = useState<TraceState>(initialTrace);
   const sourceRef = useRef<EventSource | null>(null);
   const executionIdRef = useRef<string | null>(null);
+  const endpointRef = useRef(options?.endpoint);
+  endpointRef.current = options?.endpoint;
 
   useEffect(() => {
     if (!executionId) return;
@@ -43,15 +96,15 @@ export function useExecutionStream(executionId: string | null) {
     executionIdRef.current = executionId;
 
     setTrace(initialTrace);
-    const source = new EventSource(`/api/executions/${executionId}/stream`);
+    const url = endpointRef.current ? endpointRef.current(executionId) : `/api/executions/${executionId}/stream`;
+    const source = new EventSource(url);
     sourceRef.current = source;
 
     const applyEvent = (event: ExecutionEvent) => {
       setTrace((prev) => {
         const next: TraceState = {
           ...prev,
-          events:
-            prev.events.length > 300 ? [...prev.events.slice(-299), { type: event.type, nodeId: "nodeId" in event ? event.nodeId : undefined, detail: "detail" in event ? event.detail : undefined, at: event.at }] : [...prev.events, { type: event.type, nodeId: "nodeId" in event ? event.nodeId : undefined, detail: "detail" in event ? event.detail : undefined, at: event.at }],
+          events: prev.events.length > 500 ? [...prev.events.slice(-499), event] : [...prev.events, event],
         };
 
         switch (event.type) {
@@ -63,6 +116,13 @@ export function useExecutionStream(executionId: string | null) {
           case "node:end": {
             next.nodeStatuses = { ...prev.nodeStatuses, [event.nodeId]: event.status };
             if (event.detail) next.nodeDetails = { ...prev.nodeDetails, [event.nodeId]: event.detail };
+            if (typeof event.durationMs === "number") {
+              const prevDur = prev.nodeDurations[event.nodeId] ?? { total: 0, count: 0 };
+              next.nodeDurations = {
+                ...prev.nodeDurations,
+                [event.nodeId]: { total: prevDur.total + event.durationMs, count: prevDur.count + 1 },
+              };
+            }
             break;
           }
           case "edge:traverse": {
@@ -115,6 +175,7 @@ export function useExecutionStream(executionId: string | null) {
       source.close();
       sourceRef.current = null;
     };
+     
   }, [executionId]);
 
   return trace;

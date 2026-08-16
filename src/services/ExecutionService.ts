@@ -151,6 +151,7 @@ export class ExecutionService implements IExecutionService {
           graph: version.graphDefinition!,
           userInput: input.inputData,
           signal,
+          replayOutputs: input.replayOutputs,
         });
         result = this.toEngineResult(graphResult);
       } else {

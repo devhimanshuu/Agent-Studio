@@ -23,9 +23,14 @@ export const graphNodeDataSchema = z.object({
   condition: z.string().max(500).optional(),
   routerPrompt: z.string().max(2000).optional(),
   approvalReason: z.string().max(1000).optional(),
+  autoApproveCondition: z.string().max(500).optional(),
+  escalateAfterMin: z.number().int().min(1).max(10080).optional(),
   maxIterations: z.number().int().min(1).max(100).optional(),
   parallelMode: z.enum(["map", "reduce"]).optional(),
   mapField: z.string().max(300).optional(),
+  subgraph: z.any().optional(),
+  inputMapping: z.record(z.string()).optional(),
+  outputMapping: z.record(z.string()).optional(),
 });
 
 export const graphNodeSchema = z.object({

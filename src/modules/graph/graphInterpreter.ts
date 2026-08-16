@@ -22,6 +22,11 @@ export interface GraphInterpreterDeps {
   logRepo: IExecutionLogRepository;
   /** Wall-clock limit for the whole graph run. Default 120s. */
   timeoutMs?: number;
+  /**
+   * Global token budget for LLM calls across the run. Enforced only when the
+   * provider reports usage. Default 200k input+output tokens.
+   */
+  maxTokens?: number;
 }
 
 /** Runtime state that must survive a HITL pause so the run resumes in place. */
@@ -32,6 +37,8 @@ export interface GraphState {
   toolCalls: ToolCallRecord[];
   stepCounter: number;
   providerUsed: string | null;
+  /** Edge ids traversed during the run — drives the branch-coverage view. */
+  traversedEdges?: string[];
 }
 
 export interface GraphRunInput {
@@ -47,6 +54,19 @@ export interface GraphRunInput {
     /** Node to continue FROM (the successor of the approval node). */
     fromNodeId: string;
   };
+  /**
+   * Ghost-mode preview: executes the graph exactly as a real run would
+   * (tools + LLM nodes) but persists NOTHING — no steps, tool calls, status
+   * updates, logs or approval requests. Approval nodes auto-pass. Events are
+   * still published so the canvas can trace the predicted path.
+   */
+  dryRun?: boolean;
+  /**
+   * Deterministic replay: recorded LLM outputs keyed by node id. When a node
+   * has a replay entry its LLM call is skipped and the recorded output is
+   * returned — the run follows the exact same path without spending tokens.
+   */
+  replayOutputs?: Record<string, unknown>;
 }
 
 export interface GraphRunResult {
@@ -74,6 +94,26 @@ interface WalkCtx {
   startedAt: number;
   /** Wall-clock budget for the whole run; 0 disables. */
   timeoutMs: number;
+  /** Ghost-mode preview — skip all persistence, auto-pass approvals. */
+  dryRun: boolean;
+  /** Epoch ms when the current node started executing (for per-node metrics). */
+  nodeStartedAt?: number;
+  /** Recorded LLM outputs keyed by node id (deterministic replay). */
+  replayOutputs?: Record<string, unknown>;
+  /** Edge ids traversed so far — persists into state for branch coverage. */
+  traversedEdges: string[];
+  /** Global token budget for LLM calls (0 = unlimited). */
+  maxTokens: number;
+  /** Tokens consumed so far (input + output). */
+  tokensUsed: number;
+  /** Per-node token consumption — flags the node that blew the budget. */
+  nodeTokens: Record<string, number>;
+  /** Nested subgraph run — suppress inner node events, reject approvals. */
+  silent?: boolean;
+  /** Outer subgraph node id — prefixes inner step names for the timeline. */
+  subgraphOwner?: string;
+  /** Subgraph nesting depth (recursion guard). */
+  depth?: number;
   /** Node id currently being iterated (map mode) — exposed as `item`. */
   item?: unknown;
   /** Map mode: path to the item that produced this sub-walk (for labels). */
@@ -81,9 +121,13 @@ interface WalkCtx {
 }
 
 const MAX_NODE_VISITS = 200;
+const MAX_SUBGRAPH_DEPTH = 8;
 
 /** Default wall-clock budget for a graph run (see GraphInterpreterDeps.timeoutMs). */
 const DEFAULT_TIMEOUT_MS = 120_000;
+
+/** Default global token budget for LLM calls across the run. */
+const DEFAULT_MAX_TOKENS = 200_000;
 
 /** Extract a JSON object from an LLM reply — tolerant of code fences / prose. */
 function extractJsonObject(text: string): Record<string, unknown> | null {
@@ -161,12 +205,23 @@ function getByPath(value: unknown, parts: string[]): unknown {
   return current;
 }
 
+/**
+ * Resolve a mapping value that is either a braced template (`{{ results.x.y }}`)
+ * or a bare path expression (`results.x.y`).
+ */
+function resolveMappingTemplate(value: string, ctx: WalkCtx): unknown {
+  const trimmed = value.trim();
+  if (trimmed.includes("{{ ") || trimmed.includes("{{")) return resolveTemplate(trimmed, ctx);
+  return resolvePath(trimmed, ctx);
+}
+
 export class GraphInterpreter {
   constructor(private deps: GraphInterpreterDeps) {}
 
   async run(input: GraphRunInput): Promise<GraphRunResult> {
     const startedAt = Date.now();
     const timeoutMs = this.deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const maxTokens = this.deps.maxTokens ?? DEFAULT_MAX_TOKENS;
     const { executionId, skill, version, graph, userInput } = input;
     const llm = this.deps.llm ?? getLLMProvider();
 
@@ -186,15 +241,23 @@ export class GraphInterpreter {
       providerUsed: input.resume?.state.providerUsed ?? null,
       startedAt,
       timeoutMs,
+      dryRun: input.dryRun ?? false,
+      replayOutputs: input.replayOutputs,
+      traversedEdges: input.resume?.state.traversedEdges ?? [],
+      maxTokens,
+      tokensUsed: 0,
+      nodeTokens: {},
     };
 
-    await this.deps.logRepo.log({
-      executionId,
-      event: "GRAPH_EXECUTION_STARTED",
-      level: "INFO",
-      status: "RUNNING",
-      metadata: { nodes: graph.nodes.length, edges: graph.edges.length, resumed: Boolean(input.resume) },
-    });
+    if (!ctx.dryRun) {
+      await this.deps.logRepo.log({
+        executionId,
+        event: "GRAPH_EXECUTION_STARTED",
+        level: "INFO",
+        status: "RUNNING",
+        metadata: { nodes: graph.nodes.length, edges: graph.edges.length, resumed: Boolean(input.resume) },
+      });
+    }
     executionEventBus.publish(executionId, { type: "execution:status", status: "RUNNING" });
 
     try {
@@ -210,23 +273,25 @@ export class GraphInterpreter {
 
       const durationMs = Date.now() - startedAt;
       const finalOutput = this.assembleFinalOutput(ctx);
-      await this.deps.executionRepo.setRuntimeDetails(executionId, {
-        provider: ctx.providerUsed ?? undefined,
-        plannerOutput: {
-          graph: true,
-          state: this.snapshot(ctx),
-        },
-        durationMs,
-      });
-      await this.deps.executionRepo.setFinalOutput(executionId, finalOutput);
-      await this.deps.logRepo.log({
-        executionId,
-        event: "GRAPH_EXECUTION_FINISHED",
-        level: "INFO",
-        status: "COMPLETED",
-        durationMs,
-        metadata: { steps: ctx.stepCounter, toolCalls: ctx.toolCalls.length },
-      });
+      if (!ctx.dryRun) {
+        await this.deps.executionRepo.setRuntimeDetails(executionId, {
+          provider: ctx.providerUsed ?? undefined,
+          plannerOutput: {
+            graph: true,
+            state: this.snapshot(ctx),
+          },
+          durationMs,
+        });
+        await this.deps.executionRepo.setFinalOutput(executionId, finalOutput);
+        await this.deps.logRepo.log({
+          executionId,
+          event: "GRAPH_EXECUTION_FINISHED",
+          level: "INFO",
+          status: "COMPLETED",
+          durationMs,
+          metadata: { steps: ctx.stepCounter, toolCalls: ctx.toolCalls.length },
+        });
+      }
       executionEventBus.publish(executionId, { type: "execution:status", status: "COMPLETED" });
       return { status: "COMPLETED", finalOutput, providerUsed: ctx.providerUsed };
     } catch (error) {
@@ -269,18 +334,21 @@ export class GraphInterpreter {
       }
       ctx.visitCounts[currentId] = (ctx.visitCounts[currentId] ?? 0) + 1;
 
+      const nodeDuration = () => (ctx.nodeStartedAt ? Date.now() - ctx.nodeStartedAt : undefined);
+
       if (node.type === "end") {
-        executionEventBus.publish(ctx.executionId, {
+        this.emit(ctx, {
           type: "node:start",
           nodeId: node.id,
           nodeLabel: node.data.label,
           nodeType: node.type,
         });
         await this.persistStep(ctx, node, "SUCCESS", { terminal: true });
-        executionEventBus.publish(ctx.executionId, {
+        this.emit(ctx, {
           type: "node:end",
           nodeId: node.id,
           status: "SUCCESS",
+          durationMs: nodeDuration(),
         });
         return "completed";
       }
@@ -289,17 +357,18 @@ export class GraphInterpreter {
 
       // START node — pass through to its single successor.
       if (node.type === "start") {
-        executionEventBus.publish(ctx.executionId, {
+        this.emit(ctx, {
           type: "node:start",
           nodeId: node.id,
           nodeLabel: node.data.label,
           nodeType: node.type,
         });
         await this.persistStep(ctx, node, "SUCCESS", { passThrough: true });
-        executionEventBus.publish(ctx.executionId, {
+        this.emit(ctx, {
           type: "node:end",
           nodeId: node.id,
           status: "SUCCESS",
+          durationMs: 0,
         });
         const next = this.firstSuccessor(outgoing, node);
         this.emitEdgeTraversal(ctx, node.id, next);
@@ -307,8 +376,9 @@ export class GraphInterpreter {
         continue;
       }
 
-      // Publish start, then execute.
-      executionEventBus.publish(ctx.executionId, {
+      // Publish start, then execute. The per-node clock drives the metrics.
+      ctx.nodeStartedAt = Date.now();
+      this.emit(ctx, {
         type: "node:start",
         nodeId: node.id,
         nodeLabel: node.data.label,
@@ -323,10 +393,11 @@ export class GraphInterpreter {
       if (result === "ended") {
         // Node reached a terminal without an END node (e.g. parallel join to nothing).
         await this.persistStep(ctx, node, "SUCCESS", { ended: true });
-        executionEventBus.publish(ctx.executionId, {
+        this.emit(ctx, {
           type: "node:end",
           nodeId: node.id,
           status: "SUCCESS",
+          durationMs: nodeDuration(),
         });
         return "completed";
       }
@@ -357,6 +428,8 @@ export class GraphInterpreter {
         return this.runLoopNode(ctx, node, outgoing);
       case "parallel":
         return this.runParallelNode(ctx, node, outgoing);
+      case "subgraph":
+        return this.runSubgraphNode(ctx, node, outgoing);
       default:
         throw new ExecutionError(`Unsupported graph node type "${node.type}"`, "GRAPH_FAILURE");
     }
@@ -419,14 +492,16 @@ export class GraphInterpreter {
     };
     ctx.toolCalls.push(record);
     ctx.results[node.id] = output;
-    await this.deps.executionRepo.addToolCall(ctx.executionId, {
-      toolName,
-      action: data.action ?? "run",
-      inputArgs: executionInput,
-      outputResult: (output as Record<string, unknown> | undefined) ?? undefined,
-      status: "SUCCESS",
-      durationMs,
-    });
+    if (!ctx.dryRun) {
+      await this.deps.executionRepo.addToolCall(ctx.executionId, {
+        toolName,
+        action: data.action ?? "run",
+        inputArgs: executionInput,
+        outputResult: (output as Record<string, unknown> | undefined) ?? undefined,
+        status: "SUCCESS",
+        durationMs,
+      });
+    }
     await this.persistStep(ctx, node, "SUCCESS", { tool: toolName, output: summarize(output) });
     this.emitNodeEnd(ctx, node, "SUCCESS", `${toolName} → ${summarize(output)}`);
     return this.firstSuccessor(outgoing, node);
@@ -475,6 +550,58 @@ export class GraphInterpreter {
   private async runApprovalNode(ctx: WalkCtx, node: GraphNodeDefinition, outgoing: GraphEdgeDefinition[]) {
     const data = node.data;
     const action = data.action ?? "approve_graph_action";
+
+    // Approvals inside nested subgraphs would break the flat pause/resume
+    // contract — reject them up front with a clear error.
+    if (ctx.silent) {
+      throw new ExecutionError(
+        `Approval node "${node.data.label}" is inside a subgraph — approvals are only supported on the main path`,
+        "GRAPH_FAILURE"
+      );
+    }
+
+    // Ghost-mode preview: approvals auto-pass — the point is to predict the
+    // path, not create HITL requests.
+    if (ctx.dryRun) {
+      ctx.results[node.id] = { approved: true, preview: true };
+      await this.persistStep(ctx, node, "SUCCESS", { approved: true, preview: true });
+      this.emitNodeEnd(ctx, node, "SUCCESS", "preview · auto-approved");
+      return this.firstSuccessor(outgoing, node);
+    }
+
+    // HITL escalation rule: when the auto-approve condition is set and true,
+    // the gate passes without a human — only genuinely risky cases pause.
+    if (data.autoApproveCondition) {
+      try {
+        const matched = evaluateExpression(data.autoApproveCondition, {
+          results: ctx.results,
+          input: ctx.userInput,
+          item: ctx.item,
+        });
+        if (matched) {
+          ctx.results[node.id] = { approved: true, autoApproved: true };
+          await this.persistStep(ctx, node, "SUCCESS", { approved: true, autoApproved: true });
+          this.emitNodeEnd(ctx, node, "SUCCESS", "auto-approved by condition");
+          await this.deps.logRepo.log({
+            executionId: ctx.executionId,
+            event: "GRAPH_APPROVAL_AUTO_PASSED",
+            level: "INFO",
+            status: "SUCCESS",
+            metadata: { nodeId: node.id, condition: data.autoApproveCondition },
+          });
+          return this.firstSuccessor(outgoing, node);
+        }
+      } catch (error) {
+        if (error instanceof ExpressionError) {
+          throw new ExecutionError(
+            `Auto-approve condition error in "${node.data.label}": ${error.message}`,
+            "GRAPH_FAILURE"
+          );
+        }
+        throw error;
+      }
+    }
+
     const idempotencyKey = `graph-${ctx.executionId}-${node.id}`;
 
     // Resume path: an approved request exists for this node — continue, don't re-pause.
@@ -493,9 +620,37 @@ export class GraphInterpreter {
       plannerReason: data.approvalReason ?? `Human approval required at node "${node.data.label}"`,
       toolName: node.data.label,
       action,
-      inputPayload: { nodeId: node.id, reason: data.approvalReason ?? null },
+      inputPayload: {
+        nodeId: node.id,
+        reason: data.approvalReason ?? null,
+        ...(data.escalateAfterMin ? { escalateAfterMin: data.escalateAfterMin } : {}),
+      },
       idempotencyKey,
     });
+
+    // Auto-escalation timeout: a still-PENDING request leaves the review
+    // queue after escalateAfterMin. Best-effort, in-process timer — in
+    // multi-instance deployments a periodic sweep would be needed.
+    if (data.escalateAfterMin) {
+      const key = idempotencyKey;
+      const escalateInMs = data.escalateAfterMin * 60_000;
+      setTimeout(() => {
+        void this.deps.approvalRepo
+          .expireByIdempotencyKey(key)
+          .then(() =>
+            this.deps.logRepo.log({
+              executionId: ctx.executionId,
+              event: "GRAPH_APPROVAL_ESCALATED",
+              level: "WARN",
+              status: "EXPIRED",
+              metadata: { nodeId: node.id, escalateAfterMin: data.escalateAfterMin },
+            })
+          )
+          .catch(() => {
+            // Best-effort — never crash the run for a failed timer.
+          });
+      }, escalateInMs).unref?.();
+    }
 
     await this.persistStep(ctx, node, "AWAITING_APPROVAL", { action, nodeId: node.id });
     this.emitNodeEnd(ctx, node, "AWAITING_APPROVAL", `awaiting approval for ${action}`);
@@ -620,7 +775,8 @@ export class GraphInterpreter {
         throw new StepLimitExceededError("Graph execution exceeded the step budget");
       }
       this.checkTimeout(ctx);
-      executionEventBus.publish(ctx.executionId, {
+      ctx.nodeStartedAt = Date.now();
+      this.emit(ctx, {
         type: "node:start",
         nodeId: node.id,
         nodeLabel: node.data.label,
@@ -649,6 +805,71 @@ export class GraphInterpreter {
     };
   }
 
+  /**
+   * Subgraph (macro) node: run the nested graph with an isolated context.
+   * Inputs are resolved from the parent via `inputMapping`, outputs are
+   * projected back via `outputMapping`. Inner events are suppressed — the
+   * subgraph renders as one pulsing node on the canvas.
+   */
+  private async runSubgraphNode(ctx: WalkCtx, node: GraphNodeDefinition, outgoing: GraphEdgeDefinition[]) {
+    const data = node.data;
+    const inner = data.subgraph;
+    if (!inner || !Array.isArray(inner.nodes) || inner.nodes.length === 0) {
+      throw new ExecutionError(`Subgraph node "${node.data.label}" has no graph definition`, "GRAPH_FAILURE");
+    }
+    if ((ctx.depth ?? 0) >= MAX_SUBGRAPH_DEPTH) {
+      throw new StepLimitExceededError(`Subgraph nesting exceeds ${MAX_SUBGRAPH_DEPTH} levels (possible recursion)`);
+    }
+
+    // Resolve inner inputs from parent state templates.
+    const innerInput: Record<string, unknown> = {};
+    for (const [key, template] of Object.entries(data.inputMapping ?? {})) {
+      innerInput[key] = resolveMappingTemplate(template, ctx);
+    }
+
+    const nestedCtx: WalkCtx = {
+      ...ctx,
+      graph: inner,
+      userInput: innerInput,
+      results: {},
+      loopCounters: {},
+      visitCounts: {},
+      traversedEdges: [],
+      silent: true,
+      subgraphOwner: node.id,
+      depth: (ctx.depth ?? 0) + 1,
+      item: undefined,
+      itemPath: undefined,
+      nodeStartedAt: undefined,
+    };
+
+    const innerStart = inner.nodes.find((n) => n.type === "start")?.id;
+    if (!innerStart) {
+      throw new ExecutionError(`Subgraph "${node.data.label}" has no START node`, "GRAPH_FAILURE");
+    }
+
+    const stepsBefore = ctx.stepCounter;
+    const outcome = await this.walk(nestedCtx, innerStart);
+    if (outcome === "paused") {
+      // Unreachable: approvals are rejected inside nested runs.
+      throw new ExecutionError(`Subgraph "${node.data.label}" paused unexpectedly`, "GRAPH_FAILURE");
+    }
+
+    // Project inner results back into the parent via outputMapping.
+    const outputs: Record<string, unknown> = {};
+    for (const [outerKey, template] of Object.entries(data.outputMapping ?? {})) {
+      outputs[outerKey] = resolveMappingTemplate(template, nestedCtx);
+    }
+    ctx.results[node.id] = outputs;
+    await this.persistStep(ctx, node, "SUCCESS", {
+      macro: true,
+      innerSteps: ctx.stepCounter - stepsBefore,
+      outputKeys: Object.keys(outputs),
+    });
+    this.emitNodeEnd(ctx, node, "SUCCESS", `macro · ${inner.nodes.length} nodes → ${JSON.stringify(outputs).slice(0, 80)}`);
+    return this.firstSuccessor(outgoing, node);
+  }
+
   /** Enforce the wall-clock budget at the top of each walk iteration. */
   private checkTimeout(ctx: WalkCtx): void {
     if (ctx.timeoutMs > 0 && Date.now() - ctx.startedAt > ctx.timeoutMs) {
@@ -663,7 +884,8 @@ export class GraphInterpreter {
   private emitEdgeTraversal(ctx: WalkCtx, sourceId: string, targetId: string): void {
     if (targetId === "ended") return;
     const edge = ctx.graph.edges.find((e) => e.source === sourceId && e.target === targetId);
-    executionEventBus.publish(ctx.executionId, {
+    if (edge?.id) ctx.traversedEdges.push(edge.id);
+    this.emit(ctx, {
       type: "edge:traverse",
       sourceId,
       targetId,
@@ -678,6 +900,12 @@ export class GraphInterpreter {
     role: string,
     extra?: { instruction?: string }
   ): Promise<unknown> {
+    // Deterministic replay — use the recorded output instead of the LLM.
+    if (ctx.replayOutputs && Object.prototype.hasOwnProperty.call(ctx.replayOutputs, node.id)) {
+      const recorded = ctx.replayOutputs[node.id];
+      if (typeof recorded === "string") return recorded;
+    }
+
     const data = node.data;
     const systemPrompt =
       data.prompt ??
@@ -701,6 +929,20 @@ export class GraphInterpreter {
     ];
 
     const completion = await ctx.llm.complete(messages, { temperature: 0.2, maxTokens: 800 });
+
+    // Budget guardrail: accumulate provider-reported usage and stop the run
+    // with the offending node named when the global budget is exceeded.
+    if (completion.usage) {
+      const consumed = completion.usage.inputTokens + completion.usage.outputTokens;
+      ctx.tokensUsed += consumed;
+      ctx.nodeTokens[node.id] = (ctx.nodeTokens[node.id] ?? 0) + consumed;
+      if (ctx.maxTokens > 0 && ctx.tokensUsed > ctx.maxTokens) {
+        throw new StepLimitExceededError(
+          `Node "${node.data.label}" blew the token budget (${ctx.tokensUsed.toLocaleString()} / ${ctx.maxTokens.toLocaleString()} tokens)`
+        );
+      }
+    }
+
     return completion.content;
   }
 
@@ -726,15 +968,24 @@ export class GraphInterpreter {
       toolCalls: ctx.toolCalls,
       stepCounter: ctx.stepCounter,
       providerUsed: ctx.providerUsed,
+      traversedEdges: ctx.traversedEdges,
     };
   }
 
   private async persistStep(ctx: WalkCtx, node: GraphNodeDefinition, status: "RUNNING" | "SUCCESS" | "FAILED" | "AWAITING_APPROVAL", snapshot: Record<string, unknown>) {
+    // Ghost-mode previews persist nothing — the trace is event-driven only.
+    if (ctx.dryRun) return;
     const now = new Date();
     await this.deps.executionRepo.addStep(ctx.executionId, {
       stepNumber: ctx.stepCounter,
-      nodeName: node.id,
-      stateSnapshot: { type: node.type, label: node.data.label, ...snapshot },
+      // Inner subgraph steps are namespaced so the timeline stays readable.
+      nodeName: ctx.subgraphOwner ? `${ctx.subgraphOwner}:${node.id}` : node.id,
+      stateSnapshot: {
+        type: node.type,
+        label: node.data.label,
+        durationMs: ctx.nodeStartedAt ? Date.now() - ctx.nodeStartedAt : undefined,
+        ...snapshot,
+      },
       status,
       startedAt: now,
       completedAt: now,
@@ -742,12 +993,19 @@ export class GraphInterpreter {
   }
 
   private emitNodeEnd(ctx: WalkCtx, node: GraphNodeDefinition, status: GraphNodeStatus, detail?: string) {
-    executionEventBus.publish(ctx.executionId, {
+    this.emit(ctx, {
       type: "node:end",
       nodeId: node.id,
       status,
       detail,
+      durationMs: ctx.nodeStartedAt ? Date.now() - ctx.nodeStartedAt : undefined,
     });
+  }
+
+  /** Publish an event unless this is a silent nested subgraph run. */
+  private emit(ctx: WalkCtx, event: Parameters<typeof executionEventBus.publish>[1]): void {
+    if (ctx.silent) return;
+    executionEventBus.publish(ctx.executionId, event);
   }
 
   private async handleFailure(
@@ -762,22 +1020,24 @@ export class GraphInterpreter {
     else if (error instanceof StepLimitExceededError) status = "STEP_LIMIT_EXCEEDED";
 
     const durationMs = Date.now() - startedAt;
-    try {
-      await this.deps.executionRepo.updateStatus(executionId, status, status === "CANCELLED" ? undefined : message);
-      await this.deps.executionRepo.setRuntimeDetails(executionId, {
-        plannerOutput: { graph: true, state: this.snapshot(ctx) },
-        durationMs,
-      });
-      await this.deps.logRepo.log({
-        executionId,
-        event: "GRAPH_EXECUTION_FAILED",
-        level: status === "CANCELLED" ? "WARN" : "ERROR",
-        status,
-        durationMs,
-        metadata: { error: message },
-      });
-    } catch {
-      // Never mask the original error with persistence failures.
+    if (!ctx.dryRun) {
+      try {
+        await this.deps.executionRepo.updateStatus(executionId, status, status === "CANCELLED" ? undefined : message);
+        await this.deps.executionRepo.setRuntimeDetails(executionId, {
+          plannerOutput: { graph: true, state: this.snapshot(ctx) },
+          durationMs,
+        });
+        await this.deps.logRepo.log({
+          executionId,
+          event: "GRAPH_EXECUTION_FAILED",
+          level: status === "CANCELLED" ? "WARN" : "ERROR",
+          status,
+          durationMs,
+          metadata: { error: message },
+        });
+      } catch {
+        // Never mask the original error with persistence failures.
+      }
     }
     executionEventBus.publish(executionId, { type: "execution:status", status });
     logger.error({ executionId, status, error: message }, "Graph execution failed");

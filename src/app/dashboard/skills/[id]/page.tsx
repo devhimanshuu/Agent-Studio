@@ -146,7 +146,7 @@ export default function SkillDetailPage() {
   const draft = skill.currentDraft;
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6 w-full">
       {/* Header */}
       <div className="border-b border-slate-200 dark:border-indigo-950/80 pb-5 space-y-3">
         <Link

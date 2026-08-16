@@ -83,10 +83,18 @@ export class ExecutionHistoryService {
     const original = await this.executionRepo.findByIdForUser(executionId, userId);
     if (!original) throw new Error("Execution not found or you do not have access to it");
 
+    // Graph runs persist their node outputs in plannerOutput.state.results.
+    // Deterministic replay reuses those recorded LLM outputs so the rerun
+    // follows the exact same path without spending tokens on the LLM.
+    const planner = original.plannerOutput as Record<string, unknown> | null;
+    const state = planner?.graph === true ? (planner.state as { results?: Record<string, unknown> } | undefined) : undefined;
+    const replayOutputs = state?.results ?? undefined;
+
     const started = await this.executionService.startExecution({
       userId,
       skillVersionId: original.skillVersionId,
       inputData: original.inputData,
+      ...(replayOutputs ? { replayOutputs } : {}),
     } as StartExecutionInput);
 
     // Link the new execution back to the original.

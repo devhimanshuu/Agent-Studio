@@ -54,7 +54,7 @@ export default async function DashboardPage() {
   const mostUsedToolCount = mostUsedTool !== "—" ? (toolUsage[mostUsedTool] ?? 0) : 0;
 
   return (
-    <div className="space-y-6 sm:space-y-10 max-w-6xl mx-auto">
+    <div className="space-y-6 sm:space-y-10 w-full">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-indigo-950/80 pb-5 sm:pb-6">
         <Reveal delay={0}>

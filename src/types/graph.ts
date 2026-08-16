@@ -13,7 +13,8 @@ export type GraphNodeType =
   | "router"
   | "approval"
   | "loop"
-  | "parallel";
+  | "parallel"
+  | "subgraph";
 
 /** Router node evaluation modes. */
 export type RouterMode = "deterministic" | "ai";
@@ -45,12 +46,23 @@ export interface GraphNodeData {
   // approval
   /** Human-readable approval request reason. */
   approvalReason?: string;
+  /** When set, the gate auto-passes if this condition is true (HITL escalation rule). */
+  autoApproveCondition?: string;
+  /** Minutes before a pending request auto-escalates (expires off the queue). */
+  escalateAfterMin?: number;
   // loop
   maxIterations?: number;
   // parallel
   parallelMode?: ParallelMode;
   /** For map mode — path to the array to iterate (e.g. `input.items`). */
   mapField?: string;
+  // subgraph
+  /** The nested graph executed when this node runs. */
+  subgraph?: AgentGraphDefinition;
+  /** Maps inner input variable → parent template (`{{ results.x.y }}`, `{{ input.z }}`). */
+  inputMapping?: Record<string, string>;
+  /** Maps outer result key → inner result template (`results.<innerNodeId>.<path>`). */
+  outputMapping?: Record<string, string>;
 }
 
 export interface GraphNodeDefinition {

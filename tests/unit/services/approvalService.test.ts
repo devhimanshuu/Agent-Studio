@@ -49,6 +49,10 @@ class FakeApprovalRepo implements IApprovalRepository {
   async findByIdempotencyKey(): Promise<ApprovalRequestDTO | null> {
     return null;
   }
+  async expireByIdempotencyKey(key: string): Promise<void> {
+    const existing = [...this.requests.values()].find((r) => r.idempotencyKey === key);
+    if (existing && existing.status === "PENDING") existing.status = "EXPIRED";
+  }
 }
 
 function makeApproval(overrides: Partial<ApprovalRequestDTO> = {}): ApprovalRequestDTO {

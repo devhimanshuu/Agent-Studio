@@ -36,6 +36,11 @@ export async function GET(
   }
 
   const { id } = await params;
+  // Preview sessions stream through /api/canvas/preview/[id]/stream only —
+  // never via the execution stream (defense in depth for tenant scoping).
+  if (id.startsWith("preview-")) {
+    return new Response("Execution not found", { status: 404 });
+  }
   const execution = await executionRepo.findByIdForUser(id, userId);
   if (!execution) {
     return new Response("Execution not found", { status: 404 });
@@ -79,6 +84,9 @@ export async function GET(
           nodeId: step.nodeName,
           status: mapStepStatus(step.status),
           detail: step.status === "SUCCESS" ? "replayed from persisted trace" : undefined,
+          ...(typeof step.stateSnapshot?.durationMs === "number"
+            ? { durationMs: step.stateSnapshot.durationMs as number }
+            : {}),
         };
         send(encode(completed));
       }

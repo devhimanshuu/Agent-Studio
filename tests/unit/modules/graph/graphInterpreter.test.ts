@@ -409,6 +409,312 @@ describe("GraphInterpreter", () => {
     expect(result.error).toMatch(/timed out/i);
   });
 
+  it("dry-run (ghost preview) persists nothing and auto-passes approval nodes", async () => {
+    const { interpreter, executionRepo, approvalRepo } = makeInterpreter();
+    const events: ExecutionEvent[] = [];
+    const unsubscribe = executionEventBus.subscribe("g-exec-12", (e) => events.push(e));
+    try {
+      const graph: AgentGraphDefinition = {
+        version: 1,
+        nodes: [
+          { id: "start", type: "start", position: { x: 0, y: 0 }, data: { label: "START" } },
+          { id: "gate", type: "approval", position: { x: 0, y: 0 }, data: { label: "APPROVAL", approvalReason: "Preview gate" } },
+          { id: "end", type: "end", position: { x: 0, y: 0 }, data: { label: "END" } },
+        ],
+        edges: [
+          { id: "e1", source: "start", target: "gate" },
+          { id: "e2", source: "gate", target: "end" },
+        ],
+      };
+
+      const result = await interpreter.run({
+        executionId: "g-exec-12",
+        skill: makeSkill(),
+        version: makeVersion(),
+        graph,
+        userInput: {},
+        dryRun: true,
+      });
+
+      // Auto-passed instead of pausing, and nothing persisted.
+      expect(result.status).toBe("COMPLETED");
+      expect(approvalRepo.requests).toHaveLength(0);
+      expect(executionRepo.steps).toHaveLength(0);
+      expect(executionRepo.toolCalls).toHaveLength(0);
+      expect(executionRepo.statusUpdates).toHaveLength(0);
+      // Still emits the full trace so the canvas can show the predicted path.
+      expect(events.some((e) => e.type === "node:end" && e.nodeId === "gate" && e.status === "SUCCESS")).toBe(true);
+    } finally {
+      unsubscribe();
+    }
+  });
+
+  it("deterministic replay returns recorded LLM outputs without calling the model", async () => {
+    const executionRepo = new FakeExecutionRepo();
+    const approvalRepo = new FakeApprovalRepo();
+    const logRepo = new FakeLogRepo();
+    const llm = new StubLLM({});
+    const interpreter = new GraphInterpreter({
+      llm,
+      toolRegistry: createToolRegistry(),
+      permissionChecker: new PermissionChecker(),
+      executionRepo,
+      approvalRepo,
+      logRepo,
+    });
+    const graph: AgentGraphDefinition = {
+      version: 1,
+      nodes: [
+        { id: "start", type: "start", position: { x: 0, y: 0 }, data: { label: "START" } },
+        { id: "agent_1", type: "agent", position: { x: 0, y: 0 }, data: { label: "A", prompt: "p" } },
+        { id: "end", type: "end", position: { x: 0, y: 0 }, data: { label: "END" } },
+      ],
+      edges: [
+        { id: "e1", source: "start", target: "agent_1" },
+        { id: "e2", source: "agent_1", target: "end" },
+      ],
+    };
+
+    const result = await interpreter.run({
+      executionId: "g-exec-13",
+      skill: makeSkill(),
+      version: makeVersion(),
+      graph,
+      userInput: {},
+      replayOutputs: { agent_1: "RECORDED RESPONSE" },
+    });
+
+    expect(result.status).toBe("COMPLETED");
+    expect((result.finalOutput?.results as Record<string, unknown>).agent_1).toBe("RECORDED RESPONSE");
+    expect(llm.calls.filter((c) => c.method === "complete")).toHaveLength(0);
+  });
+
+  it("enforces the token budget and names the offending node", async () => {
+    class UsageLLM extends StubLLM {
+      override async complete() {
+        return { content: "ok", finishReason: "stop" as const, usage: { inputTokens: 60_000, outputTokens: 60_000 } };
+      }
+    }
+    const interpreter = new GraphInterpreter({
+      llm: new UsageLLM({}),
+      toolRegistry: createToolRegistry(),
+      permissionChecker: new PermissionChecker(),
+      executionRepo: new FakeExecutionRepo(),
+      approvalRepo: new FakeApprovalRepo(),
+      logRepo: new FakeLogRepo(),
+      maxTokens: 100_000,
+    });
+    const graph: AgentGraphDefinition = {
+      version: 1,
+      nodes: [
+        { id: "start", type: "start", position: { x: 0, y: 0 }, data: { label: "START" } },
+        { id: "agent_1", type: "agent", position: { x: 0, y: 0 }, data: { label: "GREEDY", prompt: "p" } },
+        { id: "end", type: "end", position: { x: 0, y: 0 }, data: { label: "END" } },
+      ],
+      edges: [
+        { id: "e1", source: "start", target: "agent_1" },
+        { id: "e2", source: "agent_1", target: "end" },
+      ],
+    };
+
+    const result = await interpreter.run({
+      executionId: "g-exec-14",
+      skill: makeSkill(),
+      version: makeVersion(),
+      graph,
+      userInput: {},
+    });
+
+    expect(result.status).toBe("STEP_LIMIT_EXCEEDED");
+    expect(result.error).toMatch(/blew the token budget/);
+    expect(result.error).toMatch(/GREEDY/);
+  });
+
+  it("auto-approves when the escalation condition is true, pauses otherwise", async () => {
+    const graph: AgentGraphDefinition = {
+      version: 1,
+      nodes: [
+        { id: "start", type: "start", position: { x: 0, y: 0 }, data: { label: "START" } },
+        {
+          id: "gate",
+          type: "approval",
+          position: { x: 0, y: 0 },
+          data: { label: "GATE", approvalReason: "gate", autoApproveCondition: "input.ok == true" },
+        },
+        { id: "end", type: "end", position: { x: 0, y: 0 }, data: { label: "END" } },
+      ],
+      edges: [
+        { id: "e1", source: "start", target: "gate" },
+        { id: "e2", source: "gate", target: "end" },
+      ],
+    };
+
+    const pass = makeInterpreter();
+    const passResult = await pass.interpreter.run({
+      executionId: "g-exec-15",
+      skill: makeSkill(),
+      version: makeVersion(),
+      graph,
+      userInput: { ok: true },
+    });
+    expect(passResult.status).toBe("COMPLETED");
+    expect(pass.approvalRepo.requests).toHaveLength(0);
+
+    const pause = makeInterpreter();
+    const pauseResult = await pause.interpreter.run({
+      executionId: "g-exec-16",
+      skill: makeSkill(),
+      version: makeVersion(),
+      graph,
+      userInput: { ok: false },
+    });
+    expect(pauseResult.status).toBe("PAUSED_FOR_APPROVAL");
+    expect(pause.approvalRepo.requests).toHaveLength(1);
+  });
+
+  it("executes a subgraph (macro) node with typed input/output mappings", async () => {
+    const { interpreter, executionRepo } = makeInterpreter();
+    const inner: AgentGraphDefinition = {
+      version: 1,
+      nodes: [
+        { id: "start", type: "start", position: { x: 0, y: 0 }, data: { label: "START" } },
+        {
+          id: "calc",
+          type: "tool",
+          position: { x: 0, y: 0 },
+          data: { label: "CALC", toolName: "calculator", action: "add", inputTemplate: { a: "{{ input.x }}", b: 5 } },
+        },
+        { id: "end", type: "end", position: { x: 0, y: 0 }, data: { label: "END" } },
+      ],
+      edges: [
+        { id: "i1", source: "start", target: "calc" },
+        { id: "i2", source: "calc", target: "end" },
+      ],
+    };
+    const graph: AgentGraphDefinition = {
+      version: 1,
+      nodes: [
+        { id: "start", type: "start", position: { x: 0, y: 0 }, data: { label: "START" } },
+        {
+          id: "macro",
+          type: "subgraph",
+          position: { x: 0, y: 0 },
+          data: { label: "MACRO", subgraph: inner, inputMapping: { x: "{{ input.amount }}" }, outputMapping: { sum: "results.calc" } },
+        },
+        { id: "end", type: "end", position: { x: 0, y: 0 }, data: { label: "END" } },
+      ],
+      edges: [
+        { id: "e1", source: "start", target: "macro" },
+        { id: "e2", source: "macro", target: "end" },
+      ],
+    };
+
+    const result = await interpreter.run({
+      executionId: "g-exec-17",
+      skill: makeSkill(),
+      version: makeVersion(),
+      graph,
+      userInput: { amount: 7 },
+    });
+
+    expect(result.status).toBe("COMPLETED");
+    const results = result.finalOutput?.results as Record<string, unknown>;
+    const macroOut = results.macro as { sum: { result: number } };
+    expect(macroOut.sum.result).toBe(12);
+    // Inner tool call persisted, inner steps namespaced under the macro node.
+    expect(executionRepo.toolCalls).toHaveLength(1);
+    expect(executionRepo.steps.some((s) => s.nodeName === "macro:calc")).toBe(true);
+  });
+
+  it("rejects approval nodes inside subgraphs", async () => {
+    const { interpreter } = makeInterpreter();
+    const inner: AgentGraphDefinition = {
+      version: 1,
+      nodes: [
+        { id: "start", type: "start", position: { x: 0, y: 0 }, data: { label: "START" } },
+        { id: "gate", type: "approval", position: { x: 0, y: 0 }, data: { label: "GATE" } },
+        { id: "end", type: "end", position: { x: 0, y: 0 }, data: { label: "END" } },
+      ],
+      edges: [
+        { id: "i1", source: "start", target: "gate" },
+        { id: "i2", source: "gate", target: "end" },
+      ],
+    };
+    const graph: AgentGraphDefinition = {
+      version: 1,
+      nodes: [
+        { id: "start", type: "start", position: { x: 0, y: 0 }, data: { label: "START" } },
+        { id: "macro", type: "subgraph", position: { x: 0, y: 0 }, data: { label: "MACRO", subgraph: inner } },
+        { id: "end", type: "end", position: { x: 0, y: 0 }, data: { label: "END" } },
+      ],
+      edges: [
+        { id: "e1", source: "start", target: "macro" },
+        { id: "e2", source: "macro", target: "end" },
+      ],
+    };
+
+    const result = await interpreter.run({
+      executionId: "g-exec-18",
+      skill: makeSkill(),
+      version: makeVersion(),
+      graph,
+      userInput: {},
+    });
+
+    expect(result.status).toBe("FAILED");
+    expect(result.error).toMatch(/inside a subgraph/i);
+  });
+
+  it("caps subgraph nesting depth", async () => {
+    const { interpreter } = makeInterpreter();
+    // Build a chain of nested subgraphs, deepest first.
+    let inner: AgentGraphDefinition = {
+      version: 1,
+      nodes: [
+        { id: "start", type: "start", position: { x: 0, y: 0 }, data: { label: "START" } },
+        { id: "end", type: "end", position: { x: 0, y: 0 }, data: { label: "END" } },
+      ],
+      edges: [{ id: "e", source: "start", target: "end" }],
+    };
+    for (let i = 0; i < 10; i += 1) {
+      inner = {
+        version: 1,
+        nodes: [
+          { id: "start", type: "start", position: { x: 0, y: 0 }, data: { label: "START" } },
+          { id: `m${i}`, type: "subgraph", position: { x: 0, y: 0 }, data: { label: `M${i}`, subgraph: inner } },
+          { id: "end", type: "end", position: { x: 0, y: 0 }, data: { label: "END" } },
+        ],
+        edges: [
+          { id: `s${i}`, source: "start", target: `m${i}` },
+          { id: `e${i}`, source: `m${i}`, target: "end" },
+        ],
+      };
+    }
+    const graph: AgentGraphDefinition = {
+      version: 1,
+      nodes: [
+        { id: "start", type: "start", position: { x: 0, y: 0 }, data: { label: "START" } },
+        { id: "root", type: "subgraph", position: { x: 0, y: 0 }, data: { label: "ROOT", subgraph: inner } },
+        { id: "end", type: "end", position: { x: 0, y: 0 }, data: { label: "END" } },
+      ],
+      edges: [
+        { id: "e1", source: "start", target: "root" },
+        { id: "e2", source: "root", target: "end" },
+      ],
+    };
+
+    const result = await interpreter.run({
+      executionId: "g-exec-19",
+      skill: makeSkill(),
+      version: makeVersion(),
+      graph,
+      userInput: {},
+    });
+
+    expect(result.status).toBe("STEP_LIMIT_EXCEEDED");
+    expect(result.error).toMatch(/nesting exceeds/i);
+  });
+
   it("rejects approval nodes inside parallel branches instead of corrupting the pause state", async () => {
     const { interpreter } = makeInterpreter();
     const graph: AgentGraphDefinition = {

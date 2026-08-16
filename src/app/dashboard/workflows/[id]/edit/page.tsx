@@ -76,7 +76,7 @@ export default function EditWorkflowPage({
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto font-mono">
+    <div className="space-y-6 w-full font-mono">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-indigo-950 pb-4">
         <div className="flex items-center gap-3">

@@ -13,11 +13,17 @@ import {
   Pencil,
   RefreshCw,
   Network,
-  CheckCircle2,
+  Ghost,
+  History,
+  Share2,
+  Activity,
+  GitBranch,
 } from "lucide-react";
 import { skillsApi } from "@/lib/api/skills";
 import { executionsApi } from "@/lib/api/executions";
 import { AgentGraphCanvas } from "@/components/canvas/AgentGraphCanvas";
+import { GraphDiffModal } from "@/components/canvas/GraphDiffModal";
+import { diffGraphs } from "@/components/canvas/graphDiff";
 import { StatusBadge } from "@/components/skills/StatusBadge";
 import { SkeletonSkillDetail } from "@/components/feedback/Skeleton";
 import { EmptyState } from "@/components/feedback/EmptyState";
@@ -37,10 +43,60 @@ export default function CanvasEditorPage({ params }: { params: Promise<{ id: str
 
   const draft = skill?.currentDraft ?? skill?.publishedVersion ?? null;
 
+  // Past runs of this version — powers branch coverage + replay-last-run.
+  const { data: pastExecutions = [] } = useQuery({
+    queryKey: ["executions", "by-version", draft?.id],
+    queryFn: () => executionsApi.list({ skillVersionId: draft!.id, limit: 50 }),
+    enabled: Boolean(draft),
+  });
+  const coveredEdges = useMemo(() => {
+    const ids = new Set<string>();
+    for (const exec of pastExecutions) {
+      const planner = exec.plannerOutput as Record<string, unknown> | null;
+      const state = planner?.graph === true ? (planner.state as { traversedEdges?: string[] } | undefined) : undefined;
+      for (const id of state?.traversedEdges ?? []) ids.add(id);
+    }
+    return Array.from(ids);
+  }, [pastExecutions]);
+  const lastExecution = pastExecutions[0] ?? null;
+
+  // Analytics: aggregate stats across this version's runs.
+  const analytics = useMemo(() => {
+    const terminal = pastExecutions.filter((e) => e.status === "COMPLETED" || e.status === "FAILED" || e.status === "STEP_LIMIT_EXCEEDED");
+    const completed = terminal.filter((e) => e.status === "COMPLETED");
+    const durations = terminal.map((e) => e.durationMs ?? 0).filter((d) => d > 0);
+    const avgDuration = durations.length ? durations.reduce((a, b) => a + b, 0) / durations.length : 0;
+    return {
+      runs: pastExecutions.length,
+      successRate: terminal.length ? Math.round((completed.length / terminal.length) * 100) : null,
+      avgDurationMs: avgDuration,
+      failures: terminal.length - completed.length,
+    };
+  }, [pastExecutions]);
+
+  const shareSnapshot = async () => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/dashboard/canvas/${id}/snapshot`);
+      toast.success("Snapshot link copied", "Share it anywhere — it renders read-only.");
+    } catch {
+      toast.error("Copy failed", "Clipboard unavailable.");
+    }
+  };
+
   const [graph, setGraph] = useState<AgentGraphDefinition | null>(null);
   const [runInput, setRunInput] = useState("{\n  \n}");
   const [runInputError, setRunInputError] = useState<string | null>(null);
   const [activeExecutionId, setActiveExecutionId] = useState<string | null>(null);
+  const [activePreviewId, setActivePreviewId] = useState<string | null>(null);
+  const [showDiff, setShowDiff] = useState(false);
+  const [editingSubgraph, setEditingSubgraph] = useState(false);
+
+  // Version diff: working graph vs the last published version.
+  const publishedGraph = skill?.publishedVersion?.graphDefinition ?? null;
+  const graphDiff = useMemo(
+    () => (graph && publishedGraph ? diffGraphs(graph, publishedGraph) : null),
+    [graph, publishedGraph]
+  );
 
   // Initialize graph state from the draft once it loads.
   const [initialized, setInitialized] = useState(false);
@@ -77,24 +133,58 @@ export default function CanvasEditorPage({ params }: { params: Promise<{ id: str
     onError: (e) => toast.error("Execution failed to start", e.message),
   });
 
+  const replayMutation = useMutation({
+    mutationFn: (executionId: string) => executionsApi.replay(executionId),
+    onSuccess: (execution) => {
+      toast.success("Deterministic replay started", "Replaying recorded LLM outputs — no tokens spent on the model.");
+      setActiveExecutionId(execution.id);
+      queryClient.invalidateQueries({ queryKey: ["executions"] });
+    },
+    onError: (e) => toast.error("Replay failed", e.message),
+  });
+
+  const previewMutation = useMutation({
+    mutationFn: ({ versionId, graphDef, inputData }: { versionId: string; graphDef: AgentGraphDefinition; inputData: Record<string, unknown> }) =>
+      fetch("/api/canvas/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skillVersionId: versionId, graph: graphDef, inputData }),
+      }).then(async (res) => {
+        const body = (await res.json().catch(() => ({}))) as { previewId?: string; error?: string };
+        if (!res.ok || !body.previewId) throw new Error(body.error ?? "Preview failed to start");
+        return body.previewId;
+      }),
+    onSuccess: (previewId) => {
+      toast.success("Ghost preview started", "Dry-running the graph — nothing is persisted.");
+      setActivePreviewId(previewId);
+    },
+    onError: (e) => toast.error("Preview failed", e.message),
+  });
+
+  /** Parse the JSON input editor — shared by run + preview. Returns null on error (toasted). */
+  const parseInput = (): Record<string, unknown> | null => {
+    try {
+      const trimmed = runInput.trim();
+      const inputData = trimmed ? JSON.parse(trimmed) : {};
+      if (Array.isArray(inputData) || inputData === null || typeof inputData !== "object") {
+        throw new Error("Must be a JSON object");
+      }
+      setRunInputError(null);
+      return inputData;
+    } catch (err) {
+      setRunInputError(err instanceof Error ? err.message : "Invalid JSON input payload");
+      return null;
+    }
+  };
+
   const handleRun = () => {
     if (!draft) return;
     if (!hasGraph) {
       toast.error("Empty graph", "Add at least a START and END node before running.");
       return;
     }
-    let inputData: Record<string, unknown>;
-    try {
-      const trimmed = runInput.trim();
-      inputData = trimmed ? JSON.parse(trimmed) : {};
-      if (Array.isArray(inputData) || inputData === null || typeof inputData !== "object") {
-        throw new Error("Must be a JSON object");
-      }
-    } catch (err) {
-      setRunInputError(err instanceof Error ? err.message : "Invalid JSON input payload");
-      return;
-    }
-    setRunInputError(null);
+    const inputData = parseInput();
+    if (!inputData) return;
     // Persist the graph first so the executed version matches the canvas.
     saveMutation.mutateAsync().then(() => {
       runMutation.mutate({ versionId: draft.id, inputData });
@@ -103,7 +193,19 @@ export default function CanvasEditorPage({ params }: { params: Promise<{ id: str
     });
   };
 
-  const running = runMutation.isPending || Boolean(activeExecutionId);
+  const handlePreview = () => {
+    if (!draft) return;
+    if (!hasGraph) {
+      toast.error("Empty graph", "Add at least a START and END node before previewing.");
+      return;
+    }
+    const inputData = parseInput();
+    if (!inputData) return;
+    previewMutation.mutate({ versionId: draft.id, graphDef: graph!, inputData });
+  };
+
+  const tracing = Boolean(activeExecutionId) || Boolean(activePreviewId);
+  const running = runMutation.isPending || previewMutation.isPending || tracing;
 
   if (isLoading) return <SkeletonSkillDetail />;
   if (isError || !skill || !draft) {
@@ -165,17 +267,62 @@ export default function CanvasEditorPage({ params }: { params: Promise<{ id: str
           <button
             type="button"
             onClick={() => saveMutation.mutate()}
-            disabled={saveMutation.isPending || !hasGraph || Boolean(activeExecutionId)}
+            disabled={saveMutation.isPending || !hasGraph || Boolean(activeExecutionId) || editingSubgraph}
             className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded border border-cyan-400 bg-cyan-600 text-white font-semibold hover:bg-cyan-500 transition-all cursor-pointer disabled:opacity-40 shadow-sm"
           >
             {saveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
             [ SAVE GRAPH ]
           </button>
 
+          {lastExecution && !tracing && (
+            <button
+              type="button"
+              onClick={() => replayMutation.mutate(lastExecution.id)}
+              disabled={replayMutation.isPending || !hasGraph || editingSubgraph}
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded border border-emerald-400 bg-emerald-600 text-white font-semibold hover:bg-emerald-500 shadow-sm transition-all cursor-pointer disabled:opacity-40"
+              title="Re-run the last execution deterministically — recorded LLM outputs are replayed instead of re-invoked"
+            >
+              {replayMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <History className="h-3.5 w-3.5" />}
+              [ REPLAY LAST RUN ]
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={handlePreview}
+            disabled={previewMutation.isPending || !hasGraph || tracing || editingSubgraph}
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded border border-violet-400 bg-violet-600 text-white font-semibold hover:bg-violet-500 shadow-sm transition-all cursor-pointer disabled:opacity-40"
+            title="Dry-run the graph without persisting anything — approvals auto-pass"
+          >
+            {previewMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Ghost className="h-3.5 w-3.5" />}
+            [ GHOST PREVIEW ]
+          </button>
+
+          {publishedGraph && graphDiff && !tracing && (
+            <button
+              type="button"
+              onClick={() => setShowDiff(true)}
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded border border-slate-300 dark:border-indigo-900/50 bg-slate-50 dark:bg-indigo-950/30 text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-700 transition-all font-semibold cursor-pointer"
+              title="Visual diff against the published version"
+            >
+              <GitBranch className="h-3.5 w-3.5" /> [ DIFF VS PUBLISHED ]
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={shareSnapshot}
+            disabled={!hasGraph || tracing}
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded border border-slate-300 dark:border-indigo-900/50 bg-slate-50 dark:bg-indigo-950/30 text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-700 transition-all font-semibold cursor-pointer disabled:opacity-40"
+            title="Copy a read-only snapshot link (graph + last run trace)"
+          >
+            <Share2 className="h-3.5 w-3.5" /> [ SNAPSHOT LINK ]
+          </button>
+
           <button
             type="button"
             onClick={handleRun}
-            disabled={runMutation.isPending || !hasGraph || Boolean(activeExecutionId)}
+            disabled={runMutation.isPending || !hasGraph || tracing || editingSubgraph}
             className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded border border-indigo-400 bg-indigo-600 text-white font-semibold hover:bg-indigo-500 shadow-md shadow-indigo-500/30 transition-all cursor-pointer disabled:opacity-40"
           >
             {runMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
@@ -193,8 +340,29 @@ export default function CanvasEditorPage({ params }: { params: Promise<{ id: str
         </div>
       </div>
 
+      {/* Analytics strip */}
+      {!tracing && analytics.runs > 0 && (
+        <div className="shrink-0 flex flex-wrap items-center gap-x-4 gap-y-1 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 px-3 py-2 text-[10px] font-mono">
+          <span className="inline-flex items-center gap-1.5 font-bold uppercase tracking-widest text-indigo-700 dark:text-indigo-400/80">
+            <Activity className="h-3 w-3 text-emerald-600 dark:text-emerald-400" /> Analytics
+          </span>
+          <span className="text-slate-600 dark:text-slate-400">runs <b className="text-slate-900 dark:text-slate-100">{analytics.runs}</b></span>
+          <span className="text-slate-600 dark:text-slate-400">success{' '}
+            <b className={clsx(analytics.successRate !== null && analytics.successRate >= 70 ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400")}>
+              {analytics.successRate === null ? "—" : `${analytics.successRate}%`}
+            </b>
+          </span>
+          <span className="text-slate-600 dark:text-slate-400">avg{' '}
+            <b className="text-slate-900 dark:text-slate-100">
+              {analytics.avgDurationMs >= 1000 ? `${(analytics.avgDurationMs / 1000).toFixed(1)}s` : `${Math.round(analytics.avgDurationMs)}ms`}
+            </b>
+          </span>
+          <span className="text-slate-600 dark:text-slate-400">failures <b className={analytics.failures > 0 ? "text-red-600 dark:text-red-400" : "text-slate-900 dark:text-slate-100"}>{analytics.failures}</b></span>
+        </div>
+      )}
+
       {/* Input editor (collapsed when tracing) */}
-      {!activeExecutionId && (
+      {!tracing && (
         <div className="shrink-0 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 p-3 space-y-2">
           <div className="flex items-center justify-between">
             <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400/80 flex items-center gap-1.5 font-semibold">
@@ -226,13 +394,19 @@ export default function CanvasEditorPage({ params }: { params: Promise<{ id: str
         <AgentGraphCanvas
           graph={graph}
           onChange={setGraph}
-          executionId={activeExecutionId}
+          executionId={activeExecutionId ?? activePreviewId}
+          mode={activePreviewId ? "preview" : "execution"}
+          coverage={coveredEdges}
+          onSubgraphEdit={setEditingSubgraph}
           traceHeaderExtra={
-            activeExecutionId ? (
+            tracing ? (
               <button
                 type="button"
-                onClick={() => setActiveExecutionId(null)}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-500/50 text-[9px] text-slate-300 hover:border-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer"
+                onClick={() => {
+                  setActiveExecutionId(null);
+                  setActivePreviewId(null);
+                }}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-300 dark:border-slate-500/50 text-[9px] text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors cursor-pointer"
               >
                 <RefreshCw className="h-3 w-3" /> BACK TO EDIT
               </button>
@@ -240,6 +414,14 @@ export default function CanvasEditorPage({ params }: { params: Promise<{ id: str
           }
         />
       </div>
+
+      {showDiff && publishedGraph && graphDiff && (
+        <GraphDiffModal
+          diff={graphDiff}
+          baseLabel={`v${skill.publishedVersion?.versionNumber ?? "?"}`}
+          onClose={() => setShowDiff(false)}
+        />
+      )}
     </div>
   );
 }

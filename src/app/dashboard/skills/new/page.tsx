@@ -17,7 +17,7 @@ function NewSkillContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-6 w-full max-w-5xl mx-auto">
       <div className="flex items-center justify-between border-b border-indigo-950/80 pb-5">
         <div>
           <Link

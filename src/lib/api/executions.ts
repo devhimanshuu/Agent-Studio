@@ -19,6 +19,7 @@ function buildQuery(query: ExecutionQuery = {}): string {
   if (query.search) params.set("search", query.search);
   if (query.status) params.set("status", query.status);
   if (query.skillName) params.set("skillName", query.skillName);
+  if (query.skillVersionId) params.set("skillVersionId", query.skillVersionId);
   if (query.provider) params.set("provider", query.provider);
   if (query.from) params.set("from", query.from);
   if (query.to) params.set("to", query.to);

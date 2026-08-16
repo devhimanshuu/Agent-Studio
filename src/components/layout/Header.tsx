@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SignInButton, SignUpButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { useTheme } from "next-themes";
-import { Sun, Moon, Menu, X } from "lucide-react";
+import { Sun, Moon, Menu, X, LogIn, Sparkles } from "lucide-react";
 import { useSidebar } from "@/components/providers/SidebarContext";
 
 export function Header() {
@@ -97,13 +97,23 @@ export function Header() {
             <SignedOut>
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <SignInButton mode="modal">
-                  <button className="px-2 sm:px-3 py-1.5 rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-[11px] sm:text-xs font-mono text-indigo-700 dark:text-indigo-200 hover:border-indigo-400 hover:text-indigo-900 dark:hover:text-white transition-all whitespace-nowrap">
-                    [ SIGN IN ]
+                  <button
+                    title="Sign In"
+                    aria-label="Sign In"
+                    className="inline-flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-xs font-mono text-indigo-700 dark:text-indigo-200 hover:border-indigo-400 hover:text-indigo-900 dark:hover:text-white transition-all whitespace-nowrap cursor-pointer"
+                  >
+                    <LogIn className="h-4 w-4 sm:h-3.5 sm:w-3.5 shrink-0 text-indigo-600 dark:text-indigo-400" />
+                    <span className="hidden sm:inline">[ SIGN IN ]</span>
                   </button>
                 </SignInButton>
                 <SignUpButton mode="modal">
-                  <button className="px-2 sm:px-3 py-1.5 rounded border border-indigo-500 bg-indigo-600 text-[11px] sm:text-xs font-mono text-white hover:bg-indigo-500 shadow-sm shadow-indigo-500/30 transition-all whitespace-nowrap">
-                    [ GET STARTED ]
+                  <button
+                    title="Get Started"
+                    aria-label="Get Started"
+                    className="inline-flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded border border-indigo-500 bg-indigo-600 text-xs font-mono text-white hover:bg-indigo-500 shadow-sm shadow-indigo-500/30 transition-all whitespace-nowrap cursor-pointer"
+                  >
+                    <Sparkles className="h-4 w-4 sm:h-3.5 sm:w-3.5 shrink-0 text-indigo-200" />
+                    <span className="hidden sm:inline">[ GET STARTED ]</span>
                   </button>
                 </SignUpButton>
               </div>
@@ -153,6 +163,28 @@ export function Header() {
             >
               [ FAQ ]
             </a>
+            <SignedOut>
+              <div className="pt-2 border-t border-slate-200 dark:border-indigo-900/40 flex flex-col gap-2">
+                <SignUpButton mode="modal">
+                  <button
+                    onClick={() => setLandingMenuOpen(false)}
+                    className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded border border-indigo-500 bg-indigo-600 text-xs font-mono text-white hover:bg-indigo-500 shadow-sm shadow-indigo-500/30 transition-all font-semibold"
+                  >
+                    <Sparkles className="h-4 w-4 shrink-0" />
+                    [ GET STARTED FREE ]
+                  </button>
+                </SignUpButton>
+                <SignInButton mode="modal">
+                  <button
+                    onClick={() => setLandingMenuOpen(false)}
+                    className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-xs font-mono text-indigo-700 dark:text-indigo-200 hover:border-indigo-400 transition-all"
+                  >
+                    <LogIn className="h-4 w-4 shrink-0" />
+                    [ SIGN IN ]
+                  </button>
+                </SignInButton>
+              </div>
+            </SignedOut>
           </nav>
         )}
       </header>

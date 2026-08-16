@@ -43,32 +43,16 @@ const navItems = [
 
 
 
-const STORAGE_KEY = "agent-studio-sidebar-collapsed";
-
 export function Sidebar() {
   const pathname = usePathname();
   const { signOut } = useClerk();
-  const { mobileOpen, closeMobile } = useSidebar();
+  const { mobileOpen, closeMobile, collapsed, toggleCollapsed } = useSidebar();
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
-
-  // Restore the collapsed preference after mount (avoids SSR hydration mismatch)
-  useEffect(() => {
-    setCollapsed(localStorage.getItem(STORAGE_KEY) === "1");
-  }, []);
 
   // Close mobile sidebar on route change
   useEffect(() => {
     closeMobile();
   }, [pathname]);
-
-  const toggleCollapsed = () => {
-    setCollapsed((prev) => {
-      const next = !prev;
-      localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
-      return next;
-    });
-  };
 
   // Hide sidebar on the main public landing page
   if (pathname === "/") return null;

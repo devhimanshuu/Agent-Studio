@@ -76,6 +76,7 @@ export class ExecutionRepository implements IExecutionRepository {
 
     if (query.status) where.status = query.status as Prisma.EnumExecutionStatusFilter;
     if (query.skillName) where.skillName = { contains: query.skillName, mode: "insensitive" };
+    if (query.skillVersionId) where.skillVersionId = query.skillVersionId;
     if (query.provider) where.provider = { contains: query.provider, mode: "insensitive" };
 
     // Defense in depth: routes validate these params and return 400 first, but

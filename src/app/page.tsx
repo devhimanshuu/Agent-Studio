@@ -1,7 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import {
-  Sparkles,
+  Check,
   CheckSquare,
   GitCompare,
   Terminal,
@@ -27,9 +27,32 @@ import {
   Workflow,
   Cpu,
   Layers,
+  Bot,
+  Users,
+  GitFork,
+  Repeat,
+  Boxes,
+  Eye,
+  Gauge,
+  TimerReset,
+  History,
+  Wallet,
+  MousePointerClick,
+  LayoutTemplate,
+  Keyboard,
+  Palette,
+  Link2,
+  TriangleAlert,
+  BarChart3,
+  LogIn,
+  Sparkles,
+  Network,
+  Webhook,
+  Camera,
 } from "lucide-react";
 import { SignInButton, SignUpButton, SignedIn, SignedOut } from "@clerk/nextjs";
 import { LiveExecutionTerminal } from "@/components/landing/LiveExecutionTerminal";
+import { LiveAgentCanvasDemo } from "@/components/landing/LiveAgentCanvasDemo";
 import { PixelGridWave } from "@/components/landing/PixelGridWave";
 import { NeuralPatterns } from "@/components/landing/NeuralPatterns";
 import { FooterPortfolioWidget } from "@/components/landing/FooterPortfolioWidget";
@@ -155,6 +178,183 @@ const boundedStepTypes = [
   },
 ];
 
+const canvasNodeTypes = [
+  { name: "START", icon: Flag, cls: "text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-black/40" },
+  { name: "AGENT", icon: Bot, cls: "text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-black/40" },
+  { name: "SUPERVISOR", icon: Users, cls: "text-violet-700 dark:text-violet-300 border-violet-300 dark:border-violet-500/40 bg-violet-50 dark:bg-black/40" },
+  { name: "TOOL", icon: Wrench, cls: "text-sky-700 dark:text-sky-300 border-sky-300 dark:border-sky-500/40 bg-sky-50 dark:bg-black/40" },
+  { name: "ROUTER", icon: GitBranch, cls: "text-cyan-700 dark:text-cyan-300 border-cyan-300 dark:border-cyan-500/40 bg-cyan-50 dark:bg-black/40" },
+  { name: "APPROVAL", icon: CheckSquare, cls: "text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-black/40" },
+  { name: "LOOP", icon: Repeat, cls: "text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-500/40 bg-orange-50 dark:bg-black/40" },
+  { name: "PARALLEL", icon: GitFork, cls: "text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-500/40 bg-rose-50 dark:bg-black/40" },
+  { name: "SUBGRAPH", icon: Boxes, cls: "text-teal-700 dark:text-teal-300 border-teal-300 dark:border-teal-500/40 bg-teal-50 dark:bg-black/40" },
+  { name: "END", icon: Flag, cls: "text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-black/40" },
+];
+
+const upcomingNodeTypes = [
+  {
+    name: "MCP CONNECTOR",
+    tag: "SOON",
+    icon: Network,
+    desc: "Anthropic Model Context Protocol Client & Server Tool Sync",
+    cls: "text-violet-700 dark:text-violet-300 border-dashed border-violet-400/70 dark:border-violet-500/50 bg-violet-50/60 dark:bg-violet-950/30",
+    badgeCls: "bg-violet-100 dark:bg-violet-900/60 text-violet-800 dark:text-violet-200 border-violet-300 dark:border-violet-700",
+  },
+  {
+    name: "VECTOR MEMORY",
+    tag: "Q3",
+    icon: Database,
+    desc: "Long-term episodic memory & persistent RAG embeddings",
+    cls: "text-sky-700 dark:text-sky-300 border-dashed border-sky-400/70 dark:border-sky-500/50 bg-sky-50/60 dark:bg-sky-950/30",
+    badgeCls: "bg-sky-100 dark:bg-sky-900/60 text-sky-800 dark:text-sky-200 border-sky-300 dark:border-sky-700",
+  },
+  {
+    name: "WEBHOOK TRIGGER",
+    tag: "SOON",
+    icon: Webhook,
+    desc: "External HTTP event ingress & real-time webhook listener",
+    cls: "text-amber-700 dark:text-amber-300 border-dashed border-amber-400/70 dark:border-amber-500/50 bg-amber-50/60 dark:bg-amber-950/30",
+    badgeCls: "bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-700",
+  },
+  {
+    name: "MULTI-MODAL VISION",
+    tag: "LABS",
+    icon: Camera,
+    desc: "Perceptual vision analysis & streaming audio agents",
+    cls: "text-rose-700 dark:text-rose-300 border-dashed border-rose-400/70 dark:border-rose-500/50 bg-rose-50/60 dark:bg-rose-950/30",
+    badgeCls: "bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 border-rose-300 dark:border-rose-700",
+  },
+  {
+    name: "CODE SANDBOX",
+    tag: "LABS",
+    icon: Terminal,
+    desc: "Isolated WebAssembly / E2B micro-VM container execution",
+    cls: "text-cyan-700 dark:text-cyan-300 border-dashed border-cyan-400/70 dark:border-cyan-500/50 bg-cyan-50/60 dark:bg-cyan-950/30",
+    badgeCls: "bg-cyan-100 dark:bg-cyan-900/60 text-cyan-800 dark:text-cyan-200 border-cyan-300 dark:border-cyan-700",
+  },
+];
+
+const runtimeIntel = [
+  {
+    icon: Eye,
+    title: "Ghost-Mode Preview",
+    desc: "Run the interpreter in dry-run against live state — nodes light up in fast-forward showing exactly what would happen before you hit Run. Zero writes, zero cost.",
+    accent: "text-sky-700 dark:text-sky-300 border-sky-300 dark:border-sky-500/40 bg-sky-50 dark:bg-black/40",
+  },
+  {
+    icon: Gauge,
+    title: "Latency Heatmap",
+    desc: "Per-node latency, token, and cost metrics rendered straight on the canvas. Toggle heatmap mode to spot slow or expensive branches at a glance.",
+    accent: "text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-black/40",
+  },
+  {
+    icon: TimerReset,
+    title: "Time-Scrub Replay",
+    desc: "A timeline scrubber replays any execution — nodes glow and dim in sync with 1×–8× speed control. Rewatch exactly where a run diverged.",
+    accent: "text-violet-700 dark:text-violet-300 border-violet-300 dark:border-violet-500/40 bg-violet-50 dark:bg-black/40",
+  },
+  {
+    icon: History,
+    title: "Deterministic Replay",
+    desc: "Persist every LLM response and replay a past execution with the exact same outputs for the non-LLM parts — a debugging superpower.",
+    accent: "text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-black/40",
+  },
+  {
+    icon: Wallet,
+    title: "Budget Guardrails",
+    desc: "Max cost, token, and step caps per node. The interpreter stops a runaway agent and flags the exact node that blew its budget.",
+    accent: "text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-black/40",
+  },
+  {
+    icon: ShieldCheck,
+    title: "HITL Escalation Rules",
+    desc: "Approval nodes get conditions (approve if state.risk < 3, else escalate) plus a timeout that auto-escalates stale requests to a reviewer.",
+    accent: "text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-black/40",
+  },
+  {
+    icon: GitFork,
+    title: "Branch Coverage View",
+    desc: "After several runs, edges that have never been traversed are highlighted — so you know your router conditions are actually reachable.",
+    accent: "text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-500/40 bg-rose-50 dark:bg-black/40",
+  },
+  {
+    icon: TriangleAlert,
+    title: "Idle-Time Validation",
+    desc: "Auto-detect disconnected islands, unreachable END nodes, and router conditions that can never be true — inline warnings on the canvas as you edit.",
+    accent: "text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-500/40 bg-orange-50 dark:bg-black/40",
+  },
+];
+
+const devTooling = [
+  {
+    icon: LayoutTemplate,
+    title: "Auto-Layout & Snap Grid",
+    desc: "One click runs layered BFS auto-layout over any hand-built graph, with snap-to-grid guides so designs never look messy.",
+  },
+  {
+    icon: Braces,
+    title: "Inline Prompt Editor",
+    desc: "Monaco-style prompt editing with {{state.field}} autocomplete, hover preview of resolved values, and live token-count feedback as you type.",
+  },
+  {
+    icon: GitCompare,
+    title: "Visual Version Diffing",
+    desc: "Side-by-side diff of two graph versions — nodes added/removed, edges rerouted — with one-click revert to any published version.",
+  },
+  {
+    icon: Boxes,
+    title: "Sub-Graphs & Macros",
+    desc: "Collapse any branch into a reusable component node with typed inputs/outputs, then nest graphs inside graphs — up to 8 levels deep.",
+  },
+  {
+    icon: Keyboard,
+    title: "Keyboard-First Editing",
+    desc: "⌘+drag to pan, ⌥+click to duplicate, ⌫ to delete — with shortcut hints in a command palette for power users.",
+  },
+  {
+    icon: Palette,
+    title: "Canvas Themes",
+    desc: "Neon/cyber default, graphite minimal, and high-contrast themes — persisted per user with full dark-mode support.",
+  },
+  {
+    icon: Link2,
+    title: "Shareable Snapshot Links",
+    desc: "Render any graph + its final trace as a read-only, embeddable snapshot view — perfect for docs, PRs, or Slack.",
+  },
+  {
+    icon: BarChart3,
+    title: "Graph Analytics",
+    desc: "Aggregated run stats per template — success rate, average cost, common failure nodes — surfacing which graphs actually work.",
+  },
+];
+
+const faqExtra = [
+  {
+    q: "What is the Visual Multi-Agent Canvas?",
+    a: "Agent Studio's canvas is a full drag-and-drop graph editor (React Flow) for designing multi-agent architectures — Supervisor → Researcher → Coder → Critic loops, conditional routers, map-reduce parallel branches, loop counters, and nested sub-graphs. Runs stream live over SSE so nodes pulse in real-time as the graph executes.",
+  },
+  {
+    q: "What is Ghost-Mode Preview?",
+    a: "A dry-run of your graph against real execution state. Nodes light up in fast-forward showing exactly the path a run would take — including router decisions and approval gates — without writing anything or spending tokens. De-risk graph changes before you hit Run.",
+  },
+  {
+    q: "Can I replay a past execution deterministically?",
+    a: "Yes. Every LLM response is persisted, and the Replay button re-executes a past run using those exact recorded outputs for the non-LLM parts (routers, tools, loops). It's the fastest way to debug why a graph diverged.",
+  },
+  {
+    q: "How do budget guardrails work?",
+    a: "Each node can carry max cost, token, and step caps. When a node exceeds its budget, the interpreter stops the run and flags the offending node — so runaway agents never rack up surprise bills.",
+  },
+  {
+    q: "Can I edit the canvas without a mouse?",
+    a: "Yes — the editor is keyboard-first: ⌘/Ctrl+drag pans, ⌥/Alt+click duplicates a node, ⌫ deletes, and a command palette lists every shortcut. Auto-layout and snap-to-grid keep hand-built graphs tidy.",
+  },
+  {
+    q: "Are graphs versioned and shareable?",
+    a: "Every graph version is immutable and diffable side-by-side against any published version with one-click revert. Any graph + its final trace can be shared as a read-only snapshot link for docs or review.",
+  },
+];
+
 export default function LandingPage() {
   return (
     <div className="space-y-16 sm:space-y-24 px-4 sm:px-6 lg:px-10 pt-0">
@@ -184,41 +384,39 @@ export default function LandingPage() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-500 dark:bg-indigo-400 opacity-60"></span>
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-600 dark:bg-indigo-400"></span>
               </span>
-              <span className="truncate">CONTROLLED AGENTIC WORKFLOWS · 8 STEP TYPES · SAFE RECOVERY · HITL LOCK</span>
+              <span className="truncate font-semibold">Visual Multi-Agent Canvas · Live SSE Traces · HITL Escalation · 8 Step Types</span>
             </div>
           </div>
 
           {/* Pixel Block Headline */}
           <h1
-            className="glitch animate-fadeInUp text-2xl sm:text-5xl md:text-6xl lg:text-7xl font-pixel uppercase tracking-tight leading-tight max-w-5xl text-slate-900 dark:text-slate-100 break-words"
+            className="glitch animate-fadeInUp text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-pixel uppercase tracking-tight leading-tight max-w-5xl text-slate-900 dark:text-slate-100 break-words"
             style={{ animationDelay: "100ms" }}
-            data-text="CONTROLLED AGENTIC WORKFLOWS"
+            data-text="VISUAL MULTI-AGENT ORCHESTRATION STUDIO"
           >
-            CONTROLLED <span className="text-gradient-glow">AGENTIC WORKFLOW</span> PLATFORM
+            VISUAL <span className="text-gradient-glow">MULTI-AGENT</span> ORCHESTRATION STUDIO
           </h1>
 
           {/* Redesigned Subhead Text Design */}
           <div
             className="animate-fadeInUp space-y-3 max-w-3xl font-mono-tech"
-            style={{ animationDelay: "300ms" }}
+            style={{ animationDelay: "200ms" }}
           >
             <p className="text-lg sm:text-2xl text-slate-900 dark:text-slate-100 font-medium leading-snug tracking-tight font-sans">
-              Define, validate, and execute{" "}
-              <span className="text-gradient-glow font-semibold">bounded business workflows</span> on a{" "}
-              <span className="text-slate-800 dark:text-slate-200 border-b border-indigo-400/40 dark:border-indigo-500/30 pb-0.5">graph-first agent runtime</span>.
+              Architect, simulate, and deploy{" "}
+              <span className="text-gradient-glow font-semibold">deterministic multi-agent graphs</span> with real-time SSE execution and human-in-the-loop governance.
             </p>
             <p className="text-xs sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed font-mono-tech">
-              Execute <span className="text-indigo-700 dark:text-indigo-300 font-medium">8 supported step types</span> with{" "}
-              <span className="text-emerald-700 dark:text-emerald-300 font-medium border-b border-emerald-400/40 pb-0.5">execution path decision explainers</span>, recover failed runs via{" "}
-              <span className="text-amber-700 dark:text-amber-300 font-medium border-b border-amber-400/40 pb-0.5">step-level safe retry</span> without repeating completed steps, and protect write actions with{" "}
-              <span className="text-slate-800 dark:text-slate-200 border-b border-indigo-400/40 dark:border-indigo-500/30 pb-0.5">single-use idempotency approval tokens</span>.
+              Wire <span className="text-indigo-700 dark:text-indigo-300 font-semibold">supervisor → researcher → coder → critic loops</span> with{" "}
+              <span className="text-emerald-700 dark:text-emerald-300 font-semibold">conditional routers and loop counters</span>, watch nodes pulse in real time as the graph executes, and protect sensitive write actions with{" "}
+              <span className="text-amber-700 dark:text-amber-300 font-semibold">single-use approval locks</span>.
             </p>
           </div>
 
           {/* Dynamic Auth Status Indicator */}
-          <div className="animate-fadeInUp font-mono text-xs" style={{ animationDelay: "350ms" }}>
+          <div className="animate-fadeInUp font-mono text-xs" style={{ animationDelay: "250ms" }}>
             <SignedIn>
-              <div className="inline-flex max-w-full items-center gap-2 px-3 py-1.5 rounded border border-emerald-400/40 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 shadow-sm text-[11px]">
+              <div className="inline-flex max-w-full items-center gap-2 px-3 py-1.5 rounded border border-emerald-400/40 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 shadow-sm text-[11px] font-semibold">
                 <UserCheck className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
                 <span className="truncate">AUTHENTICATED · WORKSPACE ACCESS GRANTED</span>
               </div>
@@ -226,43 +424,70 @@ export default function LandingPage() {
           </div>
 
           {/* CTAs */}
-          <div className="animate-fadeInUp flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 pt-2 font-mono text-xs" style={{ animationDelay: "400ms" }}>
+          <div className="animate-fadeInUp flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 pt-2 font-mono text-xs" style={{ animationDelay: "300ms" }}>
             <SignedOut>
               <SignUpButton mode="modal">
                 <button className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded border border-indigo-500 bg-indigo-600 text-white font-semibold hover:bg-indigo-500 shadow-lg shadow-indigo-500/25 transition-all text-sm cursor-pointer w-full sm:w-auto">
-                  [ GET STARTED FREE ] <ArrowRight className="h-4 w-4" />
+                  <Sparkles className="h-4 w-4" />
+                  Get Started Free <ArrowRight className="h-4 w-4" />
                 </button>
               </SignUpButton>
 
               <SignInButton mode="modal">
-                <button className="px-5 py-3.5 rounded border border-indigo-300 dark:border-indigo-500/40 bg-white dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-200 hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/60 shadow-sm transition-all text-sm cursor-pointer w-full sm:w-auto text-center">
-                  [ SIGN IN ]
+                <button className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded border border-indigo-300 dark:border-indigo-500/40 bg-white dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-200 hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/60 shadow-sm transition-all text-sm cursor-pointer w-full sm:w-auto text-center font-medium">
+                  <LogIn className="h-4 w-4" />
+                  Sign In
                 </button>
               </SignInButton>
             </SignedOut>
+
+            <SignedIn>
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded border border-indigo-500 bg-indigo-600 text-white font-semibold hover:bg-indigo-500 shadow-lg shadow-indigo-500/25 transition-all text-sm cursor-pointer w-full sm:w-auto"
+              >
+                <Sparkles className="h-4 w-4" />
+                Open Studio Dashboard <ArrowRight className="h-4 w-4" />
+              </Link>
+            </SignedIn>
+
+            <a
+              href="#canvas"
+              className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded border border-slate-300 dark:border-indigo-900/60 bg-white/80 dark:bg-black/60 text-slate-800 dark:text-slate-200 hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 shadow-sm transition-all text-sm cursor-pointer w-full sm:w-auto font-medium"
+            >
+              <MousePointerClick className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+              Live Interactive Demo
+            </a>
 
             <a
               href="https://github.com/devhimanshuu/Agent-Studio"
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center justify-center gap-2 px-4 py-3.5 rounded border border-indigo-300 dark:border-indigo-500/40 bg-white dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/60 shadow-sm transition-all text-xs w-full sm:w-auto"
+              className="inline-flex items-center justify-center gap-2 px-4 py-3.5 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/60 dark:bg-indigo-950/30 text-slate-600 dark:text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 shadow-sm transition-all text-xs w-full sm:w-auto"
             >
               <Terminal className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-              [ VIEW ON GITHUB ]
+              GitHub
             </a>
           </div>
 
-          {/* Interactive Live Agent Execution Terminal Widget */}
-          <div className="animate-fadeInUp pt-6" style={{ animationDelay: "500ms" }}>
-            <div className="text-xs font-mono text-indigo-700 dark:text-indigo-400/80 mb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 sm:gap-0 uppercase font-semibold">
-              <span>// INTERACTIVE WORKFLOW SIMULATOR</span>
-              <span className="text-indigo-700 dark:text-indigo-300">TRY RUNNING A BOUNDED WORKFLOW BELOW</span>
-            </div>
-            <LiveExecutionTerminal />
+          {/* Trust Guarantees Strip */}
+          <div className="animate-fadeInUp pt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-[11px] font-mono text-slate-600 dark:text-slate-400" style={{ animationDelay: "350ms" }}>
+            <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-semibold">
+              <Check className="h-3.5 w-3.5" /> 100% Deterministic Routing
+            </span>
+            <span className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400 font-semibold">
+              <Check className="h-3.5 w-3.5" /> Zero Unbounded Hallucinations
+            </span>
+            <span className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400 font-semibold">
+              <Check className="h-3.5 w-3.5" /> Idempotent Single-Use Tokens
+            </span>
+            <span className="flex items-center gap-1.5 text-cyan-700 dark:text-cyan-400 font-semibold">
+              <Check className="h-3.5 w-3.5" /> 12 Free LLM Auto-Failover Models
+            </span>
           </div>
 
           {/* Scroll Hint */}
-          <div className="flex justify-center pt-2 animate-float">
+          <div className="flex justify-center pt-4 animate-float">
             <ChevronDown className="h-5 w-5 text-indigo-500/70 dark:text-indigo-400/50" />
           </div>
         </div>
@@ -271,36 +496,168 @@ export default function LandingPage() {
       {/* SECTION 2: SOCIAL PROOF & KEY METRICS */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 font-mono text-center">
         <Reveal delay={0}>
-          <div className="p-4 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-1 h-full shadow-sm hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-300">
-            <div className="text-2xl font-pixel text-slate-900 dark:text-slate-100">8</div>
-            <div className="text-[11px] text-indigo-700 dark:text-indigo-400 font-semibold">Bounded Step Types · Full Lifecycle</div>
+          <div className="p-4 rounded-lg border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-1 h-full shadow-sm hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-300">
+            <div className="text-2xl font-pixel text-slate-900 dark:text-slate-100">10</div>
+            <div className="text-[11px] text-indigo-700 dark:text-indigo-400 font-semibold">Node Types on Visual Canvas</div>
           </div>
         </Reveal>
         <Reveal delay={80}>
-          <div className="p-4 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-1 h-full shadow-sm hover:-translate-y-1 hover:border-emerald-400 dark:hover:border-emerald-500/50 hover:shadow-xl hover:shadow-emerald-500/10 transition-all duration-300">
-            <div className="text-2xl font-pixel text-slate-900 dark:text-slate-100">100%</div>
-            <div className="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold">Safe Step Recovery & Continuity</div>
+          <div className="p-4 rounded-lg border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-1 h-full shadow-sm hover:-translate-y-1 hover:border-emerald-400 dark:hover:border-emerald-500/50 hover:shadow-xl hover:shadow-emerald-500/10 transition-all duration-300">
+            <div className="text-2xl font-pixel text-slate-900 dark:text-slate-100">LIVE</div>
+            <div className="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold">SSE Execution Traces & Pulses</div>
           </div>
         </Reveal>
         <Reveal delay={160}>
-          <div className="p-4 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-1 h-full shadow-sm hover:-translate-y-1 hover:border-amber-400 dark:hover:border-amber-500/50 hover:shadow-xl hover:shadow-amber-500/10 transition-all duration-300">
+          <div className="p-4 rounded-lg border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-1 h-full shadow-sm hover:-translate-y-1 hover:border-amber-400 dark:hover:border-amber-500/50 hover:shadow-xl hover:shadow-amber-500/10 transition-all duration-300">
             <div className="text-2xl font-pixel text-slate-900 dark:text-slate-100">100%</div>
-            <div className="text-[11px] text-amber-700 dark:text-amber-400 font-semibold">Idempotent Single-Use Tokens</div>
+            <div className="text-[11px] text-amber-700 dark:text-amber-400 font-semibold">Idempotent Approval Locks</div>
           </div>
         </Reveal>
         <Reveal delay={240}>
-          <div className="p-4 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-1 h-full shadow-sm hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-300">
+          <div className="p-4 rounded-lg border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-1 h-full shadow-sm hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-300">
             <div className="text-2xl font-pixel text-slate-900 dark:text-slate-100">EXPLAINED</div>
             <div className="text-[11px] text-indigo-700 dark:text-indigo-300 font-semibold">Auditable Path Decision Rationale</div>
           </div>
         </Reveal>
       </section>
 
-      {/* SECTION 3: BOUNDED WORKFLOW STEP TYPES MATRIX (#steptypes) */}
+      {/* SECTION 3: THE VISUAL MULTI-AGENT CANVAS (#canvas) */}
+      <section id="canvas" className="space-y-8 pt-4">
+        <Reveal>
+          <div className="flex items-center justify-between text-xs font-mono text-indigo-700 dark:text-indigo-400/80 uppercase tracking-widest border-b border-slate-200 dark:border-indigo-950/80 pb-3 font-semibold">
+            <span>// 01. THE VISUAL MULTI-AGENT CANVAS</span>
+            <span>REACT FLOW · DRAG-AND-DROP ORCHESTRATOR</span>
+          </div>
+        </Reveal>
+
+        <Reveal delay={0}>
+          <LiveAgentCanvasDemo />
+        </Reveal>
+
+        {/* Canvas feature bullets & node types */}
+        <Reveal delay={100}>
+          <div className="p-5 sm:p-6 rounded-lg border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-5 font-mono shadow-sm">
+            <div className="text-xs font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400 border-b border-slate-200 dark:border-indigo-950/60 pb-3 flex flex-wrap items-center justify-between gap-2 font-semibold">
+              <span className="flex items-center gap-2">
+                <MousePointerClick className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> DESIGN, SIMULATE & EXECUTE ON ONE CANVAS
+              </span>
+              <span className="text-[10px] text-slate-500 font-mono">10 NODE TYPES SUPPORTED</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs font-mono">
+              <div className="p-4 rounded border border-slate-200 dark:border-indigo-950/60 bg-slate-50/70 dark:bg-black/40 space-y-2 hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/50 transition-all duration-300">
+                <div className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                  <span className="text-indigo-600 dark:text-indigo-400 font-mono font-bold">01.</span> Visual Graph Authoring
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 font-serif leading-relaxed">
+                  Drag agent, supervisor, tool, router, approval, loop, parallel, and subgraph nodes onto an infinite canvas and wire them with typed edges — no code required.
+                </p>
+              </div>
+
+              <div className="p-4 rounded border border-slate-200 dark:border-indigo-950/60 bg-slate-50/70 dark:bg-black/40 space-y-2 hover:-translate-y-1 hover:border-emerald-400 dark:hover:border-emerald-500/50 transition-all duration-300">
+                <div className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                  <span className="text-emerald-600 dark:text-emerald-400 font-mono font-bold">02.</span> Live Pulsing Execution Traces
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 font-serif leading-relaxed">
+                  Runs stream over SSE — nodes glow green, red, or amber in real time as the graph plans, executes tools, or waits for HITL approvals, with animated edges.
+                </p>
+              </div>
+
+              <div className="p-4 rounded border border-slate-200 dark:border-indigo-950/60 bg-slate-50/70 dark:bg-black/40 space-y-2 hover:-translate-y-1 hover:border-violet-400 dark:hover:border-violet-500/50 transition-all duration-300">
+                <div className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                  <span className="text-violet-600 dark:text-violet-400 font-mono font-bold">03.</span> Conditional Branching & Loops
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 font-serif leading-relaxed">
+                  Dynamic routers, map-reduce parallel fan-out, and loop counters live directly on the graph — including nested sub-graphs up to 8 levels deep.
+                </p>
+              </div>
+
+              <div className="p-4 rounded border border-slate-200 dark:border-indigo-950/60 bg-slate-50/70 dark:bg-black/40 space-y-2 hover:-translate-y-1 hover:border-sky-400 dark:hover:border-sky-500/50 transition-all duration-300">
+                <div className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                  <span className="text-sky-600 dark:text-sky-400 font-mono font-bold">04.</span> Ghost Preview Before You Run
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 font-serif leading-relaxed">
+                  Dry-run the interpreter in fast-forward — nodes light up showing exactly the path a run would take, with zero writes and zero token cost.
+                </p>
+              </div>
+            </div>
+
+            {/* Supported & Upcoming Node Badges Deck */}
+            <div className="pt-4 border-t border-slate-200 dark:border-indigo-950/60 space-y-3">
+              {/* Row 1: Ready in Production */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[10px] text-slate-600 dark:text-slate-400 font-mono uppercase mr-1 font-bold flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block shadow-sm" />
+                  PRODUCTION NODES:
+                </span>
+                {canvasNodeTypes.map((n) => (
+                  <span
+                    key={n.name}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded border text-[9px] font-bold uppercase tracking-wider shadow-sm transition-all duration-200 hover:scale-105 ${n.cls}`}
+                  >
+                    <n.icon className="h-3 w-3" />
+                    {n.name}
+                  </span>
+                ))}
+              </div>
+
+              {/* Row 2: Experimental & Coming Soon (Creative Roadmap) */}
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-dashed border-slate-200 dark:border-indigo-950/50">
+                <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-mono uppercase mr-1 font-bold flex items-center gap-1.5">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                  </span>
+                  COMING SOON · LABS:
+                </span>
+                {upcomingNodeTypes.map((n) => (
+                  <div
+                    key={n.name}
+                    title={n.desc}
+                    className={`group relative inline-flex items-center gap-1.5 px-2.5 py-1 rounded border text-[9px] font-bold uppercase tracking-wider transition-all duration-200 hover:scale-105 cursor-help ${n.cls}`}
+                  >
+                    <n.icon className="h-3 w-3 opacity-90 group-hover:rotate-12 transition-transform" />
+                    <span>{n.name}</span>
+                    <span className={`text-[7.5px] px-1 py-0.5 rounded border font-mono font-bold tracking-tight ${n.badgeCls}`}>
+                      {n.tag}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Reveal>
+      </section>
+
+      {/* SECTION 4: LIVE RUNTIME INTELLIGENCE (#runtime-intel) */}
+      <section id="runtime-intel" className="space-y-8 pt-4">
+        <Reveal>
+          <div className="flex items-center justify-between text-xs font-mono text-indigo-700 dark:text-indigo-400/80 uppercase tracking-widest border-b border-slate-200 dark:border-indigo-950/80 pb-3 font-semibold">
+            <span>// 02. LIVE RUNTIME INTELLIGENCE</span>
+            <span>OBSERVABILITY & CONTROL</span>
+          </div>
+        </Reveal>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-mono">
+          {runtimeIntel.map((f, i) => (
+            <Reveal key={f.title} delay={i * 50}>
+              <div className="p-4 rounded border border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/80 space-y-2 hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-xl transition-all duration-300 h-full flex flex-col shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded border font-semibold ${f.accent}`}>{f.title.toUpperCase()}</span>
+                  <f.icon className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 font-serif leading-relaxed flex-1">{f.desc}</p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      {/* SECTION 5: BOUNDED WORKFLOW STEP TYPES MATRIX (#steptypes) */}
       <section id="steptypes" className="space-y-8 pt-4">
         <Reveal>
           <div className="flex items-center justify-between text-xs font-mono text-indigo-700 dark:text-indigo-400/80 uppercase tracking-widest border-b border-slate-200 dark:border-indigo-950/80 pb-3 font-semibold">
-            <span>// 01. BOUNDED STEP TYPES MATRIX</span>
+            <span>// 03. BOUNDED STEP TYPES MATRIX</span>
             <span>SUPPORTED WORKFLOW NODES</span>
           </div>
         </Reveal>
@@ -326,12 +683,12 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* SECTION 4: THE GRAPH-FIRST RUNTIME (#runtime) */}
+      {/* SECTION 6: THE GRAPH-FIRST RUNTIME (#runtime) */}
       <section id="runtime" className="space-y-8 pt-4">
         <Reveal>
           <div className="flex items-center justify-between text-xs font-mono text-indigo-700 dark:text-indigo-400/80 uppercase tracking-widest border-b border-slate-200 dark:border-indigo-950/80 pb-3 font-semibold">
-            <span>// 02. THE GRAPH-FIRST AGENT RUNTIME</span>
-            <span>LANGGRAPH DETERMINISTIC ENGINE</span>
+            <span>// 04. THE GRAPH-FIRST AGENT RUNTIME</span>
+            <span>DETERMINISTIC EXECUTION ENGINE</span>
           </div>
         </Reveal>
 
@@ -418,11 +775,37 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* SECTION 5: CORE SAAS PILLARS (#features) */}
+      {/* SECTION 7: DEVELOPER TOOLING & EDITING (#tooling) */}
+      <section id="tooling" className="space-y-8 pt-4">
+        <Reveal>
+          <div className="flex items-center justify-between text-xs font-mono text-indigo-700 dark:text-indigo-400/80 uppercase tracking-widest border-b border-slate-200 dark:border-indigo-950/80 pb-3 font-semibold">
+            <span>// 05. DEVELOPER TOOLING & EDITING</span>
+            <span>BUILT FOR ENGINEERS</span>
+          </div>
+        </Reveal>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 font-mono">
+          {devTooling.map((t, i) => (
+            <Reveal key={t.title} delay={i * 50}>
+              <div className="p-5 rounded border border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/80 space-y-2.5 hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-xl transition-all duration-300 h-full flex flex-col shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] px-2 py-0.5 rounded border font-semibold text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-black/40">
+                    {t.title.toUpperCase()}
+                  </span>
+                  <t.icon className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 font-serif leading-relaxed flex-1">{t.desc}</p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      {/* SECTION 8: CORE SAAS PILLARS (#features) */}
       <section id="features" className="space-y-8 pt-4">
         <Reveal>
           <div className="flex items-center justify-between text-xs font-mono text-indigo-700 dark:text-indigo-400/80 uppercase tracking-widest border-b border-slate-200 dark:border-indigo-950/80 pb-3 font-semibold">
-            <span>// 03. CORE PLATFORM CAPABILITIES</span>
+            <span>// 06. CORE PLATFORM CAPABILITIES</span>
             <span>ENTERPRISE GUARANTEES</span>
           </div>
         </Reveal>
@@ -514,13 +897,13 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* SECTION 6: SECURITY & GUARDRAILS (#guardrails) */}
+      {/* SECTION 9: SECURITY & GUARDRAILS (#guardrails) */}
       <section id="guardrails" className="p-5 sm:p-8 rounded border border-slate-200 dark:border-indigo-900/50 bg-white/90 dark:bg-[#0a0a0a]/90 space-y-6 font-mono shadow-md">
         <Reveal>
           <div className="flex items-center justify-between border-b border-slate-200 dark:border-indigo-950 pb-4 text-xs">
             <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-400">
               <ShieldCheck className="h-5 w-5" />
-              <span className="font-pixel text-sm">04. ENTERPRISE SECURITY & GOVERNANCE</span>
+              <span className="font-pixel text-sm">07. ENTERPRISE SECURITY & GOVERNANCE</span>
             </div>
             <span className="text-emerald-700 dark:text-emerald-400 text-[10px] font-bold">[ ZERO TRUST RUNTIME ]</span>
           </div>
@@ -595,89 +978,34 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* SECTION 7: FREQUENTLY ASKED QUESTIONS (#faq) */}
+      {/* SECTION 10: FREQUENTLY ASKED QUESTIONS (#faq) */}
       <section id="faq" className="space-y-6 pt-4 font-mono">
         <Reveal>
           <div className="flex items-center justify-between text-xs text-indigo-700 dark:text-indigo-400/80 uppercase tracking-widest border-b border-slate-200 dark:border-indigo-950/80 pb-3 font-semibold">
-            <span>// 05. FREQUENTLY ASKED QUESTIONS</span>
+            <span>// 08. FREQUENTLY ASKED QUESTIONS</span>
             <span>FAQ & DETAILS</span>
           </div>
         </Reveal>
 
         <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 text-xs">
-          <Reveal delay={0}>
-            <div className="p-5 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-2 h-full hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-lg transition-all duration-300 shadow-sm">
-              <h4 className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <HelpCircle className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> How does Step-Level Safe Recovery work?
-              </h4>
-              <p className="text-slate-600 dark:text-slate-400 font-serif leading-relaxed text-[11px]">
-                When an execution fails or is paused, the platform saves the full state of completed steps. Retrying recovers previous safe results and resumes directly at the failed step without re-executing completed read/compute steps.
-              </p>
-            </div>
-          </Reveal>
-
-          <Reveal delay={80}>
-            <div className="p-5 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-2 h-full hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-lg transition-all duration-300 shadow-sm">
-              <h4 className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <HelpCircle className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> What is the Path Decision Explainer?
-              </h4>
-              <p className="text-slate-600 dark:text-slate-400 font-serif leading-relaxed text-[11px]">
-                Whenever a deterministic condition or AI classification step evaluates, it generates an explicit explanation detailing why branch A or B was chosen (e.g. &quot;amount &gt; $500 evaluated to TRUE&quot;).
-              </p>
-            </div>
-          </Reveal>
-
-          <Reveal delay={160}>
-            <div className="p-5 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-2 h-full hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-lg transition-all duration-300 shadow-sm">
-              <h4 className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <HelpCircle className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> How does Human-in-the-Loop (HITL) approval work?
-              </h4>
-              <p className="text-slate-600 dark:text-slate-400 font-serif leading-relaxed text-[11px]">
-                When an agent executes an action specified in <code className="text-indigo-700 dark:text-indigo-300 font-semibold">actionsRequiringApproval</code>, execution pauses. Approving issues an atomic single-use idempotency token that prevents duplicate execution.
-              </p>
-            </div>
-          </Reveal>
-
-          <Reveal delay={240}>
-            <div className="p-5 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-2 h-full hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-lg transition-all duration-300 shadow-sm">
-              <h4 className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <HelpCircle className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> Can I rerun older workflow versions with new input?
-              </h4>
-              <p className="text-slate-600 dark:text-slate-400 font-serif leading-relaxed text-[11px]">
-                Yes. Every version is immutable and can be replayed or re-executed with custom input parameters at any time. Previous run records remain permanently intact.
-              </p>
-            </div>
-          </Reveal>
-
-          <Reveal delay={320}>
-            <div className="p-5 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-2 h-full hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-lg transition-all duration-300 shadow-sm">
-              <h4 className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <HelpCircle className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> What happens when an LLM provider goes down?
-              </h4>
-              <p className="text-slate-600 dark:text-slate-400 font-serif leading-relaxed text-[11px]">
-                Nothing breaks. The router parks the failed model in an adaptive cooldown and transparently retries the next model across Groq and OpenRouter.
-              </p>
-            </div>
-          </Reveal>
-
-          <Reveal delay={400}>
-            <div className="p-5 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-2 h-full hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-lg transition-all duration-300 shadow-sm">
-              <h4 className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <HelpCircle className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> Can I trace how an execution ran?
-              </h4>
-              <p className="text-slate-600 dark:text-slate-400 font-serif leading-relaxed text-[11px]">
-                Every run persists its planner output, serving provider, duration, node-by-node timeline, tool calls, and path decision rationales — inspectable in the execution trace view.
-              </p>
-            </div>
-          </Reveal>
+          {faqExtra.map((f, i) => (
+            <Reveal key={f.q} delay={i * 60}>
+              <div className="p-5 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-2 h-full hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-lg transition-all duration-300 shadow-sm">
+                <h4 className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                  <HelpCircle className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> {f.q}
+                </h4>
+                <p className="text-slate-600 dark:text-slate-400 font-serif leading-relaxed text-[11px]">{f.a}</p>
+              </div>
+            </Reveal>
+          ))}
         </div>
       </section>
 
-      {/* SECTION 8: BOTTOM CTA & FOOTER */}
+      {/* SECTION 11: BOTTOM CTA & FOOTER */}
       <section className="text-center space-y-6 pt-6 border-t border-slate-200 dark:border-indigo-950/80 font-mono">
         <Reveal delay={0}>
           <div className="text-xs text-indigo-700 dark:text-indigo-400/80 uppercase tracking-widest font-semibold">
-            READY TO DEPLOY BOUNDED AGENTIC WORKFLOWS AT SCALE?
+            READY TO ORCHESTRATE MULTI-AGENT WORKFLOWS AT SCALE?
           </div>
         </Reveal>
         <Reveal delay={100}>
@@ -689,26 +1017,30 @@ export default function LandingPage() {
         <Reveal delay={200}>
           <div className="flex justify-center gap-4 pt-2">
             <SignUpButton mode="modal">
-              <button className="px-6 py-3.5 rounded border border-indigo-500 bg-indigo-600 text-white font-semibold hover:bg-indigo-500 shadow-lg shadow-indigo-500/30 transition-all text-sm cursor-pointer">
-                [ GET STARTED FREE ]
+              <button className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded border border-indigo-500 bg-indigo-600 text-white font-semibold hover:bg-indigo-500 shadow-lg shadow-indigo-500/30 transition-all text-sm cursor-pointer w-full sm:w-auto">
+                <Sparkles className="h-4 w-4" />
+                Get Started Free <ArrowRight className="h-4 w-4" />
               </button>
             </SignUpButton>
           </div>
         </Reveal>
 
-        <footer className="pt-12 text-xs text-slate-600 dark:text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-200 dark:border-indigo-950/60">
+        <footer className="pt-10 sm:pt-12 text-xs text-slate-600 dark:text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-200 dark:border-indigo-950/60">
           <div className="flex items-center gap-2">
             <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
             <span className="font-pixel text-pixel-glow tracking-wide">AGENT STUDIO</span>
             <span>© 2026. All Systems Operational.</span>
           </div>
-          <div className="flex items-center gap-4 text-slate-600 dark:text-slate-400">
-            <a href="#steptypes" className="hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">[ Step Types ]</a>
-            <a href="#runtime" className="hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">[ Runtime ]</a>
-            <a href="#features" className="hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">[ Features ]</a>
-            <a href="#guardrails" className="hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">[ Guardrails ]</a>
-            <a href="#faq" className="hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">[ FAQ ]</a>
-            <Link href="/dashboard" className="hover:text-indigo-600 dark:hover:text-indigo-300 font-bold text-indigo-700 dark:text-indigo-400 transition-colors">[ App ]</Link>
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 text-slate-600 dark:text-slate-400 text-[11px] sm:text-xs">
+            <a href="#canvas" className="hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">Canvas</a>
+            <a href="#runtime-intel" className="hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">Runtime Intel</a>
+            <a href="#steptypes" className="hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">Step Types</a>
+            <a href="#runtime" className="hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">Runtime</a>
+            <a href="#tooling" className="hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">Tooling</a>
+            <a href="#features" className="hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">Features</a>
+            <a href="#guardrails" className="hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">Guardrails</a>
+            <a href="#faq" className="hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">FAQ</a>
+            <Link href="/dashboard" className="hover:text-indigo-600 dark:hover:text-indigo-300 font-bold text-indigo-700 dark:text-indigo-400 transition-colors">App</Link>
           </div>
         </footer>
       </section>
@@ -718,4 +1050,3 @@ export default function LandingPage() {
     </div>
   );
 }
-

@@ -33,6 +33,8 @@ export interface NodeCompletedEvent extends ExecutionEventBase {
   /** Short summary of the node output for the trace console. */
   detail?: string;
   error?: string;
+  /** Wall-clock duration of the node execution (ms) — drives the heatmap. */
+  durationMs?: number;
 }
 
 export interface EdgeTraversedEvent extends ExecutionEventBase {

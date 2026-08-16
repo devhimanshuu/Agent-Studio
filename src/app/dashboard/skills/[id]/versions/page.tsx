@@ -46,7 +46,7 @@ export default function SkillVersionsPage() {
   const versions = [...(skill.versions ?? [])].sort((a, b) => b.versionNumber - a.versionNumber);
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
+    <div className="space-y-6 w-full max-w-5xl mx-auto">
       <div className="border-b border-indigo-950/80 pb-5">
         <Link
           href={`/dashboard/skills/${id}`}

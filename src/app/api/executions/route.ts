@@ -75,6 +75,7 @@ export async function GET(request: Request) {
       search: url.searchParams.get("search") ?? undefined,
       status: (rawStatus as ExecutionQuery["status"]) || undefined,
       skillName: url.searchParams.get("skillName") ?? undefined,
+      skillVersionId: url.searchParams.get("skillVersionId") ?? undefined,
       provider: url.searchParams.get("provider") ?? undefined,
       from: fromRaw ?? undefined,
       to: toRaw ?? undefined,

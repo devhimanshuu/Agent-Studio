@@ -420,3 +420,44 @@
     animation: none;
   }
 }
+
+/* ===== React Flow Canvas Theme Overrides ===== */
+.react-flow__edge-path {
+  stroke: #94a3b8;
+  stroke-width: 1.5;
+}
+
+.dark .react-flow__edge-path {
+  stroke: #475569;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #6366f1 !important;
+  stroke-width: 2 !important;
+}
+
+.react-flow__edge-text {
+  fill: #1e293b !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 10px !important;
+  font-weight: 600;
+}
+
+.dark .react-flow__edge-text {
+  fill: #cbd5e1 !important;
+}
+
+.react-flow__edge-textbg {
+  fill: #ffffff !important;
+  fill-opacity: 0.95 !important;
+  stroke: #cbd5e1 !important;
+  stroke-width: 1 !important;
+  rx: 4 !important;
+  ry: 4 !important;
+}
+
+.dark .react-flow__edge-textbg {
+  fill: #0f172a !important;
+  fill-opacity: 0.95 !important;
+  stroke: #334155 !important;
+}

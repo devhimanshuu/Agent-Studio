@@ -15,13 +15,25 @@ export interface CanvasNodeData {
   condition?: string;
   routerPrompt?: string;
   approvalReason?: string;
+  autoApproveCondition?: string;
+  escalateAfterMin?: number;
   maxIterations?: number;
   parallelMode?: "map" | "reduce";
   mapField?: string;
+  /** Nested graph executed by a subgraph (macro) node. */
+  subgraph?: AgentGraphDefinition;
+  /** Maps inner input variable → parent template (`{{ results.x.y }}`). */
+  inputMapping?: Record<string, string>;
+  /** Maps outer result key → inner result template (`results.<innerNodeId>.<path>`). */
+  outputMapping?: Record<string, string>;
   /** Live trace status — only set in trace mode. */
   traceStatus?: "RUNNING" | "SUCCESS" | "FAILED" | "AWAITING_APPROVAL" | "SKIPPED";
   /** Live trace detail message. */
   traceDetail?: string;
+  /** Heatmap mode: average latency for this node (ms). */
+  heatmapLatency?: number;
+  /** Heatmap mode: max average latency across the graph (scale anchor). */
+  heatmapMax?: number;
   [key: string]: unknown;
 }
 
@@ -40,9 +52,14 @@ function nodeDataToGraphData(data: CanvasNodeData): GraphNodeDefinition["data"] 
     condition: data.condition,
     routerPrompt: data.routerPrompt,
     approvalReason: data.approvalReason,
+    autoApproveCondition: data.autoApproveCondition,
+    escalateAfterMin: data.escalateAfterMin,
     maxIterations: data.maxIterations,
     parallelMode: data.parallelMode,
     mapField: data.mapField,
+    subgraph: data.subgraph,
+    inputMapping: data.inputMapping,
+    outputMapping: data.outputMapping,
   };
 }
 
@@ -62,8 +79,7 @@ export function graphToFlow(graph: AgentGraphDefinition | null | undefined): { n
     label: e.label || undefined,
     type: "smoothstep",
     animated: false,
-    labelStyle: { fontSize: 10, fontFamily: "monospace", fill: "#94a3b8" },
-    labelBgStyle: { fill: "#0f172a", fillOpacity: 0.9 },
+    labelStyle: { fontSize: 10, fontFamily: "monospace" },
     labelBgPadding: [4, 2] as [number, number],
     labelBgBorderRadius: 4,
   }));
@@ -108,6 +124,8 @@ export function nodeDefaultSize(type: string): { width: number; height: number }
       return { width: 200, height: 96 };
     case "parallel":
       return { width: 220, height: 104 };
+    case "subgraph":
+      return { width: 220, height: 100 };
     default:
       return { width: 220, height: 100 };
   }

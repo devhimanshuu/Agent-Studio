@@ -122,7 +122,7 @@ export default async function ToolsDashboardPage({
   const totalUsage = Object.values(usageCounts).reduce((a: number, b: number) => a + b, 0);
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto">
+    <div className="space-y-8 w-full">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-indigo-950/80 pb-5">
         <div>
