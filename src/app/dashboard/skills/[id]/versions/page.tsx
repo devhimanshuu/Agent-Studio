@@ -71,30 +71,30 @@ export default function SkillVersionsPage() {
           {versions.map((v) => (
             <li
               key={v.id}
-              className="rounded border border-indigo-900/40 bg-[#0a0a0a]/60 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-indigo-500/40 transition-colors"
+              className="rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-indigo-400 dark:hover:border-indigo-500/40 shadow-xs transition-colors"
             >
               <div className="space-y-1.5 min-w-0">
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  <span className="text-sm font-mono font-bold text-slate-100">v{v.versionNumber}</span>
+                  <span className="text-sm font-mono font-bold text-slate-900 dark:text-slate-100">v{v.versionNumber}</span>
                   <StatusBadge status={v.status} />
                   {skill.currentDraftId === v.id && (
-                    <span className="text-[9px] px-1.5 py-0.5 rounded border border-indigo-500/40 text-indigo-300 font-mono">
+                    <span className="text-[9px] px-1.5 py-0.5 rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-mono font-semibold">
                       CURRENT DRAFT
                     </span>
                   )}
                   {skill.publishedVersionId === v.id && (
-                    <span className="text-[9px] px-1.5 py-0.5 rounded border border-emerald-500/40 text-emerald-300 font-mono flex items-center gap-1">
+                    <span className="text-[9px] px-1.5 py-0.5 rounded border border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-mono font-semibold flex items-center gap-1">
                       <Rocket className="h-2.5 w-2.5" /> LIVE
                     </span>
                   )}
                 </div>
                 <div className="flex items-center gap-3 text-[10px] font-mono text-slate-500">
                   <span>CREATED {formatDate(v.createdAt)}</span>
-                  {v.publishedAt && <span className="text-emerald-500/70">PUBLISHED {formatDate(v.publishedAt)}</span>}
+                  {v.publishedAt && <span className="text-emerald-700 dark:text-emerald-400 font-medium">PUBLISHED {formatDate(v.publishedAt)}</span>}
                 </div>
                 {(v.notes || v.changelog) && (
-                  <p className="text-[11px] text-slate-400 font-mono flex items-start gap-1.5">
-                    <FileText className="h-3 w-3 text-indigo-400/70 mt-0.5 shrink-0" />
+                  <p className="text-[11px] text-slate-600 dark:text-slate-400 font-mono flex items-start gap-1.5">
+                    <FileText className="h-3 w-3 text-indigo-500 dark:text-indigo-400/70 mt-0.5 shrink-0" />
                     {v.notes || v.changelog}
                   </p>
                 )}
@@ -103,14 +103,14 @@ export default function SkillVersionsPage() {
               <div className="flex items-center gap-2 shrink-0">
                 <Link
                   href={`/dashboard/skills/${id}/edit`}
-                  className="px-2.5 py-1.5 rounded border border-indigo-500/40 bg-indigo-950/40 text-[10px] font-mono text-indigo-300 hover:border-indigo-400 hover:text-white transition-all"
+                  className="px-2.5 py-1.5 rounded border border-slate-300 dark:border-indigo-500/40 bg-slate-100 dark:bg-indigo-950/40 text-[10px] font-mono text-slate-700 dark:text-indigo-300 hover:border-indigo-400 hover:bg-slate-200 dark:hover:bg-indigo-900/60 hover:text-slate-900 dark:hover:text-white transition-all font-semibold"
                 >
                   [ EDIT ]
                 </Link>
                 {v.status !== "PUBLISHED" && (
                   <Link
                     href={`/dashboard/skills/${id}/edit`}
-                    className="px-2.5 py-1.5 rounded border border-emerald-500/40 bg-emerald-950/40 text-[10px] font-mono text-emerald-300 hover:border-emerald-400 hover:text-white transition-all"
+                    className="px-2.5 py-1.5 rounded border border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-[10px] font-mono text-emerald-700 dark:text-emerald-300 hover:border-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 hover:text-emerald-800 dark:hover:text-white transition-all font-semibold"
                   >
                     [ CONTINUE DRAFT ]
                   </Link>

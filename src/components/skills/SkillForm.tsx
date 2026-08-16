@@ -216,7 +216,7 @@ function TagsInput({
         <button
           type="button"
           onClick={add}
-          className="shrink-0 px-3 py-2 rounded border border-indigo-500/40 bg-indigo-950/40 text-xs font-mono text-indigo-300 hover:border-indigo-400 hover:text-white transition-all cursor-pointer"
+          className="shrink-0 px-3 py-2 rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-xs font-mono font-semibold text-indigo-700 dark:text-indigo-300 hover:border-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 dark:hover:text-white transition-all cursor-pointer"
         >
           ADD
         </button>

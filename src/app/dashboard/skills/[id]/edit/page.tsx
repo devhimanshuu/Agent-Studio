@@ -56,7 +56,7 @@ export default function EditSkillPage() {
           {skill.currentDraft && (
             <span className="text-slate-500">· Draft v{skill.currentDraft.versionNumber} ({skill.currentDraft.status})</span>
           )}
-          {skill.status === "PUBLISHED" && <span className="text-amber-300">· editing creates a new draft version</span>}
+          {skill.status === "PUBLISHED" && <span className="text-amber-700 dark:text-amber-300 font-semibold">· editing creates a new draft version</span>}
         </p>
       </div>
 

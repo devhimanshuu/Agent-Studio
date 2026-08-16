@@ -94,6 +94,7 @@ model SkillVersion {
   allowedTools             Json           // String array of permitted tool names
   actionsRequiringApproval Json           // String array of tool actions requiring human approval
   maxExecutionSteps        Int            @default(10)
+  graphDefinition          Json?          // Visual multi-agent graph (nodes + edges) — drives the graph interpreter when present
   changelog                String?
   notes                    String?
   createdAt                DateTime       @default(now())

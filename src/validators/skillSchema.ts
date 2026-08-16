@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MAX_JSON_PAYLOAD_BYTES } from "@/lib/api/payloadValidation";
+import { graphDefinitionSchema } from "./graphSchema";
 
 // A JSON object must be a plain object (not array/null), JSON-serializable,
 // and must not exceed the 1MB per-payload storage boundary.
@@ -36,6 +37,7 @@ export const createSkillSchema = z.object({
   allowedTools: z.array(z.string().min(1)).min(1, "At least one allowed tool is required").max(20),
   actionsRequiringApproval: z.array(z.string().min(1)).max(20).optional(),
   maxExecutionSteps: z.number().int("Must be a whole number").min(1, "Max execution steps must be greater than 0").max(100).optional(),
+  graphDefinition: graphDefinitionSchema.optional(),
   notes: z.string().max(5000).optional(),
 });
 

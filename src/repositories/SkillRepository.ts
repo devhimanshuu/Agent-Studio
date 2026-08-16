@@ -11,6 +11,7 @@ import {
 } from "@/types/skill";
 import { prisma } from "@/lib/prisma";
 import { ensureUserExists } from "@/lib/user";
+import { AgentGraphDefinition } from "@/types/graph";
 
 export class SkillRepository implements ISkillRepository {
   async findById(id: string): Promise<SkillDTO | null> {
@@ -95,6 +96,7 @@ export class SkillRepository implements ISkillRepository {
                 allowedTools: (input.allowedTools ?? []) as unknown as Prisma.InputJsonValue,
                 actionsRequiringApproval: (input.actionsRequiringApproval ?? []) as unknown as Prisma.InputJsonValue,
                 maxExecutionSteps: input.maxExecutionSteps ?? 10,
+                graphDefinition: (input.graphDefinition ?? Prisma.DbNull) as unknown as Prisma.InputJsonValue,
                 notes: input.notes ?? null,
               },
             },
@@ -160,6 +162,7 @@ export class SkillRepository implements ISkillRepository {
               allowedTools: (latest?.allowedTools ?? []) as unknown as Prisma.InputJsonValue,
               actionsRequiringApproval: (latest?.actionsRequiringApproval ?? []) as unknown as Prisma.InputJsonValue,
               maxExecutionSteps: latest?.maxExecutionSteps ?? 10,
+              graphDefinition: (latest?.graphDefinition ?? Prisma.DbNull) as unknown as Prisma.InputJsonValue,
               notes: latest?.notes ?? null,
             },
           });
@@ -182,6 +185,11 @@ export class SkillRepository implements ISkillRepository {
               actionsRequiringApproval: input.actionsRequiringApproval as unknown as Prisma.InputJsonValue,
             }),
             ...(input.maxExecutionSteps !== undefined && { maxExecutionSteps: input.maxExecutionSteps }),
+            // graphDefinition supports explicit null (clear the graph) unlike
+            // other fields which only update when truthy.
+            ...(input.graphDefinition !== undefined && {
+              graphDefinition: (input.graphDefinition ?? Prisma.DbNull) as unknown as Prisma.InputJsonValue,
+            }),
             ...(input.notes !== undefined && { notes: input.notes }),
           },
         });
@@ -231,6 +239,7 @@ export class SkillRepository implements ISkillRepository {
                 allowedTools: (source?.allowedTools ?? []) as unknown as Prisma.InputJsonValue,
                 actionsRequiringApproval: (source?.actionsRequiringApproval ?? []) as unknown as Prisma.InputJsonValue,
                 maxExecutionSteps: source?.maxExecutionSteps ?? 10,
+                graphDefinition: (source?.graphDefinition ?? Prisma.DbNull) as unknown as Prisma.InputJsonValue,
                 notes: source?.notes ?? null,
               },
             },
@@ -360,6 +369,7 @@ export class SkillRepository implements ISkillRepository {
       allowedTools: v.allowedTools as string[],
       actionsRequiringApproval: v.actionsRequiringApproval as string[],
       maxExecutionSteps: v.maxExecutionSteps,
+      graphDefinition: (v.graphDefinition as AgentGraphDefinition | null) ?? null,
       changelog: v.changelog,
       notes: v.notes,
       createdAt: v.createdAt,

@@ -10,6 +10,7 @@ import { ApprovalHistoryRepository } from "@/repositories/ApprovalHistoryReposit
 import { ExecutionLogRepository } from "@/repositories/ExecutionLogRepository";
 import { ApprovalEngine } from "@/modules/approval";
 import { ExecutionDTO, StartExecutionInput } from "@/types/execution";
+import { SkillDTO, SkillVersionDTO } from "@/types/skill";
 import { LLMProvider, getLLMProvider } from "@/providers/llm";
 import { ExecutionPlan, ToolCallRecord } from "@/modules/execution/state/agentState";
 import { ExecutionEngine, EngineRunResult } from "@/modules/execution/executor/executionEngine";
@@ -23,6 +24,8 @@ import {
   validateUserInput,
 } from "@/modules/execution/executor/validation";
 import { InvalidSkillError } from "@/modules/execution/executor/errors";
+import { GraphInterpreter, GraphRunResult, GraphState } from "@/modules/graph/graphInterpreter";
+import { isValidGraph } from "@/types/graph";
 import { logger } from "@/lib/logger";
 
 export interface ExecutionServiceDeps {
@@ -30,6 +33,8 @@ export interface ExecutionServiceDeps {
   llm?: LLMProvider;
   /** Injected engine (tests) — defaults to a graph-first ExecutionEngine. */
   engine?: ExecutionEngine;
+  /** Injected graph interpreter (tests) — defaults to the visual-graph interpreter. */
+  graphInterpreter?: GraphInterpreter;
   cancellations?: CancellationManager;
   /** Persists HITL approval requests created when runs pause. */
   approvalRepo?: IApprovalRepository;
@@ -42,6 +47,7 @@ export interface ExecutionServiceDeps {
 export class ExecutionService implements IExecutionService {
   private cancellations: CancellationManager;
   private engine: ExecutionEngine;
+  private graphInterpreter: GraphInterpreter;
   private approvalEngine: ApprovalEngine;
 
   constructor(
@@ -71,6 +77,22 @@ export class ExecutionService implements IExecutionService {
         approvalRepo,
         logRepo: deps.logRepo ?? new ExecutionLogRepository(),
       });
+
+    this.graphInterpreter =
+      deps.graphInterpreter ??
+      new GraphInterpreter({
+        llm,
+        toolRegistry: createToolRegistry(),
+        permissionChecker: new PermissionChecker(),
+        executionRepo: this.executionRepo,
+        approvalRepo,
+        logRepo: deps.logRepo ?? new ExecutionLogRepository(),
+      });
+  }
+
+  /** True when the version carries a valid visual graph → run the graph interpreter. */
+  private usesGraph(version: SkillVersionDTO): boolean {
+    return isValidGraph(version.graphDefinition ?? null);
   }
 
   async getExecution(id: string): Promise<ExecutionDTO | null> {
@@ -99,6 +121,15 @@ export class ExecutionService implements IExecutionService {
     validateVersionForExecution(version);
     validateUserInput(input.inputData, version);
 
+    // A graphDefinition that fails validation means the canvas graph was left
+    // mid-edit (e.g. no END node). Fail loudly instead of silently falling
+    // back to the linear planner — the user expects their graph to run.
+    if (version.graphDefinition && !isValidGraph(version.graphDefinition)) {
+      throw new InvalidSkillError(
+        "The visual graph is incomplete — add a START node, an END node, and valid connections before running."
+      );
+    }
+
     const execution = await this.executionRepo.create(input, version.maxExecutionSteps || 10, skill.name);
     await this.auditRepo.log({
       userId: input.userId,
@@ -110,13 +141,27 @@ export class ExecutionService implements IExecutionService {
     const signal = this.cancellations.create(execution.id);
     let result: EngineRunResult;
     try {
-      result = await this.engine.run({
-        executionId: execution.id,
-        skill,
-        version,
-        userInput: input.inputData,
-        signal,
-      });
+      // Visual graph versions run through the graph interpreter; everything
+      // else keeps the linear planner-first engine.
+      if (this.usesGraph(version)) {
+        const graphResult = await this.graphInterpreter.run({
+          executionId: execution.id,
+          skill,
+          version,
+          graph: version.graphDefinition!,
+          userInput: input.inputData,
+          signal,
+        });
+        result = this.toEngineResult(graphResult);
+      } else {
+        result = await this.engine.run({
+          executionId: execution.id,
+          skill,
+          version,
+          userInput: input.inputData,
+          signal,
+        });
+      }
     } finally {
       // Always release the abort controller, even if the engine threw.
       this.cancellations.dispose(execution.id);
@@ -143,6 +188,17 @@ export class ExecutionService implements IExecutionService {
 
     const final = await this.executionRepo.findById(execution.id);
     return final ?? execution;
+  }
+
+  /** Normalize a graph interpreter result to the shared engine result shape. */
+  private toEngineResult(graph: GraphRunResult): EngineRunResult {
+    return {
+      status: graph.status,
+      finalOutput: graph.finalOutput,
+      providerUsed: graph.providerUsed,
+      plan: null,
+      error: graph.error,
+    };
   }
 
   async cancelExecution(id: string, userId?: string): Promise<ExecutionDTO> {
@@ -199,7 +255,15 @@ export class ExecutionService implements IExecutionService {
     // Phase 6 contract: resume EXACTLY where the run paused — restore state
     // from the database, do NOT restart the graph. Reusing the persisted plan
     // means no second LLM call and no re-execution of already-done steps.
-    const plan = execution.plannerOutput as unknown as ExecutionPlan | null;
+
+    // Visual graph runs persist a `{ graph: true, pausedAtNodeId, state }`
+    // payload — resume the graph interpreter in place.
+    const planner = execution.plannerOutput as Record<string, unknown> | null;
+    if (planner?.graph === true && this.usesGraph(version)) {
+      return this.resumeGraphExecution(execution, skill, version, userId, planner);
+    }
+
+    const plan = planner as unknown as ExecutionPlan | null;
     if (!plan) {
       throw new Error("No plan available to resume this execution");
     }
@@ -281,6 +345,80 @@ export class ExecutionService implements IExecutionService {
     return (await this.executionRepo.findById(executionId)) ?? execution;
   }
 
+  /**
+   * Resume a visual-graph execution from the persisted pause position. The
+   * successor of the approved node is the continuation point; restored state
+   * (results, loop counters, tool calls) keeps the run exactly in place.
+   */
+  private async resumeGraphExecution(
+    execution: ExecutionDTO,
+    skill: SkillDTO,
+    version: SkillVersionDTO,
+    userId: string,
+    planner: Record<string, unknown>
+  ): Promise<ExecutionDTO> {
+    const executionId = execution.id;
+    const state = planner.state as GraphState | undefined;
+    const pausedAtNodeId = planner.pausedAtNodeId as string | undefined;
+    const graph = version.graphDefinition!;
+
+    if (!state) {
+      throw new Error("Incomplete graph resume state");
+    }
+
+    // Mark RUNNING before launching so the detail page reflects the retry
+    // (resumeExecution already did this; retryFailedExecution did not).
+    await this.executionRepo.updateStatus(executionId, "RUNNING");
+
+    // Approval resume: continue from the approved node's successor. Failed
+    // runs persist no pause position — restart from the START node, reusing
+    // the last persisted state so completed nodes aren't re-executed.
+    const nextNode = pausedAtNodeId
+      ? graph.edges.find((e) => e.source === pausedAtNodeId)?.target ?? pausedAtNodeId
+      : graph.nodes.find((n) => n.type === "start")?.id ?? graph.nodes[0]?.id;
+    if (!nextNode) {
+      throw new Error("Incomplete graph resume state");
+    }
+
+    const signal = this.cancellations.create(executionId);
+
+    this.graphInterpreter
+      .run({
+        executionId,
+        skill,
+        version,
+        graph,
+        userInput: execution.inputData,
+        signal,
+        resume: { state, fromNodeId: nextNode },
+      })
+      .then(async (result) => {
+        if (result.status === "COMPLETED") {
+          await this.executionRepo.setFinalOutput(executionId, result.finalOutput ?? {});
+          await this.auditRepo.log({
+            userId,
+            executionId,
+            action: "EXECUTION_COMPLETED",
+            details: { resumed: true, graph: true },
+          });
+        } else if (result.status === "PAUSED_FOR_APPROVAL") {
+          await this.executionRepo.updateStatus(executionId, "PAUSED_FOR_APPROVAL");
+        }
+        logger.info({ executionId, status: result.status }, "Resumed graph execution finished");
+      })
+      .catch(async (err) => {
+        logger.error({ executionId, err }, "Resumed graph execution failed");
+        await this.executionRepo
+          .updateStatus(executionId, "FAILED", err instanceof Error ? err.message : "Resume error occurred")
+          .catch(() => {});
+      })
+      .finally(() => {
+        this.cancellations.dispose(executionId);
+      });
+
+    return (await this.executionRepo.findById(executionId)) ?? execution;
+  }
+
   async retryFailedExecution(executionId: string, userId: string): Promise<ExecutionDTO> {
     const execution = await this.executionRepo.findByIdForUser(executionId, userId);
     if (!execution) throw new Error("Execution not found or you do not have access to it");
@@ -295,7 +433,15 @@ export class ExecutionService implements IExecutionService {
     const skill = await this.skillRepo.findByIdForUser(version.skillId, userId);
     if (!skill) throw new Error("Skill not found or you do not have access to it");
 
-    const plan = execution.plannerOutput as unknown as ExecutionPlan | null;
+    const planner = execution.plannerOutput as Record<string, unknown> | null;
+
+    // Failed graph executions resume through the graph interpreter from the
+    // last persisted position.
+    if (planner?.graph === true && this.usesGraph(version)) {
+      return this.resumeGraphExecution(execution, skill, version, userId, planner);
+    }
+
+    const plan = planner as unknown as ExecutionPlan | null;
     if (!plan) {
       throw new Error("No plan available to recover this execution");
     }
