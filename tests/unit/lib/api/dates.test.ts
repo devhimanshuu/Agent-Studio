@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isValidIsoDate } from "@/lib/api/dates";
+import { isValidIsoDate, formatDate } from "@/lib/api/dates";
 
 describe("isValidIsoDate (query-param date validation)", () => {
   it("accepts full ISO timestamps", () => {
@@ -13,3 +13,18 @@ describe("isValidIsoDate (query-param date validation)", () => {
     expect(isValidIsoDate("")).toBe(false);
   });
 });
+
+describe("formatDate (human-readable date display)", () => {
+  it("formats valid ISO dates", () => {
+    const formatted = formatDate("2026-08-16T12:00:00Z");
+    expect(formatted).toContain("2026");
+    expect(formatted).toContain("Aug");
+  });
+
+  it("handles null, undefined, or invalid gracefully", () => {
+    expect(formatDate(null)).toBe("—");
+    expect(formatDate(undefined)).toBe("—");
+    expect(formatDate("not-a-date")).toBe("—");
+  });
+});
+

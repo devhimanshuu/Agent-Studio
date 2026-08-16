@@ -21,6 +21,12 @@ import {
   Braces,
   Flag,
   Activity,
+  FileText,
+  Search,
+  SlidersHorizontal,
+  Workflow,
+  Cpu,
+  Layers,
 } from "lucide-react";
 import { SignInButton, SignUpButton, SignedIn, SignedOut } from "@clerk/nextjs";
 import { LiveExecutionTerminal } from "@/components/landing/LiveExecutionTerminal";
@@ -42,35 +48,110 @@ const runtimeNodes = [
     accent: "text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-black/40",
     icon: ShieldCheck,
     title: "Tool Authorization",
-    desc: "Every planned tool must exist, be enabled, and be listed in the skill's allowedTools — anything else is rejected before it can run.",
+    desc: "Every planned step must exist, be enabled, and be listed in the workflow's allowedTools — anything else is rejected before it runs.",
   },
   {
     tag: "SELECTION NODE",
     accent: "text-cyan-700 dark:text-cyan-300 border-cyan-300 dark:border-cyan-500/40 bg-cyan-50 dark:bg-black/40",
     icon: GitBranch,
     title: "Step Routing",
-    desc: "The graph routes step-by-step via conditional edges: approve, execute, or finish — the plan is walked deterministically.",
+    desc: "The graph walks step-by-step via conditional edges: approve, execute, or finish — the plan is walked deterministically.",
   },
   {
     tag: "EXECUTION NODE",
     accent: "text-violet-700 dark:text-violet-300 border-violet-300 dark:border-violet-500/40 bg-violet-50 dark:bg-black/40",
     icon: Wrench,
-    title: "Tool Execution",
-    desc: "Each step runs through the tool registry with retry handling. Tool calls and their outputs are persisted for full auditability.",
+    title: "Step Execution",
+    desc: "Executes extraction, classification, condition, and tool steps with state continuity and automatic transient retry handling.",
   },
   {
     tag: "REVIEW NODE",
     accent: "text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-black/40",
     icon: Shield,
     title: "HITL Pause",
-    desc: "Write actions flagged for human review park the run in PAUSED_FOR_APPROVAL. A single-use idempotency key guarantees the response happens once.",
+    desc: "Write actions flagged for review park the run in PAUSED_FOR_APPROVAL. A single-use idempotency key guarantees the response happens once.",
   },
   {
     tag: "FINISH NODE",
     accent: "text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-black/40",
     icon: Flag,
-    title: "Output Assembly",
-    desc: "Collected step results are assembled into the final output and persisted alongside the full node timeline.",
+    title: "Report Synthesis",
+    desc: "Step results and path decisions are synthesized into the final output and persisted alongside the full node timeline.",
+  },
+];
+
+const boundedStepTypes = [
+  {
+    name: "structured_input",
+    title: "1. Structured Input",
+    type: "INPUT",
+    icon: Layers,
+    badge: "SCHEMA VALIDATED",
+    badgeColor: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700/40",
+    desc: "Strict JSON Schema parameters validated before execution begins to prevent malformed or invalid inputs.",
+  },
+  {
+    name: "document_retrieval",
+    title: "2. Document Retrieval",
+    type: "SEARCH",
+    icon: Search,
+    badge: "KNOWLEDGE SEARCH",
+    badgeColor: "bg-cyan-50 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300 border-cyan-300 dark:border-cyan-700/40",
+    desc: "Keyword and semantic lookup over internal document stores and knowledge base policies with relevance ranking.",
+  },
+  {
+    name: "ai_extraction",
+    title: "3. AI Extraction",
+    type: "DATA",
+    icon: Cpu,
+    badge: "CONFIDENCE SCORED",
+    badgeColor: "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700/40",
+    desc: "Extracts strongly typed key-value pairs (amounts, IDs, dates) from unstructured payloads with confidence metrics.",
+  },
+  {
+    name: "ai_classification",
+    title: "4. AI Classification",
+    type: "DATA",
+    icon: SlidersHorizontal,
+    badge: "REASONING LOGGED",
+    badgeColor: "bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-700/40",
+    desc: "Categorizes input data into predefined discrete business classes with probability scores and rationale.",
+  },
+  {
+    name: "deterministic_condition",
+    title: "5. Deterministic Condition",
+    type: "COMPUTE",
+    icon: GitBranch,
+    badge: "DECISION EXPLAINER",
+    badgeColor: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700/40",
+    desc: "Evaluates deterministic business rules (>, <, =, in) and generates an explicit auditable path decision explanation.",
+  },
+  {
+    name: "human_approval",
+    title: "6. Human Approval",
+    type: "GUARDRAIL",
+    icon: CheckSquare,
+    badge: "HITL WRITE LOCK",
+    badgeColor: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700/40",
+    desc: "Pauses the execution state for human review. Enforces single-use idempotency tokens to prevent duplicate writes.",
+  },
+  {
+    name: "mock_external_action",
+    title: "7. Mock External Action",
+    type: "TASK",
+    icon: Wrench,
+    badge: "IDEMPOTENT WRITE",
+    badgeColor: "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-700/40",
+    desc: "Simulates external tasks, ticket dispatches, or API webhooks under strict permissions and approval locks.",
+  },
+  {
+    name: "final_report",
+    title: "8. Final Report",
+    type: "REPORT",
+    icon: FileText,
+    badge: "EXECUTIVE SUMMARY",
+    badgeColor: "bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border-teal-300 dark:border-teal-700/40",
+    desc: "Synthesizes all step outcomes, decision explanations, and evidences into a structured executive markdown report.",
   },
 ];
 
@@ -103,7 +184,7 @@ export default function LandingPage() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-500 dark:bg-indigo-400 opacity-60"></span>
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-600 dark:bg-indigo-400"></span>
               </span>
-              <span className="truncate">GRAPH-FIRST RUNTIME · LLM AUTO-FAILOVER · HITL LOCK</span>
+              <span className="truncate">CONTROLLED AGENTIC WORKFLOWS · 8 STEP TYPES · SAFE RECOVERY · HITL LOCK</span>
             </div>
           </div>
 
@@ -111,9 +192,9 @@ export default function LandingPage() {
           <h1
             className="glitch animate-fadeInUp text-2xl sm:text-5xl md:text-6xl lg:text-7xl font-pixel uppercase tracking-tight leading-tight max-w-5xl text-slate-900 dark:text-slate-100 break-words"
             style={{ animationDelay: "100ms" }}
-            data-text="DYNAMIC AI SKILLS PLATFORM"
+            data-text="CONTROLLED AGENTIC WORKFLOWS"
           >
-            DYNAMIC <span className="text-gradient-glow">AI SKILLS</span> PLATFORM
+            CONTROLLED <span className="text-gradient-glow">AGENTIC WORKFLOW</span> PLATFORM
           </h1>
 
           {/* Redesigned Subhead Text Design */}
@@ -122,16 +203,15 @@ export default function LandingPage() {
             style={{ animationDelay: "300ms" }}
           >
             <p className="text-lg sm:text-2xl text-slate-900 dark:text-slate-100 font-medium leading-snug tracking-tight font-sans">
-              Build, validate, version, and execute{" "}
-              <span className="text-gradient-glow font-semibold">dynamic AI skills</span> on a{" "}
+              Define, validate, and execute{" "}
+              <span className="text-gradient-glow font-semibold">bounded business workflows</span> on a{" "}
               <span className="text-slate-800 dark:text-slate-200 border-b border-indigo-400/40 dark:border-indigo-500/30 pb-0.5">graph-first agent runtime</span>.
             </p>
             <p className="text-xs sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed font-mono-tech">
-              Every tool call is restricted to{" "}
-              <span className="text-slate-800 dark:text-slate-200 border-b border-indigo-400/40 dark:border-indigo-500/30 pb-0.5">authorized schemas</span>, write actions require explicit{" "}
-              <span className="text-indigo-700 dark:text-indigo-300 font-medium border-b border-indigo-400/50 pb-0.5">Human-in-the-Loop approval</span> protected by{" "}
-              <span className="text-slate-800 dark:text-slate-200 border-b border-indigo-400/40 dark:border-indigo-500/30 pb-0.5">single-use idempotency tokens</span>, and every AI call{" "}
-              <span className="text-emerald-700 dark:text-emerald-300 border-b border-emerald-400/50 pb-0.5 font-medium">auto-fails over across 12 free models</span>.
+              Execute <span className="text-indigo-700 dark:text-indigo-300 font-medium">8 supported step types</span> with{" "}
+              <span className="text-emerald-700 dark:text-emerald-300 font-medium border-b border-emerald-400/40 pb-0.5">execution path decision explainers</span>, recover failed runs via{" "}
+              <span className="text-amber-700 dark:text-amber-300 font-medium border-b border-amber-400/40 pb-0.5">step-level safe retry</span> without repeating completed steps, and protect write actions with{" "}
+              <span className="text-slate-800 dark:text-slate-200 border-b border-indigo-400/40 dark:border-indigo-500/30 pb-0.5">single-use idempotency approval tokens</span>.
             </p>
           </div>
 
@@ -175,8 +255,8 @@ export default function LandingPage() {
           {/* Interactive Live Agent Execution Terminal Widget */}
           <div className="animate-fadeInUp pt-6" style={{ animationDelay: "500ms" }}>
             <div className="text-xs font-mono text-indigo-700 dark:text-indigo-400/80 mb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 sm:gap-0 uppercase font-semibold">
-              <span>// INTERACTIVE PLATFORM SIMULATOR</span>
-              <span className="text-indigo-700 dark:text-indigo-300">TRY RUNNING A SKILL BELOW</span>
+              <span>// INTERACTIVE WORKFLOW SIMULATOR</span>
+              <span className="text-indigo-700 dark:text-indigo-300">TRY RUNNING A BOUNDED WORKFLOW BELOW</span>
             </div>
             <LiveExecutionTerminal />
           </div>
@@ -192,36 +272,66 @@ export default function LandingPage() {
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 font-mono text-center">
         <Reveal delay={0}>
           <div className="p-4 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-1 h-full shadow-sm hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-300">
-            <div className="text-2xl font-pixel text-slate-900 dark:text-slate-100">12</div>
-            <div className="text-[11px] text-indigo-700 dark:text-indigo-400 font-semibold">LLM Models · Auto-Failover Roster</div>
+            <div className="text-2xl font-pixel text-slate-900 dark:text-slate-100">8</div>
+            <div className="text-[11px] text-indigo-700 dark:text-indigo-400 font-semibold">Bounded Step Types · Full Lifecycle</div>
           </div>
         </Reveal>
         <Reveal delay={80}>
           <div className="p-4 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-1 h-full shadow-sm hover:-translate-y-1 hover:border-emerald-400 dark:hover:border-emerald-500/50 hover:shadow-xl hover:shadow-emerald-500/10 transition-all duration-300">
-            <div className="text-2xl font-pixel text-slate-900 dark:text-slate-100">ZERO</div>
-            <div className="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold">Unauthorized Tool Leaks</div>
+            <div className="text-2xl font-pixel text-slate-900 dark:text-slate-100">100%</div>
+            <div className="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold">Safe Step Recovery & Continuity</div>
           </div>
         </Reveal>
         <Reveal delay={160}>
           <div className="p-4 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-1 h-full shadow-sm hover:-translate-y-1 hover:border-amber-400 dark:hover:border-amber-500/50 hover:shadow-xl hover:shadow-amber-500/10 transition-all duration-300">
             <div className="text-2xl font-pixel text-slate-900 dark:text-slate-100">100%</div>
-            <div className="text-[11px] text-amber-700 dark:text-amber-400 font-semibold">Single-Use Token Enforcement</div>
+            <div className="text-[11px] text-amber-700 dark:text-amber-400 font-semibold">Idempotent Single-Use Tokens</div>
           </div>
         </Reveal>
         <Reveal delay={240}>
           <div className="p-4 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-1 h-full shadow-sm hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-300">
-            <div className="text-2xl font-pixel text-slate-900 dark:text-slate-100">TRACED</div>
-            <div className="text-[11px] text-indigo-700 dark:text-indigo-300 font-semibold">Every Execution · Node Timeline</div>
+            <div className="text-2xl font-pixel text-slate-900 dark:text-slate-100">EXPLAINED</div>
+            <div className="text-[11px] text-indigo-700 dark:text-indigo-300 font-semibold">Auditable Path Decision Rationale</div>
           </div>
         </Reveal>
       </section>
 
-      {/* SECTION 3: THE GRAPH-FIRST RUNTIME (#runtime) */}
+      {/* SECTION 3: BOUNDED WORKFLOW STEP TYPES MATRIX (#steptypes) */}
+      <section id="steptypes" className="space-y-8 pt-4">
+        <Reveal>
+          <div className="flex items-center justify-between text-xs font-mono text-indigo-700 dark:text-indigo-400/80 uppercase tracking-widest border-b border-slate-200 dark:border-indigo-950/80 pb-3 font-semibold">
+            <span>// 01. BOUNDED STEP TYPES MATRIX</span>
+            <span>SUPPORTED WORKFLOW NODES</span>
+          </div>
+        </Reveal>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-mono">
+          {boundedStepTypes.map((step, idx) => (
+            <Reveal key={step.name} delay={idx * 50}>
+              <div className="p-5 rounded border border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/80 space-y-2.5 hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-xl transition-all duration-300 h-full flex flex-col shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className={`text-[9px] px-2 py-0.5 rounded border font-semibold ${step.badgeColor}`}>
+                    {step.badge}
+                  </span>
+                  <step.icon className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100">{step.title}</h3>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 font-serif leading-relaxed flex-1">{step.desc}</p>
+                <div className="pt-1 text-[10px] text-indigo-700 dark:text-indigo-300 font-mono">
+                  <code>{step.name}</code>
+                </div>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      {/* SECTION 4: THE GRAPH-FIRST RUNTIME (#runtime) */}
       <section id="runtime" className="space-y-8 pt-4">
         <Reveal>
           <div className="flex items-center justify-between text-xs font-mono text-indigo-700 dark:text-indigo-400/80 uppercase tracking-widest border-b border-slate-200 dark:border-indigo-950/80 pb-3 font-semibold">
-            <span>// 01. THE GRAPH-FIRST AGENT RUNTIME</span>
-            <span>LANGGRAPH EXECUTION ENGINE</span>
+            <span>// 02. THE GRAPH-FIRST AGENT RUNTIME</span>
+            <span>LANGGRAPH DETERMINISTIC ENGINE</span>
           </div>
         </Reveal>
 
@@ -264,30 +374,22 @@ export default function LandingPage() {
           ))}
         </div>
 
-        {/* Execution trace panel */}
+        {/* Execution trace panel & Decision Explainer */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 font-mono">
           <Reveal delay={0}>
             <div className="p-5 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-3 h-full shadow-sm hover:border-indigo-300 dark:hover:border-indigo-500/40 transition-all duration-300">
               <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400 border-b border-slate-200 dark:border-indigo-950/60 pb-2 flex items-center gap-1.5 font-semibold">
-                <Braces className="h-3.5 w-3.5" /> PERSISTED EXECUTION TRACE
+                <Braces className="h-3.5 w-3.5" /> PERSISTED STEP TRACE & DECISION EXPLAINER
               </div>
               <div className="p-3.5 rounded bg-slate-50 dark:bg-black/50 border border-slate-200 dark:border-indigo-950/80 font-mono text-[11px] leading-relaxed overflow-x-auto text-slate-800 dark:text-slate-200">
                 <pre className="whitespace-pre">
                   <span className="text-slate-500 dark:text-slate-400">&#123;</span>{"\n"}
                   {"  "}<span className="text-indigo-700 dark:text-indigo-300 font-semibold">&quot;status&quot;</span><span className="text-slate-500 dark:text-slate-400">: </span><span className="text-emerald-700 dark:text-emerald-400">&quot;COMPLETED&quot;</span><span className="text-slate-500 dark:text-slate-400">,</span>{"\n"}
-                  {"  "}<span className="text-indigo-700 dark:text-indigo-300 font-semibold">&quot;provider&quot;</span><span className="text-slate-500 dark:text-slate-400">: </span><span className="text-emerald-700 dark:text-emerald-400">&quot;groq/llama-3.3-70b-versatile&quot;</span><span className="text-slate-500 dark:text-slate-400">,</span>{"\n"}
-                  {"  "}<span className="text-indigo-700 dark:text-indigo-300 font-semibold">&quot;durationMs&quot;</span><span className="text-slate-500 dark:text-slate-400">: </span><span className="text-amber-700 dark:text-amber-400">1842</span><span className="text-slate-500 dark:text-slate-400">,</span>{"\n"}
-                  {"  "}<span className="text-indigo-700 dark:text-indigo-300 font-semibold">&quot;maxSteps&quot;</span><span className="text-slate-500 dark:text-slate-400">: </span><span className="text-amber-700 dark:text-amber-400">10</span><span className="text-slate-500 dark:text-slate-400">,</span>{"\n"}
-                  {"  "}<span className="text-indigo-700 dark:text-indigo-300 font-semibold">&quot;plannerOutput&quot;</span><span className="text-slate-500 dark:text-slate-400">: &#123;</span>{"\n"}
-                  {"    "}<span className="text-indigo-700 dark:text-indigo-300 font-semibold">&quot;reasoning&quot;</span><span className="text-slate-500 dark:text-slate-400">: </span><span className="text-emerald-700 dark:text-emerald-400">&quot;Resolve the refund first…&quot;</span><span className="text-slate-500 dark:text-slate-400">,</span>{"\n"}
-                  {"    "}<span className="text-indigo-700 dark:text-indigo-300 font-semibold">&quot;requiredTools&quot;</span><span className="text-slate-500 dark:text-slate-400">: [</span><span className="text-emerald-700 dark:text-emerald-400">&quot;calculator&quot;</span><span className="text-slate-500 dark:text-slate-400">],</span>{"\n"}
-                  {"    "}<span className="text-indigo-700 dark:text-indigo-300 font-semibold">&quot;steps&quot;</span><span className="text-slate-500 dark:text-slate-400">: </span><span className="text-amber-700 dark:text-amber-400">3</span>{"\n"}
-                  {"  "}<span className="text-slate-500 dark:text-slate-400">&#125;,</span>{"\n"}
-                  {"  "}<span className="text-indigo-700 dark:text-indigo-300 font-semibold">&quot;nodeTimeline&quot;</span><span className="text-slate-500 dark:text-slate-400">: [</span>{"\n"}
-                  {"    "}<span className="text-emerald-700 dark:text-emerald-400">&quot;planner → permission → tool_selection&quot;</span><span className="text-slate-500 dark:text-slate-400">,</span>{"\n"}
-                  {"    "}<span className="text-emerald-700 dark:text-emerald-400">&quot;→ tool_execution → finish&quot;</span>{"\n"}
-                  {"  "}<span className="text-slate-500 dark:text-slate-400">]</span>{"\n"}
-                  <span className="text-slate-500 dark:text-slate-400">&#125;</span>
+                  {"  "}<span className="text-indigo-700 dark:text-indigo-300 font-semibold">&quot;step&quot;</span><span className="text-slate-500 dark:text-slate-400">: </span><span className="text-emerald-700 dark:text-emerald-400">&quot;deterministic_condition&quot;</span><span className="text-slate-500 dark:text-slate-400">,</span>{"\n"}
+                  {"  "}<span className="text-indigo-700 dark:text-indigo-300 font-semibold">&quot;decisionExplanation&quot;</span><span className="text-slate-500 dark:text-slate-400">: </span><span className="text-emerald-700 dark:text-emerald-400">&quot;[DECISION PATH: TRUE_BRANCH] refundAmount (2500) exceeds threshold 1000&quot;</span><span className="text-slate-500 dark:text-slate-400">,</span>{"\n"}
+                  {"  "}<span className="text-indigo-700 dark:text-indigo-300 font-semibold">&quot;recoveredSafeSteps&quot;</span><span className="text-slate-500 dark:text-slate-400">: </span><span className="text-amber-700 dark:text-amber-400">[&quot;step_1_input&quot;, &quot;step_2_extract&quot;]</span><span className="text-slate-500 dark:text-slate-400">,</span>{"\n"}
+                  {"  "}<span className="text-indigo-700 dark:text-indigo-300 font-semibold">&quot;approvalLock&quot;</span><span className="text-slate-500 dark:text-slate-400">: </span><span className="text-emerald-700 dark:text-emerald-400">&quot;SINGLE_USE_TOKEN_CONSUMED&quot;</span>{"\n"}
+                  <span className="text-slate-500 dark:text-slate-400">&#123;</span>
                 </pre>
               </div>
             </div>
@@ -295,20 +397,20 @@ export default function LandingPage() {
           <Reveal delay={100}>
             <div className="p-5 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-3 h-full shadow-sm">
               <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400/80 border-b border-slate-200 dark:border-indigo-950/60 pb-2 flex items-center gap-1.5 font-semibold">
-                <Activity className="h-3.5 w-3.5" /> WHY GRAPH-FIRST?
+                <Activity className="h-3.5 w-3.5" /> WHY CONTROLLED AGENTIC WORKFLOWS?
               </div>
               <ul className="text-[11px] text-slate-600 dark:text-slate-400 font-serif space-y-3 leading-relaxed">
                 <li>
-                  <span className="text-slate-900 dark:text-slate-200 font-bold">The LLM is a node dependency, not the system.</span>{" "}
-                  The runtime walks a deterministic LangGraph — the same plan executes identically with any provider.
+                  <span className="text-slate-900 dark:text-slate-200 font-bold">1. Deterministic Step Boundaries.</span>{" "}
+                  The LLM is bounded to specific extraction, classification, and planning tasks — execution paths and conditions remain fully deterministic.
                 </li>
                 <li>
-                  <span className="text-slate-900 dark:text-slate-200 font-bold">Every step is persisted.</span>{" "}
-                  Planner output, provider used, duration, node timeline, and tool calls survive the run for replay and audit.
+                  <span className="text-slate-900 dark:text-slate-200 font-bold">2. Partial Step Recovery & Safe Retries.</span>{" "}
+                  If Step 4 fails due to a temporary network hiccup, you recover directly from Step 4 without repeating completed safe steps (Steps 1–3).
                 </li>
                 <li>
-                  <span className="text-slate-900 dark:text-slate-200 font-bold">Failure is handled like any node.</span>{" "}
-                  Provider failures, timeouts, unauthorized tools, and step-limit breaches all resolve to explicit terminal states.
+                  <span className="text-slate-900 dark:text-slate-200 font-bold">3. Transparent Decision Explanations.</span>{" "}
+                  Every routing choice and condition evaluation generates human-readable audit explanations for governance and compliance.
                 </li>
               </ul>
             </div>
@@ -316,11 +418,11 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* SECTION 4: CORE SAAS PILLARS (#features) */}
+      {/* SECTION 5: CORE SAAS PILLARS (#features) */}
       <section id="features" className="space-y-8 pt-4">
         <Reveal>
           <div className="flex items-center justify-between text-xs font-mono text-indigo-700 dark:text-indigo-400/80 uppercase tracking-widest border-b border-slate-200 dark:border-indigo-950/80 pb-3 font-semibold">
-            <span>// 02. CORE SAAS CAPABILITIES</span>
+            <span>// 03. CORE PLATFORM CAPABILITIES</span>
             <span>ENTERPRISE GUARANTEES</span>
           </div>
         </Reveal>
@@ -330,12 +432,12 @@ export default function LandingPage() {
           <Reveal delay={0}>
             <div className="p-6 rounded border border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/80 space-y-3 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-300 h-full shadow-sm">
               <div className="flex items-center justify-between text-indigo-700 dark:text-indigo-400 text-xs">
-                <span className="font-pixel text-sm">01. USER-DEFINED SKILLS</span>
-                <Sparkles className="h-4 w-4" />
+                <span className="font-pixel text-sm">01. BOUNDED STEP LIFECYCLE</span>
+                <Workflow className="h-4 w-4" />
               </div>
-              <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Schema-Validated Skill Definitions</h3>
+              <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">8 Supported Step Types</h3>
               <p className="text-xs text-slate-600 dark:text-slate-400 font-serif leading-relaxed">
-                Define custom agent skills with strict JSON Schema inputs and outputs, instructions, few-shot examples, and maximum execution step boundaries.
+                Connect structured inputs, doc search, AI extraction, classification, deterministic conditions, HITL approvals, mock actions, and final report generators.
               </p>
             </div>
           </Reveal>
@@ -344,12 +446,12 @@ export default function LandingPage() {
           <Reveal delay={80}>
             <div className="p-6 rounded border border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/80 space-y-3 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-300 h-full shadow-sm">
               <div className="flex items-center justify-between text-indigo-700 dark:text-indigo-400 text-xs">
-                <span className="font-pixel text-sm">02. GRAPH-FIRST RUNTIME</span>
+                <span className="font-pixel text-sm">02. PATH DECISION EXPLAINER</span>
                 <GitBranch className="h-4 w-4" />
               </div>
-              <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">LangGraph Execution Engine</h3>
+              <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Auditable Branching Rationale</h3>
               <p className="text-xs text-slate-600 dark:text-slate-400 font-serif leading-relaxed">
-                Skills execute deterministically through independent nodes — planner, permission, selection, execution, approval, finish — each writing to strongly typed state.
+                Every condition evaluation and classification node outputs an explicit decision reason explaining why a branch was taken or rejected.
               </p>
             </div>
           </Reveal>
@@ -358,12 +460,12 @@ export default function LandingPage() {
           <Reveal delay={160}>
             <div className="p-6 rounded border border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/80 space-y-3 hover:border-emerald-400 dark:hover:border-emerald-500/50 hover:-translate-y-1 hover:shadow-xl hover:shadow-emerald-500/10 transition-all duration-300 h-full shadow-sm">
               <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400 text-xs">
-                <span className="font-pixel text-sm">03. BOUNDED SYSTEM TOOLS</span>
-                <Wrench className="h-4 w-4" />
+                <span className="font-pixel text-sm">03. SAFE STEP RECOVERY</span>
+                <RefreshCw className="h-4 w-4" />
               </div>
-              <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Strict Tool Authorization</h3>
+              <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Partial Retry & Checkpoint Recovery</h3>
               <p className="text-xs text-slate-600 dark:text-slate-400 font-serif leading-relaxed">
-                Agents operate strictly within allowed tools. Unpermitted tool requests are intercepted and rejected at the permission node before execution.
+                Recover failed workflow executions without repeating completed safe steps. The engine skips idempotent steps and resumes from the failure point.
               </p>
             </div>
           </Reveal>
@@ -377,7 +479,7 @@ export default function LandingPage() {
               </div>
               <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Single-Use Idempotency Approval Locks</h3>
               <p className="text-xs text-slate-600 dark:text-slate-400 font-serif leading-relaxed">
-                Write actions automatically pause agent execution into a pending state. Approval consumes a single-use token — enforced atomically, so a key can never respond twice.
+                Write actions automatically pause execution into a pending queue. Single-use tokens guarantee an approved action can never execute twice.
               </p>
             </div>
           </Reveal>
@@ -391,7 +493,7 @@ export default function LandingPage() {
               </div>
               <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Draft & Published Version Control</h3>
               <p className="text-xs text-slate-600 dark:text-slate-400 font-serif leading-relaxed">
-                Publish drafts into immutable numeric versions (v1, v2, v3). Editing a published skill auto-rotates a fresh draft — published versions never change.
+                Publish drafts into immutable numeric versions (v1, v2, v3). Replay previous runs or test earlier versions with sample inputs seamlessly.
               </p>
             </div>
           </Reveal>
@@ -405,60 +507,8 @@ export default function LandingPage() {
               </div>
               <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Multi-Provider Router with Circuit Breakers</h3>
               <p className="text-xs text-slate-600 dark:text-slate-400 font-serif leading-relaxed">
-                12 free models across Groq and OpenRouter are tried in order. Failures trigger adaptive cooldowns (429 → 60s, 5xx → 30s, 404 → 10min, bad key → vendor park).
+                12 free models across Groq and OpenRouter are tried in order with adaptive cooldowns (429 → 60s, 5xx → 30s, 404 → 10min, bad key → vendor park).
               </p>
-            </div>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* SECTION 5: BOUNDED TOOL SUITE BREAKDOWN (#tools) */}
-      <section id="tools" className="space-y-6 pt-4 font-mono">
-        <Reveal>
-          <div className="flex items-center justify-between text-xs text-indigo-700 dark:text-indigo-400/80 uppercase tracking-widest border-b border-slate-200 dark:border-indigo-950/80 pb-3 font-semibold">
-            <span>// 03. BOUNDED SYSTEM TOOL MATRIX</span>
-            <span>PRE-BUILT SANDBOXED TOOLS</span>
-          </div>
-        </Reveal>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
-          <Reveal delay={0}>
-            <div className="p-5 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/90 space-y-2 hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/40 hover:shadow-md transition-all duration-300 h-full shadow-sm">
-              <div className="text-indigo-700 dark:text-indigo-400 font-bold flex items-center justify-between">
-                <span>calculator</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-300 font-semibold">READ</span>
-              </div>
-              <p className="text-[11px] text-slate-600 dark:text-slate-400 font-serif">Safely evaluates mathematical expressions and formulas.</p>
-            </div>
-          </Reveal>
-
-          <Reveal delay={80}>
-            <div className="p-5 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/90 space-y-2 hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/40 hover:shadow-md transition-all duration-300 h-full shadow-sm">
-              <div className="text-indigo-700 dark:text-indigo-400 font-bold flex items-center justify-between">
-                <span>document_search</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-300 font-semibold">READ</span>
-              </div>
-              <p className="text-[11px] text-slate-600 dark:text-slate-400 font-serif">Mock vector and text query search over internal knowledge base.</p>
-            </div>
-          </Reveal>
-
-          <Reveal delay={160}>
-            <div className="p-5 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/90 space-y-2 hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/40 hover:shadow-md transition-all duration-300 h-full shadow-sm">
-              <div className="text-indigo-700 dark:text-indigo-400 font-bold flex items-center justify-between">
-                <span>record_lookup</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-300 font-semibold">READ</span>
-              </div>
-              <p className="text-[11px] text-slate-600 dark:text-slate-400 font-serif">Queries structured customer data records and database entities.</p>
-            </div>
-          </Reveal>
-
-          <Reveal delay={240}>
-            <div className="p-5 rounded border border-amber-300 dark:border-amber-500/40 bg-amber-50/80 dark:bg-amber-950/20 space-y-2 hover:-translate-y-1 hover:border-amber-400/60 hover:shadow-md hover:shadow-amber-500/10 transition-all duration-300 h-full shadow-sm">
-              <div className="text-amber-800 dark:text-amber-300 font-bold flex items-center justify-between">
-                <span>mock_task_creator</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-200 dark:bg-amber-950 text-amber-900 dark:text-amber-400 font-bold">WRITE</span>
-              </div>
-              <p className="text-[11px] text-amber-900/80 dark:text-amber-200/80 font-serif">Creates tasks & tickets. Requires HITL human approval before execution.</p>
             </div>
           </Reveal>
         </div>
@@ -470,7 +520,7 @@ export default function LandingPage() {
           <div className="flex items-center justify-between border-b border-slate-200 dark:border-indigo-950 pb-4 text-xs">
             <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-400">
               <ShieldCheck className="h-5 w-5" />
-              <span className="font-pixel text-sm">04. ENTERPRISE SECURITY GUARDRAILS</span>
+              <span className="font-pixel text-sm">04. ENTERPRISE SECURITY & GOVERNANCE</span>
             </div>
             <span className="text-emerald-700 dark:text-emerald-400 text-[10px] font-bold">[ ZERO TRUST RUNTIME ]</span>
           </div>
@@ -538,7 +588,7 @@ export default function LandingPage() {
                 <Activity className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> Full Audit Trails
               </h4>
               <p className="text-slate-600 dark:text-slate-400 font-serif leading-relaxed text-[11px]">
-                Every mutation writes a structured log and an audit row (SKILL_PUBLISHED, APPROVAL_GRANTED, …) traced back to the acting user.
+                Every mutation writes a structured log and an audit row (SKILL_PUBLISHED, APPROVAL_GRANTED, RECOVERY_STARTED, …) traced back to the acting user.
               </p>
             </div>
           </Reveal>
@@ -558,10 +608,10 @@ export default function LandingPage() {
           <Reveal delay={0}>
             <div className="p-5 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-2 h-full hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-lg transition-all duration-300 shadow-sm">
               <h4 className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <HelpCircle className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> How does Human-in-the-Loop (HITL) approval work?
+                <HelpCircle className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> How does Step-Level Safe Recovery work?
               </h4>
               <p className="text-slate-600 dark:text-slate-400 font-serif leading-relaxed text-[11px]">
-                When an agent executes a tool specified in <code className="text-indigo-700 dark:text-indigo-300 font-semibold">actionsRequiringApproval</code>, execution pauses in a pending state. Users review the payload and approve or reject it.
+                When an execution fails or is paused, the platform saves the full state of completed steps. Retrying recovers previous safe results and resumes directly at the failed step without re-executing completed read/compute steps.
               </p>
             </div>
           </Reveal>
@@ -569,10 +619,10 @@ export default function LandingPage() {
           <Reveal delay={80}>
             <div className="p-5 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-2 h-full hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-lg transition-all duration-300 shadow-sm">
               <h4 className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <HelpCircle className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> What prevents duplicate write execution?
+                <HelpCircle className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> What is the Path Decision Explainer?
               </h4>
               <p className="text-slate-600 dark:text-slate-400 font-serif leading-relaxed text-[11px]">
-                Every approved write action carries a single-use idempotency key, enforced atomically. Once consumed, replaying the same key — even concurrently — is rejected.
+                Whenever a deterministic condition or AI classification step evaluates, it generates an explicit explanation detailing why branch A or B was chosen (e.g. &quot;amount &gt; $500 evaluated to TRUE&quot;).
               </p>
             </div>
           </Reveal>
@@ -580,10 +630,10 @@ export default function LandingPage() {
           <Reveal delay={160}>
             <div className="p-5 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-2 h-full hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-lg transition-all duration-300 shadow-sm">
               <h4 className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <HelpCircle className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> Can agents call unauthorized tools?
+                <HelpCircle className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> How does Human-in-the-Loop (HITL) approval work?
               </h4>
               <p className="text-slate-600 dark:text-slate-400 font-serif leading-relaxed text-[11px]">
-                No. Tool availability is restricted to the exact <code className="text-indigo-700 dark:text-indigo-300 font-semibold">allowedTools</code> list defined in the skill schema. Unpermitted tool calls are rejected at the permission node.
+                When an agent executes an action specified in <code className="text-indigo-700 dark:text-indigo-300 font-semibold">actionsRequiringApproval</code>, execution pauses. Approving issues an atomic single-use idempotency token that prevents duplicate execution.
               </p>
             </div>
           </Reveal>
@@ -591,10 +641,10 @@ export default function LandingPage() {
           <Reveal delay={240}>
             <div className="p-5 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-2 h-full hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-lg transition-all duration-300 shadow-sm">
               <h4 className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <HelpCircle className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> What happens when an LLM provider goes down?
+                <HelpCircle className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> Can I rerun older workflow versions with new input?
               </h4>
               <p className="text-slate-600 dark:text-slate-400 font-serif leading-relaxed text-[11px]">
-                Nothing breaks. The router parks the failed model in a cooldown and transparently retries the next of 12 configured models across Groq and OpenRouter.
+                Yes. Every version is immutable and can be replayed or re-executed with custom input parameters at any time. Previous run records remain permanently intact.
               </p>
             </div>
           </Reveal>
@@ -602,10 +652,10 @@ export default function LandingPage() {
           <Reveal delay={320}>
             <div className="p-5 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-2 h-full hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-lg transition-all duration-300 shadow-sm">
               <h4 className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <HelpCircle className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> Can I trace how an execution ran?
+                <HelpCircle className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> What happens when an LLM provider goes down?
               </h4>
               <p className="text-slate-600 dark:text-slate-400 font-serif leading-relaxed text-[11px]">
-                Every run persists its planner output, serving provider, duration, node-by-node timeline, and tool calls — inspectable in the execution trace view.
+                Nothing breaks. The router parks the failed model in an adaptive cooldown and transparently retries the next model across Groq and OpenRouter.
               </p>
             </div>
           </Reveal>
@@ -613,10 +663,10 @@ export default function LandingPage() {
           <Reveal delay={400}>
             <div className="p-5 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-2 h-full hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-lg transition-all duration-300 shadow-sm">
               <h4 className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <HelpCircle className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> How does skill version control work?
+                <HelpCircle className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> Can I trace how an execution ran?
               </h4>
               <p className="text-slate-600 dark:text-slate-400 font-serif leading-relaxed text-[11px]">
-                Skills start as a Draft. Publishing creates an immutable numeric version (v1, v2), and editing a published skill auto-rotates a fresh draft so published versions never change.
+                Every run persists its planner output, serving provider, duration, node-by-node timeline, tool calls, and path decision rationales — inspectable in the execution trace view.
               </p>
             </div>
           </Reveal>
@@ -627,7 +677,7 @@ export default function LandingPage() {
       <section className="text-center space-y-6 pt-6 border-t border-slate-200 dark:border-indigo-950/80 font-mono">
         <Reveal delay={0}>
           <div className="text-xs text-indigo-700 dark:text-indigo-400/80 uppercase tracking-widest font-semibold">
-            READY TO DEPLOY REUSABLE AI SKILLS AT SCALE?
+            READY TO DEPLOY BOUNDED AGENTIC WORKFLOWS AT SCALE?
           </div>
         </Reveal>
         <Reveal delay={100}>
@@ -653,9 +703,9 @@ export default function LandingPage() {
             <span>© 2026. All Systems Operational.</span>
           </div>
           <div className="flex items-center gap-4 text-slate-600 dark:text-slate-400">
+            <a href="#steptypes" className="hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">[ Step Types ]</a>
             <a href="#runtime" className="hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">[ Runtime ]</a>
             <a href="#features" className="hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">[ Features ]</a>
-            <a href="#tools" className="hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">[ Tools ]</a>
             <a href="#guardrails" className="hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">[ Guardrails ]</a>
             <a href="#faq" className="hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">[ FAQ ]</a>
             <Link href="/dashboard" className="hover:text-indigo-600 dark:hover:text-indigo-300 font-bold text-indigo-700 dark:text-indigo-400 transition-colors">[ App ]</Link>
@@ -668,3 +718,4 @@ export default function LandingPage() {
     </div>
   );
 }
+

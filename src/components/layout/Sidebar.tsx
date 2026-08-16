@@ -4,23 +4,42 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useClerk } from "@clerk/nextjs";
-import { LayoutDashboard, Sparkles, Play, GitCompare, Shield, Wrench, LogOut, ChevronsLeft, ChevronsRight, Gauge, ScrollText, Settings, X } from "lucide-react";
+import {
+  LayoutDashboard,
+  Sparkles,
+  Workflow,
+  Play,
+  GitBranch,
+  GitCompare,
+  Shield,
+  Wrench,
+  LogOut,
+  ChevronsLeft,
+  ChevronsRight,
+  Gauge,
+  ScrollText,
+  Settings,
+  X,
+} from "lucide-react";
 import { clsx } from "clsx";
 import { SignOutModal } from "@/components/feedback/SignOutModal";
 import { useSidebar } from "@/components/providers/SidebarContext";
 
 const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, tag: "SYS_01" },
-  { name: "Skills Studio", href: "/dashboard/skills", icon: Sparkles, tag: "SKILL_V1" },
+  { name: "Studio", href: "/dashboard/skills", icon: Workflow, tag: "STUDIO_V2" },
   { name: "Executions", href: "/dashboard/executions", icon: Play, tag: "TRACE_LOG" },
   { name: "Observability", href: "/dashboard/history", icon: Gauge, tag: "OBS_07" },
   { name: "Audit Log", href: "/dashboard/audit", icon: ScrollText, tag: "AUDIT" },
-  { name: "Versions", href: "/versions", icon: GitCompare, tag: "DIFF_VIEW" },
+  { name: "Versions", href: "/versions", icon: GitBranch, tag: "VERSIONS" },
   { name: "Compare", href: "/dashboard/compare", icon: GitCompare, tag: "DIFF_07" },
   { name: "Tool Registry", href: "/dashboard/tools", icon: Wrench, tag: "TOOL_V1" },
   { name: "Human Review", href: "/dashboard/review", icon: Shield, tag: "HITL_V2" },
   { name: "Settings", href: "/dashboard/settings", icon: Settings, tag: "CFG_V1" },
 ];
+
+
+
 
 const STORAGE_KEY = "agent-studio-sidebar-collapsed";
 
