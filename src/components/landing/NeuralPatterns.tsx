@@ -119,7 +119,7 @@ export function NeuralPatterns({ className = "" }: { className?: string }) {
       ctx.clearRect(0, 0, width, height);
       const t = time / 1000;
 
-      const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
+      const isDark = typeof document !== "undefined" && !document.documentElement.classList.contains("light");
 
       // ── Layer 1: Neural connections ──────────────────────────────
       for (const node of nodes) {

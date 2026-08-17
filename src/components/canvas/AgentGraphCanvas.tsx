@@ -63,8 +63,8 @@ function CanvasInner({
   traceHeaderExtra,
   onSubgraphEdit,
 }: AgentGraphCanvasProps) {
-  const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
+  const { theme, resolvedTheme } = useTheme();
+  const isDark = theme !== "light" && resolvedTheme !== "light";
 
   const initial = useMemo(() => graphToFlow(graph), [graph]);
   const [nodes, setNodes] = useNodesState<CanvasNode>(initial.nodes);
