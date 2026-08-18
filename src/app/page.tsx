@@ -363,6 +363,10 @@ const faqExtra = [
     q: "Are graphs versioned and shareable?",
     a: "Every graph version is immutable and diffable side-by-side against any published version with one-click revert. Any graph + its final trace can be shared as a read-only snapshot link for docs or review.",
   },
+  {
+    q: "How does the LLM auto-failover router work?",
+    a: "Agent Studio routes every LLM call through 12 free models across Groq and OpenRouter with circuit-breaker failover. If a model returns a 429, 5xx, or 404, the router automatically tries the next healthy model with adaptive cooldowns — so your agent runs never fail due to a single provider outage.",
+  },
 ];
 
 export default function LandingPage() {

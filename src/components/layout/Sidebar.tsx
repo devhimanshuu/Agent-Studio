@@ -33,7 +33,6 @@ const navItems = [
   { name: "Executions", href: "/dashboard/executions", icon: Play, tag: "TRACE_LOG" },
   { name: "Observability", href: "/dashboard/history", icon: Gauge, tag: "OBS_07" },
   { name: "Audit Log", href: "/dashboard/audit", icon: ScrollText, tag: "AUDIT" },
-  { name: "Versions", href: "/versions", icon: GitBranch, tag: "VERSIONS" },
   { name: "Compare", href: "/dashboard/compare", icon: GitCompare, tag: "DIFF_07" },
   { name: "Tool Registry", href: "/dashboard/tools", icon: Wrench, tag: "TOOL_V1" },
   { name: "Human Review", href: "/dashboard/review", icon: Shield, tag: "HITL_V2" },
