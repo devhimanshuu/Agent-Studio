@@ -1,4 +1,4 @@
-import { PrismaClient, Role, SkillStatus, ToolType, ExecutionStatus } from "@prisma/client";
+import { PrismaClient, Role, SkillStatus, ToolType, ExecutionStatus, McpTransport, McpServerStatus, Prisma } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -168,7 +168,103 @@ async function main() {
   });
   console.log(`✅ Seeded User: ${user.name} (${user.id})`);
 
-  // 3. Seed Sample Demo Skill with Versions
+  // 3. Seed 1-Click MCP Ecosystem Presets (DISCONNECTED by default — users connect on demand)
+  const mcpPresets = [
+    {
+      name: "GitHub MCP",
+      transport: McpTransport.SSE,
+      endpointUrl: "https://api.githubcopilot.com/mcp/",
+      command: null,
+      headers: { Authorization: "Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}" },
+      description: "GitHub API integration: repositories, issues, pull requests, and code search.",
+    },
+    {
+      name: "Postgres MCP",
+      transport: McpTransport.STDIO,
+      endpointUrl: null,
+      command: "npx -y @modelcontextprotocol/server-postgres <DATABASE_URL>",
+      headers: null,
+      description: "Read/write access to a PostgreSQL database through the reference Postgres MCP server.",
+    },
+    {
+      name: "SQLite MCP",
+      transport: McpTransport.STDIO,
+      endpointUrl: null,
+      command: "npx -y @modelcontextprotocol/server-sqlite <PATH_TO_DB_FILE>",
+      headers: null,
+      description: "Local SQLite database access via the reference SQLite MCP server.",
+    },
+    {
+      name: "Web Fetch MCP",
+      transport: McpTransport.SSE,
+      endpointUrl: "https://mcp.kagi.com/fetch",
+      command: null,
+      headers: {},
+      description: "Fetch and summarize web pages with clean article extraction (Kagi).",
+    },
+    {
+      name: "Brave Search MCP",
+      transport: McpTransport.SSE,
+      endpointUrl: "https://api.search.brave.com/mcp/server",
+      command: null,
+      headers: { Authorization: "Bearer ${BRAVE_SEARCH_API_KEY}" },
+      description: "Web and news search powered by the Brave Search API.",
+    },
+    {
+      name: "Filesystem MCP",
+      transport: McpTransport.STDIO,
+      endpointUrl: null,
+      command: "npx -y @modelcontextprotocol/server-filesystem <ALLOWED_DIRECTORY>",
+      headers: null,
+      description: "Read/write access to local files and directories (sandboxed to allowed roots).",
+    },
+    {
+      name: "Slack MCP",
+      transport: McpTransport.STDIO,
+      endpointUrl: null,
+      command: "npx -y @modelcontextprotocol/server-slack",
+      headers: null,
+      description: "Dispatch notifications, read channel threads, and search messages.",
+    },
+    {
+      name: "Memory MCP",
+      transport: McpTransport.STDIO,
+      endpointUrl: null,
+      command: "npx -y @modelcontextprotocol/server-memory",
+      headers: null,
+      description: "Persistent knowledge-graph memory across agent executions.",
+    },
+  ];
+
+  for (const preset of mcpPresets) {
+    await prisma.mcpServer.upsert({
+      where: { id: `preset-${preset.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}` },
+      update: {
+        userId: user.id,
+        name: preset.name,
+        transport: preset.transport,
+        endpointUrl: preset.endpointUrl,
+        command: preset.command,
+        headers: (preset.headers ?? Prisma.DbNull) as Prisma.InputJsonValue,
+        status: McpServerStatus.DISCONNECTED,
+        cachedTools: [],
+      },
+      create: {
+        id: `preset-${preset.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+        userId: user.id,
+        name: preset.name,
+        transport: preset.transport,
+        endpointUrl: preset.endpointUrl,
+        command: preset.command,
+        headers: (preset.headers ?? Prisma.DbNull) as Prisma.InputJsonValue,
+        status: McpServerStatus.DISCONNECTED,
+        cachedTools: [],
+      },
+    });
+  }
+  console.log(`✅ Seeded ${mcpPresets.length} MCP server presets.`);
+
+  // 4. Seed Sample Demo Skill with Versions
   const demoSkillName = "Customer Refund Bounded Workflow";
   let skill = await prisma.skill.findFirst({
     where: { userId: user.id, name: demoSkillName },

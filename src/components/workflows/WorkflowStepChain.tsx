@@ -12,6 +12,7 @@ import {
   FileText,
   Calculator,
   Database,
+  Plug,
   ArrowRight,
 } from "lucide-react";
 import { clsx } from "clsx";
@@ -128,6 +129,17 @@ export function WorkflowStepChain({
   for (const toolName of allowedTools) {
     if (STEP_TOOL_MAP[toolName]) {
       steps.push(STEP_TOOL_MAP[toolName]);
+    } else if (toolName.startsWith("mcp_")) {
+      // Dynamically discovered MCP tools render as a generic external step.
+      steps.push({
+        id: `mcp_${toolName}`,
+        name: "MCP Tool",
+        toolName,
+        icon: Plug,
+        colorClass: "text-amber-700 dark:text-amber-400",
+        borderClass: "border-amber-300 dark:border-amber-700/50",
+        bgClass: "bg-amber-50 dark:bg-amber-950/40",
+      });
     }
   }
 

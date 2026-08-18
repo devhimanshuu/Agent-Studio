@@ -1,12 +1,15 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Inter, JetBrains_Mono, Silkscreen, Lora } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/app/providers";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Toaster } from "@/components/feedback/Toaster";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
+const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
+const silkscreen = Silkscreen({ weight: ["400", "700"], subsets: ["latin"], variable: "--font-pixel", display: "swap" });
+const lora = Lora({ subsets: ["latin"], variable: "--font-serif", display: "swap" });
 
 export const metadata: Metadata = {
   title: "Agent Studio — Enterprise AI Agent Platform",
@@ -26,7 +29,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${inter.className} ${inter.variable} ${jetbrainsMono.variable} ${silkscreen.variable} ${lora.variable}`}>
         <a href="#main-content" className="skip-to-content-link">
           Skip to main content
         </a>

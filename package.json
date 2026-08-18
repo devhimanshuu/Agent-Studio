@@ -9,6 +9,7 @@
   "homepage": "https://agent-studio-v1.vercel.app",
   "scripts": {
     "dev": "next dev",
+    "dev:webpack": "next dev",
     "build": "node scripts/build.cjs",
     "start": "next start",
     "lint": "eslint .",
@@ -30,6 +31,7 @@
     "@clerk/nextjs": "^6.11.0",
     "@hookform/resolvers": "^3.10.0",
     "@langchain/langgraph": "^1.4.8",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@prisma/client": "^6.2.1",
     "@tanstack/react-query": "^5.64.2",
     "@xyflow/react": "^12.11.3",

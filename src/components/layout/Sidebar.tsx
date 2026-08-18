@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useClerk } from "@clerk/nextjs";
+import { useClerk, useAuth } from "@clerk/nextjs";
 import {
   LayoutDashboard,
   Sparkles,
@@ -40,12 +40,10 @@ const navItems = [
   { name: "Settings", href: "/dashboard/settings", icon: Settings, tag: "CFG_V1" },
 ];
 
-
-
-
 export function Sidebar() {
   const pathname = usePathname();
   const { signOut } = useClerk();
+  const { isSignedIn, isLoaded } = useAuth();
   const { mobileOpen, closeMobile, collapsed, toggleCollapsed } = useSidebar();
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
 
@@ -54,8 +52,14 @@ export function Sidebar() {
     closeMobile();
   }, [pathname]);
 
-  // Hide sidebar on the main public landing page
-  if (pathname === "/") return null;
+  // Determine if this is an active workspace app route
+  const isAppRoute =
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/versions") ||
+    pathname.startsWith("/approvals");
+
+  // Hide sidebar if user is not authenticated, or on public landing / 404 routes
+  if (!isLoaded || !isSignedIn || pathname === "/" || !isAppRoute) return null;
 
   const sidebarContent = (
     <div className="flex flex-col justify-between h-full space-y-4">

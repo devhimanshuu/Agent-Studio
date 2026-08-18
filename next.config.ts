@@ -12,7 +12,18 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  reactStrictMode: true,
+  reactStrictMode: false,
+  experimental: {
+    optimizePackageImports: [
+      "lucide-react",
+    ],
+  },
+  serverExternalPackages: [
+    "@langchain/langgraph",
+    "@modelcontextprotocol/sdk",
+    "@prisma/client",
+    "prisma",
+  ],
   async headers() {
     return [
       {
@@ -20,9 +31,6 @@ const nextConfig: NextConfig = {
         headers: securityHeaders,
       },
     ];
-  },
-  experimental: {
-    // Allows clean server actions and modern features
   },
 };
 

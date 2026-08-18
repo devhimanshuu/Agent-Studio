@@ -5,6 +5,7 @@ import { z } from "zod";
 import { Plus, Trash2, Sparkles, Wrench, CheckSquare, ListChecks, Loader2, Workflow } from "lucide-react";
 import { createSkillSchema } from "@/validators/skillSchema";
 import { BUILT_IN_TOOL_CATALOG, TOOL_CATEGORIES } from "@/modules/tools";
+import { AvailableMcpTools } from "./AvailableMcpTools";
 import { SkillDTO, SkillVersionDTO } from "@/types/skill";
 import { WorkflowStepChain } from "@/components/workflows/WorkflowStepChain";
 import { toast } from "@/stores/toastStore";
@@ -455,6 +456,10 @@ export function SkillForm({
                 placeholder="e.g. calculator, document_search…"
               />
               <AvailableTools
+                selected={field.value ?? []}
+                onAdd={(name) => field.onChange([...(field.value ?? []), name])}
+              />
+              <AvailableMcpTools
                 selected={field.value ?? []}
                 onAdd={(name) => field.onChange([...(field.value ?? []), name])}
               />

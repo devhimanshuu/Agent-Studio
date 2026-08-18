@@ -15,9 +15,10 @@ import { LLMProvider, getLLMProvider } from "@/providers/llm";
 import { ExecutionPlan, ToolCallRecord } from "@/modules/execution/state/agentState";
 import { ExecutionEngine, EngineRunResult } from "@/modules/execution/executor/executionEngine";
 import { CancellationManager } from "@/modules/execution/executor/cancellation";
-import { createToolRegistry } from "@/modules/tools";
+import { createToolRegistry, ToolRegistry } from "@/modules/tools";
 import { PermissionChecker } from "@/modules/execution/tool-registry/permissionChecker";
 import { PlannerService } from "@/modules/execution/planner/plannerService";
+import { McpClientService } from "./McpClientService";
 import {
   validateSkillForExecution,
   validateVersionForExecution,
@@ -42,6 +43,11 @@ export interface ExecutionServiceDeps {
   approvalEngine?: ApprovalEngine;
   /** Persists structured execution logs (observability). */
   logRepo?: IExecutionLogRepository;
+  /**
+   * MCP client hub — when provided, the user's cached MCP tools are synced
+   * into the run registries before execution so skills can call them.
+   */
+  mcpService?: McpClientService;
 }
 
 export class ExecutionService implements IExecutionService {
@@ -49,6 +55,11 @@ export class ExecutionService implements IExecutionService {
   private engine: ExecutionEngine;
   private graphInterpreter: GraphInterpreter;
   private approvalEngine: ApprovalEngine;
+  private mcpService?: McpClientService;
+  /** Registries used by the engine + graph interpreter — kept so MCP tools can
+   * be synced per user before each run. */
+  private engineRegistry: ToolRegistry;
+  private graphRegistry: ToolRegistry;
 
   constructor(
     private executionRepo: IExecutionRepository,
@@ -63,6 +74,12 @@ export class ExecutionService implements IExecutionService {
 
     this.approvalEngine =
       deps.approvalEngine ?? new ApprovalEngine(approvalRepo, historyRepo, this.executionRepo);
+    this.mcpService = deps.mcpService;
+
+    // Single shared registries so the MCP hub can sync a user's discovered
+    // tools onto them before each run (registry is mutable + namespaced).
+    this.engineRegistry = createToolRegistry();
+    this.graphRegistry = createToolRegistry();
 
     this.engine =
       deps.engine ??
@@ -70,7 +87,7 @@ export class ExecutionService implements IExecutionService {
         // Registry pre-loaded with the built-in tools (calculator, document
         // search, record lookup, mock task creator). New tools self-register
         // here via the tools module — zero runtime changes.
-        toolRegistry: createToolRegistry(),
+        toolRegistry: this.engineRegistry,
         permissionChecker: new PermissionChecker(),
         planner: new PlannerService(llm),
         executionRepo: this.executionRepo,
@@ -82,7 +99,7 @@ export class ExecutionService implements IExecutionService {
       deps.graphInterpreter ??
       new GraphInterpreter({
         llm,
-        toolRegistry: createToolRegistry(),
+        toolRegistry: this.graphRegistry,
         permissionChecker: new PermissionChecker(),
         executionRepo: this.executionRepo,
         approvalRepo,
@@ -129,6 +146,10 @@ export class ExecutionService implements IExecutionService {
         "The visual graph is incomplete — add a START node, an END node, and valid connections before running."
       );
     }
+
+    // Sync the user's cached MCP tools into the run registries so skills can
+    // call them (permission-gated via allowedTools). Idempotent — safe on every run.
+    await this.syncMcpTools(input.userId);
 
     const execution = await this.executionRepo.create(input, version.maxExecutionSteps || 10, skill.name);
     await this.auditRepo.log({
@@ -191,6 +212,19 @@ export class ExecutionService implements IExecutionService {
     return final ?? execution;
   }
 
+  /**
+   * Best-effort sync of the user's cached MCP tools onto the shared run
+   * registries. Only available when an McpClientService was injected; injected
+   * engines (tests) keep their own registries untouched.
+   */
+  private async syncMcpTools(userId: string): Promise<void> {
+    if (!this.mcpService) return;
+    await Promise.all([
+      this.mcpService.registerUserMcpTools(userId, this.engineRegistry),
+      this.mcpService.registerUserMcpTools(userId, this.graphRegistry),
+    ]);
+  }
+
   /** Normalize a graph interpreter result to the shared engine result shape. */
   private toEngineResult(graph: GraphRunResult): EngineRunResult {
     return {
@@ -242,6 +276,8 @@ export class ExecutionService implements IExecutionService {
     if (execution.status === "RUNNING") {
       throw new Error("Execution is already running");
     }
+
+    await this.syncMcpTools(userId);
 
     // Mark status as RUNNING in database before launching graph run to prevent double-resumes
     await this.executionRepo.updateStatus(executionId, "RUNNING");
@@ -427,6 +463,8 @@ export class ExecutionService implements IExecutionService {
     if (execution.status === "RUNNING") {
       throw new Error("Execution is already running");
     }
+
+    await this.syncMcpTools(userId);
 
     const version = await this.skillRepo.findVersionById(execution.skillVersionId);
     if (!version) throw new Error("Skill version not found");

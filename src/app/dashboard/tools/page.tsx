@@ -11,6 +11,8 @@ import {
   ArrowUpRight,
   Layers,
   Activity,
+  Plug,
+  Server,
 } from "lucide-react";
 import { ToolDefinitionRepository } from "@/repositories/ToolDefinitionRepository";
 import { ExecutionRepository } from "@/repositories/ExecutionRepository";
@@ -20,6 +22,7 @@ import { ToolCategory, ToolDefinitionDTO } from "@/types/tool";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { Reveal } from "@/components/Reveal";
 import { clsx } from "clsx";
+import { McpServerHub } from "./mcp/McpServerHub";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -80,9 +83,10 @@ const healthDot: Record<string, string> = {
 export default async function ToolsDashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string }>;
+  searchParams: Promise<{ category?: string; tab?: string }>;
 }) {
   const params = await searchParams;
+  const activeTab = params.tab === "mcp" ? "mcp" : "tools";
   const activeCategory = (params.category as ToolCategory) || undefined;
 
   const definitionRepo = new ToolDefinitionRepository();
@@ -128,10 +132,10 @@ export default async function ToolsDashboardPage({
         <div>
           <h1 className="text-xl sm:text-2xl font-pixel text-pixel-glow uppercase tracking-wide flex items-center gap-3">
             <Wrench className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
-            PERMITTED TOOLS MATRIX
+            TOOL REGISTRY
           </h1>
           <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 font-mono">
-            System tool definitions with strict schema validation, single-use HITL approval locks, and health telemetry.
+            System tool definitions with strict schema validation, single-use HITL approval locks, health telemetry, and the MCP Server Hub.
           </p>
         </div>
         <Reveal delay={100}>
@@ -140,6 +144,51 @@ export default async function ToolsDashboardPage({
             {pad(TOOL_CATEGORIES.length)} CATEGORIES · {pad(registry.listTools().length)} TOOLS · {pad(totalUsage)} CALLS
           </div>
         </Reveal>
+      </div>
+
+      {/* Tab switcher */}
+      <div className="flex items-center gap-1.5 font-mono border-b border-slate-200 dark:border-indigo-950/60 pb-px">
+        <Link
+          href="/dashboard/tools"
+          className={clsx(
+            "inline-flex items-center gap-1.5 px-3 py-2 rounded-t border text-[10px] uppercase tracking-wider transition-all font-semibold",
+            activeTab === "tools"
+              ? "border-b-0 border-indigo-400 bg-indigo-600 text-white shadow-sm shadow-indigo-500/30"
+              : "border-transparent text-slate-600 dark:text-slate-400 hover:text-indigo-700 dark:hover:text-indigo-300"
+          )}
+        >
+          <Wrench className="h-3.5 w-3.5" />
+          PERMITTED TOOLS MATRIX
+        </Link>
+        <Link
+          href="/dashboard/tools?tab=mcp"
+          className={clsx(
+            "inline-flex items-center gap-1.5 px-3 py-2 rounded-t border text-[10px] uppercase tracking-wider transition-all font-semibold",
+            activeTab === "mcp"
+              ? "border-b-0 border-indigo-400 bg-indigo-600 text-white shadow-sm shadow-indigo-500/30"
+              : "border-transparent text-slate-600 dark:text-slate-400 hover:text-indigo-700 dark:hover:text-indigo-300"
+          )}
+        >
+          <Plug className="h-3.5 w-3.5" />
+          MCP SERVER HUB
+        </Link>
+      </div>
+
+      {activeTab === "mcp" ? (
+        <McpServerHub />
+      ) : (
+      <>
+      {/* Matrix header */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-sm font-mono font-semibold uppercase tracking-widest text-indigo-700 dark:text-indigo-400 flex items-center gap-2">
+            <Server className="h-4 w-4" />
+            PERMITTED TOOLS MATRIX
+          </h2>
+          <p className="text-[10px] font-mono text-slate-600 dark:text-slate-500 mt-0.5 font-medium">
+            Built-in system tools — schema-validated, permission-gated, and health-probed.
+          </p>
+        </div>
       </div>
 
       {/* Category filter chips */}
@@ -293,6 +342,8 @@ export default async function ToolsDashboardPage({
             );
           })}
         </div>
+      )}
+      </>
       )}
     </div>
   );

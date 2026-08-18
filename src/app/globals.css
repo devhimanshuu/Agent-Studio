@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Silkscreen:wght@400;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -35,6 +33,20 @@
     --ring: 243 75% 59%;
 
     --radius: 0.25rem;
+
+    /* Preloader Custom Properties (Light Mode) */
+    --preloader-primary: 243 75% 59%;
+    --preloader-primary-hex: #4f46e5;
+    --preloader-secondary: 199 89% 48%;
+    --preloader-secondary-hex: #0284c7;
+    --preloader-accent: 262 83% 58%;
+    --preloader-accent-hex: #7c3aed;
+    --preloader-bg: 210 40% 98%;
+    --preloader-surface: 0 0% 100%;
+    --preloader-border: 214.3 31.8% 85%;
+    --preloader-text: 222.2 84% 4.9%;
+    --preloader-muted: 215.4 16.3% 45%;
+    --preloader-glow: rgba(79, 70, 229, 0.35);
   }
 
   .dark {
@@ -65,6 +77,20 @@
     --border: 0 0% 14%;
     --input: 0 0% 14%;
     --ring: 225 90% 70%;
+
+    /* Preloader Custom Properties (Dark Mode) */
+    --preloader-primary: 187 92% 55%;
+    --preloader-primary-hex: #00f0ff;
+    --preloader-secondary: 239 84% 67%;
+    --preloader-secondary-hex: #818cf8;
+    --preloader-accent: 263 70% 68%;
+    --preloader-accent-hex: #c084fc;
+    --preloader-bg: 224 71% 4%;
+    --preloader-surface: 222 47% 7%;
+    --preloader-border: 217 33% 20%;
+    --preloader-text: 210 40% 98%;
+    --preloader-muted: 215 20% 65%;
+    --preloader-glow: rgba(0, 240, 255, 0.45);
   }
 
   .cyberpunk {
@@ -95,6 +121,20 @@
     --border: 330 70% 30%;
     --input: 280 40% 10%;
     --ring: 330 100% 55%;
+
+    /* Preloader Custom Properties (Cyberpunk Mode) */
+    --preloader-primary: 330 100% 55%;
+    --preloader-primary-hex: #ff007f;
+    --preloader-secondary: 180 100% 50%;
+    --preloader-secondary-hex: #00f0ff;
+    --preloader-accent: 54 100% 50%;
+    --preloader-accent-hex: #ffe600;
+    --preloader-bg: 280 60% 3%;
+    --preloader-surface: 280 50% 6%;
+    --preloader-border: 330 70% 35%;
+    --preloader-text: 180 100% 95%;
+    --preloader-muted: 180 30% 70%;
+    --preloader-glow: rgba(255, 0, 127, 0.55);
   }
 
   .matrix {
@@ -125,6 +165,20 @@
     --border: 142 60% 20%;
     --input: 140 40% 7%;
     --ring: 142 100% 50%;
+
+    /* Preloader Custom Properties (Matrix Mode) */
+    --preloader-primary: 142 100% 50%;
+    --preloader-primary-hex: #00ff66;
+    --preloader-secondary: 142 70% 40%;
+    --preloader-secondary-hex: #10b981;
+    --preloader-accent: 142 100% 70%;
+    --preloader-accent-hex: #86efac;
+    --preloader-bg: 140 60% 2%;
+    --preloader-surface: 140 45% 4%;
+    --preloader-border: 142 60% 25%;
+    --preloader-text: 142 100% 90%;
+    --preloader-muted: 142 40% 60%;
+    --preloader-glow: rgba(0, 255, 102, 0.55);
   }
 
   .synthwave {
@@ -155,6 +209,20 @@
     --border: 270 45% 25%;
     --input: 270 35% 10%;
     --ring: 280 90% 65%;
+
+    /* Preloader Custom Properties (Synthwave Mode) */
+    --preloader-primary: 280 90% 65%;
+    --preloader-primary-hex: #c084fc;
+    --preloader-secondary: 24 95% 55%;
+    --preloader-secondary-hex: #f97316;
+    --preloader-accent: 330 90% 60%;
+    --preloader-accent-hex: #f43f5e;
+    --preloader-bg: 270 55% 4%;
+    --preloader-surface: 270 45% 6%;
+    --preloader-border: 270 45% 30%;
+    --preloader-text: 280 60% 95%;
+    --preloader-muted: 280 25% 70%;
+    --preloader-glow: rgba(192, 132, 252, 0.55);
   }
 }
 
@@ -265,6 +333,229 @@
 .synthwave .border-tech-active {
   border: 1px solid rgba(249, 115, 22, 0.6);
   box-shadow: 0 0 15px rgba(168, 85, 247, 0.3);
+}
+
+/* =========================================================================
+   Theme Environment Aesthetic Deep-Overrides & Contrast Perfection
+   ========================================================================= */
+
+/* Universal Dark Modes Text Legibility Baseline */
+.dark,
+.cyberpunk,
+.matrix,
+.synthwave {
+  color-scheme: dark;
+}
+
+.light {
+  color-scheme: light;
+}
+
+/* Ensure secondary / muted text across dark themes maintains WCAG AAA contrast */
+:is(.dark, .cyberpunk, .matrix, .synthwave) .text-slate-400 {
+  color: #94a3b8;
+}
+
+:is(.dark, .cyberpunk, .matrix, .synthwave) .text-slate-500 {
+  color: #a1a1aa;
+}
+
+:is(.dark, .cyberpunk, .matrix, .synthwave) .text-slate-600 {
+  color: #cbd5e1;
+}
+
+:is(.dark, .cyberpunk, .matrix, .synthwave) .text-slate-700 {
+  color: #e2e8f0;
+}
+
+:is(.dark, .cyberpunk, .matrix, .synthwave) .text-slate-800 {
+  color: #f1f5f9;
+}
+
+:is(.dark, .cyberpunk, .matrix, .synthwave) .text-slate-900 {
+  color: #ffffff;
+}
+
+/* Cyberpunk 2077 Theme Overrides */
+.cyberpunk body {
+  background-color: #08000f !important;
+}
+
+.cyberpunk [class*="dark:bg-[#0a0a0a]"],
+.cyberpunk [class*="dark:bg-[#0b0b12]"],
+.cyberpunk [class*="dark:bg-black/"],
+.cyberpunk [class*="dark:bg-black"],
+.cyberpunk [class*="dark:bg-indigo-950/"],
+.cyberpunk [class*="dark:bg-indigo-950"] {
+  background-color: rgba(14, 2, 24, 0.92) !important;
+}
+
+.cyberpunk [class*="dark:border-indigo-900"],
+.cyberpunk [class*="dark:border-indigo-950"],
+.cyberpunk [class*="dark:border-slate-700"],
+.cyberpunk [class*="dark:border-slate-800"] {
+  border-color: rgba(255, 0, 127, 0.35) !important;
+}
+
+.cyberpunk [class*="dark:text-indigo-400"],
+.cyberpunk [class*="dark:text-indigo-300"] {
+  color: #00f0ff !important;
+}
+
+.cyberpunk [class*="dark:text-indigo-200"] {
+  color: #ff007f !important;
+}
+
+.cyberpunk .text-slate-400,
+.cyberpunk .text-slate-500 {
+  color: #a5f3fc !important;
+}
+
+.cyberpunk .text-slate-600,
+.cyberpunk .text-slate-700 {
+  color: #e0f2fe !important;
+}
+
+.cyberpunk input,
+.cyberpunk textarea,
+.cyberpunk select {
+  background-color: #130324 !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 0, 127, 0.4) !important;
+}
+
+.cyberpunk input::placeholder,
+.cyberpunk textarea::placeholder {
+  color: #00f0ff88 !important;
+}
+
+/* Matrix Phosphor Theme Overrides */
+.matrix body {
+  background-color: #020803 !important;
+}
+
+.matrix [class*="dark:bg-[#0a0a0a]"],
+.matrix [class*="dark:bg-[#0b0b12]"],
+.matrix [class*="dark:bg-black/"],
+.matrix [class*="dark:bg-black"],
+.matrix [class*="dark:bg-indigo-950/"],
+.matrix [class*="dark:bg-indigo-950"] {
+  background-color: rgba(3, 14, 5, 0.92) !important;
+}
+
+.matrix [class*="dark:border-indigo-900"],
+.matrix [class*="dark:border-indigo-950"],
+.matrix [class*="dark:border-slate-700"],
+.matrix [class*="dark:border-slate-800"] {
+  border-color: rgba(0, 255, 102, 0.28) !important;
+}
+
+.matrix [class*="dark:text-indigo-400"],
+.matrix [class*="dark:text-indigo-300"],
+.matrix [class*="dark:text-indigo-200"] {
+  color: #86efac !important;
+}
+
+.matrix .text-slate-400,
+.matrix .text-slate-500 {
+  color: #86efac !important;
+}
+
+.matrix .text-slate-600,
+.matrix .text-slate-700 {
+  color: #bbf7d0 !important;
+}
+
+.matrix input,
+.matrix textarea,
+.matrix select {
+  background-color: #041708 !important;
+  color: #86efac !important;
+  border-color: rgba(0, 255, 102, 0.35) !important;
+}
+
+.matrix input::placeholder,
+.matrix textarea::placeholder {
+  color: #00ff6677 !important;
+}
+
+/* Synthwave 80s Theme Overrides */
+.synthwave body {
+  background-color: #0f051d !important;
+}
+
+.synthwave [class*="dark:bg-[#0a0a0a]"],
+.synthwave [class*="dark:bg-[#0b0b12]"],
+.synthwave [class*="dark:bg-black/"],
+.synthwave [class*="dark:bg-black"],
+.synthwave [class*="dark:bg-indigo-950/"],
+.synthwave [class*="dark:bg-indigo-950"] {
+  background-color: rgba(22, 8, 42, 0.92) !important;
+}
+
+.synthwave [class*="dark:border-indigo-900"],
+.synthwave [class*="dark:border-indigo-950"],
+.synthwave [class*="dark:border-slate-700"],
+.synthwave [class*="dark:border-slate-800"] {
+  border-color: rgba(192, 132, 252, 0.32) !important;
+}
+
+.synthwave [class*="dark:text-indigo-400"],
+.synthwave [class*="dark:text-indigo-300"] {
+  color: #f97316 !important;
+}
+
+.synthwave [class*="dark:text-indigo-200"] {
+  color: #e879f9 !important;
+}
+
+.synthwave .text-slate-400,
+.synthwave .text-slate-500 {
+  color: #fcd34d !important;
+}
+
+.synthwave .text-slate-600,
+.synthwave .text-slate-700 {
+  color: #f3e8ff !important;
+}
+
+.synthwave input,
+.synthwave textarea,
+.synthwave select {
+  background-color: #1c0b36 !important;
+  color: #ffffff !important;
+  border-color: rgba(192, 132, 252, 0.4) !important;
+}
+
+.synthwave input::placeholder,
+.synthwave textarea::placeholder {
+  color: #f9731677 !important;
+}
+
+/* Light Mode High-Contrast Enforcement */
+.light body {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+.light .text-slate-600 {
+  color: #334155 !important;
+}
+
+.light .text-slate-500 {
+  color: #475569 !important;
+}
+
+.light .text-slate-400 {
+  color: #64748b !important;
+}
+
+.light input,
+.light textarea,
+.light select {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
 }
 
 
@@ -946,5 +1237,182 @@
   border: 1px solid rgba(192, 132, 252, 0.4) !important;
   color: #f3e8ff !important;
 }
+
+/* =========================================================================
+   Agent Studio Preloader Custom Keyframes & Utilities (Zero-Dependency)
+   ========================================================================= */
+
+@keyframes preloader-radar-pulse {
+  0% {
+    r: 32px;
+    opacity: 0.85;
+    stroke-width: 2px;
+  }
+  50% {
+    opacity: 0.45;
+  }
+  100% {
+    r: 92px;
+    opacity: 0;
+    stroke-width: 0.5px;
+  }
+}
+
+@keyframes preloader-orbit-cw {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes preloader-orbit-ccw {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes preloader-packet-flow {
+  0% {
+    stroke-dashoffset: 48;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes preloader-scanline {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(1000%);
+  }
+}
+
+@keyframes preloader-glitch-text {
+  0%, 100% { transform: translate(0); }
+  20% { transform: translate(-2px, 1px); }
+  40% { transform: translate(2px, -1px); }
+  60% { transform: translate(-1px, 0); }
+  80% { transform: translate(1px, 1px); }
+}
+
+@keyframes preloader-segment-active {
+  0%, 100% {
+    opacity: 1;
+    filter: brightness(1.25) drop-shadow(0 0 8px currentColor);
+  }
+  50% {
+    opacity: 0.7;
+    filter: brightness(0.95);
+  }
+}
+
+.animate-preloader-radar-1 {
+  animation: preloader-radar-pulse 2.8s cubic-bezier(0.2, 0.8, 0.4, 1) infinite;
+  transform-origin: center;
+}
+
+.animate-preloader-radar-2 {
+  animation: preloader-radar-pulse 2.8s cubic-bezier(0.2, 0.8, 0.4, 1) 0.9s infinite;
+  transform-origin: center;
+}
+
+.animate-preloader-radar-3 {
+  animation: preloader-radar-pulse 2.8s cubic-bezier(0.2, 0.8, 0.4, 1) 1.8s infinite;
+  transform-origin: center;
+}
+
+.animate-preloader-orbit-cw {
+  animation: preloader-orbit-cw 20s linear infinite;
+  transform-origin: center;
+}
+
+.animate-preloader-orbit-ccw {
+  animation: preloader-orbit-ccw 14s linear infinite;
+  transform-origin: center;
+}
+
+.animate-preloader-packet-flow {
+  animation: preloader-packet-flow 1.2s linear infinite;
+}
+
+.animate-preloader-scanline {
+  animation: preloader-scanline 6s linear infinite;
+}
+
+.animate-preloader-glitch {
+  animation: preloader-glitch-text 0.4s ease-in-out infinite;
+}
+
+.animate-preloader-segment-active {
+  animation: preloader-segment-active 1.2s ease-in-out infinite;
+}
+
+.preloader-grid-bg {
+  background-size: 32px 32px;
+  background-image: 
+    linear-gradient(to right, hsla(var(--preloader-primary) / 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, hsla(var(--preloader-primary) / 0.05) 1px, transparent 1px);
+}
+
+.preloader-glow-primary {
+  box-shadow: 0 0 25px hsla(var(--preloader-primary) / 0.35), inset 0 0 15px hsla(var(--preloader-primary) / 0.2);
+}
+
+.preloader-glow-text {
+  text-shadow: 0 0 12px hsla(var(--preloader-primary) / 0.6), 0 0 24px hsla(var(--preloader-secondary) / 0.4);
+}
+
+/* =========================================================================
+   Custom 404 Page Multi-Theme Styling
+   ========================================================================= */
+
+.not-found-radar-glow {
+  box-shadow: 0 0 35px rgba(239, 68, 68, 0.25), inset 0 0 20px rgba(239, 68, 68, 0.15);
+}
+
+.cyberpunk .not-found-radar-glow {
+  box-shadow: 0 0 35px rgba(255, 0, 127, 0.4), inset 0 0 20px rgba(0, 240, 255, 0.2);
+}
+
+.matrix .not-found-radar-glow {
+  box-shadow: 0 0 35px rgba(0, 255, 102, 0.35), inset 0 0 20px rgba(0, 255, 102, 0.2);
+}
+
+.synthwave .not-found-radar-glow {
+  box-shadow: 0 0 35px rgba(249, 115, 22, 0.4), inset 0 0 20px rgba(192, 132, 252, 0.2);
+}
+
+.not-found-title-glow {
+  text-shadow: 0 0 20px rgba(239, 68, 68, 0.6), 0 0 40px rgba(239, 68, 68, 0.3);
+}
+
+.cyberpunk .not-found-title-glow {
+  color: #ff007f !important;
+  text-shadow: 0 0 20px rgba(255, 0, 127, 0.8), 0 0 40px rgba(0, 240, 255, 0.5) !important;
+}
+
+.matrix .not-found-title-glow {
+  color: #00ff66 !important;
+  text-shadow: 0 0 20px rgba(0, 255, 102, 0.8), 0 0 40px rgba(16, 185, 129, 0.5) !important;
+}
+
+.synthwave .not-found-title-glow {
+  color: #f97316 !important;
+  text-shadow: 0 0 20px rgba(249, 115, 22, 0.8), 0 0 40px rgba(192, 132, 252, 0.5) !important;
+}
+
+.light .not-found-title-glow {
+  color: #dc2626 !important;
+  text-shadow: 0 2px 10px rgba(220, 38, 38, 0.25) !important;
+}
+
+
 
 

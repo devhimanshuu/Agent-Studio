@@ -98,6 +98,12 @@ Users can visually design **Multi-Agent Graphs**, orchestrate **Chained Workflow
 ### 🎮 8. Interactive Live Canvas Landing Page
 - **Zero-Login Interactive Playground**: Visitors can explore, step through, and test real multi-agent execution graphs directly on the public landing page with live streaming node animations and trace telemetry.
 
+### 🔌 9. Model Context Protocol (MCP) Ecosystem
+- **MCP Client Hub (`/dashboard/tools?tab=mcp`)**: Connect remote **SSE / Streamable HTTP** endpoints and local **stdio** MCP servers, auto-discover their `tools/list` definitions, validate schemas, and register them as first-class tools inside the LangGraph runtime (permission-gated via `allowedTools`, HITL approval for WRITE tools, 15s timeouts, and circuit breakers).
+- **1-Click Ecosystem Presets**: GitHub, Postgres, SQLite, Web Fetch, Brave Search, and Filesystem — with connect modals for endpoint URLs and auth tokens.
+- **Live Tool Testing**: Inspect discovered JSON schemas and execute real payloads straight from the hub.
+- **Agent Studio as an MCP Server**: External agents (Cursor, Claude Desktop, Antigravity) connect to `/api/mcp/sse` (Streamable HTTP + SSE) and get every published workflow as a callable `run_skill_*` tool. Auth via Clerk session or `MCP_ACCESS_TOKEN` bearer token.
+
 ---
 
 ## 🏗️ Clean & Layered Architecture
@@ -239,6 +245,7 @@ cp .env.example .env.local
 | `GROQ_API_KEY` | ⬜ | Groq API key for ultra-fast open LLM execution |
 | `OPENROUTER_API_KEY` | ⬜ | OpenRouter API key for redundant multi-model fallback |
 | `NEXT_PUBLIC_APP_URL` | ⬜ | App URL for OpenRouter attribution headers |
+| `MCP_ACCESS_TOKEN` | ⬜ | Bearer token external MCP clients (Cursor / Claude Desktop) use to connect to `/api/mcp/sse` |
 
 ### 3. Install & Initialize Database
 
@@ -298,6 +305,15 @@ All endpoints require Clerk session authentication. Responses follow a standardi
 | `GET / POST` | `/api/approvals` | List pending approvals or submit an idempotent response |
 | `GET` | `/api/audit` | Fetch searchable audit history with JSON export |
 | `GET` | `/api/tools` | List registered tools and live health status |
+| `GET / POST` | `/api/mcp/servers` | List the user's MCP servers or connect a new one |
+| `GET / PATCH / DELETE` | `/api/mcp/servers/:id` | Retrieve, update, or delete an MCP server |
+| `POST` | `/api/mcp/servers/:id/connect` | Connect + discover tools from an MCP server |
+| `POST` | `/api/mcp/servers/:id/disconnect` | Disconnect an MCP server |
+| `POST` | `/api/mcp/servers/:id/discover` | Re-run `tools/list` and refresh the cached tool definitions |
+| `GET` | `/api/mcp/servers/:id/health` | Live latency probe + circuit status |
+| `POST` | `/api/mcp/servers/:id/test` | Live-execute a discovered MCP tool with a test payload |
+| `GET / POST` | `/api/mcp/sse` | **MCP Server**: external agents connect here (Streamable HTTP / SSE) |
+| `POST` | `/api/mcp/messages` | **MCP Server**: message endpoint for open sessions |
 | `GET` | `/api/settings/providers` | Query LLM provider health and active model rosters |
 
 For full request/response schemas and examples, see [`docs/API.md`](docs/API.md).
@@ -324,6 +340,7 @@ npm run typecheck
 - Skill CRUD, schema validation, draft auto-rotation, and immutable version comparisons
 - Tool registry self-registration, permission gates, and execution failure handling
 - Approval engine idempotency, duplicate response prevention, race condition handling, and timeouts
+- MCP protocol parsing (`tools/list` mapping, JSON-RPC), tool schema adaptation (JSON Schema → Zod), circuit breakers, and remote MCP tools executing inside the LangGraph engine with HITL approval locks
 - LLM Router circuit-breaker failover, error categorizations, and cooldown recovery
 - Execution resume, retry logic, step boundaries, and structured audit logs
 

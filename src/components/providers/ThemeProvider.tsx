@@ -3,34 +3,28 @@
 import * as React from "react";
 import { ThemeProvider as NextThemesProvider, useTheme } from "next-themes";
 
+const ALL_THEMES = ["light", "dark", "cyberpunk", "matrix", "synthwave"];
+
 function ThemeClassSync() {
   const { theme, resolvedTheme } = useTheme();
 
   React.useEffect(() => {
     if (typeof document === "undefined") return;
     const root = document.documentElement;
+    const currentTheme = theme || resolvedTheme || "dark";
 
-    const syncDark = () => {
-      const activeTheme = root.getAttribute("class") || theme || resolvedTheme || "dark";
-      if (activeTheme.includes("light") && !activeTheme.includes("dark") && !activeTheme.includes("cyberpunk") && !activeTheme.includes("matrix") && !activeTheme.includes("synthwave")) {
-        root.classList.remove("dark");
-      } else {
-        if (!root.classList.contains("dark")) {
-          root.classList.add("dark");
-        }
-      }
-    };
+    // Strip any existing theme classes
+    ALL_THEMES.forEach((t) => root.classList.remove(t));
 
-    syncDark();
-
-    // Observe changes to html class made by next-themes
-    const observer = new MutationObserver(() => {
-      syncDark();
-    });
-
-    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
-
-    return () => observer.disconnect();
+    if (currentTheme === "light") {
+      root.classList.add("light");
+      root.classList.remove("dark");
+    } else if (currentTheme === "dark") {
+      root.classList.add("dark");
+    } else {
+      // Dark themes with custom variable palettes (cyberpunk, matrix, synthwave)
+      root.classList.add("dark", currentTheme);
+    }
   }, [theme, resolvedTheme]);
 
   return null;

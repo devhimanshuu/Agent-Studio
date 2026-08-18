@@ -56,7 +56,7 @@ export function Header() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-slate-200 dark:border-indigo-900/40 bg-white/90 dark:bg-black/90 backdrop-blur-md font-mono text-slate-900 dark:text-slate-100 transition-colors duration-200 shadow-sm dark:shadow-none">
+      <header className="sticky top-0 z-40 border-b border-slate-200 dark:border-indigo-900/40 bg-white dark:bg-black font-mono text-slate-900 dark:text-slate-100 transition-colors duration-200 shadow-sm dark:shadow-none">
         {/* Main Header Row */}
         <div className="px-3 sm:px-6 h-16 flex items-center justify-between gap-2 sm:gap-3">
           {/* Left: Hamburger (on dashboard) + Brand Logo */}
@@ -66,7 +66,7 @@ export function Header() {
                 type="button"
                 onClick={toggleMobileOpen}
                 aria-label="Toggle Navigation Drawer"
-                className="md:hidden p-1.5 rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all cursor-pointer"
+                className="md:hidden p-1.5 rounded border border-indigo-300 dark:border-indigo-500/60 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-all cursor-pointer"
               >
                 {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </button>
@@ -97,7 +97,7 @@ export function Header() {
                 type="button"
                 onClick={() => setLandingMenuOpen(!landingMenuOpen)}
                 aria-label="Toggle Navigation Menu"
-                className="lg:hidden p-1.5 rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 transition-all"
+                className="lg:hidden p-1.5 rounded border border-indigo-300 dark:border-indigo-500/60 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-all"
               >
                 {landingMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
               </button>
@@ -109,8 +109,7 @@ export function Header() {
                   type="button"
                   onClick={() => setThemeMenuOpen(!themeMenuOpen)}
                   title={`Current Theme: ${currentThemeObj.name}. Click to switch.`}
-                  aria-label="Toggle theme selector"
-                  className="p-1.5 sm:px-2.5 sm:py-1.5 rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-mono"
+                  aria-label="Toggle theme selector"                    className="p-1.5 sm:px-2.5 sm:py-1.5 rounded border border-indigo-300 dark:border-indigo-500/60 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-mono"
                 >
                   <CurrentIcon className={`h-4 w-4 ${currentThemeObj.color}`} />
                   <span className="hidden sm:inline font-bold tracking-wider uppercase text-[10px]">
@@ -119,7 +118,7 @@ export function Header() {
                 </button>
 
                 {themeMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 rounded border border-slate-200 dark:border-indigo-900/60 bg-white/95 dark:bg-black/95 backdrop-blur-md shadow-xl py-1.5 z-50 font-mono text-xs animate-in fade-in zoom-in-95 duration-100">
+                  <div                className="absolute right-0 mt-2 w-48 rounded border border-slate-200 dark:border-indigo-900/60 bg-white dark:bg-black shadow-xl py-1.5 z-50 font-mono text-xs animate-in fade-in zoom-in-95 duration-100">
                     <div className="px-3 py-1 text-[10px] text-slate-400 font-bold uppercase tracking-wider border-b border-slate-100 dark:border-indigo-950/60 mb-1 flex items-center gap-1.5">
                       <Palette className="h-3 w-3 text-indigo-400" />
                       THEME ENVIRONMENT
@@ -160,7 +159,7 @@ export function Header() {
                   <button
                     title="Sign In"
                     aria-label="Sign In"
-                    className="inline-flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-xs font-mono text-indigo-700 dark:text-indigo-200 hover:border-indigo-400 hover:text-indigo-900 dark:hover:text-white transition-all whitespace-nowrap cursor-pointer"
+                    className="inline-flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded border border-indigo-300 dark:border-indigo-500/60 bg-indigo-100 dark:bg-indigo-900 text-xs font-mono text-indigo-700 dark:text-indigo-200 hover:border-indigo-400 hover:bg-indigo-200 dark:hover:bg-indigo-800 hover:text-indigo-900 dark:hover:text-white transition-all whitespace-nowrap cursor-pointer"
                   >
                     <LogIn className="h-4 w-4 sm:h-3.5 sm:w-3.5 shrink-0 text-indigo-600 dark:text-indigo-400" />
                     <span className="hidden sm:inline">[ SIGN IN ]</span>
@@ -237,7 +236,7 @@ export function Header() {
                 <SignInButton mode="modal">
                   <button
                     onClick={() => setLandingMenuOpen(false)}
-                    className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-xs font-mono text-indigo-700 dark:text-indigo-200 hover:border-indigo-400 transition-all"
+                    className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded border border-indigo-300 dark:border-indigo-500/60 bg-indigo-100 dark:bg-indigo-900 text-xs font-mono text-indigo-700 dark:text-indigo-200 hover:bg-indigo-200 dark:hover:bg-indigo-800 hover:border-indigo-400 transition-all"
                   >
                     <LogIn className="h-4 w-4 shrink-0" />
                     [ SIGN IN ]

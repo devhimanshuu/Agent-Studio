@@ -1,0 +1,108 @@
+import { ToolType } from "./tool";
+
+/** Transports supported by the MCP client hub. */
+export type McpTransport = "SSE" | "STDIO";
+
+export type McpServerStatus = "CONNECTED" | "DISCONNECTED" | "ERROR";
+
+/** A tool discovered from a remote MCP server via `tools/list`. */
+export interface McpToolDefinition {
+  /** Server-local tool name (e.g. `create_issue`). */
+  name: string;
+  description?: string;
+  /** JSON Schema (draft-07 style) accepted by the tool. */
+  inputSchema: Record<string, unknown>;
+  /** MCP tool annotations — hints about safety/idempotency. */
+  annotations?: {
+    title?: string;
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+    idempotentHint?: boolean;
+    openWorldHint?: boolean;
+  } | null;
+  /** Whether the tool mutates external state (derived from annotations + heuristics). */
+  isWrite: boolean;
+  /** Whether invoking this tool must pause for HITL approval. */
+  requiresApproval: boolean;
+}
+
+/** Persisted row for a configured MCP server (multi-tenant by userId). */
+export interface McpServerDTO {
+  id: string;
+  userId: string;
+  name: string;
+  transport: McpTransport;
+  endpointUrl?: string | null;
+  command?: string | null;
+  headers?: Record<string, string> | null;
+  status: McpServerStatus;
+  /** Cached discovered tool definitions + schemas (JSON). */
+  cachedTools: McpToolDefinition[];
+  lastError?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** Input to register a new MCP server connection. */
+export interface CreateMcpServerInput {
+  userId: string;
+  name: string;
+  transport: McpTransport;
+  endpointUrl?: string;
+  command?: string;
+  headers?: Record<string, string>;
+  /** When true, connect + discover tools immediately (default true). */
+  connectOnCreate?: boolean;
+}
+
+/** Input to update an existing server (name / endpoint / headers / command). */
+export interface UpdateMcpServerInput {
+  name?: string;
+  endpointUrl?: string;
+  command?: string;
+  headers?: Record<string, string>;
+  /** Null clears the stored headers. */
+  clearHeaders?: boolean;
+}
+
+/** Live health probe result for one server. */
+export interface McpHealth {
+  serverId: string;
+  status: "healthy" | "degraded" | "unavailable";
+  latencyMs: number;
+  message?: string;
+  toolCount: number;
+}
+
+/** Live execution of a discovered MCP tool from the hub UI. */
+export interface McpToolTestResult {
+  ok: boolean;
+  durationMs: number;
+  output?: unknown;
+  error?: string;
+  toolName: string;
+  serverId: string;
+}
+
+/** One-click ecosystem preset shown in the MCP Server Hub. */
+export interface McpPreset {
+  id: string;
+  name: string;
+  transport: McpTransport;
+  endpointUrl?: string;
+  command?: string;
+  /** Placeholder template for required auth headers (e.g. `Bearer ${GITHUB_PAT}`). */
+  headers?: Record<string, string>;
+  description: string;
+  requiresAuthToken: boolean;
+}
+
+/** Registry tool type for MCP tools (kept for typing the hub UI). */
+export type McpToolType = ToolType;
+
+/** A registered skill/workflow exposed as an MCP tool on the Agent Studio server. */
+export interface McpSkillToolDefinition {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+}

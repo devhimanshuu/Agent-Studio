@@ -10,7 +10,6 @@ import {
   Wrench,
   Shield,
   ShieldCheck,
-  UserCheck,
   Database,
   Zap,
   HelpCircle,
@@ -44,19 +43,26 @@ import {
   Link2,
   TriangleAlert,
   BarChart3,
-  LogIn,
   Sparkles,
   Network,
   Webhook,
   Camera,
 } from "lucide-react";
-import { SignInButton, SignUpButton, SignedIn, SignedOut } from "@clerk/nextjs";
-import { LiveExecutionTerminal } from "@/components/landing/LiveExecutionTerminal";
-import { LiveAgentCanvasDemo } from "@/components/landing/LiveAgentCanvasDemo";
-import { PixelGridWave } from "@/components/landing/PixelGridWave";
-import { NeuralPatterns } from "@/components/landing/NeuralPatterns";
-import { FooterPortfolioWidget } from "@/components/landing/FooterPortfolioWidget";
+import dynamic from "next/dynamic";
 import { Reveal } from "@/components/Reveal";
+
+// These are all `"use client"` components — client components render on the
+// server too, so `ssr: false` is both unnecessary and rejected by Next 15 in
+// Server Components (the page module). Lazy-loading without it keeps the
+// route split while staying build-safe.
+const LiveExecutionTerminal = dynamic(() => import("@/components/landing/LiveExecutionTerminal").then((m) => m.LiveExecutionTerminal));
+const LiveAgentCanvasDemo = dynamic(() => import("@/components/landing/LiveAgentCanvasDemo").then((m) => m.LiveAgentCanvasDemo));
+const PixelGridWave = dynamic(() => import("@/components/landing/PixelGridWave").then((m) => m.PixelGridWave));
+const NeuralPatterns = dynamic(() => import("@/components/landing/NeuralPatterns").then((m) => m.NeuralPatterns));
+const FooterPortfolioWidget = dynamic(() => import("@/components/landing/FooterPortfolioWidget").then((m) => m.FooterPortfolioWidget));
+const HeroAuthSection = dynamic(() => import("@/components/landing/HeroAuthSection").then((m) => m.HeroAuthSection));
+const FooterAuthCTA = dynamic(() => import("@/components/landing/HeroAuthSection").then((m) => m.FooterAuthCTA));
+
 
 const runtimeNodes = [
   {
@@ -413,62 +419,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          {/* Dynamic Auth Status Indicator */}
-          <div className="animate-fadeInUp font-mono text-xs" style={{ animationDelay: "250ms" }}>
-            <SignedIn>
-              <div className="inline-flex max-w-full items-center gap-2 px-3 py-1.5 rounded border border-emerald-400/40 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 shadow-sm text-[11px] font-semibold">
-                <UserCheck className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                <span className="truncate">AUTHENTICATED · WORKSPACE ACCESS GRANTED</span>
-              </div>
-            </SignedIn>
-          </div>
-
-          {/* CTAs */}
-          <div className="animate-fadeInUp flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 pt-2 font-mono text-xs" style={{ animationDelay: "300ms" }}>
-            <SignedOut>
-              <SignUpButton mode="modal">
-                <button className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded border border-indigo-500 bg-indigo-600 text-white font-semibold hover:bg-indigo-500 shadow-lg shadow-indigo-500/25 transition-all text-sm cursor-pointer w-full sm:w-auto">
-                  <Sparkles className="h-4 w-4" />
-                  Get Started Free <ArrowRight className="h-4 w-4" />
-                </button>
-              </SignUpButton>
-
-              <SignInButton mode="modal">
-                <button className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded border border-indigo-300 dark:border-indigo-500/40 bg-white dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-200 hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/60 shadow-sm transition-all text-sm cursor-pointer w-full sm:w-auto text-center font-medium">
-                  <LogIn className="h-4 w-4" />
-                  Sign In
-                </button>
-              </SignInButton>
-            </SignedOut>
-
-            <SignedIn>
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded border border-indigo-500 bg-indigo-600 text-white font-semibold hover:bg-indigo-500 shadow-lg shadow-indigo-500/25 transition-all text-sm cursor-pointer w-full sm:w-auto"
-              >
-                <Sparkles className="h-4 w-4" />
-                Open Studio Dashboard <ArrowRight className="h-4 w-4" />
-              </Link>
-            </SignedIn>
-
-            <a
-              href="#canvas"
-              className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded border border-slate-300 dark:border-indigo-900/60 bg-white/80 dark:bg-black/60 text-slate-800 dark:text-slate-200 hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 shadow-sm transition-all text-sm cursor-pointer w-full sm:w-auto font-medium"
-            >
-              <MousePointerClick className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-              Live Interactive Demo
-            </a>
-
-            <a
-              href="https://github.com/devhimanshuu/Agent-Studio"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center justify-center gap-2 px-4 py-3.5 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/60 dark:bg-indigo-950/30 text-slate-600 dark:text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 shadow-sm transition-all text-xs w-full sm:w-auto"
-            >
-              <Terminal className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-              GitHub
-            </a>
-          </div>
+          <HeroAuthSection />
 
           {/* Trust Guarantees Strip */}
           <div className="animate-fadeInUp pt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-[11px] font-mono text-slate-600 dark:text-slate-400" style={{ animationDelay: "350ms" }}>
@@ -1016,12 +967,7 @@ export default function LandingPage() {
 
         <Reveal delay={200}>
           <div className="flex justify-center gap-4 pt-2">
-            <SignUpButton mode="modal">
-              <button className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded border border-indigo-500 bg-indigo-600 text-white font-semibold hover:bg-indigo-500 shadow-lg shadow-indigo-500/30 transition-all text-sm cursor-pointer w-full sm:w-auto">
-                <Sparkles className="h-4 w-4" />
-                Get Started Free <ArrowRight className="h-4 w-4" />
-              </button>
-            </SignUpButton>
+            <FooterAuthCTA />
           </div>
         </Reveal>
 
