@@ -35,21 +35,21 @@ export function ConfirmDialog({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="relative w-full max-w-md rounded border border-indigo-900/50 bg-black p-6 font-mono shadow-2xl shadow-indigo-950/80 animate-fadeInUp"
+        className="relative w-full max-w-md rounded border border-slate-200 dark:border-indigo-900/50 bg-white dark:bg-black p-6 font-mono shadow-2xl dark:shadow-indigo-950/80 animate-fadeInUp"
       >
         <div className="flex items-start gap-3">
           <div
             className={
               isDanger
-                ? "p-2 rounded border border-red-500/40 bg-red-950/30 text-red-400 shrink-0"
-                : "p-2 rounded border border-amber-500/40 bg-amber-950/30 text-amber-400 shrink-0"
+                ? "p-2 rounded border border-red-300 dark:border-red-500/40 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 shrink-0"
+                : "p-2 rounded border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 shrink-0"
             }
           >
             <AlertTriangle className="h-5 w-5" />
           </div>
           <div className="space-y-2">
-            <h3 className="text-sm font-semibold text-slate-100 uppercase tracking-wide">{title}</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">{description}</p>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 uppercase tracking-wide">{title}</h3>
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{description}</p>
           </div>
         </div>
 
@@ -58,7 +58,7 @@ export function ConfirmDialog({
             type="button"
             onClick={onClose}
             disabled={isPending}
-            className="w-full sm:w-auto px-4 py-2 rounded border border-indigo-500/40 bg-indigo-950/40 text-xs font-mono text-indigo-200 hover:border-indigo-400 hover:text-white transition-all cursor-pointer disabled:opacity-50 text-center"
+            className="w-full sm:w-auto px-4 py-2 rounded border border-slate-300 dark:border-indigo-500/40 bg-slate-100 dark:bg-indigo-950/40 text-xs font-mono text-slate-700 dark:text-indigo-200 hover:border-indigo-400 hover:bg-slate-200 dark:hover:bg-indigo-900/60 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer disabled:opacity-50 text-center font-semibold"
           >
             [ CANCEL ]
           </button>

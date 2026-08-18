@@ -52,6 +52,24 @@ export class ToolRegistry {
     this.tools.set(tool.name, tool);
   }
 
+  /**
+   * Idempotent bulk registration: tools are added or REPLACED by name. Used by
+   * the MCP client hub to sync a user's dynamically discovered tools onto a
+   * shared registry before a run (re-discovery must not throw on duplicates).
+   */
+  syncTools(tools: Tool[]): void {
+    for (const tool of tools) {
+      if (!tool?.name || tool.id !== tool.name) continue;
+      if (!isToolCategory(tool.category)) continue;
+      this.tools.set(tool.name, tool);
+    }
+  }
+
+  /** Remove a registered tool by name (used to scrub MCP tools on disconnect). */
+  unregisterTool(name: string): void {
+    this.tools.delete(name);
+  }
+
   getTool(name: string): Tool | null {
     return this.tools.get(name) ?? null;
   }

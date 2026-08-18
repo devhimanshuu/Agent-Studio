@@ -61,7 +61,7 @@ export default function ComparePage() {
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto font-mono">
+    <div className="space-y-6 w-full font-mono">
       {/* Header */}
       <div className="border-b border-slate-200 dark:border-indigo-950/80 pb-5">
         <h1 className="text-xl sm:text-2xl font-pixel text-pixel-glow uppercase tracking-wide flex items-center gap-3">

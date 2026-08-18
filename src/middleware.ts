@@ -6,12 +6,16 @@ const isProtectedRoute = createRouteMatcher([
   '/executions(.*)',
   '/versions(.*)',
   '/approvals(.*)',
-  /^\/api\/(?!health)(.*)/,
+  // /api/mcp/sse + /api/mcp/messages are the Agent Studio MCP *server* routes:
+  // they perform their own auth (Clerk session OR bearer token) so external
+  // MCP clients (Cursor, Claude Desktop) can connect without a Clerk cookie.
+  /^\/api\/(?!health|mcp\/sse|mcp\/messages)(.*)/,
 ])
 
 export default clerkMiddleware(async (auth, req) => {
-  // Signed-in users landing on `/` are sent straight to the dashboard
   const { userId } = await auth()
+
+  // Signed-in users hitting the landing page → straight to dashboard
   if (userId && req.nextUrl.pathname === '/') {
     return NextResponse.redirect(new URL('/dashboard', req.url))
   }

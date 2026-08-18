@@ -51,6 +51,10 @@ export class ExecutionRepository implements IExecutionRepository {
     return executions.map((e) => this.mapExecution(e));
   }
 
+  async countByUserId(userId: string): Promise<number> {
+    return prisma.execution.count({ where: { userId } });
+  }
+
   async create(input: StartExecutionInput, maxSteps: number, skillName?: string): Promise<ExecutionDTO> {
     await ensureUserExists(input.userId);
     const execution = await prisma.execution.create({
@@ -76,6 +80,7 @@ export class ExecutionRepository implements IExecutionRepository {
 
     if (query.status) where.status = query.status as Prisma.EnumExecutionStatusFilter;
     if (query.skillName) where.skillName = { contains: query.skillName, mode: "insensitive" };
+    if (query.skillVersionId) where.skillVersionId = query.skillVersionId;
     if (query.provider) where.provider = { contains: query.provider, mode: "insensitive" };
 
     // Defense in depth: routes validate these params and return 400 first, but

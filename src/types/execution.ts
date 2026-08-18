@@ -84,6 +84,8 @@ export interface ExecutionQuery {
   search?: string;
   status?: ExecutionStatus | "";
   skillName?: string;
+  /** Filter to executions of one skill version (canvas replay + coverage). */
+  skillVersionId?: string;
   provider?: string;
   from?: string;
   to?: string;
@@ -96,4 +98,9 @@ export interface StartExecutionInput {
   userId: string;
   skillVersionId: string;
   inputData: Record<string, unknown>;
+  /**
+   * Deterministic replay for graph versions: recorded LLM outputs keyed by
+   * node id, replayed instead of re-invoking the model.
+   */
+  replayOutputs?: Record<string, unknown>;
 }

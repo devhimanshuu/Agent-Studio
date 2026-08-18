@@ -4,7 +4,7 @@ import React from "react";
 import { useTheme } from "next-themes";
 import { UserProfile } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
-import { Sliders, Sun, Moon, Cpu, ServerCog } from "lucide-react";
+import { Sliders, Sun, Moon, Cpu, ServerCog, Palette, Zap, Terminal, Sparkles } from "lucide-react";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { Skeleton } from "@/components/feedback/Skeleton";
 import { ProviderStatus } from "@/types/settings";
@@ -145,7 +145,7 @@ function ProviderCard({ status }: { status: ProviderStatus }) {
 }
 
 export default function SettingsPage() {
-  const { resolvedTheme, setTheme } = useTheme();
+  const { theme, resolvedTheme, setTheme } = useTheme();
 
   const { data: status, isLoading, isError, refetch } = useQuery<ProviderStatus>({
     queryKey: ["providerStatus"],
@@ -153,7 +153,7 @@ export default function SettingsPage() {
   });
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-6 w-full">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-indigo-950/80 pb-5">
         <div>
@@ -168,44 +168,134 @@ export default function SettingsPage() {
       </div>
 
       {/* Appearance */}
-      <div className="p-6 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-4 shadow-sm">
+      <div className="p-6 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-5 shadow-sm">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-200 flex items-center gap-2 font-mono">
-            <Moon className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-            APPEARANCE
-          </h3>
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-200 flex items-center gap-2 font-mono">
+              <Palette className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+              THEME & ENVIRONMENT AESTHETICS
+            </h3>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 font-mono">
+              Select your preferred visual environment. All canvas nodes, charts, logs, and profile modules sync automatically.
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setTheme("dark")}
-            aria-pressed={resolvedTheme === "dark"}
-            className={`flex items-center gap-2 px-4 py-2 rounded border text-xs font-mono transition-all cursor-pointer ${
-              resolvedTheme === "dark"
-                ? "border-indigo-500 bg-indigo-600 text-white shadow-md shadow-indigo-500/30 font-semibold"
-                : "border-slate-300 dark:border-indigo-900/40 bg-white dark:bg-[#0a0a0a] text-slate-700 dark:text-slate-400 hover:border-indigo-500 font-medium"
-            }`}
-          >
-            <Moon className="h-3.5 w-3.5" />
-            DARK
-          </button>
-          <button
-            type="button"
-            onClick={() => setTheme("light")}
-            aria-pressed={resolvedTheme === "light"}
-            className={`flex items-center gap-2 px-4 py-2 rounded border text-xs font-mono transition-all cursor-pointer ${
-              resolvedTheme === "light"
-                ? "border-indigo-500 bg-indigo-600 text-white shadow-md shadow-indigo-500/30 font-semibold"
-                : "border-slate-300 dark:border-indigo-900/40 bg-white dark:bg-[#0a0a0a] text-slate-700 dark:text-slate-400 hover:border-indigo-500 font-medium"
-            }`}
-          >
-            <Sun className="h-3.5 w-3.5" />
-            LIGHT
-          </button>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          {[
+            {
+              id: "dark",
+              name: "Midnight Indigo",
+              tag: "TERMINAL",
+              icon: Moon,
+              desc: "Deep obsidian terminal with electric indigo & sky blue glowing accents.",
+              bgCard: "bg-black/80",
+              borderActive: "border-indigo-500 ring-2 ring-indigo-500/20 shadow-indigo-500/10",
+              palette: ["#000000", "#6366f1", "#38bdf8"],
+            },
+            {
+              id: "light",
+              name: "Studio Crisp",
+              tag: "CLEAN",
+              icon: Sun,
+              desc: "Daylight clean studio aesthetic with high-contrast text and sleek cards.",
+              bgCard: "bg-white",
+              borderActive: "border-indigo-600 ring-2 ring-indigo-600/20 shadow-indigo-600/10",
+              palette: ["#ffffff", "#4f46e5", "#94a3b8"],
+            },
+            {
+              id: "cyberpunk",
+              name: "Cyberpunk 2077",
+              tag: "NEON",
+              icon: Zap,
+              desc: "High-octane neon magenta, electric cyan & yellow high-tech vibe.",
+              bgCard: "bg-[#08000f]",
+              borderActive: "border-pink-500 ring-2 ring-pink-500/30 shadow-pink-500/20",
+              palette: ["#08000f", "#ff007f", "#00f0ff"],
+            },
+            {
+              id: "matrix",
+              name: "Matrix Phosphor",
+              tag: "HACKER",
+              icon: Terminal,
+              desc: "Phosphor green CRT terminal glow with deep matrix scanlines.",
+              bgCard: "bg-[#020803]",
+              borderActive: "border-emerald-400 ring-2 ring-emerald-400/30 shadow-emerald-400/20",
+              palette: ["#020803", "#00ff66", "#10b981"],
+            },
+            {
+              id: "synthwave",
+              name: "Synthwave 80s",
+              tag: "OUTRUN",
+              icon: Sparkles,
+              desc: "Retro 80s sunset violet, neon magenta & outrun orange palette.",
+              bgCard: "bg-[#0f051d]",
+              borderActive: "border-purple-500 ring-2 ring-purple-500/30 shadow-purple-500/20",
+              palette: ["#0f051d", "#c084fc", "#f97316"],
+            },
+          ].map((item) => {
+            const Icon = item.icon;
+            const isActive = (theme === item.id) || (!theme && item.id === "dark");
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setTheme(item.id)}
+                aria-pressed={isActive}
+                className={`p-4 rounded border text-left transition-all relative flex flex-col justify-between cursor-pointer group shadow-sm ${
+                  isActive
+                    ? `${item.borderActive} bg-indigo-50/50 dark:bg-indigo-950/20 shadow-md`
+                    : "border-slate-200 dark:border-indigo-900/40 bg-white/70 dark:bg-[#0a0a0a]/50 hover:border-indigo-400/60 dark:hover:border-indigo-500/60"
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={`p-1.5 rounded ${
+                          isActive
+                            ? "bg-indigo-600 text-white shadow-sm"
+                            : "bg-slate-100 dark:bg-indigo-950/60 text-slate-700 dark:text-slate-300 group-hover:text-indigo-500"
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <span className="text-xs font-mono font-bold text-slate-900 dark:text-slate-100">
+                        {item.name}
+                      </span>
+                    </div>
+                    <span
+                      className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${
+                        isActive
+                          ? "border-indigo-400 bg-indigo-500 text-white"
+                          : "border-slate-300 dark:border-indigo-900/60 text-slate-500 dark:text-slate-400"
+                      }`}
+                    >
+                      {isActive ? "[ ACTIVE ]" : item.tag}
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] font-mono text-slate-600 dark:text-slate-400 leading-relaxed mb-3">
+                    {item.desc}
+                  </p>
+                </div>
+
+                {/* Color Swatches preview */}
+                <div className="flex items-center gap-1.5 pt-2 border-t border-slate-200/80 dark:border-indigo-900/30">
+                  <span className="text-[9px] font-mono text-slate-500 dark:text-slate-400 mr-1">PALETTE:</span>
+                  {item.palette.map((color, cIdx) => (
+                    <div
+                      key={cIdx}
+                      className="w-3.5 h-3.5 rounded-full border border-black/20 shadow-xs"
+                      style={{ backgroundColor: color }}
+                      title={color}
+                    />
+                  ))}
+                </div>
+              </button>
+            );
+          })}
         </div>
-        <p className="text-[10px] font-mono text-slate-600 dark:text-slate-500 font-medium">
-          Agent Studio supports both dark terminal mode and crisp glassmorphic light mode.
-        </p>
       </div>
 
       {/* AI Providers */}
@@ -250,12 +340,101 @@ export default function SettingsPage() {
         </div>
         <div className="rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 overflow-hidden shadow-sm">
           <UserProfile
+            key={theme}
             routing="hash"
             appearance={{
+              variables:
+                theme === "light"
+                  ? {
+                      colorPrimary: "#4f46e5",
+                      colorBackground: "#ffffff",
+                      colorText: "#0f172a",
+                      colorTextSecondary: "#64748b",
+                      colorInputBackground: "#f8fafc",
+                      colorInputText: "#0f172a",
+                      fontFamily: "JetBrains Mono, monospace",
+                      borderRadius: "0.25rem",
+                    }
+                  : theme === "cyberpunk"
+                  ? {
+                      colorPrimary: "#ff007f",
+                      colorBackground: "#08000f",
+                      colorText: "#f1f5f9",
+                      colorTextSecondary: "#00f0ff",
+                      colorInputBackground: "#130324",
+                      colorInputText: "#ffffff",
+                      fontFamily: "JetBrains Mono, monospace",
+                      borderRadius: "0.25rem",
+                    }
+                  : theme === "matrix"
+                  ? {
+                      colorPrimary: "#00ff66",
+                      colorBackground: "#020803",
+                      colorText: "#86efac",
+                      colorTextSecondary: "#34d399",
+                      colorInputBackground: "#041708",
+                      colorInputText: "#86efac",
+                      fontFamily: "JetBrains Mono, monospace",
+                      borderRadius: "0.25rem",
+                    }
+                  : theme === "synthwave"
+                  ? {
+                      colorPrimary: "#c084fc",
+                      colorBackground: "#0f051d",
+                      colorText: "#f3e8ff",
+                      colorTextSecondary: "#f97316",
+                      colorInputBackground: "#1c0b36",
+                      colorInputText: "#ffffff",
+                      fontFamily: "JetBrains Mono, monospace",
+                      borderRadius: "0.25rem",
+                    }
+                  : {
+                      colorPrimary: "#818cf8",
+                      colorBackground: "#000000",
+                      colorText: "#e2e8f0",
+                      colorTextSecondary: "#94a3b8",
+                      colorInputBackground: "#0a0a0a",
+                      colorInputText: "#ffffff",
+                      fontFamily: "JetBrains Mono, monospace",
+                      borderRadius: "0.25rem",
+                    },
               elements: {
-                card: "bg-transparent border-0 shadow-none",
+                card: "bg-transparent border-0 shadow-none text-slate-900 dark:text-slate-100",
                 navbar: "hidden",
                 rootBox: "w-full",
+                profileSection: "border-b border-slate-200 dark:border-indigo-900/30 py-4",
+                profileSectionTitleText:
+                  theme === "cyberpunk"
+                    ? "font-mono font-semibold text-pink-400 text-xs tracking-wide"
+                    : theme === "matrix"
+                    ? "font-mono font-semibold text-emerald-400 text-xs tracking-wide"
+                    : theme === "synthwave"
+                    ? "font-mono font-semibold text-purple-400 text-xs tracking-wide"
+                    : theme === "light"
+                    ? "font-mono font-semibold text-indigo-700 text-xs tracking-wide"
+                    : "font-mono font-semibold text-indigo-300 text-xs tracking-wide",
+                profileSectionSubtitleText: "font-mono text-slate-500 dark:text-slate-400 text-xs",
+                profileSectionContent: "text-slate-800 dark:text-slate-200 font-mono text-xs",
+                formFieldLabel: "font-mono text-xs text-slate-700 dark:text-slate-300",
+                formFieldInput:
+                  theme === "light"
+                    ? "border border-slate-300 bg-white text-slate-900 font-mono text-xs focus:border-indigo-500 rounded"
+                    : theme === "cyberpunk"
+                    ? "border border-pink-900/60 bg-[#130324] text-slate-100 font-mono text-xs focus:border-cyan-400 rounded"
+                    : theme === "matrix"
+                    ? "border border-emerald-900/60 bg-[#041708] text-emerald-300 font-mono text-xs focus:border-emerald-400 rounded"
+                    : theme === "synthwave"
+                    ? "border border-purple-900/60 bg-[#1c0b36] text-slate-100 font-mono text-xs focus:border-orange-400 rounded"
+                    : "border border-indigo-900/50 bg-[#0a0a0a] text-slate-100 font-mono text-xs focus:border-indigo-400 rounded",
+                formButtonPrimary:
+                  theme === "cyberpunk"
+                    ? "border border-pink-400 bg-pink-600 font-mono text-xs font-semibold text-white hover:bg-pink-500 rounded py-2 px-3"
+                    : theme === "matrix"
+                    ? "border border-emerald-400 bg-emerald-700 font-mono text-xs font-semibold text-white hover:bg-emerald-600 rounded py-2 px-3"
+                    : theme === "synthwave"
+                    ? "border border-purple-400 bg-purple-600 font-mono text-xs font-semibold text-white hover:bg-purple-500 rounded py-2 px-3"
+                    : "border border-indigo-500 bg-indigo-600 font-mono text-xs font-semibold text-white hover:bg-indigo-500 rounded py-2 px-3",
+                accordionTriggerButton: "text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-indigo-950/40",
               },
             }}
           />

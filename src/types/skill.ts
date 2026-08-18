@@ -1,3 +1,5 @@
+import { AgentGraphDefinition } from "./graph";
+
 export type SkillStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 
 export interface SkillExampleDTO {
@@ -18,6 +20,8 @@ export interface SkillVersionDTO {
   allowedTools: string[];
   actionsRequiringApproval: string[];
   maxExecutionSteps: number;
+  /** Visual multi-agent graph — when present the version runs through the graph interpreter. */
+  graphDefinition?: AgentGraphDefinition | null;
   changelog?: string | null;
   notes?: string | null;
   createdAt: Date;
@@ -50,6 +54,7 @@ export interface CreateSkillInput {
   allowedTools?: string[];
   actionsRequiringApproval?: string[];
   maxExecutionSteps?: number;
+  graphDefinition?: AgentGraphDefinition;
   notes?: string;
 }
 
@@ -63,6 +68,8 @@ export interface UpdateSkillInput {
   allowedTools?: string[];
   actionsRequiringApproval?: string[];
   maxExecutionSteps?: number;
+  /** Null clears the graph; undefined leaves it unchanged. */
+  graphDefinition?: AgentGraphDefinition | null;
   notes?: string;
 }
 

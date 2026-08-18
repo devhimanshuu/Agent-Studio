@@ -141,7 +141,7 @@ export default function ExecutionDetailPage() {
   const isRecoverable = execution.status === "FAILED" || execution.status === "CANCELLED" || execution.status === "STEP_LIMIT_EXCEEDED";
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto font-mono">
+    <div className="space-y-6 w-full font-mono">
       {/* Header */}
       <div className="border-b border-slate-200 dark:border-indigo-950/80 pb-5 space-y-3">
         <Link

@@ -1,13 +1,15 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
+import { Inter, JetBrains_Mono, Silkscreen, Lora } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/app/providers";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Toaster } from "@/components/feedback/Toaster";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
+const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
+const silkscreen = Silkscreen({ weight: ["400", "700"], subsets: ["latin"], variable: "--font-pixel", display: "swap" });
+const lora = Lora({ subsets: ["latin"], variable: "--font-serif", display: "swap" });
 
 export const metadata: Metadata = {
   title: "Agent Studio — Enterprise AI Agent Platform",
@@ -27,57 +29,22 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${inter.className} ${inter.variable} ${jetbrainsMono.variable} ${silkscreen.variable} ${lora.variable}`}>
         <a href="#main-content" className="skip-to-content-link">
           Skip to main content
         </a>
-        <ClerkProvider
-          appearance={{
-            layout: {
-              unsafe_disableDevelopmentModeWarnings: true,
-            },
-            variables: {
-              colorPrimary: "#818cf8",
-              colorBackground: "#000000",
-              colorText: "#e2e8f0",
-              colorTextSecondary: "#94a3b8",
-              colorInputBackground: "#0a0a0a",
-              colorInputText: "#ffffff",
-              fontFamily: "JetBrains Mono, monospace",
-              borderRadius: "0.25rem",
-            },
-            elements: {
-              card: "border border-indigo-900/50 bg-black font-mono shadow-2xl shadow-indigo-950/80 rounded",
-              headerTitle: "font-pixel text-indigo-300 uppercase tracking-wide text-lg",
-              headerSubtitle: "font-mono text-slate-400 text-xs",
-              socialButtonsBlockButton: "border border-indigo-900/40 bg-indigo-950/40 font-mono text-xs hover:border-indigo-400 text-slate-200 rounded",
-              formButtonPrimary: "border border-indigo-400 bg-indigo-600 font-mono text-xs font-semibold text-white hover:bg-indigo-500 shadow-md shadow-indigo-500/30 uppercase tracking-wider rounded py-2.5",
-              formFieldInput: "border border-indigo-900/50 bg-[#0a0a0a] font-mono text-xs text-slate-100 focus:border-indigo-400 rounded",
-              footer: "hidden", // Removes Clerk branding & logo at bottom of modals
-              footerAction: "font-mono text-xs text-indigo-400 hover:text-indigo-300",
-              footerActionLink: "font-mono text-xs text-indigo-400 hover:text-indigo-300 underline",
-              logoBox: "hidden", // Removes Clerk logo box
-              logoImage: "hidden", // Removes Clerk logo image
-              userButtonPopoverCard: "border border-indigo-900/50 bg-black font-mono shadow-xl rounded",
-              userButtonPopoverActionButton: "font-mono text-xs text-slate-300 hover:bg-indigo-950/50 hover:text-indigo-300",
-              userButtonPopoverFooter: "hidden", // Removes Clerk footer in user profile popover
-              userButtonAvatarBox: "w-8 h-8 rounded-full border border-indigo-500/40 shadow-sm",
-            },
-          }}
-        >
-          <Providers>
-            <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
-              <Header />
-              <div className="flex flex-1 min-h-0 overflow-hidden">
-                <Sidebar />
-                <main id="main-content" className="flex-1 p-3 sm:p-4 md:p-6 overflow-y-auto min-h-0">
-                  {children}
-                </main>
-              </div>
-              <Toaster />
+        <Providers>
+          <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
+            <Header />
+            <div className="flex flex-1 min-h-0 overflow-hidden w-full">
+              <Sidebar />
+              <main id="main-content" className="flex-1 p-3 sm:p-4 md:p-6 overflow-y-auto min-h-0 w-full transition-all duration-300">
+                {children}
+              </main>
             </div>
-          </Providers>
-        </ClerkProvider>
+            <Toaster />
+          </div>
+        </Providers>
       </body>
     </html>
   );

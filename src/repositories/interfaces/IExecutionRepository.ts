@@ -11,6 +11,8 @@ export interface IExecutionRepository {
   /** Scoped to the owning user — returns null when the execution belongs to someone else. */
   findByIdForUser(id: string, userId: string): Promise<ExecutionDTO | null>;
   findByUserId(userId: string): Promise<ExecutionDTO[]>;
+  /** Returns total number of executions for the owning user. */
+  countByUserId(userId: string): Promise<number>;
   /** Searchable / filterable / sortable execution history for the owning user. */
   listForUser(userId: string, query: ExecutionQuery): Promise<ExecutionDTO[]>;
   create(input: StartExecutionInput, maxSteps: number, skillName?: string): Promise<ExecutionDTO>;

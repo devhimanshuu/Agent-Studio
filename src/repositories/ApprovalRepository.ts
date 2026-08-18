@@ -106,6 +106,13 @@ export class ApprovalRepository implements IApprovalRepository {
     return app ? this.mapApproval(app) : null;
   }
 
+  async expireByIdempotencyKey(key: string): Promise<void> {
+    await prisma.approvalRequest.updateMany({
+      where: { idempotencyKey: key, status: "PENDING" },
+      data: { status: "EXPIRED" },
+    });
+  }
+
   private mapApproval(a: Prisma.ApprovalRequestGetPayload<{}>): ApprovalRequestDTO {
     return {
       id: a.id,

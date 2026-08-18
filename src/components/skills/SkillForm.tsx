@@ -1,13 +1,13 @@
-"use client";
-
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Trash2, Sparkles, Wrench, CheckSquare, ListChecks, Loader2 } from "lucide-react";
+import { Plus, Trash2, Sparkles, Wrench, CheckSquare, ListChecks, Loader2, Workflow } from "lucide-react";
 import { createSkillSchema } from "@/validators/skillSchema";
 import { BUILT_IN_TOOL_CATALOG, TOOL_CATEGORIES } from "@/modules/tools";
+import { AvailableMcpTools } from "./AvailableMcpTools";
 import { SkillDTO, SkillVersionDTO } from "@/types/skill";
+import { WorkflowStepChain } from "@/components/workflows/WorkflowStepChain";
 import { toast } from "@/stores/toastStore";
 
 // Client-side form schema: same rules as the API validator, minus userId.
@@ -18,9 +18,11 @@ interface SkillFormProps {
   mode: "create" | "edit";
   skill?: SkillDTO | null;
   initialDraft?: SkillVersionDTO | null;
+  initialTemplate?: Partial<FormValues> | null;
   onSubmit: (values: FormValues) => Promise<void>;
   isSubmitting?: boolean;
 }
+
 
 const inputClass =
   "w-full rounded border border-slate-300 dark:border-indigo-900/50 bg-white dark:bg-[#0a0a0a] px-3 py-2 text-xs text-slate-900 dark:text-slate-100 font-mono placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:border-indigo-500 focus:outline-none transition-colors shadow-sm";
@@ -215,7 +217,7 @@ function TagsInput({
         <button
           type="button"
           onClick={add}
-          className="shrink-0 px-3 py-2 rounded border border-indigo-500/40 bg-indigo-950/40 text-xs font-mono text-indigo-300 hover:border-indigo-400 hover:text-white transition-all cursor-pointer"
+          className="shrink-0 px-3 py-2 rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-xs font-mono font-semibold text-indigo-700 dark:text-indigo-300 hover:border-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 dark:hover:text-white transition-all cursor-pointer"
         >
           ADD
         </button>
@@ -225,7 +227,14 @@ function TagsInput({
   );
 }
 
-export function SkillForm({ mode, skill, initialDraft, onSubmit, isSubmitting = false }: SkillFormProps) {
+export function SkillForm({
+  mode,
+  skill,
+  initialDraft,
+  initialTemplate,
+  onSubmit,
+  isSubmitting = false,
+}: SkillFormProps) {
   const draft = initialDraft ?? skill?.currentDraft ?? null;
 
   // Tracks editors currently showing invalid JSON. JsonEditor only reports
@@ -241,22 +250,26 @@ export function SkillForm({ mode, skill, initialDraft, onSubmit, isSubmitting = 
     register,
     control,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: skill?.name ?? "",
-      purpose: skill?.purpose ?? "",
-      instructions: draft?.instructions ?? "",
-      inputSchema: draft?.inputSchema ?? {},
-      outputSchema: draft?.outputSchema ?? {},
-      examples: draft?.examples?.length ? draft.examples : [],
-      allowedTools: draft?.allowedTools?.length ? draft.allowedTools : [],
-      actionsRequiringApproval: draft?.actionsRequiringApproval ?? [],
-      maxExecutionSteps: draft?.maxExecutionSteps ?? 10,
+      name: skill?.name ?? initialTemplate?.name ?? "",
+      purpose: skill?.purpose ?? initialTemplate?.purpose ?? "",
+      instructions: draft?.instructions ?? initialTemplate?.instructions ?? "",
+      inputSchema: draft?.inputSchema ?? initialTemplate?.inputSchema ?? {},
+      outputSchema: draft?.outputSchema ?? initialTemplate?.outputSchema ?? {},
+      examples: draft?.examples?.length ? draft.examples : initialTemplate?.examples?.length ? initialTemplate.examples : [],
+      allowedTools: draft?.allowedTools?.length ? draft.allowedTools : initialTemplate?.allowedTools?.length ? initialTemplate.allowedTools : [],
+      actionsRequiringApproval: draft?.actionsRequiringApproval ?? initialTemplate?.actionsRequiringApproval ?? [],
+      maxExecutionSteps: draft?.maxExecutionSteps ?? initialTemplate?.maxExecutionSteps ?? 10,
       notes: draft?.notes ?? "",
     },
   });
+
+  const allowedTools = watch("allowedTools") || [];
+  const actionsRequiringApproval = watch("actionsRequiringApproval") || [];
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -273,21 +286,38 @@ export function SkillForm({ mode, skill, initialDraft, onSubmit, isSubmitting = 
 
   return (
     <form onSubmit={onValidSubmit} className="space-y-6 font-mono" noValidate>
+      {/* Live Pipeline Preview Banner */}
+      <div className="p-4 rounded border border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/70 dark:bg-[#0a0a0a]/80 space-y-2 shadow-sm">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-bold text-indigo-700 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-1.5">
+            <Workflow className="h-3.5 w-3.5" /> LIVE PIPELINE STEP CHAIN
+          </span>
+          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+            {allowedTools.length + 1} STEPS CONFIGURED
+          </span>
+        </div>
+        <WorkflowStepChain
+          allowedTools={allowedTools}
+          actionsRequiringApproval={actionsRequiringApproval}
+        />
+      </div>
+
       {/* Name & Purpose */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div>
-          <label className={`${labelClass} block mb-1.5`}>Skill Name *</label>
-          <input {...register("name")} placeholder="e.g. Customer Sentiment Analyzer" className={inputClass} />
+          <label className={`${labelClass} block mb-1.5`}>Workflow / Skill Name *</label>
+          <input {...register("name")} placeholder="e.g. Customer Refund Bounded Automation" className={inputClass} />
           <FieldError message={errors.name?.message} />
         </div>
         <div>
-          <label className={`${labelClass} block mb-1.5`}>Purpose *</label>
-          <input {...register("purpose")} placeholder="What problem does this skill solve?" className={inputClass} />
+          <label className={`${labelClass} block mb-1.5`}>Purpose & Outcome *</label>
+          <input {...register("purpose")} placeholder="What bounded business outcome does this achieve?" className={inputClass} />
           <FieldError message={errors.purpose?.message} />
         </div>
       </div>
 
       {/* Instructions */}
+
       <div>
         <label className={`${labelClass} block mb-1.5`}>Instructions *</label>
         <textarea
@@ -426,6 +456,10 @@ export function SkillForm({ mode, skill, initialDraft, onSubmit, isSubmitting = 
                 placeholder="e.g. calculator, document_search…"
               />
               <AvailableTools
+                selected={field.value ?? []}
+                onAdd={(name) => field.onChange([...(field.value ?? []), name])}
+              />
+              <AvailableMcpTools
                 selected={field.value ?? []}
                 onAdd={(name) => field.onChange([...(field.value ?? []), name])}
               />

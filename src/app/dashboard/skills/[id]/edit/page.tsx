@@ -41,7 +41,7 @@ export default function EditSkillPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-6 w-full max-w-5xl mx-auto">
       <div className="border-b border-indigo-950/80 pb-5">
         <Link
           href={`/dashboard/skills/${id}`}
@@ -56,7 +56,7 @@ export default function EditSkillPage() {
           {skill.currentDraft && (
             <span className="text-slate-500">· Draft v{skill.currentDraft.versionNumber} ({skill.currentDraft.status})</span>
           )}
-          {skill.status === "PUBLISHED" && <span className="text-amber-300">· editing creates a new draft version</span>}
+          {skill.status === "PUBLISHED" && <span className="text-amber-700 dark:text-amber-300 font-semibold">· editing creates a new draft version</span>}
         </p>
       </div>
 

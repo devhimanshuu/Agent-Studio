@@ -4,6 +4,7 @@ import { ExecutionRuntime, requireRuntime, persistNodeStep, persistToolCall } fr
 import { errorMessage, ExecutionCancelledError, ExecutionError, StepLimitExceededError, UnauthorizedToolError, ToolExecutionError } from "../executor/errors";
 import { ToolValidationError, ToolTimeoutError } from "@/modules/tools";
 import { withRetries } from "../executor/retry";
+import { resolveStepReferences } from "../executor/stepReferences";
 
 export type GraphNode = (state: AgentState, config: unknown) => Promise<Partial<AgentState>>;
 
@@ -188,7 +189,14 @@ export const toolExecutionNode: GraphNode = async (state, config) => {
   // The plan keeps the tool's action separate from its argument payload — merge
   // it back so the tool receives a complete invocation. Tools whose schema has
   // no action field simply ignore the extra key (Zod strips unknown fields).
-  const executionInput = { ...step.input, action: step.action };
+  // Prior-step references ($step<N>.result / {{ step_<N>.result }}) are
+  // resolved against the accumulated results so multi-step plans can feed a
+  // later call with an earlier call's output.
+  const resolvedInput = resolveStepReferences(step.input, {
+    results: state.results,
+    userInput: state.input,
+  });
+  const executionInput = { ...(resolvedInput as Record<string, unknown>), action: step.action };
   try {
     const output = await withRetries(
       () => runtime.toolRegistry.executeTool(step.toolName, executionInput),

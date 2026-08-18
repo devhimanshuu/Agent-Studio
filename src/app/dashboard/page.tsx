@@ -31,30 +31,30 @@ export default async function DashboardPage() {
   const auditRepo = new AuditLogRepository();
   const toolRepo = new ToolDefinitionRepository();
 
-  const [skillResult, executions, pendingApprovals, toolCount, auditLogs, toolUsage] = userId
+  const [skillResult, recentExecutions, executionCount, pendingApprovals, toolCount, auditLogs, toolUsage] = userId
     ? await Promise.all([
         skillRepo.list(userId, {}),
-        executionRepo.findByUserId(userId),
+        executionRepo.listForUser(userId, { limit: 5 }),
+        executionRepo.countByUserId(userId),
         approvalRepo.findPendingByUserId(userId),
         toolRepo.count(),
-        auditRepo.findByUserId(userId),
+        auditRepo.listForUser(userId, { limit: 5 }),
         executionRepo.countToolCallsByTool(userId),
       ])
-    : [{ items: [], total: 0 }, [], [], 0, [], {} as Record<string, number>];
+    : [{ items: [], total: 0 }, [], 0, [], 0, [], {} as Record<string, number>];
 
   const activeSkills = skillResult.items.filter((s) => s.status !== "ARCHIVED");
   const publishedSkills = skillResult.items.filter((s) => s.status === "PUBLISHED");
   const recentSkills = [...activeSkills]
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 5);
-  const recentExecutions = [...executions].slice(0, 5);
 
   // Most-used tool: highest usage count across the user's executions.
   const mostUsedTool = Object.entries(toolUsage).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "—";
   const mostUsedToolCount = mostUsedTool !== "—" ? (toolUsage[mostUsedTool] ?? 0) : 0;
 
   return (
-    <div className="space-y-6 sm:space-y-10 max-w-6xl mx-auto">
+    <div className="space-y-6 sm:space-y-10 w-full">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-indigo-950/80 pb-5 sm:pb-6">
         <Reveal delay={0}>
@@ -113,7 +113,7 @@ export default async function DashboardPage() {
                 <ArrowUpRight className="h-3.5 w-3.5 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
               </div>
             </div>
-            <div className="text-3xl font-pixel text-slate-900 dark:text-slate-100">{pad(executions.length)}</div>
+            <div className="text-3xl font-pixel text-slate-900 dark:text-slate-100">{pad(executionCount)}</div>
             <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">Agent Step Runs</p>
           </Link>
         </Reveal>

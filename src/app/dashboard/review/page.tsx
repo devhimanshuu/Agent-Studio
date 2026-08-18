@@ -262,7 +262,7 @@ export default function ReviewPage() {
     approveMutation.isPending || rejectMutation.isPending || cancelMutation.isPending;
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto font-mono">
+    <div className="space-y-6 w-full font-mono">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-indigo-950/80 pb-5">
         <div>

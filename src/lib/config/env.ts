@@ -11,6 +11,12 @@ const envSchema = z.object({
   CLERK_SECRET_KEY: z.string().optional(),
   NEXTAUTH_SECRET: z.string().default("dev-secret-key-change-in-production"),
   NEXT_PUBLIC_APP_URL: z.string().default("http://localhost:3000"),
+  /**
+   * Bearer token external MCP clients (Cursor, Claude Desktop) present when
+   * connecting to /api/mcp/sse. When unset, only Clerk-authenticated sessions
+   * may connect.
+   */
+  MCP_ACCESS_TOKEN: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

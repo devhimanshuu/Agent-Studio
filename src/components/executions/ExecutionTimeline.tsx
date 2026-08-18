@@ -7,34 +7,34 @@ import { CircleDot, GitBranch, Wrench, Shield, ScrollText, Play } from "lucide-r
 
 const typeStyles: Record<TimelineEvent["type"], { dot: string; color: string; icon: React.ReactNode; label: string }> = {
   execution: {
-    dot: "border-emerald-500/60 bg-emerald-950/60 text-emerald-300",
-    color: "text-emerald-400",
+    dot: "border-emerald-300 dark:border-emerald-500/60 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300",
+    color: "text-emerald-600 dark:text-emerald-400",
     icon: <Play className="h-3 w-3" />,
-    label: "text-emerald-300",
+    label: "text-emerald-700 dark:text-emerald-300",
   },
   node: {
-    dot: "border-indigo-500/60 bg-indigo-950/60 text-indigo-300",
-    color: "text-indigo-400",
+    dot: "border-indigo-300 dark:border-indigo-500/60 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300",
+    color: "text-indigo-600 dark:text-indigo-400",
     icon: <GitBranch className="h-3 w-3" />,
-    label: "text-indigo-200",
+    label: "text-indigo-700 dark:text-indigo-200",
   },
   tool: {
-    dot: "border-cyan-500/60 bg-cyan-950/60 text-cyan-300",
-    color: "text-cyan-400",
+    dot: "border-cyan-300 dark:border-cyan-500/60 bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300",
+    color: "text-cyan-600 dark:text-cyan-400",
     icon: <Wrench className="h-3 w-3" />,
-    label: "text-cyan-200",
+    label: "text-cyan-700 dark:text-cyan-200",
   },
   approval: {
-    dot: "border-amber-500/60 bg-amber-950/60 text-amber-300",
-    color: "text-amber-400",
+    dot: "border-amber-300 dark:border-amber-500/60 bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300",
+    color: "text-amber-600 dark:text-amber-400",
     icon: <Shield className="h-3 w-3" />,
-    label: "text-amber-200",
+    label: "text-amber-800 dark:text-amber-200",
   },
   log: {
-    dot: "border-slate-500/60 bg-slate-950/60 text-slate-400",
-    color: "text-slate-400",
+    dot: "border-slate-300 dark:border-slate-500/60 bg-slate-100 dark:bg-slate-950/60 text-slate-700 dark:text-slate-400",
+    color: "text-slate-600 dark:text-slate-400",
     icon: <ScrollText className="h-3 w-3" />,
-    label: "text-slate-300",
+    label: "text-slate-700 dark:text-slate-300",
   },
 };
 
@@ -78,7 +78,7 @@ export function ExecutionTimeline({ events }: { events: TimelineEvent[] }) {
                 <span className="text-[10px] font-mono text-slate-600">{formatTime(event.at)}</span>
               </div>
               {event.status && (
-                <span className="inline-block px-1.5 py-0.5 rounded border border-indigo-950/60 bg-black/40 text-[9px] font-mono uppercase tracking-wider text-slate-400">
+                <span className="inline-block px-1.5 py-0.5 rounded border border-slate-200 dark:border-indigo-950/60 bg-slate-100 dark:bg-black/40 text-[9px] font-mono uppercase tracking-wider text-slate-700 dark:text-slate-400 font-medium">
                   {event.status}
                 </span>
               )}

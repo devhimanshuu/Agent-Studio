@@ -3,54 +3,63 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useClerk } from "@clerk/nextjs";
-import { LayoutDashboard, Sparkles, Play, GitCompare, Shield, Wrench, LogOut, ChevronsLeft, ChevronsRight, Gauge, ScrollText, Settings, X } from "lucide-react";
+import { useClerk, useAuth } from "@clerk/nextjs";
+import {
+  LayoutDashboard,
+  Sparkles,
+  Workflow,
+  Play,
+  GitBranch,
+  GitCompare,
+  Shield,
+  Wrench,
+  LogOut,
+  ChevronsLeft,
+  ChevronsRight,
+  Gauge,
+  ScrollText,
+  Settings,
+  X,
+  Network,
+} from "lucide-react";
 import { clsx } from "clsx";
 import { SignOutModal } from "@/components/feedback/SignOutModal";
 import { useSidebar } from "@/components/providers/SidebarContext";
 
 const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, tag: "SYS_01" },
-  { name: "Skills Studio", href: "/dashboard/skills", icon: Sparkles, tag: "SKILL_V1" },
+  { name: "Agent Canvas", href: "/dashboard/canvas", icon: Network, tag: "GRAPH_V1" },
+  { name: "Studio", href: "/dashboard/skills", icon: Workflow, tag: "STUDIO_V2" },
   { name: "Executions", href: "/dashboard/executions", icon: Play, tag: "TRACE_LOG" },
   { name: "Observability", href: "/dashboard/history", icon: Gauge, tag: "OBS_07" },
   { name: "Audit Log", href: "/dashboard/audit", icon: ScrollText, tag: "AUDIT" },
-  { name: "Versions", href: "/versions", icon: GitCompare, tag: "DIFF_VIEW" },
+  { name: "Versions", href: "/versions", icon: GitBranch, tag: "VERSIONS" },
   { name: "Compare", href: "/dashboard/compare", icon: GitCompare, tag: "DIFF_07" },
   { name: "Tool Registry", href: "/dashboard/tools", icon: Wrench, tag: "TOOL_V1" },
   { name: "Human Review", href: "/dashboard/review", icon: Shield, tag: "HITL_V2" },
   { name: "Settings", href: "/dashboard/settings", icon: Settings, tag: "CFG_V1" },
 ];
 
-const STORAGE_KEY = "agent-studio-sidebar-collapsed";
-
 export function Sidebar() {
   const pathname = usePathname();
   const { signOut } = useClerk();
-  const { mobileOpen, closeMobile } = useSidebar();
+  const { isSignedIn, isLoaded } = useAuth();
+  const { mobileOpen, closeMobile, collapsed, toggleCollapsed } = useSidebar();
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
-
-  // Restore the collapsed preference after mount (avoids SSR hydration mismatch)
-  useEffect(() => {
-    setCollapsed(localStorage.getItem(STORAGE_KEY) === "1");
-  }, []);
 
   // Close mobile sidebar on route change
   useEffect(() => {
     closeMobile();
   }, [pathname]);
 
-  const toggleCollapsed = () => {
-    setCollapsed((prev) => {
-      const next = !prev;
-      localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
-      return next;
-    });
-  };
+  // Determine if this is an active workspace app route
+  const isAppRoute =
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/versions") ||
+    pathname.startsWith("/approvals");
 
-  // Hide sidebar on the main public landing page
-  if (pathname === "/") return null;
+  // Hide sidebar if user is not authenticated, or on public landing / 404 routes
+  if (!isLoaded || !isSignedIn || pathname === "/" || !isAppRoute) return null;
 
   const sidebarContent = (
     <div className="flex flex-col justify-between h-full space-y-4">

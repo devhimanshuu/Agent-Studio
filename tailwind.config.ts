@@ -1,7 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
-  darkMode: ["class"],
+  darkMode: ["selector", ".dark, .cyberpunk, .matrix, .synthwave"],
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -11,9 +11,10 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        pixel: ["Silkscreen", "Press Start 2P", "monospace"],
-        mono: ["JetBrains Mono", "monospace"],
-        serif: ["Lora", "Georgia", "serif"],
+        pixel: ["var(--font-pixel)", "Silkscreen", "Press Start 2P", "monospace"],
+        mono: ["var(--font-mono)", "JetBrains Mono", "monospace"],
+        serif: ["var(--font-serif)", "Lora", "Georgia", "serif"],
+        sans: ["var(--font-inter)", "Inter", "sans-serif"],
       },
       colors: {
         background: "hsl(var(--background))",

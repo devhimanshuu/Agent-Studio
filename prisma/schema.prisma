@@ -48,6 +48,17 @@ enum ToolType {
   WRITE
 }
 
+enum McpTransport {
+  SSE
+  STDIO
+}
+
+enum McpServerStatus {
+  CONNECTED
+  DISCONNECTED
+  ERROR
+}
+
 model User {
   id            String         @id @default(cuid())
   email         String         @unique
@@ -60,6 +71,7 @@ model User {
   executions    Execution[]
   approvals     ApprovalRequest[]
   auditLogs     AuditLog[]
+  mcpServers    McpServer[]
 
   @@map("users")
 }
@@ -94,6 +106,7 @@ model SkillVersion {
   allowedTools             Json           // String array of permitted tool names
   actionsRequiringApproval Json           // String array of tool actions requiring human approval
   maxExecutionSteps        Int            @default(10)
+  graphDefinition          Json?          // Visual multi-agent graph (nodes + edges) — drives the graph interpreter when present
   changelog                String?
   notes                    String?
   createdAt                DateTime       @default(now())
@@ -262,6 +275,26 @@ model VersionComparison {
   @@index([userId])
   @@index([skillId])
   @@map("version_comparisons")
+}
+
+model McpServer {
+  id           String          @id @default(cuid())
+  userId       String
+  name         String
+  transport    McpTransport
+  endpointUrl  String?
+  command      String?
+  headers      Json?
+  status       McpServerStatus @default(DISCONNECTED)
+  cachedTools  Json            @default("[]")
+  lastError    String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("mcp_servers")
 }
 
 model AuditLog {

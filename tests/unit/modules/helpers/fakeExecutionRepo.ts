@@ -22,6 +22,10 @@ export class FakeExecutionRepo implements IExecutionRepository {
     return [...this.executions.values()].filter((e) => e.userId === userId);
   }
 
+  async countByUserId(userId: string): Promise<number> {
+    return [...this.executions.values()].filter((e) => e.userId === userId).length;
+  }
+
   async create(input: StartExecutionInput, maxSteps: number, skillName?: string): Promise<ExecutionDTO> {
     this.seq += 1;
     const execution: ExecutionDTO = {

@@ -22,4 +22,9 @@ export interface IApprovalRepository {
    */
   respond(input: RespondApprovalInput): Promise<ApprovalRequestDTO | null>;
   findByIdempotencyKey(key: string): Promise<ApprovalRequestDTO | null>;
+  /**
+   * Auto-escalation: expires a still-PENDING request by idempotency key so it
+   * leaves the review queue. No-op when the request was already responded to.
+   */
+  expireByIdempotencyKey(key: string): Promise<void>;
 }
