@@ -3,7 +3,7 @@
 import * as React from "react";
 import { ThemeProvider as NextThemesProvider, useTheme } from "next-themes";
 
-const ALL_THEMES = ["light", "dark", "cyberpunk", "matrix", "synthwave"];
+const ALL_THEMES = ["light", "dark"];
 
 function ThemeClassSync() {
   const { theme, resolvedTheme } = useTheme();
@@ -13,17 +13,15 @@ function ThemeClassSync() {
     const root = document.documentElement;
     const currentTheme = theme || resolvedTheme || "dark";
 
-    // Strip any existing theme classes
+    // Strip existing theme classes
     ALL_THEMES.forEach((t) => root.classList.remove(t));
 
     if (currentTheme === "light") {
       root.classList.add("light");
       root.classList.remove("dark");
-    } else if (currentTheme === "dark") {
-      root.classList.add("dark");
     } else {
-      // Dark themes with custom variable palettes (cyberpunk, matrix, synthwave)
-      root.classList.add("dark", currentTheme);
+      root.classList.add("dark");
+      root.classList.remove("light");
     }
   }, [theme, resolvedTheme]);
 

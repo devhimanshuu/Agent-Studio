@@ -11,7 +11,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <ThemeProvider
       attribute="class"
       defaultTheme="dark"
-      themes={["dark", "light", "cyberpunk", "matrix", "synthwave"]}
+      themes={["dark", "light"]}
       enableSystem={false}
     >
       <ClerkDynamicProvider>

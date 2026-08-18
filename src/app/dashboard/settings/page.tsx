@@ -181,12 +181,12 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {[
             {
               id: "dark",
               name: "Midnight Indigo",
-              tag: "TERMINAL",
+              tag: "DARK",
               icon: Moon,
               desc: "Deep obsidian terminal with electric indigo & sky blue glowing accents.",
               bgCard: "bg-black/80",
@@ -196,42 +196,12 @@ export default function SettingsPage() {
             {
               id: "light",
               name: "Studio Crisp",
-              tag: "CLEAN",
+              tag: "LIGHT",
               icon: Sun,
               desc: "Daylight clean studio aesthetic with high-contrast text and sleek cards.",
               bgCard: "bg-white",
               borderActive: "border-indigo-600 ring-2 ring-indigo-600/20 shadow-indigo-600/10",
               palette: ["#ffffff", "#4f46e5", "#94a3b8"],
-            },
-            {
-              id: "cyberpunk",
-              name: "Cyberpunk 2077",
-              tag: "NEON",
-              icon: Zap,
-              desc: "High-octane neon magenta, electric cyan & yellow high-tech vibe.",
-              bgCard: "bg-[#08000f]",
-              borderActive: "border-pink-500 ring-2 ring-pink-500/30 shadow-pink-500/20",
-              palette: ["#08000f", "#ff007f", "#00f0ff"],
-            },
-            {
-              id: "matrix",
-              name: "Matrix Phosphor",
-              tag: "HACKER",
-              icon: Terminal,
-              desc: "Phosphor green CRT terminal glow with deep matrix scanlines.",
-              bgCard: "bg-[#020803]",
-              borderActive: "border-emerald-400 ring-2 ring-emerald-400/30 shadow-emerald-400/20",
-              palette: ["#020803", "#00ff66", "#10b981"],
-            },
-            {
-              id: "synthwave",
-              name: "Synthwave 80s",
-              tag: "OUTRUN",
-              icon: Sparkles,
-              desc: "Retro 80s sunset violet, neon magenta & outrun orange palette.",
-              bgCard: "bg-[#0f051d]",
-              borderActive: "border-purple-500 ring-2 ring-purple-500/30 shadow-purple-500/20",
-              palette: ["#0f051d", "#c084fc", "#f97316"],
             },
           ].map((item) => {
             const Icon = item.icon;
@@ -355,39 +325,6 @@ export default function SettingsPage() {
                       fontFamily: "JetBrains Mono, monospace",
                       borderRadius: "0.25rem",
                     }
-                  : theme === "cyberpunk"
-                  ? {
-                      colorPrimary: "#ff007f",
-                      colorBackground: "#08000f",
-                      colorText: "#f1f5f9",
-                      colorTextSecondary: "#00f0ff",
-                      colorInputBackground: "#130324",
-                      colorInputText: "#ffffff",
-                      fontFamily: "JetBrains Mono, monospace",
-                      borderRadius: "0.25rem",
-                    }
-                  : theme === "matrix"
-                  ? {
-                      colorPrimary: "#00ff66",
-                      colorBackground: "#020803",
-                      colorText: "#86efac",
-                      colorTextSecondary: "#34d399",
-                      colorInputBackground: "#041708",
-                      colorInputText: "#86efac",
-                      fontFamily: "JetBrains Mono, monospace",
-                      borderRadius: "0.25rem",
-                    }
-                  : theme === "synthwave"
-                  ? {
-                      colorPrimary: "#c084fc",
-                      colorBackground: "#0f051d",
-                      colorText: "#f3e8ff",
-                      colorTextSecondary: "#f97316",
-                      colorInputBackground: "#1c0b36",
-                      colorInputText: "#ffffff",
-                      fontFamily: "JetBrains Mono, monospace",
-                      borderRadius: "0.25rem",
-                    }
                   : {
                       colorPrimary: "#818cf8",
                       colorBackground: "#000000",
@@ -404,13 +341,7 @@ export default function SettingsPage() {
                 rootBox: "w-full",
                 profileSection: "border-b border-slate-200 dark:border-indigo-900/30 py-4",
                 profileSectionTitleText:
-                  theme === "cyberpunk"
-                    ? "font-mono font-semibold text-pink-400 text-xs tracking-wide"
-                    : theme === "matrix"
-                    ? "font-mono font-semibold text-emerald-400 text-xs tracking-wide"
-                    : theme === "synthwave"
-                    ? "font-mono font-semibold text-purple-400 text-xs tracking-wide"
-                    : theme === "light"
+                  theme === "light"
                     ? "font-mono font-semibold text-indigo-700 text-xs tracking-wide"
                     : "font-mono font-semibold text-indigo-300 text-xs tracking-wide",
                 profileSectionSubtitleText: "font-mono text-slate-500 dark:text-slate-400 text-xs",
@@ -419,21 +350,9 @@ export default function SettingsPage() {
                 formFieldInput:
                   theme === "light"
                     ? "border border-slate-300 bg-white text-slate-900 font-mono text-xs focus:border-indigo-500 rounded"
-                    : theme === "cyberpunk"
-                    ? "border border-pink-900/60 bg-[#130324] text-slate-100 font-mono text-xs focus:border-cyan-400 rounded"
-                    : theme === "matrix"
-                    ? "border border-emerald-900/60 bg-[#041708] text-emerald-300 font-mono text-xs focus:border-emerald-400 rounded"
-                    : theme === "synthwave"
-                    ? "border border-purple-900/60 bg-[#1c0b36] text-slate-100 font-mono text-xs focus:border-orange-400 rounded"
                     : "border border-indigo-900/50 bg-[#0a0a0a] text-slate-100 font-mono text-xs focus:border-indigo-400 rounded",
                 formButtonPrimary:
-                  theme === "cyberpunk"
-                    ? "border border-pink-400 bg-pink-600 font-mono text-xs font-semibold text-white hover:bg-pink-500 rounded py-2 px-3"
-                    : theme === "matrix"
-                    ? "border border-emerald-400 bg-emerald-700 font-mono text-xs font-semibold text-white hover:bg-emerald-600 rounded py-2 px-3"
-                    : theme === "synthwave"
-                    ? "border border-purple-400 bg-purple-600 font-mono text-xs font-semibold text-white hover:bg-purple-500 rounded py-2 px-3"
-                    : "border border-indigo-500 bg-indigo-600 font-mono text-xs font-semibold text-white hover:bg-indigo-500 rounded py-2 px-3",
+                  "border border-indigo-500 bg-indigo-600 font-mono text-xs font-semibold text-white hover:bg-indigo-500 rounded py-2 px-3",
                 accordionTriggerButton: "text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-indigo-950/40",
               },
             }}

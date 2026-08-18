@@ -293,6 +293,11 @@ const runtimeIntel = [
 
 const devTooling = [
   {
+    icon: Network,
+    title: "MCP Ecosystem & Server Hub",
+    desc: "Connect remote SSE and stdio Model Context Protocol servers (GitHub, Postgres, Slack, Brave Search) or expose Agent Studio workflows as MCP tools to Cursor & Claude Desktop.",
+  },
+  {
     icon: LayoutTemplate,
     title: "Auto-Layout & Snap Grid",
     desc: "One click runs layered BFS auto-layout over any hand-built graph, with snap-to-grid guides so designs never look messy.",
@@ -327,14 +332,13 @@ const devTooling = [
     title: "Shareable Snapshot Links",
     desc: "Render any graph + its final trace as a read-only, embeddable snapshot view — perfect for docs, PRs, or Slack.",
   },
-  {
-    icon: BarChart3,
-    title: "Graph Analytics",
-    desc: "Aggregated run stats per template — success rate, average cost, common failure nodes — surfacing which graphs actually work.",
-  },
 ];
 
 const faqExtra = [
+  {
+    q: "How does Model Context Protocol (MCP) work in Agent Studio?",
+    a: "Agent Studio functions as both an MCP Client and an MCP Server. You can connect remote SSE or local stdio MCP servers (like GitHub, Postgres, and Brave Search), auto-discover their tools, and invoke them in your agent graphs with permission guardrails. External IDEs like Cursor and Claude Desktop can also connect directly to /api/mcp/sse to execute your published workflows as tools.",
+  },
   {
     q: "What is the Visual Multi-Agent Canvas?",
     a: "Agent Studio's canvas is a full drag-and-drop graph editor (React Flow) for designing multi-agent architectures — Supervisor → Researcher → Coder → Critic loops, conditional routers, map-reduce parallel branches, loop counters, and nested sub-graphs. Runs stream live over SSE so nodes pulse in real-time as the graph executes.",
@@ -390,7 +394,7 @@ export default function LandingPage() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-500 dark:bg-indigo-400 opacity-60"></span>
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-600 dark:bg-indigo-400"></span>
               </span>
-              <span className="truncate font-semibold">Visual Multi-Agent Canvas · Live SSE Traces · HITL Escalation · 8 Step Types</span>
+              <span className="truncate font-semibold">Visual Multi-Agent Canvas · Native MCP Hub · Live SSE Traces · HITL Escalation</span>
             </div>
           </div>
 
@@ -410,11 +414,11 @@ export default function LandingPage() {
           >
             <p className="text-lg sm:text-2xl text-slate-900 dark:text-slate-100 font-medium leading-snug tracking-tight font-sans">
               Architect, simulate, and deploy{" "}
-              <span className="text-gradient-glow font-semibold">deterministic multi-agent graphs</span> with real-time SSE execution and human-in-the-loop governance.
+              <span className="text-gradient-glow font-semibold">deterministic multi-agent graphs</span> with real-time SSE execution, Model Context Protocol (MCP) integrations, and human-in-the-loop governance.
             </p>
             <p className="text-xs sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed font-mono-tech">
               Wire <span className="text-indigo-700 dark:text-indigo-300 font-semibold">supervisor → researcher → coder → critic loops</span> with{" "}
-              <span className="text-emerald-700 dark:text-emerald-300 font-semibold">conditional routers and loop counters</span>, watch nodes pulse in real time as the graph executes, and protect sensitive write actions with{" "}
+              <span className="text-emerald-700 dark:text-emerald-300 font-semibold">conditional routers, remote MCP tool discovery</span>, watch nodes pulse in real time, and protect write actions with{" "}
               <span className="text-amber-700 dark:text-amber-300 font-semibold">single-use approval locks</span>.
             </p>
           </div>
@@ -428,6 +432,9 @@ export default function LandingPage() {
             </span>
             <span className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400 font-semibold">
               <Check className="h-3.5 w-3.5" /> Zero Unbounded Hallucinations
+            </span>
+            <span className="flex items-center gap-1.5 text-purple-700 dark:text-purple-400 font-semibold">
+              <Check className="h-3.5 w-3.5" /> Native MCP Client & Server
             </span>
             <span className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400 font-semibold">
               <Check className="h-3.5 w-3.5" /> Idempotent Single-Use Tokens

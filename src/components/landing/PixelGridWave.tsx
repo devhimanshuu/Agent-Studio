@@ -149,7 +149,7 @@ export function PixelGridWave({ className = "" }: { className?: string }) {
     <canvas
       ref={canvasRef}
       aria-hidden="true"
-      className={`pointer-events-none absolute inset-0 h-full w-full [mask-image:radial-gradient(ellipse_75%_75%_at_50%_40%,black_35%,transparent_92%)] ${className}`}
+      className={`pointer-events-none absolute inset-0 h-full w-full [mask-image:radial-gradient(ellipse_100%_85%_at_50%_40%,black_40%,transparent_98%)] ${className}`}
     />
   );
 }

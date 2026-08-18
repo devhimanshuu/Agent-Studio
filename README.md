@@ -1,6 +1,7 @@
 # Agent Studio — Visual Agent Canvas & Multi-Agent Orchestration Platform
 
 [![Live Demo](https://img.shields.io/badge/Live_Demo-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://agent-studio-v1.vercel.app/)
+[![MCP](https://img.shields.io/badge/MCP-Protocol_Client_%26_Server-8A2BE2?style=for-the-badge&logoColor=white)](https://modelcontextprotocol.io)
 [![Database](https://img.shields.io/badge/Database-Neon_Postgres-02E693?style=for-the-badge&logo=postgresql&logoColor=white)](https://neon.tech)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict_Mode-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Tests](https://img.shields.io/badge/Tests-Vitest_Passing-brightgreen?style=for-the-badge&logo=vitest&logoColor=white)](https://vitest.dev)
@@ -11,7 +12,7 @@
 
 ---
 
-> **Enterprise-grade Visual AI Agent & Multi-Agent Orchestration Platform** where users can build complex agent graphs on an interactive node canvas, orchestrate multi-step workflows, manage schema-validated AI skills with immutable versioning, execute under strict tool permissions and Human-in-the-Loop (HITL) approval guardrails, and stream live execution telemetry via Server-Sent Events (SSE).
+> **Enterprise-grade Visual AI Agent & Multi-Agent Orchestration Platform** where users can build complex agent graphs on an interactive node canvas, orchestrate multi-step workflows, manage schema-validated AI skills with immutable versioning, connect and discover **Model Context Protocol (MCP)** tools, execute under strict tool permissions and Human-in-the-Loop (HITL) approval guardrails, and stream live execution telemetry via Server-Sent Events (SSE).
 
 ---
 
@@ -19,7 +20,7 @@
 
 Agent Studio is a production-grade **Visual AI Agent Platform** (combining the visual architecture of LangGraph Studio, the enterprise control of LangSmith, and the modularity of the OpenAI Agents SDK) built on Next.js 15 and React Flow. 
 
-Users can visually design **Multi-Agent Graphs**, orchestrate **Chained Workflows**, and configure **Reusable Skills**, versioning them like software and running them on an autonomous **Graph Interpreter Runtime (v2)** with real-time SSE streaming, permission validation, circuit-breaker LLM routing, and HITL approval gates.
+Users can visually design **Multi-Agent Graphs**, orchestrate **Chained Workflows**, connect to **Model Context Protocol (MCP)** servers, and configure **Reusable Skills**, versioning them like software and running them on an autonomous **Graph Interpreter Runtime (v2)** with real-time SSE streaming, permission validation, circuit-breaker LLM routing, and HITL approval gates.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
@@ -28,7 +29,7 @@ Users can visually design **Multi-Agent Graphs**, orchestrate **Chained Workflow
 │  [ Visual Canvas Builder ] ──► [ Graph Validation & Diff ] ──► [ Immutable Versioning ] │
 │             │                                                                │          │
 │             ▼                                                                ▼          │
-│  [ Multi-Step Workflows ]  ──► [ Live SSE Execution Engine ] ◄── [ Skills & Tool Registry]│
+│  [ Multi-Step Workflows ]  ──► [ Live SSE Execution Engine ] ◄── [ Skills & MCP Tool Hub ]│
 │             │                               │                                           │
 │             ▼                               ▼                                           │
 │  [ Human Review (HITL) ]   ──► [ History, Trace & Metrics ] ──► [ Audit Logs & Replay ] │
@@ -287,34 +288,34 @@ All endpoints require Clerk session authentication. Responses follow a standardi
 
 ### Core API Summary
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET / POST` | `/api/skills` | List skills (with search/filter/sort) or create a new skill |
-| `GET / PATCH / DELETE` | `/api/skills/:id` | Retrieve, update draft, or delete a skill |
-| `POST` | `/api/skills/:id/publish` | Publish current draft as an immutable version |
-| `POST` | `/api/skills/:id/duplicate` | Duplicate an existing skill |
-| `POST` | `/api/skills/:id/archive` | Archive a skill |
-| `GET / POST` | `/api/executions` | List executions or trigger a new agent execution |
-| `GET` | `/api/executions/:id/detail` | Get complete trace, planner steps, and tool logs |
-| `GET` | `/api/executions/:id/stream` | **SSE Stream**: Real-time live execution progress & node events |
-| `POST` | `/api/executions/:id/replay` | Replay execution with identical or modified inputs |
-| `POST` | `/api/executions/:id/cancel` | Cancel an ongoing or paused execution |
-| `POST` | `/api/executions/:id/resume` | Resume execution after human approval |
-| `POST` | `/api/canvas/preview` | Initialize a live canvas preview execution |
-| `GET` | `/api/canvas/preview/:id/stream`| **SSE Stream**: Live stream node-by-node canvas preview trace |
-| `GET / POST` | `/api/approvals` | List pending approvals or submit an idempotent response |
-| `GET` | `/api/audit` | Fetch searchable audit history with JSON export |
-| `GET` | `/api/tools` | List registered tools and live health status |
-| `GET / POST` | `/api/mcp/servers` | List the user's MCP servers or connect a new one |
-| `GET / PATCH / DELETE` | `/api/mcp/servers/:id` | Retrieve, update, or delete an MCP server |
-| `POST` | `/api/mcp/servers/:id/connect` | Connect + discover tools from an MCP server |
-| `POST` | `/api/mcp/servers/:id/disconnect` | Disconnect an MCP server |
-| `POST` | `/api/mcp/servers/:id/discover` | Re-run `tools/list` and refresh the cached tool definitions |
-| `GET` | `/api/mcp/servers/:id/health` | Live latency probe + circuit status |
-| `POST` | `/api/mcp/servers/:id/test` | Live-execute a discovered MCP tool with a test payload |
-| `GET / POST` | `/api/mcp/sse` | **MCP Server**: external agents connect here (Streamable HTTP / SSE) |
-| `POST` | `/api/mcp/messages` | **MCP Server**: message endpoint for open sessions |
-| `GET` | `/api/settings/providers` | Query LLM provider health and active model rosters |
+| Method                 | Endpoint                          | Description                                                          |
+| ------------------------| -----------------------------------| ----------------------------------------------------------------------|
+| `GET / POST`           | `/api/skills`                     | List skills (with search/filter/sort) or create a new skill          |
+| `GET / PATCH / DELETE` | `/api/skills/:id`                 | Retrieve, update draft, or delete a skill                            |
+| `POST`                 | `/api/skills/:id/publish`         | Publish current draft as an immutable version                        |
+| `POST`                 | `/api/skills/:id/duplicate`       | Duplicate an existing skill                                          |
+| `POST`                 | `/api/skills/:id/archive`         | Archive a skill                                                      |
+| `GET / POST`           | `/api/executions`                 | List executions or trigger a new agent execution                     |
+| `GET`                  | `/api/executions/:id/detail`      | Get complete trace, planner steps, and tool logs                     |
+| `GET`                  | `/api/executions/:id/stream`      | **SSE Stream**: Real-time live execution progress & node events      |
+| `POST`                 | `/api/executions/:id/replay`      | Replay execution with identical or modified inputs                   |
+| `POST`                 | `/api/executions/:id/cancel`      | Cancel an ongoing or paused execution                                |
+| `POST`                 | `/api/executions/:id/resume`      | Resume execution after human approval                                |
+| `POST`                 | `/api/canvas/preview`             | Initialize a live canvas preview execution                           |
+| `GET`                  | `/api/canvas/preview/:id/stream`  | **SSE Stream**: Live stream node-by-node canvas preview trace        |
+| `GET / POST`           | `/api/approvals`                  | List pending approvals or submit an idempotent response              |
+| `GET`                  | `/api/audit`                      | Fetch searchable audit history with JSON export                      |
+| `GET`                  | `/api/tools`                      | List registered tools and live health status                         |
+| `GET / POST`           | `/api/mcp/servers`                | List the user's MCP servers or connect a new one                     |
+| `GET / PATCH / DELETE` | `/api/mcp/servers/:id`            | Retrieve, update, or delete an MCP server                            |
+| `POST`                 | `/api/mcp/servers/:id/connect`    | Connect + discover tools from an MCP server                          |
+| `POST`                 | `/api/mcp/servers/:id/disconnect` | Disconnect an MCP server                                             |
+| `POST`                 | `/api/mcp/servers/:id/discover`   | Re-run `tools/list` and refresh the cached tool definitions          |
+| `GET`                  | `/api/mcp/servers/:id/health`     | Live latency probe + circuit status                                  |
+| `POST`                 | `/api/mcp/servers/:id/test`       | Live-execute a discovered MCP tool with a test payload               |
+| `GET / POST`           | `/api/mcp/sse`                    | **MCP Server**: external agents connect here (Streamable HTTP / SSE) |
+| `POST`                 | `/api/mcp/messages`               | **MCP Server**: message endpoint for open sessions                   |
+| `GET`                  | `/api/settings/providers`         | Query LLM provider health and active model rosters                   |
 
 For full request/response schemas and examples, see [`docs/API.md`](docs/API.md).
 

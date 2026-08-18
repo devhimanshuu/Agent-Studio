@@ -93,143 +93,10 @@
     --preloader-glow: rgba(0, 240, 255, 0.45);
   }
 
-  .cyberpunk {
-    --background: 280 60% 3%;
-    --foreground: 180 100% 92%;
-
-    --card: 280 50% 5%;
-    --card-foreground: 180 100% 95%;
-
-    --popover: 280 50% 5%;
-    --popover-foreground: 180 100% 95%;
-
-    --primary: 330 100% 55%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 180 100% 45%;
-    --secondary-foreground: 280 60% 4%;
-
-    --muted: 280 40% 10%;
-    --muted-foreground: 180 30% 70%;
-
-    --accent: 54 100% 50%;
-    --accent-foreground: 280 60% 4%;
-
-    --destructive: 0 100% 60%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 330 70% 30%;
-    --input: 280 40% 10%;
-    --ring: 330 100% 55%;
-
-    /* Preloader Custom Properties (Cyberpunk Mode) */
-    --preloader-primary: 330 100% 55%;
-    --preloader-primary-hex: #ff007f;
-    --preloader-secondary: 180 100% 50%;
-    --preloader-secondary-hex: #00f0ff;
-    --preloader-accent: 54 100% 50%;
-    --preloader-accent-hex: #ffe600;
-    --preloader-bg: 280 60% 3%;
-    --preloader-surface: 280 50% 6%;
-    --preloader-border: 330 70% 35%;
-    --preloader-text: 180 100% 95%;
-    --preloader-muted: 180 30% 70%;
-    --preloader-glow: rgba(255, 0, 127, 0.55);
-  }
-
-  .matrix {
-    --background: 140 60% 2%;
-    --foreground: 142 85% 90%;
-
-    --card: 140 45% 4%;
-    --card-foreground: 142 85% 95%;
-
-    --popover: 140 45% 4%;
-    --popover-foreground: 142 85% 95%;
-
-    --primary: 142 100% 50%;
-    --primary-foreground: 140 60% 2%;
-
-    --secondary: 142 60% 12%;
-    --secondary-foreground: 142 85% 90%;
-
-    --muted: 140 35% 8%;
-    --muted-foreground: 142 35% 65%;
-
-    --accent: 142 100% 45%;
-    --accent-foreground: 140 60% 2%;
-
-    --destructive: 0 85% 60%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 142 60% 20%;
-    --input: 140 40% 7%;
-    --ring: 142 100% 50%;
-
-    /* Preloader Custom Properties (Matrix Mode) */
-    --preloader-primary: 142 100% 50%;
-    --preloader-primary-hex: #00ff66;
-    --preloader-secondary: 142 70% 40%;
-    --preloader-secondary-hex: #10b981;
-    --preloader-accent: 142 100% 70%;
-    --preloader-accent-hex: #86efac;
-    --preloader-bg: 140 60% 2%;
-    --preloader-surface: 140 45% 4%;
-    --preloader-border: 142 60% 25%;
-    --preloader-text: 142 100% 90%;
-    --preloader-muted: 142 40% 60%;
-    --preloader-glow: rgba(0, 255, 102, 0.55);
-  }
-
-  .synthwave {
-    --background: 270 55% 4%;
-    --foreground: 280 60% 92%;
-
-    --card: 270 45% 6%;
-    --card-foreground: 280 60% 95%;
-
-    --popover: 270 45% 6%;
-    --popover-foreground: 280 60% 95%;
-
-    --primary: 280 90% 65%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 24 95% 55%;
-    --secondary-foreground: 0 0% 100%;
-
-    --muted: 270 30% 12%;
-    --muted-foreground: 280 25% 65%;
-
-    --accent: 330 90% 60%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 85% 60%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 270 45% 25%;
-    --input: 270 35% 10%;
-    --ring: 280 90% 65%;
-
-    /* Preloader Custom Properties (Synthwave Mode) */
-    --preloader-primary: 280 90% 65%;
-    --preloader-primary-hex: #c084fc;
-    --preloader-secondary: 24 95% 55%;
-    --preloader-secondary-hex: #f97316;
-    --preloader-accent: 330 90% 60%;
-    --preloader-accent-hex: #f43f5e;
-    --preloader-bg: 270 55% 4%;
-    --preloader-surface: 270 45% 6%;
-    --preloader-border: 270 45% 30%;
-    --preloader-text: 280 60% 95%;
-    --preloader-muted: 280 25% 70%;
-    --preloader-glow: rgba(192, 132, 252, 0.55);
-  }
-}
-
-@layer base {
   * {
     @apply border-border;
   }
+
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
@@ -237,18 +104,6 @@
     background-image: radial-gradient(rgba(99, 102, 241, 0.12) 1px, transparent 1px);
     background-size: 24px 24px;
     background-attachment: fixed;
-  }
-
-  .cyberpunk body {
-    background-image: radial-gradient(rgba(255, 0, 127, 0.16) 1px, transparent 1px);
-  }
-
-  .matrix body {
-    background-image: radial-gradient(rgba(0, 255, 102, 0.15) 1px, transparent 1px);
-  }
-
-  .synthwave body {
-    background-image: radial-gradient(rgba(168, 85, 247, 0.18) 1px, transparent 1px);
   }
 }
 
@@ -284,35 +139,12 @@
   text-shadow: 0 0 12px rgba(125, 211, 252, 0.4), 0 0 24px rgba(99, 102, 241, 0.3);
 }
 
-.cyberpunk .text-pixel-glow {
-  color: #ff007f;
-  text-shadow: 0 0 12px rgba(255, 0, 127, 0.6), 0 0 24px rgba(0, 240, 255, 0.4);
-}
-
-.matrix .text-pixel-glow {
-  color: #00ff66;
-  text-shadow: 0 0 12px rgba(0, 255, 102, 0.6), 0 0 24px rgba(16, 185, 129, 0.4);
-}
-
-.synthwave .text-pixel-glow {
-  color: #c084fc;
-  text-shadow: 0 0 12px rgba(192, 132, 252, 0.6), 0 0 24px rgba(249, 115, 22, 0.4);
-}
-
 .border-tech {
   border: 1px solid rgba(99, 102, 241, 0.25);
 }
 
-.cyberpunk .border-tech {
-  border: 1px solid rgba(255, 0, 127, 0.4);
-}
-
-.matrix .border-tech {
-  border: 1px solid rgba(0, 255, 102, 0.4);
-}
-
-.synthwave .border-tech {
-  border: 1px solid rgba(192, 132, 252, 0.4);
+.dark .border-tech {
+  border: 1px solid rgba(99, 102, 241, 0.35);
 }
 
 .border-tech-active {
@@ -320,30 +152,11 @@
   box-shadow: 0 0 15px rgba(99, 102, 241, 0.15);
 }
 
-.cyberpunk .border-tech-active {
-  border: 1px solid rgba(0, 240, 255, 0.6);
-  box-shadow: 0 0 15px rgba(255, 0, 127, 0.3);
-}
-
-.matrix .border-tech-active {
-  border: 1px solid rgba(0, 255, 102, 0.6);
-  box-shadow: 0 0 15px rgba(0, 255, 102, 0.3);
-}
-
-.synthwave .border-tech-active {
-  border: 1px solid rgba(249, 115, 22, 0.6);
-  box-shadow: 0 0 15px rgba(168, 85, 247, 0.3);
-}
-
 /* =========================================================================
-   Theme Environment Aesthetic Deep-Overrides & Contrast Perfection
+   Theme Environment: Dark (Midnight) & Light (Studio)
    ========================================================================= */
 
-/* Universal Dark Modes Text Legibility Baseline */
-.dark,
-.cyberpunk,
-.matrix,
-.synthwave {
+.dark {
   color-scheme: dark;
 }
 
@@ -351,185 +164,13 @@
   color-scheme: light;
 }
 
-/* Ensure secondary / muted text across dark themes maintains WCAG AAA contrast */
-:is(.dark, .cyberpunk, .matrix, .synthwave) .text-slate-400 {
-  color: #94a3b8;
+/* Headings & Prominent Text in Dark Theme */
+.dark .text-slate-900:not(.light *) {
+  color: #f8fafc;
 }
 
-:is(.dark, .cyberpunk, .matrix, .synthwave) .text-slate-500 {
-  color: #a1a1aa;
-}
-
-:is(.dark, .cyberpunk, .matrix, .synthwave) .text-slate-600 {
-  color: #cbd5e1;
-}
-
-:is(.dark, .cyberpunk, .matrix, .synthwave) .text-slate-700 {
-  color: #e2e8f0;
-}
-
-:is(.dark, .cyberpunk, .matrix, .synthwave) .text-slate-800 {
+.dark .text-slate-800:not(.light *) {
   color: #f1f5f9;
-}
-
-:is(.dark, .cyberpunk, .matrix, .synthwave) .text-slate-900 {
-  color: #ffffff;
-}
-
-/* Cyberpunk 2077 Theme Overrides */
-.cyberpunk body {
-  background-color: #08000f !important;
-}
-
-.cyberpunk [class*="dark:bg-[#0a0a0a]"],
-.cyberpunk [class*="dark:bg-[#0b0b12]"],
-.cyberpunk [class*="dark:bg-black/"],
-.cyberpunk [class*="dark:bg-black"],
-.cyberpunk [class*="dark:bg-indigo-950/"],
-.cyberpunk [class*="dark:bg-indigo-950"] {
-  background-color: rgba(14, 2, 24, 0.92) !important;
-}
-
-.cyberpunk [class*="dark:border-indigo-900"],
-.cyberpunk [class*="dark:border-indigo-950"],
-.cyberpunk [class*="dark:border-slate-700"],
-.cyberpunk [class*="dark:border-slate-800"] {
-  border-color: rgba(255, 0, 127, 0.35) !important;
-}
-
-.cyberpunk [class*="dark:text-indigo-400"],
-.cyberpunk [class*="dark:text-indigo-300"] {
-  color: #00f0ff !important;
-}
-
-.cyberpunk [class*="dark:text-indigo-200"] {
-  color: #ff007f !important;
-}
-
-.cyberpunk .text-slate-400,
-.cyberpunk .text-slate-500 {
-  color: #a5f3fc !important;
-}
-
-.cyberpunk .text-slate-600,
-.cyberpunk .text-slate-700 {
-  color: #e0f2fe !important;
-}
-
-.cyberpunk input,
-.cyberpunk textarea,
-.cyberpunk select {
-  background-color: #130324 !important;
-  color: #ffffff !important;
-  border-color: rgba(255, 0, 127, 0.4) !important;
-}
-
-.cyberpunk input::placeholder,
-.cyberpunk textarea::placeholder {
-  color: #00f0ff88 !important;
-}
-
-/* Matrix Phosphor Theme Overrides */
-.matrix body {
-  background-color: #020803 !important;
-}
-
-.matrix [class*="dark:bg-[#0a0a0a]"],
-.matrix [class*="dark:bg-[#0b0b12]"],
-.matrix [class*="dark:bg-black/"],
-.matrix [class*="dark:bg-black"],
-.matrix [class*="dark:bg-indigo-950/"],
-.matrix [class*="dark:bg-indigo-950"] {
-  background-color: rgba(3, 14, 5, 0.92) !important;
-}
-
-.matrix [class*="dark:border-indigo-900"],
-.matrix [class*="dark:border-indigo-950"],
-.matrix [class*="dark:border-slate-700"],
-.matrix [class*="dark:border-slate-800"] {
-  border-color: rgba(0, 255, 102, 0.28) !important;
-}
-
-.matrix [class*="dark:text-indigo-400"],
-.matrix [class*="dark:text-indigo-300"],
-.matrix [class*="dark:text-indigo-200"] {
-  color: #86efac !important;
-}
-
-.matrix .text-slate-400,
-.matrix .text-slate-500 {
-  color: #86efac !important;
-}
-
-.matrix .text-slate-600,
-.matrix .text-slate-700 {
-  color: #bbf7d0 !important;
-}
-
-.matrix input,
-.matrix textarea,
-.matrix select {
-  background-color: #041708 !important;
-  color: #86efac !important;
-  border-color: rgba(0, 255, 102, 0.35) !important;
-}
-
-.matrix input::placeholder,
-.matrix textarea::placeholder {
-  color: #00ff6677 !important;
-}
-
-/* Synthwave 80s Theme Overrides */
-.synthwave body {
-  background-color: #0f051d !important;
-}
-
-.synthwave [class*="dark:bg-[#0a0a0a]"],
-.synthwave [class*="dark:bg-[#0b0b12]"],
-.synthwave [class*="dark:bg-black/"],
-.synthwave [class*="dark:bg-black"],
-.synthwave [class*="dark:bg-indigo-950/"],
-.synthwave [class*="dark:bg-indigo-950"] {
-  background-color: rgba(22, 8, 42, 0.92) !important;
-}
-
-.synthwave [class*="dark:border-indigo-900"],
-.synthwave [class*="dark:border-indigo-950"],
-.synthwave [class*="dark:border-slate-700"],
-.synthwave [class*="dark:border-slate-800"] {
-  border-color: rgba(192, 132, 252, 0.32) !important;
-}
-
-.synthwave [class*="dark:text-indigo-400"],
-.synthwave [class*="dark:text-indigo-300"] {
-  color: #f97316 !important;
-}
-
-.synthwave [class*="dark:text-indigo-200"] {
-  color: #e879f9 !important;
-}
-
-.synthwave .text-slate-400,
-.synthwave .text-slate-500 {
-  color: #fcd34d !important;
-}
-
-.synthwave .text-slate-600,
-.synthwave .text-slate-700 {
-  color: #f3e8ff !important;
-}
-
-.synthwave input,
-.synthwave textarea,
-.synthwave select {
-  background-color: #1c0b36 !important;
-  color: #ffffff !important;
-  border-color: rgba(192, 132, 252, 0.4) !important;
-}
-
-.synthwave input::placeholder,
-.synthwave textarea::placeholder {
-  color: #f9731677 !important;
 }
 
 /* Light Mode High-Contrast Enforcement */
@@ -558,9 +199,7 @@
   border-color: #cbd5e1 !important;
 }
 
-
 /* Clerk Custom Aesthetic & Branding Overrides */
-/* Center the sign-in / sign-up modal card on the screen */
 .cl-rootBox {
   display: flex !important;
   align-items: center !important;
@@ -572,9 +211,6 @@
   margin: 0 !important;
 }
 
-/* Clerk's own .cl-modalContent ships with margin: 64px 0px which pins the
-   card to the top. With a flex parent, margin: auto absorbs the free space
-   and centers the card on both axes (backdrop padding keeps it off edges). */
 .cl-modalContent {
   margin: auto !important;
 }
@@ -1013,231 +649,6 @@
   color: #818cf8 !important;
 }
 
-/* ===== CYBERPUNK THEME COMPONENT OVERRIDES ===== */
-.cyberpunk header,
-.cyberpunk aside {
-  background-color: rgba(8, 0, 15, 0.95) !important;
-  border-color: rgba(255, 0, 127, 0.35) !important;
-}
-
-.cyberpunk .bg-indigo-600,
-.cyberpunk .bg-primary {
-  background-color: #ff007f !important;
-  border-color: #ff007f !important;
-  color: #ffffff !important;
-  box-shadow: 0 0 15px rgba(255, 0, 127, 0.35) !important;
-}
-
-.cyberpunk .bg-indigo-600:hover,
-.cyberpunk .bg-primary:hover {
-  background-color: #e11d48 !important;
-}
-
-.cyberpunk .text-indigo-600,
-.cyberpunk .text-indigo-500,
-.cyberpunk .text-indigo-400,
-.cyberpunk .text-indigo-300 {
-  color: #ff007f !important;
-}
-
-.cyberpunk .text-indigo-200,
-.cyberpunk .text-indigo-100 {
-  color: #00f0ff !important;
-}
-
-.cyberpunk .border-indigo-900\/40,
-.cyberpunk .border-indigo-900\/50,
-.cyberpunk .border-indigo-900\/30,
-.cyberpunk .border-indigo-500\/40,
-.cyberpunk .border-indigo-400 {
-  border-color: rgba(255, 0, 127, 0.35) !important;
-}
-
-.cyberpunk .bg-indigo-950\/40,
-.cyberpunk .bg-indigo-950\/60,
-.cyberpunk .bg-indigo-950\/20,
-.cyberpunk .bg-indigo-50 {
-  background-color: rgba(255, 0, 127, 0.14) !important;
-  color: #00f0ff !important;
-}
-
-.cyberpunk .bg-black,
-.cyberpunk .bg-black\/90,
-.cyberpunk .bg-\[\#0a0a0a\]\/60 {
-  background-color: rgba(8, 0, 15, 0.85) !important;
-}
-
-.cyberpunk .cl-card,
-.cyberpunk .cl-userProfile-root {
-  background-color: transparent !important;
-  color: #f1f5f9 !important;
-}
-
-.cyberpunk .cl-headerTitle {
-  color: #ff007f !important;
-}
-
-.cyberpunk .cl-headerSubtitle,
-.cyberpunk .cl-profileSectionSubtitleText {
-  color: #00f0ff !important;
-}
-
-.cyberpunk .cl-userButtonPopoverCard {
-  background-color: #08000f !important;
-  border: 1px solid rgba(255, 0, 127, 0.4) !important;
-  color: #f1f5f9 !important;
-}
-
-/* ===== MATRIX THEME COMPONENT OVERRIDES ===== */
-.matrix header,
-.matrix aside {
-  background-color: rgba(2, 8, 3, 0.95) !important;
-  border-color: rgba(0, 255, 102, 0.3) !important;
-}
-
-.matrix .bg-indigo-600,
-.matrix .bg-primary {
-  background-color: #059669 !important;
-  border-color: #00ff66 !important;
-  color: #ffffff !important;
-  box-shadow: 0 0 15px rgba(0, 255, 102, 0.35) !important;
-}
-
-.matrix .bg-indigo-600:hover,
-.matrix .bg-primary:hover {
-  background-color: #10b981 !important;
-}
-
-.matrix .text-indigo-600,
-.matrix .text-indigo-500,
-.matrix .text-indigo-400,
-.matrix .text-indigo-300 {
-  color: #00ff66 !important;
-}
-
-.matrix .text-indigo-200,
-.matrix .text-indigo-100 {
-  color: #86efac !important;
-}
-
-.matrix .border-indigo-900\/40,
-.matrix .border-indigo-900\/50,
-.matrix .border-indigo-900\/30,
-.matrix .border-indigo-500\/40,
-.matrix .border-indigo-400 {
-  border-color: rgba(0, 255, 102, 0.3) !important;
-}
-
-.matrix .bg-indigo-950\/40,
-.matrix .bg-indigo-950\/60,
-.matrix .bg-indigo-950\/20,
-.matrix .bg-indigo-50 {
-  background-color: rgba(0, 255, 102, 0.12) !important;
-  color: #86efac !important;
-}
-
-.matrix .bg-black,
-.matrix .bg-black\/90,
-.matrix .bg-\[\#0a0a0a\]\/60 {
-  background-color: rgba(2, 8, 3, 0.85) !important;
-}
-
-.matrix .cl-card,
-.matrix .cl-userProfile-root {
-  background-color: transparent !important;
-  color: #86efac !important;
-}
-
-.matrix .cl-headerTitle {
-  color: #00ff66 !important;
-}
-
-.matrix .cl-headerSubtitle,
-.matrix .cl-profileSectionSubtitleText {
-  color: #34d399 !important;
-}
-
-.matrix .cl-userButtonPopoverCard {
-  background-color: #020803 !important;
-  border: 1px solid rgba(0, 255, 102, 0.4) !important;
-  color: #86efac !important;
-}
-
-/* ===== SYNTHWAVE THEME COMPONENT OVERRIDES ===== */
-.synthwave header,
-.synthwave aside {
-  background-color: rgba(15, 5, 29, 0.95) !important;
-  border-color: rgba(192, 132, 252, 0.35) !important;
-}
-
-.synthwave .bg-indigo-600,
-.synthwave .bg-primary {
-  background-color: #a855f7 !important;
-  border-color: #c084fc !important;
-  color: #ffffff !important;
-  box-shadow: 0 0 15px rgba(168, 85, 247, 0.35) !important;
-}
-
-.synthwave .bg-indigo-600:hover,
-.synthwave .bg-primary:hover {
-  background-color: #9333ea !important;
-}
-
-.synthwave .text-indigo-600,
-.synthwave .text-indigo-500,
-.synthwave .text-indigo-400,
-.synthwave .text-indigo-300 {
-  color: #c084fc !important;
-}
-
-.synthwave .text-indigo-200,
-.synthwave .text-indigo-100 {
-  color: #f97316 !important;
-}
-
-.synthwave .border-indigo-900\/40,
-.synthwave .border-indigo-900\/50,
-.synthwave .border-indigo-900\/30,
-.synthwave .border-indigo-500\/40,
-.synthwave .border-indigo-400 {
-  border-color: rgba(192, 132, 252, 0.35) !important;
-}
-
-.synthwave .bg-indigo-950\/40,
-.synthwave .bg-indigo-950\/60,
-.synthwave .bg-indigo-950\/20,
-.synthwave .bg-indigo-50 {
-  background-color: rgba(192, 132, 252, 0.14) !important;
-  color: #fed7aa !important;
-}
-
-.synthwave .bg-black,
-.synthwave .bg-black\/90,
-.synthwave .bg-\[\#0a0a0a\]\/60 {
-  background-color: rgba(15, 5, 29, 0.85) !important;
-}
-
-.synthwave .cl-card,
-.synthwave .cl-userProfile-root {
-  background-color: transparent !important;
-  color: #f3e8ff !important;
-}
-
-.synthwave .cl-headerTitle {
-  color: #c084fc !important;
-}
-
-.synthwave .cl-headerSubtitle,
-.synthwave .cl-profileSectionSubtitleText {
-  color: #f97316 !important;
-}
-
-.synthwave .cl-userButtonPopoverCard {
-  background-color: #0f051d !important;
-  border: 1px solid rgba(192, 132, 252, 0.4) !important;
-  color: #f3e8ff !important;
-}
-
 /* =========================================================================
    Agent Studio Preloader Custom Keyframes & Utilities (Zero-Dependency)
    ========================================================================= */
@@ -1370,49 +781,18 @@
 }
 
 /* =========================================================================
-   Custom 404 Page Multi-Theme Styling
+   Custom 404 Page Styling
    ========================================================================= */
 
 .not-found-radar-glow {
   box-shadow: 0 0 35px rgba(239, 68, 68, 0.25), inset 0 0 20px rgba(239, 68, 68, 0.15);
 }
 
-.cyberpunk .not-found-radar-glow {
-  box-shadow: 0 0 35px rgba(255, 0, 127, 0.4), inset 0 0 20px rgba(0, 240, 255, 0.2);
-}
-
-.matrix .not-found-radar-glow {
-  box-shadow: 0 0 35px rgba(0, 255, 102, 0.35), inset 0 0 20px rgba(0, 255, 102, 0.2);
-}
-
-.synthwave .not-found-radar-glow {
-  box-shadow: 0 0 35px rgba(249, 115, 22, 0.4), inset 0 0 20px rgba(192, 132, 252, 0.2);
-}
-
 .not-found-title-glow {
   text-shadow: 0 0 20px rgba(239, 68, 68, 0.6), 0 0 40px rgba(239, 68, 68, 0.3);
-}
-
-.cyberpunk .not-found-title-glow {
-  color: #ff007f !important;
-  text-shadow: 0 0 20px rgba(255, 0, 127, 0.8), 0 0 40px rgba(0, 240, 255, 0.5) !important;
-}
-
-.matrix .not-found-title-glow {
-  color: #00ff66 !important;
-  text-shadow: 0 0 20px rgba(0, 255, 102, 0.8), 0 0 40px rgba(16, 185, 129, 0.5) !important;
-}
-
-.synthwave .not-found-title-glow {
-  color: #f97316 !important;
-  text-shadow: 0 0 20px rgba(249, 115, 22, 0.8), 0 0 40px rgba(192, 132, 252, 0.5) !important;
 }
 
 .light .not-found-title-glow {
   color: #dc2626 !important;
   text-shadow: 0 2px 10px rgba(220, 38, 38, 0.25) !important;
 }
-
-
-
-
