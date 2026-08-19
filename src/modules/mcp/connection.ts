@@ -2,7 +2,8 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
-import { McpServerDTO } from "@/types/mcp";
+import { CreateMessageRequestSchema, CreateMessageResultSchema } from "@modelcontextprotocol/sdk/types.js";
+import { McpServerDTO, McpProgressEvent } from "@/types/mcp";
 import { logger } from "@/lib/logger";
 import { McpRpcClient } from "./toolAdapter";
 import { mapToolsList } from "./protocol";
@@ -12,23 +13,27 @@ export interface McpConnectionOptions {
   connectTimeoutMs?: number;
   /** Wall-clock budget for tool calls. Default 15s. */
   callTimeoutMs?: number;
+  /** Handler invoked when the connected server requests LLM sampling. */
+  onSamplingRequest?: (params: Record<string, unknown>) => Promise<Record<string, unknown>>;
 }
 
 const DEFAULT_CONNECT_TIMEOUT_MS = 15_000;
-const DEFAULT_CALL_TIMEOUT_MS = 15_000;
-
-/**
- * A live MCP client connection. Owns the SDK `Client` + transport for one
- * server and exposes the minimal RPC surface the tool adapter needs. The
- * transport is chosen by stored config: stdio for local commands, and for
- * remote endpoints Streamable HTTP first with a legacy SSE fallback.
- *
- * NOTE: `Client.connect()` calls `transport.start()` itself, so the transport
- * must NOT be pre-started — doing so makes the SDK throw "already started".
- */
-export class McpConnection implements McpRpcClient {
+const DEFAULT_CALL_TIMEOUT_MS = 15_000;  /**
+   * A live MCP client connection. Owns the SDK `Client` + transport for one
+   * server and exposes the minimal RPC surface the tool adapter needs. The
+   * transport is chosen by stored config: stdio for local commands, and for
+   * remote endpoints Streamable HTTP first with a legacy SSE fallback.
+   *
+   * Declares sampling capability so connected MCP servers can request LLM
+   * completions back from Agent Studio's engine (nested agentic behavior).
+   *
+   * NOTE: `Client.connect()` calls `transport.start()` itself, so the transport
+   * must NOT be pre-started — doing so makes the SDK throw "already started".
+   */
+  export class McpConnection implements McpRpcClient {
   private client: Client | null = null;
   private transport: StdioClientTransport | StreamableHTTPClientTransport | SSEClientTransport | null = null;
+  private progressListeners = new Set<(event: McpProgressEvent) => void>();
 
   constructor(
     private readonly server: McpServerDTO,
@@ -37,6 +42,19 @@ export class McpConnection implements McpRpcClient {
 
   get isConnected(): boolean {
     return this.client !== null;
+  }
+
+  /** Subscribe to progress events emitted during tool/resource/prompt calls. */
+  onProgress(listener: (event: McpProgressEvent) => void): () => void {
+    this.progressListeners.add(listener);
+    return () => { this.progressListeners.delete(listener); };
+  }
+
+  private emitProgress(event: Omit<McpProgressEvent, "timestamp">): void {
+    const fullEvent: McpProgressEvent = { ...event, timestamp: Date.now() };
+    for (const listener of this.progressListeners) {
+      try { listener(fullEvent); } catch { /* best-effort */ }
+    }
   }
 
   /** Establish the transport + initialize handshake. Throws on failure. */
@@ -103,10 +121,18 @@ export class McpConnection implements McpRpcClient {
   /** Invoke a tool by server-local name with a wall-clock budget. */
   async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
     this.assertConnected();
-    return this.callWithTimeout(
-      () => this.client!.callTool({ name, arguments: args }),
-      `callTool(${name})`
-    );
+    this.emitProgress({ type: "started", operation: "callTool", detail: name });
+    try {
+      const result = await this.callWithTimeout(
+        () => this.client!.callTool({ name, arguments: args }),
+        `callTool(${name})`
+      );
+      this.emitProgress({ type: "completed", operation: "callTool", detail: name });
+      return result;
+    } catch (error) {
+      this.emitProgress({ type: "failed", operation: "callTool", detail: name, error: messageOf(error) });
+      throw error;
+    }
   }
 
   /** Round-trip liveness probe — resolves to latency in ms. */
@@ -126,13 +152,39 @@ export class McpConnection implements McpRpcClient {
     await transport?.close().catch(() => {});
   }
 
-  /** Run the initialize handshake over one transport; clean up on failure. */
+  /**
+   * Run the initialize handshake over one transport; clean up on failure.
+   * Declares sampling capability so servers can request LLM completions.
+   */
   private async connectWith(
     transport: StdioClientTransport | StreamableHTTPClientTransport | SSEClientTransport,
     timeoutMs: number,
     label: string
   ): Promise<void> {
-    const client = new Client({ name: "agent-studio", version: "1.0.0" }, { capabilities: {} });
+    const client = new Client(
+      { name: "agent-studio", version: "1.0.0" },
+      {
+        capabilities: {
+          sampling: {},
+        },
+      }
+    );
+
+    // Register a handler for sampling/createMessage requests from the server.
+    // When a connected MCP server needs an LLM completion, it sends this
+    // request to Agent Studio, which can proxy it to its configured LLM.
+    if (this.options.onSamplingRequest) {
+      const handler = this.options.onSamplingRequest;
+      client.setRequestHandler(CreateMessageRequestSchema, async (request) => {
+        logger.info(
+          { serverId: this.server.id, serverName: this.server.name },
+          "Received sampling/createMessage request from MCP server"
+        );
+        const result = await handler(request.params as unknown as Record<string, unknown>);
+        return result as any;
+      });
+    }
+
     try {
       await withTimeout(client.connect(transport), timeoutMs, `initialize (${label})`);
     } catch (error) {
@@ -141,7 +193,10 @@ export class McpConnection implements McpRpcClient {
     }
     this.transport = transport;
     this.client = client;
-    logger.info({ serverId: this.server.id, name: this.server.name, transport: label }, "MCP connection established");
+    logger.info(
+      { serverId: this.server.id, name: this.server.name, transport: label, sampling: Boolean(this.options.onSamplingRequest) },
+      "MCP connection established"
+    );
   }
 
   private assertConnected(): void {

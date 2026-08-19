@@ -3,6 +3,9 @@ import { IMcpClientService } from "./interfaces/IMcpClientService";
 import {
   CreateMcpServerInput,
   McpHealth,
+  McpProgressEvent,
+  McpSamplingRequest,
+  McpSamplingResult,
   McpServerDTO,
   McpToolTestResult,
   UpdateMcpServerInput,
@@ -238,6 +241,53 @@ export class McpClientService implements IMcpClientService {
       cachedToolCount: server.cachedTools.length,
       circuit: breaker.stats,
       updatedAt: server.updatedAt,
+    };
+  }
+
+  /**
+   * Subscribe to progress events from a connected MCP server's tool calls.
+   * Returns an unsubscribe function.
+   */
+  onProgress(serverId: string, userId: string, listener: (event: McpProgressEvent) => void): () => void {
+    const server = this.connections.get(serverId);
+    if (!server) return () => {};
+    return server.onProgress(listener);
+  }
+
+  /**
+   * Handle a sampling/createMessage request from a connected MCP server.
+   * This proxies the request to Agent Studio's LLM engine. For now, it
+   * returns a structured response indicating the request was received.
+   * In production, this would call the user's configured LLM provider.
+   */
+  async handleSamplingRequest(
+    serverId: string,
+    userId: string,
+    params: Record<string, unknown>
+  ): Promise<McpSamplingResult> {
+    const server = await this.requireServer(serverId, userId);
+    const request = params as unknown as McpSamplingRequest;
+
+    logger.info(
+      { serverId, userId, model: request.modelPreferences?.hints?.[0]?.name, messageCount: request.messages?.length },
+      "Processing MCP sampling request"
+    );
+
+    // Build the sampling response. In a full implementation, this would
+    // route to the user's configured LLM provider (OpenAI, Anthropic, etc).
+    // For now, we return a structured result that acknowledges the request.
+    const messages = request.messages ?? [];
+    const lastUserMessage = messages.filter((m) => m.role === "user").pop();
+    const userContent = lastUserMessage?.content?.text ?? "";
+
+    return {
+      model: request.modelPreferences?.hints?.[0]?.name ?? "agent-studio-default",
+      role: "assistant",
+      content: {
+        type: "text",
+        text: `[Agent Studio Sampling] Received request from MCP server "${server.name}". ${request.systemPrompt ? `System: ${request.systemPrompt.slice(0, 100)}...` : ""} User content: ${userContent.slice(0, 200)}`,
+      },
+      stopReason: "end_turn",
     };
   }
 

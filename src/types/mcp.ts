@@ -5,6 +5,42 @@ export type McpTransport = "SSE" | "STDIO";
 
 export type McpServerStatus = "CONNECTED" | "DISCONNECTED" | "ERROR";
 
+/** A progress event emitted during MCP tool/resource/prompt calls. */
+export interface McpProgressEvent {
+  type: "started" | "progress" | "completed" | "failed";
+  operation: "callTool" | "listResources" | "readResource" | "listPrompts" | "getPrompt";
+  detail?: string;
+  progress?: number; // 0-100 percentage when type === "progress"
+  message?: string;
+  error?: string;
+  timestamp: number;
+}
+
+/** A sampling request from a connected MCP server for LLM completion. */
+export interface McpSamplingRequest {
+  serverId: string;
+  serverName: string;
+  messages: { role: "user" | "assistant"; content: { type: string; text?: string } }[];
+  modelPreferences?: { hints?: { name: string }[]; costPriority?: number; speedPriority?: number; intelligencePriority?: number };
+  systemPrompt?: string;
+  temperature?: number;
+  maxTokens: number;
+  stopSequences?: string[];
+  tools?: unknown[];
+  toolChoice?: { mode?: string };
+}
+
+/** Result of an LLM sampling call. */
+export interface McpSamplingResult {
+  model: string;
+  role: "assistant";
+  content: { type: "text"; text: string };
+  stopReason?: string;
+}
+
+/** Permission status for sampling requests from a specific server. */
+export type McpSamplingPermission = "always" | "ask" | "never";
+
 /** A tool discovered from a remote MCP server via `tools/list`. */
 export interface McpToolDefinition {
   /** Server-local tool name (e.g. `create_issue`). */

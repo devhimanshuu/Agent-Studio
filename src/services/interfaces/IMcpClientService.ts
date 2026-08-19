@@ -1,6 +1,8 @@
 import {
   CreateMcpServerInput,
   McpHealth,
+  McpProgressEvent,
+  McpSamplingResult,
   McpServerDTO,
   McpToolTestResult,
   UpdateMcpServerInput,
@@ -24,6 +26,10 @@ export interface IMcpClientService {
   listPrompts(serverId: string, userId: string): Promise<any[]>;
   getPrompt(serverId: string, userId: string, promptName: string, args?: Record<string, string>): Promise<any>;
   getMetrics(serverId: string, userId: string): Promise<any>;
+  /** Subscribe to progress events from a connected MCP server. */
+  onProgress(serverId: string, userId: string, listener: (event: McpProgressEvent) => void): () => void;
+  /** Handle a sampling/createMessage request from a connected MCP server. */
+  handleSamplingRequest(serverId: string, userId: string, params: Record<string, unknown>): Promise<McpSamplingResult>;
   /** Sync cached MCP tools into a registry as standard ITools (idempotent). */
   registerUserMcpTools(userId: string, registry: ToolRegistry): Promise<Tool[]>;
   buildUserRegistry(userId: string, base: ToolRegistry): Promise<ToolRegistry>;

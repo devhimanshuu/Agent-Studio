@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Plug,
   Server,
@@ -676,12 +676,78 @@ function generateSamplePayload(schema: Record<string, unknown> | undefined): str
   return Object.keys(sample).length > 0 ? JSON.stringify(sample, null, 2) : "{}";
 }
 
+type InspectorTab = "tools" | "resources" | "prompts" | "sampling" | "progress";
+
+const INSPECTOR_TABS: { id: InspectorTab; label: string; icon: typeof Braces; count?: (s: McpServerDTO) => number }[] = [
+  { id: "tools", label: "TOOLS", icon: Braces, count: (s) => s.cachedTools.length },
+  { id: "resources", label: "RESOURCES", icon: Database },
+  { id: "prompts", label: "PROMPTS", icon: BookOpen },
+  { id: "sampling", label: "SAMPLING", icon: Brain },
+  { id: "progress", label: "PROGRESS", icon: Activity },
+];
+
 function ToolInspector({ server }: { server: McpServerDTO }) {
+  const [activeTab, setActiveTab] = useState<InspectorTab>("tools");
   const [activeTestTool, setActiveTestTool] = useState<string | null>(null);
   const [schemaOpen, setSchemaOpen] = useState<string | null>(null);
 
   return (
-    <div className="border-t border-slate-200 dark:border-indigo-950/60 bg-slate-50/60 dark:bg-black/30 p-4 space-y-3">
+    <div className="border-t border-slate-200 dark:border-indigo-950/60 bg-slate-50/60 dark:bg-black/30">
+      {/* Tab bar */}
+      <div className="flex items-center gap-0.5 px-4 pt-3 border-b border-slate-200 dark:border-indigo-950/60">
+        {INSPECTOR_TABS.map((tab) => {
+          const Icon = tab.icon;
+          const count = tab.count?.(server);
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={clsx(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-t text-[9px] font-mono font-semibold uppercase tracking-wider border border-b-0 transition-all cursor-pointer",
+                isActive
+                  ? "border-indigo-500 bg-indigo-600 text-white shadow-sm"
+                  : "border-transparent text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-300 hover:border-slate-300 dark:hover:border-indigo-800"
+              )}
+            >
+              <Icon className="h-3 w-3" />
+              {tab.label}
+              {count !== undefined && (
+                <span className={clsx("ml-0.5 text-[8px] font-normal", isActive ? "text-indigo-200" : "text-slate-400")}>
+                  ({count})
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tab content */}
+      <div className="p-4">
+        {activeTab === "tools" && (
+          <ToolsTab server={server} activeTestTool={activeTestTool} setActiveTestTool={setActiveTestTool} schemaOpen={schemaOpen} setSchemaOpen={setSchemaOpen} />
+        )}
+        {activeTab === "resources" && <ResourcesTab server={server} />}
+        {activeTab === "prompts" && <PromptsTab server={server} />}
+        {activeTab === "sampling" && <SamplingTab server={server} />}
+        {activeTab === "progress" && <ProgressTab server={server} />}
+      </div>
+    </div>
+  );
+}
+
+/* ────────────── Tools Tab ────────────── */
+
+function ToolsTab({ server, activeTestTool, setActiveTestTool, schemaOpen, setSchemaOpen }: {
+  server: McpServerDTO;
+  activeTestTool: string | null;
+  setActiveTestTool: React.Dispatch<React.SetStateAction<string | null>>;
+  schemaOpen: string | null;
+  setSchemaOpen: React.Dispatch<React.SetStateAction<string | null>>;
+}) {
+  return (
+    <div className="space-y-3">
       <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400 font-semibold flex items-center justify-between">
         <span className="flex items-center gap-1.5">
           <Braces className="h-3.5 w-3.5" /> DISCOVERED TOOLS ({server.cachedTools.length})
@@ -722,11 +788,7 @@ function ToolInspector({ server }: { server: McpServerDTO }) {
                     onClick={() => setSchemaOpen((prev) => (prev === tool.name ? null : tool.name))}
                     className="inline-flex items-center gap-1 text-xs font-mono font-semibold text-indigo-900 dark:text-indigo-200 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer min-w-0"
                   >
-                    {isSchemaOpen ? (
-                      <ChevronDown className="h-3.5 w-3.5 shrink-0" />
-                    ) : (
-                      <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-                    )}
+                    {isSchemaOpen ? <ChevronDown className="h-3.5 w-3.5 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0" />}
                     <span className="truncate">{tool.name}</span>
                   </button>
 
@@ -763,9 +825,7 @@ function ToolInspector({ server }: { server: McpServerDTO }) {
                 </div>
 
                 {tool.description && (
-                  <p className="text-[10px] font-mono text-slate-600 dark:text-slate-400">
-                    {tool.description}
-                  </p>
+                  <p className="text-[10px] font-mono text-slate-600 dark:text-slate-400">{tool.description}</p>
                 )}
 
                 {isSchemaOpen && (
@@ -774,14 +834,7 @@ function ToolInspector({ server }: { server: McpServerDTO }) {
                   </pre>
                 )}
 
-                {/* Inline Test Console directly below this tool */}
-                {isTesting && (
-                  <ToolTestConsole
-                    server={server}
-                    tool={tool}
-                    onClose={() => setActiveTestTool(null)}
-                  />
-                )}
+                {isTesting && <ToolTestConsole server={server} tool={tool} onClose={() => setActiveTestTool(null)} />}
               </li>
             );
           })}
@@ -979,6 +1032,564 @@ function ToolTestConsole({
     </div>
   );
 }
+
+/* ────────────── Resources Tab ────────────── */
+
+function ResourcesTab({ server }: { server: McpServerDTO }) {
+  const [resources, setResources] = useState<any[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedUri, setSelectedUri] = useState<string | null>(null);
+  const [resourceContent, setResourceContent] = useState<any>(null);
+  const [readingUri, setReadingUri] = useState<string | null>(null);
+
+  const loadResources = useCallback(async () => {
+    if (server.status !== "CONNECTED") return;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await api<any[]>(`/api/mcp/servers/${server.id}/resources`);
+      setResources(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to list resources");
+    } finally {
+      setLoading(false);
+    }
+  }, [server.id, server.status]);
+
+  useEffect(() => {
+    if (server.status === "CONNECTED") void loadResources();
+  }, [server.status, loadResources]);
+
+  const readResource = useCallback(async (uri: string) => {
+    setReadingUri(uri);
+    setSelectedUri(uri);
+    try {
+      const data = await api<any>(`/api/mcp/servers/${server.id}/resources/read`, {
+        method: "POST",
+        body: JSON.stringify({ uri }),
+      });
+      setResourceContent(data);
+    } catch (e) {
+      setResourceContent({ error: e instanceof Error ? e.message : "Failed to read resource" });
+    } finally {
+      setReadingUri(null);
+    }
+  }, [server.id]);
+
+  if (server.status !== "CONNECTED") {
+    return (
+      <div className="text-center py-8 space-y-2">
+        <Database className="h-6 w-6 text-slate-400 mx-auto" />
+        <p className="text-xs font-mono text-slate-500">Connect the server to browse resources.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400 font-semibold flex items-center justify-between">
+        <span className="flex items-center gap-1.5">
+          <Database className="h-3.5 w-3.5" /> MCP RESOURCES
+        </span>
+        <button type="button" onClick={loadResources} disabled={loading} className="inline-flex items-center gap-1 hover:text-indigo-600 cursor-pointer">
+          {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} REFRESH
+        </button>
+      </div>
+
+      {error && (
+        <div className="text-[10px] font-mono text-red-600 dark:text-red-400 px-2 py-1 rounded bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-500/30">{error}</div>
+      )}
+
+      {resources === null || (loading && resources.length === 0) ? (
+        <div className="flex items-center gap-2 text-[11px] font-mono text-slate-500 py-4">
+          <Loader2 className="h-4 w-4 animate-spin text-indigo-500" /> Loading resources...
+        </div>
+      ) : resources.length === 0 ? (
+        <div className="text-center py-6 space-y-1">
+          <p className="text-xs font-mono text-slate-600 dark:text-slate-400">No resources exposed by this server.</p>
+          <p className="text-[10px] font-mono text-slate-500">Resources are URI-addressable data exposed via MCP resources/list.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="text-[9px] font-mono text-slate-500">{resources.length} resource(s) available — click to read content</div>
+          {resources.map((res: any) => (
+            <div key={res.uri} className="rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-xs font-mono font-semibold text-indigo-900 dark:text-indigo-200 truncate">{res.name ?? res.uri}</div>
+                  <div className="text-[9px] font-mono text-slate-500 truncate" title={res.uri}>{res.uri}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {res.mimeType && (
+                    <span className="px-1.5 py-0.5 rounded border border-slate-300 dark:border-indigo-900/50 text-[8px] font-mono text-slate-500 uppercase">{res.mimeType}</span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => readResource(res.uri)}
+                    disabled={readingUri === res.uri}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded border border-indigo-500 bg-indigo-600 text-white text-[9px] font-mono font-semibold uppercase tracking-wider hover:bg-indigo-500 disabled:opacity-50 cursor-pointer"
+                  >
+                    {readingUri === res.uri ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Download className="h-2.5 w-2.5" />} READ
+                  </button>
+                </div>
+              </div>
+              {res.description && <p className="text-[10px] font-mono text-slate-600 dark:text-slate-400">{res.description}</p>}
+
+              {selectedUri === res.uri && resourceContent && (
+                <div className="mt-2 rounded border border-indigo-300 dark:border-indigo-700/50 bg-indigo-50/50 dark:bg-indigo-950/20 p-3 animate-fadeInUp">
+                  <div className="text-[9px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400 font-semibold mb-2">RESOURCE CONTENT</div>
+                  <pre className="rounded border border-slate-200 dark:border-indigo-900/40 bg-black text-slate-100 p-3 text-[10px] font-mono overflow-x-auto max-h-72 overflow-y-auto whitespace-pre shadow-inner">
+                    {typeof resourceContent === "string"
+                      ? resourceContent
+                      : resourceContent.text ?? JSON.stringify(resourceContent, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ────────────── Prompts Tab ────────────── */
+
+function PromptsTab({ server }: { server: McpServerDTO }) {
+  const [prompts, setPrompts] = useState<any[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedPrompt, setSelectedPrompt] = useState<string | null>(null);
+  const [promptResult, setPromptResult] = useState<any>(null);
+  const [promptArgs, setPromptArgs] = useState<Record<string, string>>({});
+  const [fetchingPrompt, setFetchingPrompt] = useState(false);
+
+  const loadPrompts = useCallback(async () => {
+    if (server.status !== "CONNECTED") return;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await api<any[]>(`/api/mcp/servers/${server.id}/prompts`);
+      setPrompts(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to list prompts");
+    } finally {
+      setLoading(false);
+    }
+  }, [server.id, server.status]);
+
+  useEffect(() => {
+    if (server.status === "CONNECTED") void loadPrompts();
+  }, [server.status, loadPrompts]);
+
+  const getPrompt = useCallback(async (name: string) => {
+    setFetchingPrompt(true);
+    setSelectedPrompt(name);
+    try {
+      const data = await api<any>(`/api/mcp/servers/${server.id}/prompts`, {
+        method: "POST",
+        body: JSON.stringify({ name, arguments: promptArgs }),
+      });
+      setPromptResult(data);
+    } catch (e) {
+      setPromptResult({ error: e instanceof Error ? e.message : "Failed to get prompt" });
+    } finally {
+      setFetchingPrompt(false);
+    }
+  }, [server.id, promptArgs]);
+
+  if (server.status !== "CONNECTED") {
+    return (
+      <div className="text-center py-8 space-y-2">
+        <BookOpen className="h-6 w-6 text-slate-400 mx-auto" />
+        <p className="text-xs font-mono text-slate-500">Connect the server to browse prompt templates.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400 font-semibold flex items-center justify-between">
+        <span className="flex items-center gap-1.5">
+          <BookOpen className="h-3.5 w-3.5" /> MCP PROMPT TEMPLATES
+        </span>
+        <button type="button" onClick={loadPrompts} disabled={loading} className="inline-flex items-center gap-1 hover:text-indigo-600 cursor-pointer">
+          {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} REFRESH
+        </button>
+      </div>
+
+      {error && (
+        <div className="text-[10px] font-mono text-red-600 dark:text-red-400 px-2 py-1 rounded bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-500/30">{error}</div>
+      )}
+
+      {prompts === null || (loading && prompts.length === 0) ? (
+        <div className="flex items-center gap-2 text-[11px] font-mono text-slate-500 py-4">
+          <Loader2 className="h-4 w-4 animate-spin text-indigo-500" /> Loading prompts...
+        </div>
+      ) : prompts.length === 0 ? (
+        <div className="text-center py-6 space-y-1">
+          <p className="text-xs font-mono text-slate-600 dark:text-slate-400">No prompt templates exposed by this server.</p>
+          <p className="text-[10px] font-mono text-slate-500">Prompts are curated system prompt templates exposed via MCP prompts/list.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="text-[9px] font-mono text-slate-500">{prompts.length} prompt template(s) available</div>
+          {prompts.map((prompt: any) => (
+            <div key={prompt.name} className="rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-xs font-mono font-semibold text-indigo-900 dark:text-indigo-200">{prompt.name}</div>
+                  {prompt.description && <div className="text-[10px] font-mono text-slate-500 truncate">{prompt.description}</div>}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => getPrompt(prompt.name)}
+                  disabled={fetchingPrompt && selectedPrompt === prompt.name}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded border border-indigo-500 bg-indigo-600 text-white text-[9px] font-mono font-semibold uppercase tracking-wider hover:bg-indigo-500 disabled:opacity-50 cursor-pointer"
+                >
+                  {fetchingPrompt && selectedPrompt === prompt.name ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Sparkles className="h-2.5 w-2.5" />} GET
+                </button>
+              </div>
+
+              {/* Prompt arguments */}
+              {prompt.arguments && prompt.arguments.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="text-[9px] font-mono uppercase tracking-widest text-slate-500 font-semibold">ARGUMENTS</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    {prompt.arguments.map((arg: any) => (
+                      <div key={arg.name} className="flex items-center gap-2">
+                        <label className="text-[9px] font-mono text-slate-600 dark:text-slate-400 shrink-0">
+                          {arg.name}{arg.required && <span className="text-red-500 ml-0.5">*</span>}:
+                        </label>
+                        <input
+                          type="text"
+                          value={promptArgs[arg.name] ?? ""}
+                          onChange={(e) => setPromptArgs((prev) => ({ ...prev, [arg.name]: e.target.value }))}
+                          placeholder={arg.description ?? arg.name}
+                          className="flex-1 rounded border border-slate-300 dark:border-indigo-800/60 bg-white dark:bg-black/50 px-2 py-0.5 text-[9px] font-mono text-slate-900 dark:text-slate-100 focus:border-indigo-500 outline-none"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Prompt result */}
+              {selectedPrompt === prompt.name && promptResult && (
+                <div className="mt-2 rounded border border-indigo-300 dark:border-indigo-700/50 bg-indigo-50/50 dark:bg-indigo-950/20 p-3 animate-fadeInUp">
+                  <div className="text-[9px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400 font-semibold mb-2">PROMPT RESULT</div>
+                  {promptResult.messages ? (
+                    <div className="space-y-2">
+                      {promptResult.messages.map((msg: any, i: number) => (
+                        <div key={i} className="rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 p-2">
+                          <span className={clsx(
+                            "text-[8px] font-mono uppercase font-bold px-1.5 py-0.5 rounded mr-2",
+                            msg.role === "user"
+                              ? "bg-sky-100 dark:bg-sky-900/40 text-sky-800 dark:text-sky-300"
+                              : "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300"
+                          )}>{msg.role}</span>
+                          <span className="text-[10px] font-mono text-slate-700 dark:text-slate-300">
+                            {msg.content?.text ?? JSON.stringify(msg.content)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <pre className="rounded border border-slate-200 dark:border-indigo-900/40 bg-black text-slate-100 p-3 text-[10px] font-mono overflow-x-auto max-h-60 overflow-y-auto whitespace-pre shadow-inner">
+                      {JSON.stringify(promptResult, null, 2)}
+                    </pre>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ────────────── Sampling Tab ────────────── */
+
+function SamplingTab({ server }: { server: McpServerDTO }) {
+  const [messages, setMessages] = useState(
+    JSON.stringify(
+      [{ role: "user", content: { type: "text", text: "Hello, can you help me?" } }],
+      null,
+      2
+    )
+  );
+  const [systemPrompt, setSystemPrompt] = useState("");
+  const [maxTokens, setMaxTokens] = useState("4096");
+  const [temperature, setTemperature] = useState("0.7");
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  if (server.status !== "CONNECTED") {
+    return (
+      <div className="text-center py-8 space-y-2">
+        <Brain className="h-6 w-6 text-slate-400 mx-auto" />
+        <p className="text-xs font-mono text-slate-500">Connect the server to test sampling.</p>
+      </div>
+    );
+  }
+
+  const handleSample = async () => {
+    setRunning(true);
+    setError(null);
+    setResult(null);
+    try {
+      let parsedMessages: any[];
+      try {
+        parsedMessages = JSON.parse(messages);
+      } catch {
+        setError("Messages must be valid JSON array");
+        return;
+      }
+      const res = await api<any>(`/api/mcp/servers/${server.id}/sampling`, {
+        method: "POST",
+        body: JSON.stringify({
+          messages: parsedMessages,
+          systemPrompt: systemPrompt || undefined,
+          maxTokens: parseInt(maxTokens) || 4096,
+          temperature: parseFloat(temperature) || 0.7,
+        }),
+      });
+      setResult(res);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Sampling request failed");
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400 font-semibold flex items-center gap-1.5">
+        <Brain className="h-3.5 w-3.5" /> MCP SAMPLING (sampling/createMessage)
+      </div>
+
+      <p className="text-[10px] font-mono text-slate-500">
+        Send LLM sampling requests from connected MCP servers. Agent Studio acts as a sampling client,
+        allowing nested agentic behavior where tools call Studio models without needing their own API keys.
+      </p>
+
+      <div className="space-y-2">
+        <div className="space-y-1">
+          <label className="text-[9px] font-mono uppercase tracking-widest text-slate-600 dark:text-slate-400 font-semibold">MESSAGES (JSON ARRAY)</label>
+          <textarea
+            value={messages}
+            onChange={(e) => setMessages(e.target.value)}
+            spellCheck={false}
+            rows={5}
+            className="w-full rounded border border-slate-300 dark:border-indigo-800/80 bg-white dark:bg-black/70 p-2.5 text-[10px] font-mono text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none resize-y"
+          />
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          <div className="space-y-1">
+            <label className="text-[9px] font-mono uppercase tracking-widest text-slate-600 dark:text-slate-400 font-semibold">SYSTEM PROMPT</label>
+            <input
+              type="text"
+              value={systemPrompt}
+              onChange={(e) => setSystemPrompt(e.target.value)}
+              placeholder="Optional system prompt"
+              className="w-full rounded border border-slate-300 dark:border-indigo-800/60 bg-white dark:bg-black/50 px-2 py-1 text-[10px] font-mono text-slate-900 dark:text-slate-100 focus:border-indigo-500 outline-none"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[9px] font-mono uppercase tracking-widest text-slate-600 dark:text-slate-400 font-semibold">MAX TOKENS</label>
+            <input
+              type="number"
+              value={maxTokens}
+              onChange={(e) => setMaxTokens(e.target.value)}
+              className="w-full rounded border border-slate-300 dark:border-indigo-800/60 bg-white dark:bg-black/50 px-2 py-1 text-[10px] font-mono text-slate-900 dark:text-slate-100 focus:border-indigo-500 outline-none"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[9px] font-mono uppercase tracking-widest text-slate-600 dark:text-slate-400 font-semibold">TEMPERATURE</label>
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              max="2"
+              value={temperature}
+              onChange={(e) => setTemperature(e.target.value)}
+              className="w-full rounded border border-slate-300 dark:border-indigo-800/60 bg-white dark:bg-black/50 px-2 py-1 text-[10px] font-mono text-slate-900 dark:text-slate-100 focus:border-indigo-500 outline-none"
+            />
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleSample}
+          disabled={running}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded border border-indigo-500 bg-indigo-600 text-white text-[10px] font-mono font-semibold uppercase tracking-wider hover:bg-indigo-500 disabled:opacity-50 shadow-md shadow-indigo-500/25 cursor-pointer active:scale-95 transition-all"
+        >
+          {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Brain className="h-3.5 w-3.5" />}
+          {running ? "SAMPLING..." : "SEND SAMPLING REQUEST"}
+        </button>
+      </div>
+
+      {error && (
+        <div className="text-[10px] font-mono text-red-600 dark:text-red-400 px-2 py-1 rounded bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-500/30">{error}</div>
+      )}
+
+      {result && (
+        <div className="rounded border border-emerald-300 dark:border-emerald-500/40 bg-emerald-50/50 dark:bg-emerald-950/20 p-3 animate-fadeInUp">
+          <div className="text-[9px] font-mono uppercase tracking-widest text-emerald-700 dark:text-emerald-400 font-semibold mb-2">SAMPLING RESULT</div>
+          <div className="space-y-1">
+            <div className="text-[9px] font-mono text-slate-500">Model: <span className="text-emerald-700 dark:text-emerald-300 font-semibold">{result.model}</span></div>
+            {result.stopReason && <div className="text-[9px] font-mono text-slate-500">Stop: <span className="text-emerald-700 dark:text-emerald-300 font-semibold">{result.stopReason}</span></div>}
+          </div>
+          <pre className="mt-2 rounded border border-slate-200 dark:border-indigo-900/40 bg-black text-slate-100 p-3 text-[10px] font-mono overflow-x-auto max-h-60 overflow-y-auto whitespace-pre shadow-inner">
+            {result.content?.text ?? JSON.stringify(result, null, 2)}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ────────────── Progress Tab ────────────── */
+
+function ProgressTab({ server }: { server: McpServerDTO }) {
+  const [events, setEvents] = useState<any[]>([]);
+  const [connected, setConnected] = useState(false);
+  const [listening, setListening] = useState(false);
+  const eventSourceRef = useRef<EventSource | null>(null);
+
+  const startListening = useCallback(() => {
+    if (server.status !== "CONNECTED") return;
+    setListening(true);
+    setEvents([]);
+
+    const es = new EventSource(`/api/mcp/servers/${server.id}/progress`);
+    eventSourceRef.current = es;
+
+    es.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "connected") {
+          setConnected(true);
+        } else if (data.type !== "heartbeat") {
+          setEvents((prev) => [data, ...prev].slice(0, 100));
+        }
+      } catch {
+        // Ignore parse errors from heartbeats
+      }
+    };
+
+    es.onerror = () => {
+      setConnected(false);
+      setListening(false);
+      es.close();
+      eventSourceRef.current = null;
+    };
+  }, [server.id, server.status]);
+
+  const stopListening = useCallback(() => {
+    eventSourceRef.current?.close();
+    eventSourceRef.current = null;
+    setListening(false);
+    setConnected(false);
+  }, []);
+
+  useEffect(() => {
+    return () => { eventSourceRef.current?.close(); };
+  }, []);
+
+  if (server.status !== "CONNECTED") {
+    return (
+      <div className="text-center py-8 space-y-2">
+        <Activity className="h-6 w-6 text-slate-400 mx-auto" />
+        <p className="text-xs font-mono text-slate-500">Connect the server to view progress events.</p>
+      </div>
+    );
+  }
+
+  const typeColors: Record<string, string> = {
+    started: "border-sky-300 dark:border-sky-500/40 bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300",
+    progress: "border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-300",
+    completed: "border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300",
+    failed: "border-red-300 dark:border-red-500/40 bg-red-50 dark:bg-red-950/40 text-red-800 dark:text-red-300",
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400 font-semibold flex items-center justify-between">
+        <span className="flex items-center gap-1.5">
+          <Activity className="h-3.5 w-3.5" /> PROGRESS NOTIFICATIONS (SSE)
+        </span>
+        <div className="flex items-center gap-2">
+          <span className={clsx(
+            "inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[8px] font-mono",
+            connected
+              ? "border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300"
+              : "border-slate-300 dark:border-slate-700 text-slate-500"
+          )}>
+            <span className={clsx("h-1.5 w-1.5 rounded-full", connected ? "bg-emerald-500 animate-pulse" : "bg-slate-400")} />
+            {connected ? "STREAM ACTIVE" : "DISCONNECTED"}
+          </span>
+          {listening ? (
+            <button type="button" onClick={stopListening} className="inline-flex items-center gap-1 px-2 py-1 rounded border border-red-300 dark:border-red-500/30 text-red-700 dark:text-red-300 text-[9px] font-mono font-semibold uppercase cursor-pointer hover:bg-red-50 dark:hover:bg-red-950/30">
+              <X className="h-2.5 w-2.5" /> STOP
+            </button>
+          ) : (
+            <button type="button" onClick={startListening} className="inline-flex items-center gap-1 px-2 py-1 rounded border border-indigo-500 bg-indigo-600 text-white text-[9px] font-mono font-semibold uppercase cursor-pointer hover:bg-indigo-500">
+              <Activity className="h-2.5 w-2.5" /> START LISTENING
+            </button>
+          )}
+        </div>
+      </div>
+
+      <p className="text-[10px] font-mono text-slate-500">
+        Real-time progress events streamed via Server-Sent Events during MCP tool/resource/prompt calls.
+        Start listening, then execute a tool from the Tools tab to see progress events here.
+      </p>
+
+      <div className="text-[9px] font-mono text-slate-500">
+        {events.length} event(s) received
+      </div>
+
+      {events.length === 0 ? (
+        <div className="text-center py-6 space-y-1">
+          <p className="text-xs font-mono text-slate-600 dark:text-slate-400">No progress events yet.</p>
+          <p className="text-[10px] font-mono text-slate-500">Click START LISTENING, then run a tool to see progress events stream in real-time.</p>
+        </div>
+      ) : (
+        <div className="space-y-1.5 max-h-96 overflow-y-auto">
+          {events.map((event, i) => (
+            <div key={i} className="flex items-start gap-2 px-2 py-1.5 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60">
+              <span className={clsx(
+                "px-1.5 py-0.5 rounded border text-[8px] font-mono font-bold uppercase shrink-0",
+                typeColors[event.type] ?? typeColors.started
+              )}>{event.type}</span>
+              <div className="min-w-0 flex-1">
+                <span className="text-[10px] font-mono text-slate-700 dark:text-slate-300 font-semibold">{event.operation}</span>
+                {event.detail && <span className="text-[10px] font-mono text-slate-500 ml-1">// {event.detail}</span>}
+                {event.message && <div className="text-[9px] font-mono text-slate-500 mt-0.5">{event.message}</div>}
+                {event.error && <div className="text-[9px] font-mono text-red-500 mt-0.5">{event.error}</div>}
+                {event.progress !== undefined && (
+                  <div className="mt-1 h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                    <div className="h-full rounded-full bg-indigo-500 transition-all" style={{ width: `${event.progress}%` }} />
+                  </div>
+                )}
+              </div>
+              <span className="text-[8px] font-mono text-slate-400 shrink-0">
+                {new Date(event.timestamp).toLocaleTimeString()}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ────────────── Connect Modal ────────────── */
 
 function ConnectModal({
   initialPreset,
