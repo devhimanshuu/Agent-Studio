@@ -105,6 +105,19 @@
     background-size: 24px 24px;
     background-attachment: fixed;
   }
+
+  /* Smooth Theme Color Morphing during Pixel Transition */
+  html.pixel-theme-transitioning,
+  html.pixel-theme-transitioning *,
+  html.pixel-theme-transitioning *::before,
+  html.pixel-theme-transitioning *::after {
+    transition: background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                border-color 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                color 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                fill 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                stroke 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.8s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  }
 }
 
 @media (max-width: 640px) {

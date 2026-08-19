@@ -200,6 +200,47 @@ export class McpClientService implements IMcpClientService {
     }
   }
 
+  async listResources(serverId: string, userId: string): Promise<any[]> {
+    const server = await this.requireServer(serverId, userId);
+    const connection = this.getConnection(server);
+    if (!connection.isConnected) await connection.connect();
+    return connection.listResources();
+  }
+
+  async readResource(serverId: string, userId: string, uri: string): Promise<any> {
+    const server = await this.requireServer(serverId, userId);
+    const connection = this.getConnection(server);
+    if (!connection.isConnected) await connection.connect();
+    return connection.readResource(uri);
+  }
+
+  async listPrompts(serverId: string, userId: string): Promise<any[]> {
+    const server = await this.requireServer(serverId, userId);
+    const connection = this.getConnection(server);
+    if (!connection.isConnected) await connection.connect();
+    return connection.listPrompts();
+  }
+
+  async getPrompt(serverId: string, userId: string, promptName: string, args?: Record<string, string>): Promise<any> {
+    const server = await this.requireServer(serverId, userId);
+    const connection = this.getConnection(server);
+    if (!connection.isConnected) await connection.connect();
+    return connection.getPrompt(promptName, args);
+  }
+
+  async getMetrics(serverId: string, userId: string): Promise<any> {
+    const server = await this.requireServer(serverId, userId);
+    const breaker = this.breakerFor(serverId);
+    return {
+      serverId: server.id,
+      name: server.name,
+      status: server.status,
+      cachedToolCount: server.cachedTools.length,
+      circuit: breaker.stats,
+      updatedAt: server.updatedAt,
+    };
+  }
+
   /**
    * Sync a user's cached MCP tools into a ToolRegistry as standard `ITool`s.
    * Called by the execution runtime before a run so skills can call MCP tools

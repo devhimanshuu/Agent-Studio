@@ -8,6 +8,7 @@ import { Sliders, Sun, Moon, Cpu, ServerCog, Palette, Zap, Terminal, Sparkles } 
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { Skeleton } from "@/components/feedback/Skeleton";
 import { ProviderStatus } from "@/types/settings";
+import { usePixelThemeTransition } from "@/components/effects/PixelThemeTransition";
 
 async function fetchProviderStatus(): Promise<ProviderStatus> {
   const res = await fetch("/api/settings/providers");
@@ -31,7 +32,7 @@ function ProviderCard({ status }: { status: ProviderStatus }) {
               : "border-amber-400 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300"
           }`}
         >
-          {status.runtimeReady ? "RUNTIME READY" : "NO KEYS SET"}
+          {status.runtimeReady ? "● SYSTEM HEALTHY" : "▲ DEGRADED"}
         </span>
       </div>
 
@@ -145,7 +146,8 @@ function ProviderCard({ status }: { status: ProviderStatus }) {
 }
 
 export default function SettingsPage() {
-  const { theme, resolvedTheme, setTheme } = useTheme();
+  const { theme } = useTheme();
+  const { setThemeWithPixelTransition, isTransitioning } = usePixelThemeTransition();
 
   const { data: status, isLoading, isError, refetch } = useQuery<ProviderStatus>({
     queryKey: ["providerStatus"],
@@ -210,7 +212,8 @@ export default function SettingsPage() {
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setTheme(item.id)}
+                onClick={(e) => setThemeWithPixelTransition(item.id, e)}
+                disabled={isTransitioning}
                 aria-pressed={isActive}
                 className={`p-4 rounded border text-left transition-all relative flex flex-col justify-between cursor-pointer group shadow-sm ${
                   isActive

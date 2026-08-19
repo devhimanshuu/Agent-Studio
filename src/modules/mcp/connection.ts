@@ -69,6 +69,37 @@ export class McpConnection implements McpRpcClient {
     return mapToolsList(result);
   }
 
+  /** Query resources/list exposed by the remote MCP server. */
+  async listResources(): Promise<any[]> {
+    this.assertConnected();
+    const result = await this.callWithTimeout(() => this.client!.listResources(), "listResources");
+    return (result as { resources?: any[] })?.resources ?? [];
+  }
+
+  /** Read a specific resource by URI. */
+  async readResource(uri: string): Promise<any> {
+    this.assertConnected();
+    const result = await this.callWithTimeout(() => this.client!.readResource({ uri }), `readResource(${uri})`);
+    return result;
+  }
+
+  /** Query prompts/list exposed by the remote MCP server. */
+  async listPrompts(): Promise<any[]> {
+    this.assertConnected();
+    const result = await this.callWithTimeout(() => this.client!.listPrompts(), "listPrompts");
+    return (result as { prompts?: any[] })?.prompts ?? [];
+  }
+
+  /** Fetch a prompt template by name with arguments. */
+  async getPrompt(name: string, args?: Record<string, string>): Promise<any> {
+    this.assertConnected();
+    const result = await this.callWithTimeout(
+      () => this.client!.getPrompt({ name, arguments: args }),
+      `getPrompt(${name})`
+    );
+    return result;
+  }
+
   /** Invoke a tool by server-local name with a wall-clock budget. */
   async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
     this.assertConnected();

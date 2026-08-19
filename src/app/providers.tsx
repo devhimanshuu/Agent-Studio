@@ -6,6 +6,8 @@ import { ClerkDynamicProvider } from "@/components/providers/ClerkDynamicProvide
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { SidebarProvider } from "@/components/providers/SidebarContext";
 
+import { PixelThemeTransitionProvider } from "@/components/effects/PixelThemeTransition";
+
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider
@@ -14,11 +16,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
       themes={["dark", "light"]}
       enableSystem={false}
     >
-      <ClerkDynamicProvider>
-        <QueryProvider>
-          <SidebarProvider>{children}</SidebarProvider>
-        </QueryProvider>
-      </ClerkDynamicProvider>
+      <PixelThemeTransitionProvider>
+        <ClerkDynamicProvider>
+          <QueryProvider>
+            <SidebarProvider>{children}</SidebarProvider>
+          </QueryProvider>
+        </ClerkDynamicProvider>
+      </PixelThemeTransitionProvider>
     </ThemeProvider>
   );
 }

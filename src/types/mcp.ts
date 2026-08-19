@@ -95,6 +95,7 @@ export interface McpPreset {
   headers?: Record<string, string>;
   description: string;
   requiresAuthToken: boolean;
+  category?: "DEVELOPMENT" | "DATABASE" | "WEB_SEARCH" | "PRODUCTIVITY" | "BROWSER" | "REASONING" | "DEVOPS" | "RESEARCH" | "UTILITY";
 }
 
 /** Registry tool type for MCP tools (kept for typing the hub UI). */
@@ -106,3 +107,55 @@ export interface McpSkillToolDefinition {
   description: string;
   inputSchema: Record<string, unknown>;
 }
+
+/** An MCP resource exposed by a connected MCP server (URI-addressable data/file/context). */
+export interface McpResourceDefinition {
+  uri: string;
+  name: string;
+  description?: string;
+  mimeType?: string;
+}
+
+/** Result of reading an MCP resource. */
+export interface McpResourceReadResult {
+  uri: string;
+  mimeType?: string;
+  text?: string;
+  blob?: string;
+}
+
+/** An MCP prompt template exposed by an MCP server. */
+export interface McpPromptDefinition {
+  name: string;
+  description?: string;
+  arguments?: {
+    name: string;
+    description?: string;
+    required?: boolean;
+  }[];
+}
+
+/** Prompt message contents returned by prompts/get. */
+export interface McpPromptResult {
+  description?: string;
+  messages: {
+    role: "user" | "assistant";
+    content: {
+      type: "text" | "resource" | "image";
+      text?: string;
+      resource?: McpResourceReadResult;
+    };
+  }[];
+}
+
+/** Aggregated telemetry/metrics for an MCP server. */
+export interface McpServerMetrics {
+  serverId: string;
+  totalCalls: number;
+  successRate: number;
+  avgLatencyMs: number;
+  lastCalledAt: Date | null;
+  cachedToolCount: number;
+  circuitState: "CLOSED" | "OPEN" | "HALF_OPEN";
+}
+

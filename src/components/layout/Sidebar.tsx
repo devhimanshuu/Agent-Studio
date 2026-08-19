@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import { useClerk, useAuth } from "@clerk/nextjs";
 import {
   LayoutDashboard,
-  Sparkles,
   Workflow,
   Play,
   GitBranch,

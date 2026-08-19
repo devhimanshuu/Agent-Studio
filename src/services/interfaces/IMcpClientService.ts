@@ -19,6 +19,11 @@ export interface IMcpClientService {
   rediscoverTools(serverId: string, userId: string): Promise<McpServerDTO>;
   healthCheck(serverId: string, userId: string): Promise<McpHealth>;
   testTool(serverId: string, userId: string, toolName: string, args: Record<string, unknown>): Promise<McpToolTestResult>;
+  listResources(serverId: string, userId: string): Promise<any[]>;
+  readResource(serverId: string, userId: string, uri: string): Promise<any>;
+  listPrompts(serverId: string, userId: string): Promise<any[]>;
+  getPrompt(serverId: string, userId: string, promptName: string, args?: Record<string, string>): Promise<any>;
+  getMetrics(serverId: string, userId: string): Promise<any>;
   /** Sync cached MCP tools into a registry as standard ITools (idempotent). */
   registerUserMcpTools(userId: string, registry: ToolRegistry): Promise<Tool[]>;
   buildUserRegistry(userId: string, base: ToolRegistry): Promise<ToolRegistry>;

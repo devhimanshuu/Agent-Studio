@@ -21,6 +21,18 @@ import {
   Terminal,
   Globe,
   KeyRound,
+  Download,
+  Upload,
+  Search,
+  Sparkles,
+  Code,
+  Database,
+  Monitor,
+  BookOpen,
+  Cpu,
+  Wrench,
+  Check,
+  Brain,
 } from "lucide-react";
 import { clsx } from "clsx";
 import {
@@ -61,14 +73,32 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
   return json.data as T;
 }
 
+const PRESET_CATEGORIES = [
+  { id: "ALL", label: "ALL PRESETS", icon: Sparkles },
+  { id: "DEVELOPMENT", label: "DEV & CODE", icon: Code },
+  { id: "DATABASE", label: "DATABASES", icon: Database },
+  { id: "BROWSER", label: "BROWSER", icon: Monitor },
+  { id: "WEB_SEARCH", label: "WEB & SEARCH", icon: Globe },
+  { id: "PRODUCTIVITY", label: "PRODUCTIVITY", icon: Zap },
+  { id: "REASONING", label: "REASONING", icon: Brain },
+  { id: "DEVOPS", label: "DEVOPS", icon: Cpu },
+  { id: "RESEARCH", label: "RESEARCH", icon: BookOpen },
+  { id: "UTILITY", label: "UTILITIES", icon: Wrench },
+];
+
 export function McpServerHub() {
   const [servers, setServers] = useState<McpServerDTO[] | null>(null);
   const [presets, setPresets] = useState<McpPreset[]>(MCP_PRESETS);
+  const [presetCategory, setPresetCategory] = useState<string>("ALL");
+  const [presetSearch, setPresetSearch] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [connectOpen, setConnectOpen] = useState(false);
   const [connectPreset, setConnectPreset] = useState<McpPreset | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [batchBusy, setBatchBusy] = useState<string | null>(null);
   const [health, setHealth] = useState<Record<string, McpHealth>>({});
 
   const load = useCallback(async () => {
@@ -82,8 +112,6 @@ export function McpServerHub() {
 
   useEffect(() => {
     void load();
-    // Fetch the canonical preset catalog from the server; fall back to the
-    // bundled copy if the request fails (offline / older deployment).
     api<McpPreset[]>("/api/mcp/presets")
       .then((list) => {
         if (Array.isArray(list) && list.length > 0) setPresets(list);
@@ -157,6 +185,32 @@ export function McpServerHub() {
     []
   );
 
+  const handleBatchHealth = useCallback(async () => {
+    if (!servers || servers.length === 0) return;
+    setBatchBusy("health");
+    try {
+      const res = await api<McpHealth[]>("/api/mcp/servers/batch", {
+        method: "POST",
+        body: JSON.stringify({ action: "health" }),
+      });
+      const map: Record<string, McpHealth> = {};
+      for (const h of res) {
+        if (h.serverId) map[h.serverId] = h;
+      }
+      setHealth((prev) => ({ ...prev, ...map }));
+      setSuccessMessage("Health probe completed for all servers");
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Batch health check failed");
+    } finally {
+      setBatchBusy(null);
+    }
+  }, [servers]);
+
+  const handleExport = useCallback(() => {
+    window.open("/api/mcp/servers/export", "_blank");
+  }, []);
+
   const [deleteTarget, setDeleteTarget] = useState<McpServerDTO | null>(null);
   const [deletePending, setDeletePending] = useState(false);
 
@@ -186,24 +240,69 @@ export function McpServerHub() {
   const connectedCount = (servers ?? []).filter((s) => s.status === "CONNECTED").length;
   const totalTools = (servers ?? []).reduce((sum, s) => sum + s.cachedTools.length, 0);
 
+  const filteredPresets = presets.filter((p) => {
+    const matchesCategory = presetCategory === "ALL" || p.category === presetCategory;
+    const matchesSearch =
+      !presetSearch ||
+      p.name.toLowerCase().includes(presetSearch.toLowerCase()) ||
+      p.description.toLowerCase().includes(presetSearch.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
   return (
     <div className="space-y-6 w-full">
       {/* Stats + actions */}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-[10px] font-mono text-slate-700 dark:text-slate-400 px-3 py-2 rounded border border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/80 shadow-sm font-semibold">
+        <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono text-slate-700 dark:text-slate-400 px-3 py-2 rounded border border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/80 shadow-sm font-semibold">
           <Server className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
           {pad(servers?.length ?? 0)} SERVERS · {pad(connectedCount)} CONNECTED · {pad(totalTools)} TOOLS
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            setConnectPreset(null);
-            setConnectOpen(true);
-          }}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-indigo-500 bg-indigo-600 text-white text-[10px] font-mono font-semibold uppercase tracking-wider hover:bg-indigo-500 shadow-sm shadow-indigo-500/30 transition-all cursor-pointer"
-        >
-          <Plus className="h-3.5 w-3.5" /> Connect MCP Server
-        </button>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {servers && servers.length > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={handleBatchHealth}
+                disabled={Boolean(batchBusy)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-slate-300 dark:border-indigo-900/60 bg-slate-100 dark:bg-indigo-950/40 text-slate-700 dark:text-slate-300 text-[10px] font-mono font-semibold uppercase tracking-wider hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all cursor-pointer disabled:opacity-50"
+                title="Run live latency probes across all connected servers"
+              >
+                {batchBusy === "health" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Activity className="h-3 w-3" />}
+                PROBE ALL
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExport}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-slate-300 dark:border-indigo-900/60 bg-slate-100 dark:bg-indigo-950/40 text-slate-700 dark:text-slate-300 text-[10px] font-mono font-semibold uppercase tracking-wider hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all cursor-pointer"
+                title="Export all server configs as a portable JSON bundle"
+              >
+                <Download className="h-3 w-3" /> EXPORT
+              </button>
+            </>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setImportOpen(true)}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-slate-300 dark:border-indigo-900/60 bg-slate-100 dark:bg-indigo-950/40 text-slate-700 dark:text-slate-300 text-[10px] font-mono font-semibold uppercase tracking-wider hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all cursor-pointer"
+            title="Import MCP server configurations from JSON"
+          >
+            <Upload className="h-3 w-3" /> IMPORT
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setConnectPreset(null);
+              setConnectOpen(true);
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-indigo-500 bg-indigo-600 text-white text-[10px] font-mono font-semibold uppercase tracking-wider hover:bg-indigo-500 shadow-sm shadow-indigo-500/30 transition-all cursor-pointer"
+          >
+            <Plus className="h-3.5 w-3.5" /> Connect MCP Server
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -215,13 +314,78 @@ export function McpServerHub() {
         </div>
       )}
 
-      {/* Presets strip */}
-      <div className="space-y-2">
-        <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400 font-semibold flex items-center gap-1.5">
-          <Zap className="h-3.5 w-3.5" /> 1-CLICK ECOSYSTEM PRESETS
+      {successMessage && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded border border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 text-[11px] font-mono font-semibold animate-fadeIn">
+          <Check className="h-3.5 w-3.5 shrink-0" /> {successMessage}
+          <button type="button" onClick={() => setSuccessMessage(null)} className="ml-auto cursor-pointer hover:opacity-70">
+            <X className="h-3.5 w-3.5" />
+          </button>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5">
-          {presets.map((preset) => (
+      )}
+
+      {/* Presets strip */}
+      <div className="space-y-3 rounded-lg border border-slate-200 dark:border-indigo-900/40 bg-slate-50/50 dark:bg-[#0a0a0a]/40 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="text-[11px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400 font-bold flex items-center gap-1.5">
+            <Zap className="h-4 w-4 text-amber-500 fill-amber-500" />
+            1-CLICK ECOSYSTEM PRESETS ({presets.length} READY TO MOUNT)
+          </div>
+
+          {/* Search box for presets */}
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <input
+              type="text"
+              value={presetSearch}
+              onChange={(e) => setPresetSearch(e.target.value)}
+              placeholder="Search 22+ presets..."
+              className="w-full pl-8 pr-3 py-1 text-[11px] font-mono rounded border border-slate-200 dark:border-indigo-900/60 bg-white dark:bg-black/60 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+            />
+            {presetSearch && (
+              <button
+                type="button"
+                onClick={() => setPresetSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Category Pills */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-1 overflow-x-auto pb-1">
+          {PRESET_CATEGORIES.map((cat) => {
+            const Icon = cat.icon;
+            const count =
+              cat.id === "ALL"
+                ? presets.length
+                : presets.filter((p) => p.category === cat.id).length;
+            if (count === 0 && cat.id !== "ALL") return null;
+            const active = presetCategory === cat.id;
+
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setPresetCategory(cat.id)}
+                className={clsx(
+                  "inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-mono font-semibold uppercase tracking-wider border transition-all cursor-pointer",
+                  active
+                    ? "border-indigo-500 bg-indigo-600 text-white shadow-sm"
+                    : "border-slate-200 dark:border-indigo-900/50 bg-white/70 dark:bg-black/40 text-slate-600 dark:text-slate-400 hover:border-indigo-400"
+                )}
+              >
+                <Icon className="h-3 w-3" />
+                {cat.label} <span className="opacity-75 font-normal">({count})</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Presets Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-2.5 pt-1">
+          {filteredPresets.map((preset) => (
             <PresetCard
               key={preset.id}
               preset={preset}
@@ -231,41 +395,58 @@ export function McpServerHub() {
               }}
             />
           ))}
+          {filteredPresets.length === 0 && (
+            <div className="col-span-full text-center py-6 text-xs font-mono text-slate-500">
+              No presets matching &quot;{presetSearch}&quot; in this category.
+            </div>
+          )}
         </div>
       </div>
 
       {/* Server list */}
-      {servers === null ? (
-        <div className="flex items-center gap-2 text-[11px] font-mono text-slate-500 px-3 py-6">
-          <Loader2 className="h-4 w-4 animate-spin text-indigo-500" /> LOADING MCP SERVERS…
+      <div className="space-y-3 pt-2">
+        <div className="text-[11px] font-mono uppercase tracking-widest text-slate-700 dark:text-slate-300 font-bold flex items-center justify-between">
+          <span className="flex items-center gap-1.5">
+            <Server className="h-4 w-4 text-indigo-500" />
+            CONFIGURED MCP SERVERS
+          </span>
+          <span className="text-[10px] font-normal text-slate-500">
+            DISCOVERED TOOLS ARE AUTO-REGISTERED IN WORKFLOW RUNTIMES
+          </span>
         </div>
-      ) : servers.length === 0 ? (
-        <div className="rounded border border-dashed border-slate-300 dark:border-indigo-900/50 p-8 text-center space-y-2">
-          <Plug className="h-6 w-6 text-indigo-400 mx-auto" />
-          <p className="text-sm font-mono font-semibold text-slate-800 dark:text-slate-200">NO MCP SERVERS CONFIGURED</p>
-          <p className="text-[11px] font-mono text-slate-500">
-            Connect a remote SSE endpoint or a local stdio command to start discovering tools.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {servers.map((server) => (
-            <ServerCard
-              key={server.id}
-              server={server}
-              health={health[server.id]}
-              busy={busy === server.id}
-              expanded={expanded === server.id}
-              onToggle={() => setExpanded((prev) => (prev === server.id ? null : server.id))}
-              onConnect={() => refresh(server.id)}
-              onDisconnect={() => disconnect(server.id)}
-              onRediscover={() => rediscover(server.id)}
-              onDelete={() => setDeleteTarget(server)}
-              onHealth={() => probe(server.id)}
-            />
-          ))}
-        </div>
-      )}
+
+        {servers === null ? (
+          <div className="flex items-center gap-2 text-[11px] font-mono text-slate-500 px-3 py-6">
+            <Loader2 className="h-4 w-4 animate-spin text-indigo-500" /> LOADING MCP SERVERS…
+          </div>
+        ) : servers.length === 0 ? (
+          <div className="rounded border border-dashed border-slate-300 dark:border-indigo-900/50 p-8 text-center space-y-2">
+            <Plug className="h-6 w-6 text-indigo-400 mx-auto" />
+            <p className="text-sm font-mono font-semibold text-slate-800 dark:text-slate-200">NO MCP SERVERS CONFIGURED</p>
+            <p className="text-[11px] font-mono text-slate-500">
+              Select one of the 22+ 1-click presets above or connect a custom SSE endpoint or local stdio command.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {servers.map((server) => (
+              <ServerCard
+                key={server.id}
+                server={server}
+                health={health[server.id]}
+                busy={busy === server.id}
+                expanded={expanded === server.id}
+                onToggle={() => setExpanded((prev) => (prev === server.id ? null : server.id))}
+                onConnect={() => refresh(server.id)}
+                onDisconnect={() => disconnect(server.id)}
+                onRediscover={() => rediscover(server.id)}
+                onDelete={() => setDeleteTarget(server)}
+                onHealth={() => probe(server.id)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
       {connectOpen && (
         <ConnectModal
@@ -273,6 +454,18 @@ export function McpServerHub() {
           presets={presets}
           onClose={() => setConnectOpen(false)}
           onCreated={created}
+        />
+      )}
+
+      {importOpen && (
+        <ImportMcpModal
+          onClose={() => setImportOpen(false)}
+          onImported={async () => {
+            setImportOpen(false);
+            await load();
+            setSuccessMessage("MCP servers imported successfully");
+            setTimeout(() => setSuccessMessage(null), 4000);
+          }}
         />
       )}
 
@@ -1097,6 +1290,153 @@ function DeleteMcpServerModal({
           >
             {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
             {isPending ? "UNMOUNTING..." : "[ DELETE SERVER ]"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ImportMcpModal({
+  onClose,
+  onImported,
+}: {
+  onClose: () => void;
+  onImported: () => void;
+}) {
+  const [jsonText, setJsonText] = useState("");
+  const [isPending, setIsPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setJsonText(String(event.target?.result ?? ""));
+      setError(null);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleImport = async () => {
+    if (!jsonText.trim()) {
+      setError("Please provide a valid JSON bundle");
+      return;
+    }
+    setIsPending(true);
+    setError(null);
+    try {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(jsonText);
+      } catch {
+        throw new Error("Invalid JSON format");
+      }
+
+      const res = await api<{ importedCount: number; errorCount: number; errors?: { name: string; error: string }[] }>(
+        "/api/mcp/servers/import",
+        {
+          method: "POST",
+          body: JSON.stringify(parsed),
+        }
+      );
+
+      if (res.errorCount > 0 && res.importedCount === 0) {
+        throw new Error(res.errors?.[0]?.error ?? "Import failed");
+      }
+
+      onImported();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Import failed");
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fadeIn"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-xl rounded border border-slate-300 dark:border-indigo-900/60 bg-white dark:bg-[#0a0a0a] p-5 font-mono shadow-2xl space-y-4 animate-fadeInUp text-slate-900 dark:text-slate-100"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Import MCP Server Configurations"
+      >
+        <div className="flex items-start justify-between border-b border-slate-200 dark:border-indigo-950/60 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded border border-indigo-400/50 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
+              <Upload className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wide">
+                IMPORT MCP SERVERS
+              </h3>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                [PORTABLE_BUNDLE::JSON_IMPORT]
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isPending}
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-1"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {error && (
+          <div className="p-2.5 rounded border border-red-300 dark:border-red-500/40 bg-red-50 dark:bg-red-950/30 text-red-800 dark:text-red-300 text-xs">
+            {error}
+          </div>
+        )}
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
+              PASTE JSON OR UPLOAD .JSON BUNDLE
+            </label>
+            <label className="inline-flex items-center gap-1 text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">
+              <Upload className="h-3 w-3" />
+              <span>CHOOSE FILE</span>
+              <input type="file" accept=".json,application/json" onChange={handleFileUpload} className="hidden" />
+            </label>
+          </div>
+
+          <textarea
+            value={jsonText}
+            onChange={(e) => {
+              setJsonText(e.target.value);
+              setError(null);
+            }}
+            placeholder={`{\n  "version": "1.0",\n  "servers": [\n    {\n      "name": "Playwright MCP",\n      "transport": "STDIO",\n      "command": "npx -y @playwright/mcp@latest"\n    }\n  ]\n}`}
+            rows={8}
+            className="w-full rounded border border-slate-300 dark:border-indigo-900/60 bg-slate-50/50 dark:bg-black/60 p-3 text-xs font-mono text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+          />
+        </div>
+
+        <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-200 dark:border-indigo-950/60">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isPending}
+            className="px-4 py-2 rounded border border-slate-300 dark:border-indigo-900/50 text-xs font-mono font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:bg-slate-100 dark:hover:bg-indigo-950/40 cursor-pointer disabled:opacity-50 transition-all"
+          >
+            [ CANCEL ]
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleImport()}
+            disabled={isPending || !jsonText.trim()}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded border border-indigo-500 bg-indigo-600 text-white text-xs font-mono font-semibold uppercase tracking-wider hover:bg-indigo-500 shadow-md shadow-indigo-500/30 disabled:opacity-50 cursor-pointer transition-all active:scale-95"
+          >
+            {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+            {isPending ? "IMPORTING..." : "[ IMPORT SERVERS ]"}
           </button>
         </div>
       </div>

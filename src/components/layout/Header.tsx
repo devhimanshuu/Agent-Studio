@@ -7,11 +7,13 @@ import { SignInButton, SignUpButton, SignedIn, SignedOut, UserButton } from "@cl
 import { useTheme } from "next-themes";
 import { Sun, Moon, Menu, X, LogIn, Sparkles } from "lucide-react";
 import { useSidebar } from "@/components/providers/SidebarContext";
+import { usePixelThemeTransition } from "@/components/effects/PixelThemeTransition";
 
 export function Header() {
   const pathname = usePathname();
   const isLanding = pathname === "/";
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { theme, resolvedTheme } = useTheme();
+  const { togglePixelTheme, isTransitioning } = usePixelThemeTransition();
   const { toggleMobileOpen, mobileOpen } = useSidebar();
   const [mounted, setMounted] = useState(false);
   const [landingMenuOpen, setLandingMenuOpen] = useState(false);
@@ -27,10 +29,6 @@ export function Header() {
 
   const currentTheme = theme || resolvedTheme || "dark";
   const isDark = currentTheme === "dark";
-
-  const toggleTheme = () => {
-    setTheme(isDark ? "light" : "dark");
-  };
 
   return (
     <>
@@ -84,10 +82,13 @@ export function Header() {
             {mounted && (
               <button
                 type="button"
-                onClick={toggleTheme}
-                title={isDark ? "Switch to Studio Light Mode" : "Switch to Midnight Dark Mode"}
+                onClick={(e) => togglePixelTheme(e)}
+                disabled={isTransitioning}
+                title={isDark ? "Switch to Studio Light Mode (Pixel Wave)" : "Switch to Midnight Dark Mode (Pixel Wave)"}
                 aria-label="Toggle light/dark theme"
-                className="p-2 rounded border border-indigo-300 dark:border-indigo-500/60 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-all cursor-pointer flex items-center justify-center select-none"
+                className={`p-2 rounded border border-indigo-300 dark:border-indigo-500/60 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-all cursor-pointer flex items-center justify-center select-none active:scale-95 ${
+                  isTransitioning ? "ring-2 ring-cyan-400 dark:ring-indigo-400 animate-pulse" : ""
+                }`}
               >
                 {isDark ? (
                   <Moon className="h-4 w-4 text-indigo-400 shrink-0" />
