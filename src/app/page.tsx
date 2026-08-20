@@ -298,6 +298,11 @@ const devTooling = [
     desc: "Connect remote SSE and stdio Model Context Protocol servers (GitHub, Postgres, Slack, Brave Search) or expose Agent Studio workflows as MCP tools to Cursor & Claude Desktop.",
   },
   {
+    icon: Globe,
+    title: "OpenAPI & REST Tool Hub",
+    desc: "Browse 2,500+ public APIs (Google, Stripe, Azure, AWS, GitHub) from APIs.guru, install 1-click free tool packs, or import any Swagger/OpenAPI URL to mount custom REST tools.",
+  },
+  {
     icon: LayoutTemplate,
     title: "Auto-Layout & Snap Grid",
     desc: "One click runs layered BFS auto-layout over any hand-built graph, with snap-to-grid guides so designs never look messy.",
@@ -318,11 +323,6 @@ const devTooling = [
     desc: "Collapse any branch into a reusable component node with typed inputs/outputs, then nest graphs inside graphs — up to 8 levels deep.",
   },
   {
-    icon: Keyboard,
-    title: "Keyboard-First Editing",
-    desc: "⌘+drag to pan, ⌥+click to duplicate, ⌫ to delete — with shortcut hints in a command palette for power users.",
-  },
-  {
     icon: Palette,
     title: "Canvas Themes",
     desc: "Neon/cyber default, graphite minimal, and high-contrast themes — persisted per user with full dark-mode support.",
@@ -338,6 +338,10 @@ const faqExtra = [
   {
     q: "How does Model Context Protocol (MCP) work in Agent Studio?",
     a: "Agent Studio functions as both an MCP Client and an MCP Server. You can connect remote SSE or local stdio MCP servers (like GitHub, Postgres, and Brave Search), auto-discover their tools, and invoke them in your agent graphs with permission guardrails. External IDEs like Cursor and Claude Desktop can also connect directly to /api/mcp/sse to execute your published workflows as tools.",
+  },
+  {
+    q: "What is the OpenAPI & REST Tool Hub?",
+    a: "The OpenAPI Hub lets you browse 2,500+ public APIs from the APIs.guru registry (Google, Stripe, Azure, AWS, GitHub, Twilio, Slack, and more). You can 1-click import any spec, install pre-configured free tool packs (Forex, Weather, Wikipedia, NASA), or paste any Swagger/OpenAPI URL to auto-parse and mount endpoints as callable agent tools with HITL approval gates on write operations.",
   },
   {
     q: "What is the Visual Multi-Agent Canvas?",

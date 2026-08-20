@@ -42,6 +42,7 @@ import {
   List,
 } from "lucide-react";
 import { clsx } from "clsx";
+import { ItemIcon } from "@/components/common/ItemIcon";
 import {
   PublicMcpServer,
   PublicMcpSource,
@@ -543,32 +544,42 @@ export function McpDirectoryBrowser({ onMount, mountedServerIds = [] }: McpDirec
                   {/* Card Top */}
                   <div className="space-y-2">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <h4 className="text-xs font-mono font-bold text-slate-900 dark:text-slate-100 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                            {server.name}
-                          </h4>
-                          {server.isVerified && (
-                            <span title="Verified Server">
-                              <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                            </span>
-                          )}
-                          {isMounted && (
-                            <span title="Already mounted" className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[7px] font-mono font-bold uppercase bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700/50">
-                              <Check className="h-2.5 w-2.5" /> MOUNTED
-                            </span>
-                          )}
-                          {(() => {
-                            const score = qualityScores.get(server.id);
-                            if (!score) return null;
-                            return (
-                              <QualityBadge grade={score.overall} score={score.overallScore} />
-                            );
-                          })()}
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <ItemIcon
+                          name={server.name}
+                          category={server.category}
+                          tags={server.tags}
+                          owner={server.owner}
+                          repoUrl={server.repoUrl}
+                          size="sm"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="text-xs font-mono font-bold text-slate-900 dark:text-slate-100 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                              {server.name}
+                            </h4>
+                            {server.isVerified && (
+                              <span title="Verified Server">
+                                <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                              </span>
+                            )}
+                            {isMounted && (
+                              <span title="Already mounted" className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[7px] font-mono font-bold uppercase bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700/50">
+                                <Check className="h-2.5 w-2.5" /> MOUNTED
+                              </span>
+                            )}
+                            {(() => {
+                              const score = qualityScores.get(server.id);
+                              if (!score) return null;
+                              return (
+                                <QualityBadge grade={score.overall} score={score.overallScore} />
+                              );
+                            })()}
+                          </div>
+                          <p className="text-[10px] font-mono text-slate-500 truncate">
+                            by <span className="font-semibold text-slate-700 dark:text-slate-300">{server.owner || "community"}</span>
+                          </p>
                         </div>
-                        <p className="text-[10px] font-mono text-slate-500 truncate">
-                          by <span className="font-semibold text-slate-700 dark:text-slate-300">{server.owner || "community"}</span>
-                        </p>
                       </div>
 
                       <div className="flex items-center gap-1.5 shrink-0">
@@ -722,6 +733,14 @@ export function McpDirectoryBrowser({ onMount, mountedServerIds = [] }: McpDirec
                   {/* Left: Info, Badges */}
                   <div className="min-w-0 flex-1 space-y-1.5">
                     <div className="flex flex-wrap items-center gap-2">
+                      <ItemIcon
+                        name={server.name}
+                        category={server.category}
+                        tags={server.tags}
+                        owner={server.owner}
+                        repoUrl={server.repoUrl}
+                        size="xs"
+                      />
                       <h3 className="text-xs font-mono font-bold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                         {server.name}
                       </h3>
@@ -943,9 +962,14 @@ function ServerDetailModal({
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-200 dark:border-indigo-950 bg-white/90 dark:bg-[#0a0a0a]/90 backdrop-blur-sm rounded-t-xl">
           <div className="flex items-center gap-3 min-w-0">
-            <span className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/50">
-              <Server className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-            </span>
+            <ItemIcon
+              name={server.name}
+              category={server.category}
+              tags={server.tags}
+              owner={server.owner}
+              repoUrl={server.repoUrl}
+              size="lg"
+            />
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-mono font-bold text-slate-900 dark:text-slate-100 truncate">

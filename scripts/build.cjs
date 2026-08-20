@@ -1,12 +1,5 @@
-/**
- * Cross-platform `npm run build` entry.
- *
- * Forces NODE_ENV=production before invoking `next build`. A globally-set
- * NODE_ENV=development (common in dev shells/IDEs) makes Next.js's error-page
- * prerendering throw "<Html> should not be imported outside of pages/_document"
- * during `next build` — an upstream quirk documented in vercel/next.js#77262.
- * This wrapper guarantees a production build regardless of the caller's env.
- */
+
+/* eslint-disable @typescript-eslint/no-require-imports */
 process.env.NODE_ENV = "production";
 
 const { spawn } = require("child_process");

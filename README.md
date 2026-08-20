@@ -107,7 +107,18 @@ Users can visually design **Multi-Agent Graphs**, orchestrate **Chained Workflow
 
 - **Agent Studio as an MCP Server**: External agents (Cursor, Claude Desktop, Antigravity) connect to `/api/mcp/sse` (Streamable HTTP + SSE) and get every published workflow as a callable `run_skill_*` tool. Auth via Clerk session or `MCP_ACCESS_TOKEN` bearer token.
 
-### 🌐 10. Public MCP Directory & Discovery
+### 🌐 14. OpenAPI & REST API Integration (`/dashboard/tools?tab=openapi`)
+
+- **Public OpenAPI Directory**: Browse and 1-click import from **2,500+ APIs** powered by the [APIs.guru](https://apis.guru) registry — covers Google, Azure, AWS, Stripe, GitHub, Twilio, Slack, Spotify, Cloudflare, and more.
+- **1-Click Tool Pack Presets**: Pre-configured REST API tool packs (Forex Rates, Weather, Wikipedia, NASA, Exchange Rates, GitHub Metadata, OpenAI, StackExchange) ready to install in one click.
+- **Custom OpenAPI Spec Import**: Paste any Swagger/OpenAPI URL (JSON or YAML) to auto-parse, introspect endpoints, and mount them as callable agent tools.
+- **Endpoint Introspection**: Before importing, preview every endpoint (path, method, parameters, summary) from the raw specification.
+- **Per-Endpoint Configuration**: Enable/disable individual endpoints, set Human-in-the-Loop (HITL) approval gates on write operations, and configure custom headers.
+- **REST Tool Execution**: Imported OpenAPI endpoints become first-class tools in the execution engine, synced into both the Engine and Graph registries before every run.
+- **Auth Support**: Configure Bearer tokens, API keys, Basic auth, or custom headers per integration.
+- **Status Monitoring**: Live connection status per integration with error tracking and last-error display.
+
+### 🌐 15. Public MCP Directory & Discovery
 
 - **500+ MCP Servers**: Browse servers from Glama.ai, mcp.so, and awesome-mcp-servers registry.
 - **40+ Categories**: Databases, Browser Automation, Search, Dev Tools, Cloud, AI, Security, and more.
@@ -118,21 +129,21 @@ Users can visually design **Multi-Agent Graphs**, orchestrate **Chained Workflow
 - **Quality Scoring**: Auto-grade servers A+ to F on schema quality, latency, uptime, docs, maintenance, community.
 - **License Detection**: MIT, Apache-2.0, GPL, etc. displayed on cards.
 
-### 🧩 11. MCP Server Composition & Chaining
+### 🧩 16. MCP Server Composition & Chaining
 
 - **Visual Composition Builder**: Chain multiple MCP servers into reusable workflows.
 - **Node Types**: INPUT, MCP_SERVER, TRANSFORM, CONDITION, OUTPUT.
 - **Pre-built Compositions**: Research Pipeline, ETL Pipeline, PR Review Pipeline.
 - **Edge System**: Connect nodes with labels (Yes/No for conditions).
 
-### 🤖 12. Agent Registry & Discovery
+### 🤖 17. Agent Registry & Discovery
 
 - **Registered Agents**: Discover AI agents with capabilities, trust scores, and latency estimates.
 - **Agent Registration**: Register your own agents as discoverable MCP endpoints.
 - **Trust Scoring**: Based on verification, usage, and community feedback.
 - **Capability Matching**: Find agents by their specific tool capabilities.
 
-### 📊 13. Advanced MCP Features
+### 📊 18. Advanced MCP Features
 
 - **MCP Client Manager**: Track which AI clients (Claude Desktop, Cursor, VS Code) connect to which servers.
 - **Tool Versioning**: Track MCP server versions, auto-update, rollback on failure.
@@ -162,7 +173,8 @@ Agent Studio
 │   ├── modules/execution/      → Graph Nodes, Planner, Execution Engine, Agent State
 │   ├── modules/approval/       → HITL Approval Engine & Policy Rules
 │   ├── modules/tools/          → Tool Registry & Builtin Tool Implementations
-│   └── services/               → ExecutionService, SkillService, ApprovalService, VersionService
+│   ├── modules/openapi/        → OpenAPI Parser, Presets, Spec Validator
+│   └── services/               → ExecutionService, SkillService, ApprovalService, VersionService, OpenApiService
 │
 └── Infrastructure Layer (Prisma ORM, Neon PostgreSQL, Clerk Auth, Pino, LLM Router)
     ├── providers/llm/          → GroqProvider, OpenRouterProvider, Resilient LLMRouter
@@ -242,6 +254,10 @@ Every tool implements the unified `ITool` contract (`id`, `name`, `description`,
 │   │   │       ├── dependencies/      # Dependency graph (requires/enhances/conflicts)
 │   │   │       ├── sse/               # MCP SSE server endpoint
 │   │   │       └── messages/          # MCP message endpoint
+│   │   ├── openapi/               # OpenAPI & REST Integration APIs
+│   │   │   ├── parse/             # Spec URL → Parsed OpenAPI endpoints
+│   │   │   ├── directory/         # Public API directory (APIs.guru 2,500+ APIs)
+│   │   │   └── integrations/      # OpenAPI integration CRUD, sync, test
 │   │   ├── dashboard/
 │   │   │   ├── canvas/                # Visual Graph Builder ([id], /new, /[id]/snapshot)
 │   │   │   ├── workflows/             # Multi-step Workflow Pipelines (/new, /[id]/edit)
@@ -251,11 +267,16 @@ Every tool implements the unified `ITool` contract (`id`, `name`, `description`,
 │   │   │   ├── history/               # Platform Observability & Success Metrics
 │   │   │   ├── compare/               # Side-by-side Skill & Graph Diffing
 │   │   │   ├── audit/                 # Security Audit Trail
-│   │   │   ├── tools/                 # Tool Registry Browser + MCP Server Hub
-│   │   │   │   └── mcp/               # MCP Dashboard components
-│   │   │   │       ├── McpServerHub.tsx        # Main MCP management hub
-│   │   │   │       ├── McpDirectoryBrowser.tsx # Public directory with 500+ servers
-│   │   │   │       └── ...                    # Modal, card, and inspector components
+│   │   │   ├── tools/                 # Tool Registry Browser + MCP Server Hub + OpenAPI Hub
+│   │   │   │   ├── mcp/               # MCP Dashboard components
+│   │   │   │   │   ├── McpServerHub.tsx        # Main MCP management hub
+│   │   │   │   │   ├── McpDirectoryBrowser.tsx # Public directory with 500+ servers
+│   │   │   │   │   └── ...                    # Modal, card, and inspector components
+│   │   │   │   └── openapi/            # OpenAPI & REST Integration components
+│   │   │   │       ├── OpenApiHub.tsx          # Main OpenAPI management hub
+│   │   │   │       ├── OpenApiDirectoryBrowser.tsx # Public directory with 2,500+ APIs
+│   │   │   │       ├── OpenApiImportModal.tsx  # Spec URL import & parsing
+│   │   │   │       └── OpenApiEndpointTesterModal.tsx # Live endpoint testing
 │   │   │   └── settings/              # Appearance & AI Provider Health
 │   │   ├── page.tsx                   # Landing page with interactive Live Agent Canvas Demo
 │   │   └── layout.tsx                 # Root layout with Clerk, Theme, and Sidebar providers
@@ -273,10 +294,11 @@ Every tool implements the unified `ITool` contract (`id`, `name`, `description`,
 │   │   ├── approval/                  # ApprovalEngine, Idempotency validators
 │   │   ├── history/                   # ExecutionHistoryService
 │   │   ├── mcp/                       # MCP protocol, client service, presets
+│   │   ├── openapi/                   # OpenAPI parser, presets, spec validation
 │   │   └── tools/                     # Tool Registry + 8 Builtin Tool Implementations
 │   ├── providers/llm/                 # LLMProvider, GroqProvider, OpenRouterProvider, LLMRouter
 │   ├── repositories/                  # Prisma data repositories (+ Dependency Inversion interfaces)
-│   ├── services/                      # SkillService, ExecutionService, ApprovalService, VersionService
+│   ├── services/                      # SkillService, ExecutionService, ApprovalService, VersionService, OpenApiService
 │   ├── types/                         # TypeScript interfaces
 │   │   ├── mcp.ts                     # MCP server, tool, health types
 │   │   ├── mcp-directory.ts           # Public MCP server, GitHub, health types
@@ -404,6 +426,11 @@ All endpoints require Clerk session authentication. Responses follow a standardi
 | `GET`                  | `/api/mcp/dependencies`           | Dependency graph (requires/enhances/conflicts visualization)         |
 | `GET / POST`           | `/api/mcp/sse`                    | **MCP Server**: external agents connect here (Streamable HTTP / SSE) |
 | `POST`                 | `/api/mcp/messages`               | **MCP Server**: message endpoint for open sessions                   |
+| `GET`                  | `/api/openapi/parse`             | Parse an OpenAPI spec URL and return introspected endpoints          |
+| `GET`                  | `/api/openapi/directory`         | Browse 2,500+ public APIs from APIs.guru registry                    |
+| `GET / POST`           | `/api/openapi/integrations`      | List user's OpenAPI integrations or create a new one                 |
+| `GET / PATCH / DELETE` | `/api/openapi/integrations/:id`  | Retrieve, update, or delete an OpenAPI integration                   |
+| `POST`                 | `/api/openapi/integrations/:id/test` | Test an endpoint from an OpenAPI integration                     |
 | `GET`                  | `/api/settings/providers`         | Query LLM provider health and active model rosters                   |
 
 For full request/response schemas and examples, see [`docs/API.md`](docs/API.md).
@@ -470,12 +497,18 @@ npm run typecheck
 - [x] Persistent Health Dashboard with alerts & SLA tracking
 - [x] Community Server Reviews (rate & review servers)
 - [x] Dependency Graph visualization (requires/enhances/conflicts)
+- [x] OpenAPI & REST API Integration (1-click import from 2,500+ APIs via APIs.guru)
+- [x] OpenAPI Spec Parsing & Endpoint Introspection
+- [x] 1-Click Free Tool Packs (Forex, Weather, Wikipedia, NASA, Exchange Rates, OpenAI)
+- [x] Custom OpenAPI Spec Import (paste any Swagger/OpenAPI URL)
+- [x] Per-Endpoint HITL Approval Gates for OpenAPI tools
+- [x] OpenAPI Tool Sync into Execution Engine (MCP + REST unified tool registry)
 
 ### 🚧 In Progress
-- [ ] Custom Tool Builder with OpenAPI / Swagger schema import
 - [ ] Multi-tenant organization workspaces with role-based access control (RBAC)
 - [ ] Community Skill & Graph Template Marketplace UI
 - [ ] Webhook notifications & Slack / Discord review queue integrations
+- [ ] GitHub raw search for OpenAPI specs as a second directory source
 
 ### 📋 Planned
 - [ ] Vector database integrations (Pinecone, Qdrant, pgvector) for custom RAG knowledge bases

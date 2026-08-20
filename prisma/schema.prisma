@@ -59,6 +59,19 @@ enum McpServerStatus {
   ERROR
 }
 
+enum OpenApiAuthType {
+  NONE
+  BEARER
+  API_KEY
+  BASIC
+  CUSTOM_HEADER
+}
+
+enum OpenApiStatus {
+  CONNECTED
+  ERROR
+}
+
 model User {
   id            String         @id @default(cuid())
   email         String         @unique
@@ -72,6 +85,7 @@ model User {
   approvals     ApprovalRequest[]
   auditLogs     AuditLog[]
   mcpServers    McpServer[]
+  openApiIntegrations OpenApiIntegration[]
 
   @@map("users")
 }
@@ -314,3 +328,26 @@ model AuditLog {
   @@index([timestamp])
   @@map("audit_logs")
 }
+
+model OpenApiIntegration {
+  id           String          @id @default(cuid())
+  userId       String
+  name         String
+  description  String?
+  specUrl      String?
+  rawSpec      Json            // Parsed OpenAPI/Swagger document
+  baseUrl      String          // Base URL for HTTP requests
+  authType     OpenApiAuthType @default(NONE)
+  authConfig   Json?           // Encrypted/stored auth config
+  endpoints    Json            @default("[]") // Configured endpoint definitions
+  status       OpenApiStatus   @default(CONNECTED)
+  lastError    String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("openapi_integrations")
+}
+

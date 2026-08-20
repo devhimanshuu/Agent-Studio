@@ -1,0 +1,316 @@
+import { OpenApiEndpointDefinition } from "@/types/openapi";
+
+export interface OpenApiPreset {
+  id: string;
+  name: string;
+  category: "WEATHER" | "FINANCE" | "KNOWLEDGE" | "NETWORK" | "DEV" | "COMMERCE";
+  description: string;
+  badge: string;
+  baseUrl: string;
+  specUrl?: string;
+  rawSpec?: Record<string, unknown>;
+  icon: string;
+  endpoints: OpenApiEndpointDefinition[];
+}
+
+export const OPENAPI_PRESETS: OpenApiPreset[] = [
+  {
+    id: "frankfurter-forex",
+    name: "Frankfurter Currency & Forex (ECB)",
+    category: "FINANCE",
+    badge: "100% Free · No Key Required",
+    description:
+      "Real-time and historical currency exchange rates for 30+ fiat currencies published by the European Central Bank.",
+    baseUrl: "https://api.frankfurter.app",
+    icon: "BadgeDollarSign",
+    endpoints: [
+      {
+        id: "ep_forex_latest",
+        operationId: "getLatestRates",
+        method: "GET",
+        path: "/latest",
+        summary: "Get Latest Exchange Rates",
+        description: "Fetch live exchange rates with optional base currency and target conversions.",
+        tags: ["Forex"],
+        parameters: [
+          { name: "from", in: "query", description: "Base currency (e.g. USD, EUR, GBP)", schema: { type: "string" } },
+          { name: "to", in: "query", description: "Target currency symbols comma-separated (e.g. EUR,JPY,GBP)", schema: { type: "string" } },
+          { name: "amount", in: "query", description: "Amount to convert (default 1)", schema: { type: "number" } },
+        ],
+        isWrite: false,
+        requiresApproval: false,
+        enabled: true,
+      },
+      {
+        id: "ep_forex_currencies",
+        operationId: "getSupportedCurrencies",
+        method: "GET",
+        path: "/currencies",
+        summary: "List Supported Currencies",
+        description: "Returns all supported 3-letter ISO currency codes and their full names.",
+        tags: ["Forex"],
+        parameters: [],
+        isWrite: false,
+        requiresApproval: false,
+        enabled: true,
+      },
+      {
+        id: "ep_forex_historical",
+        operationId: "getHistoricalRates",
+        method: "GET",
+        path: "/{date}",
+        summary: "Historical Exchange Rates",
+        description: "Fetch exchange rates on a specific historical date (YYYY-MM-DD format).",
+        tags: ["Forex"],
+        parameters: [
+          { name: "date", in: "path", required: true, description: "Date in YYYY-MM-DD format", schema: { type: "string" } },
+          { name: "from", in: "query", description: "Base currency", schema: { type: "string" } },
+          { name: "to", in: "query", description: "Target symbols", schema: { type: "string" } },
+        ],
+        isWrite: false,
+        requiresApproval: false,
+        enabled: true,
+      },
+    ],
+  },
+  {
+    id: "open-meteo-weather",
+    name: "Open-Meteo Global Weather",
+    category: "WEATHER",
+    badge: "100% Free · Open-Source",
+    description:
+      "Global weather forecast API: current temperature, weather conditions, precipitation, wind, humidity, and forecasts.",
+    baseUrl: "https://api.open-meteo.com/v1",
+    icon: "CloudSun",
+    endpoints: [
+      {
+        id: "ep_weather_forecast",
+        operationId: "getWeatherForecast",
+        method: "GET",
+        path: "/forecast",
+        summary: "Get Weather Forecast",
+        description: "Fetch real-time weather and forecast for any latitude & longitude coordinates.",
+        tags: ["Weather"],
+        parameters: [
+          { name: "latitude", in: "query", required: true, description: "Latitude coordinate (e.g. 52.52)", schema: { type: "number" } },
+          { name: "longitude", in: "query", required: true, description: "Longitude coordinate (e.g. 13.41)", schema: { type: "number" } },
+          { name: "current_weather", in: "query", description: "Include current weather conditions", schema: { type: "boolean" } },
+          { name: "hourly", in: "query", description: "Hourly metrics e.g. temperature_2m,relative_humidity_2m", schema: { type: "string" } },
+          { name: "daily", in: "query", description: "Daily metrics e.g. weathercode,temperature_2m_max,temperature_2m_min", schema: { type: "string" } },
+        ],
+        isWrite: false,
+        requiresApproval: false,
+        enabled: true,
+      },
+    ],
+  },
+  {
+    id: "ip-api-intelligence",
+    name: "IP-API Geolocation & Network Intelligence",
+    category: "NETWORK",
+    badge: "100% Free · Instant Triage",
+    description:
+      "Lookup IP addresses to discover physical location, country, city, ISP, ASN organization, and timezone.",
+    baseUrl: "http://ip-api.com/json",
+    icon: "Globe2",
+    endpoints: [
+      {
+        id: "ep_ip_lookup",
+        operationId: "lookupIpAddress",
+        method: "GET",
+        path: "/{ip}",
+        summary: "Lookup IP Address Geolocation",
+        description: "Inspect any IPv4 or IPv6 address for country, city, ISP, lat/long, and timezone.",
+        tags: ["Network"],
+        parameters: [
+          { name: "ip", in: "path", required: true, description: "Target IP address (or leave empty for current IP)", schema: { type: "string" } },
+          { name: "fields", in: "query", description: "Filter returned fields e.g. status,country,city,lat,lon,timezone,isp", schema: { type: "string" } },
+        ],
+        isWrite: false,
+        requiresApproval: false,
+        enabled: true,
+      },
+    ],
+  },
+  {
+    id: "wikipedia-knowledge",
+    name: "Wikipedia Knowledge Retrieval",
+    category: "KNOWLEDGE",
+    badge: "100% Free · Factual Grounding",
+    description:
+      "Query encyclopedic page summaries, definitions, related topics, and facts directly from Wikipedia.",
+    baseUrl: "https://en.wikipedia.org/api/rest_v1",
+    icon: "BookOpen",
+    endpoints: [
+      {
+        id: "ep_wiki_summary",
+        operationId: "getWikiSummary",
+        method: "GET",
+        path: "/page/summary/{title}",
+        summary: "Get Page Summary",
+        description: "Returns a clean, structured summary, description, and extract for a Wikipedia page title.",
+        tags: ["Knowledge"],
+        parameters: [
+          { name: "title", in: "path", required: true, description: "Wikipedia article title (e.g. Artificial_intelligence)", schema: { type: "string" } },
+        ],
+        isWrite: false,
+        requiresApproval: false,
+        enabled: true,
+      },
+      {
+        id: "ep_wiki_related",
+        operationId: "getWikiRelated",
+        method: "GET",
+        path: "/page/related/{title}",
+        summary: "Get Related Pages",
+        description: "Returns related Wikipedia pages and concepts for exploration and semantic graph building.",
+        tags: ["Knowledge"],
+        parameters: [
+          { name: "title", in: "path", required: true, description: "Wikipedia article title", schema: { type: "string" } },
+        ],
+        isWrite: false,
+        requiresApproval: false,
+        enabled: true,
+      },
+    ],
+  },
+  {
+    id: "rest-countries-data",
+    name: "REST Countries Global Database",
+    category: "KNOWLEDGE",
+    badge: "100% Free · International",
+    description:
+      "Complete information on all world countries: currencies, languages, borders, population, capitals, calling codes.",
+    baseUrl: "https://restcountries.com/v3.1",
+    icon: "Compass",
+    endpoints: [
+      {
+        id: "ep_country_by_name",
+        operationId: "getCountryByName",
+        method: "GET",
+        path: "/name/{name}",
+        summary: "Search Country by Name",
+        description: "Look up a country profile by common or official name.",
+        tags: ["Geography"],
+        parameters: [
+          { name: "name", in: "path", required: true, description: "Country name (e.g. France, Japan, Brazil)", schema: { type: "string" } },
+          { name: "fullText", in: "query", description: "Require exact match (true/false)", schema: { type: "boolean" } },
+        ],
+        isWrite: false,
+        requiresApproval: false,
+        enabled: true,
+      },
+      {
+        id: "ep_country_by_currency",
+        operationId: "getCountriesByCurrency",
+        method: "GET",
+        path: "/currency/{currency}",
+        summary: "Search Countries by Currency",
+        description: "Find all countries using a specific currency code (e.g. eur, usd, jpy).",
+        tags: ["Geography"],
+        parameters: [
+          { name: "currency", in: "path", required: true, description: "3-letter currency code (e.g. eur)", schema: { type: "string" } },
+        ],
+        isWrite: false,
+        requiresApproval: false,
+        enabled: true,
+      },
+    ],
+  },
+  {
+    id: "dummyjson-commerce",
+    name: "DummyJSON E-Commerce & Product Mock",
+    category: "COMMERCE",
+    badge: "100% Free · Products & Carts",
+    description:
+      "Mock e-commerce catalog API with products, categories, search, price filters, and simulated order placement.",
+    baseUrl: "https://dummyjson.com",
+    icon: "ShoppingBag",
+    endpoints: [
+      {
+        id: "ep_dummy_products",
+        operationId: "searchProducts",
+        method: "GET",
+        path: "/products/search",
+        summary: "Search Products",
+        description: "Search product catalog with keyword search and limit parameters.",
+        tags: ["Commerce"],
+        parameters: [
+          { name: "q", in: "query", description: "Search query string (e.g. laptop, shoes)", schema: { type: "string" } },
+          { name: "limit", in: "query", description: "Maximum products to return (default 10)", schema: { type: "integer" } },
+        ],
+        isWrite: false,
+        requiresApproval: false,
+        enabled: true,
+      },
+      {
+        id: "ep_dummy_add_product",
+        operationId: "addProduct",
+        method: "POST",
+        path: "/products/add",
+        summary: "Add New Product (Simulated)",
+        description: "Simulates creating a new product. WRITE tool requiring approval.",
+        tags: ["Commerce"],
+        parameters: [],
+        requestBody: {
+          required: true,
+          schema: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              price: { type: "number" },
+              category: { type: "string" },
+            },
+            required: ["title", "price"],
+          },
+        },
+        isWrite: true,
+        requiresApproval: true,
+        enabled: true,
+      },
+    ],
+  },
+  {
+    id: "github-public-api",
+    name: "GitHub Public REST Explorer",
+    category: "DEV",
+    badge: "100% Free · Public Endpoints",
+    description:
+      "Inspect public GitHub repositories, latest releases, contributors, and user profiles without authentication.",
+    baseUrl: "https://api.github.com",
+    icon: "Github",
+    endpoints: [
+      {
+        id: "ep_github_user",
+        operationId: "getGithubUser",
+        method: "GET",
+        path: "/users/{username}",
+        summary: "Get GitHub User Profile",
+        description: "Fetch public bio, repositories count, followers, and public profile data for a GitHub username.",
+        tags: ["Developer"],
+        parameters: [
+          { name: "username", in: "path", required: true, description: "GitHub username (e.g. torvalds)", schema: { type: "string" } },
+        ],
+        isWrite: false,
+        requiresApproval: false,
+        enabled: true,
+      },
+      {
+        id: "ep_github_repo",
+        operationId: "getGithubRepo",
+        method: "GET",
+        path: "/repos/{owner}/{repo}",
+        summary: "Get Repository Info",
+        description: "Fetch repository stars, fork count, open issues count, license, and default branch.",
+        tags: ["Developer"],
+        parameters: [
+          { name: "owner", in: "path", required: true, description: "Repository owner (e.g. facebook)", schema: { type: "string" } },
+          { name: "repo", in: "path", required: true, description: "Repository name (e.g. react)", schema: { type: "string" } },
+        ],
+        isWrite: false,
+        requiresApproval: false,
+        enabled: true,
+      },
+    ],
+  },
+];

@@ -19,6 +19,9 @@ import { createToolRegistry, ToolRegistry } from "@/modules/tools";
 import { PermissionChecker } from "@/modules/execution/tool-registry/permissionChecker";
 import { PlannerService } from "@/modules/execution/planner/plannerService";
 import { McpClientService } from "./McpClientService";
+import { IOpenApiService } from "./interfaces/IOpenApiService";
+import { OpenApiService } from "./OpenApiService";
+import { OpenApiRepository } from "@/repositories/OpenApiRepository";
 import {
   validateSkillForExecution,
   validateVersionForExecution,
@@ -48,6 +51,11 @@ export interface ExecutionServiceDeps {
    * into the run registries before execution so skills can call them.
    */
   mcpService?: McpClientService;
+  /**
+   * OpenAPI service — when provided, the user's configured OpenAPI tools are synced
+   * into the run registries before execution so skills can call them.
+   */
+  openApiService?: IOpenApiService;
 }
 
 export class ExecutionService implements IExecutionService {
@@ -56,6 +64,7 @@ export class ExecutionService implements IExecutionService {
   private graphInterpreter: GraphInterpreter;
   private approvalEngine: ApprovalEngine;
   private mcpService?: McpClientService;
+  private openApiService?: IOpenApiService;
   /** Registries used by the engine + graph interpreter — kept so MCP tools can
    * be synced per user before each run. */
   private engineRegistry: ToolRegistry;
@@ -75,6 +84,7 @@ export class ExecutionService implements IExecutionService {
     this.approvalEngine =
       deps.approvalEngine ?? new ApprovalEngine(approvalRepo, historyRepo, this.executionRepo);
     this.mcpService = deps.mcpService;
+    this.openApiService = deps.openApiService;
 
     // Single shared registries so the MCP hub can sync a user's discovered
     // tools onto them before each run (registry is mutable + namespaced).
@@ -147,9 +157,12 @@ export class ExecutionService implements IExecutionService {
       );
     }
 
-    // Sync the user's cached MCP tools into the run registries so skills can
+    // Sync the user's cached MCP & OpenAPI tools into the run registries so skills can
     // call them (permission-gated via allowedTools). Idempotent — safe on every run.
-    await this.syncMcpTools(input.userId);
+    await Promise.all([
+      this.syncMcpTools(input.userId),
+      this.syncOpenApiTools(input.userId),
+    ]);
 
     const execution = await this.executionRepo.create(input, version.maxExecutionSteps || 10, skill.name);
     await this.auditRepo.log({
@@ -222,6 +235,17 @@ export class ExecutionService implements IExecutionService {
     await Promise.all([
       this.mcpService.registerUserMcpTools(userId, this.engineRegistry),
       this.mcpService.registerUserMcpTools(userId, this.graphRegistry),
+    ]);
+  }
+
+  /**
+   * Best-effort sync of the user's configured OpenAPI tools onto the shared run registries.
+   */
+  private async syncOpenApiTools(userId: string): Promise<void> {
+    if (!this.openApiService) return;
+    await Promise.all([
+      this.openApiService.syncRegistryTools(userId, this.engineRegistry),
+      this.openApiService.syncRegistryTools(userId, this.graphRegistry),
     ]);
   }
 

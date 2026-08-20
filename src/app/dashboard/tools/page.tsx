@@ -23,6 +23,8 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { Reveal } from "@/components/Reveal";
 import { clsx } from "clsx";
 import { McpServerHub } from "./mcp/McpServerHub";
+import { OpenApiHub } from "./openapi/OpenApiHub";
+import { Globe } from "lucide-react";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -86,7 +88,7 @@ export default async function ToolsDashboardPage({
   searchParams: Promise<{ category?: string; tab?: string }>;
 }) {
   const params = await searchParams;
-  const activeTab = params.tab === "mcp" ? "mcp" : "tools";
+  const activeTab = params.tab === "mcp" ? "mcp" : params.tab === "openapi" ? "openapi" : "tools";
   const activeCategory = (params.category as ToolCategory) || undefined;
 
   const definitionRepo = new ToolDefinitionRepository();
@@ -172,10 +174,24 @@ export default async function ToolsDashboardPage({
           <Plug className="h-3.5 w-3.5" />
           MCP SERVER HUB
         </Link>
+        <Link
+          href="/dashboard/tools?tab=openapi"
+          className={clsx(
+            "inline-flex items-center gap-1.5 px-3 py-2 rounded-t border text-[10px] uppercase tracking-wider transition-all font-semibold",
+            activeTab === "openapi"
+              ? "border-b-0 border-indigo-400 bg-indigo-600 text-white shadow-sm shadow-indigo-500/30"
+              : "border-transparent text-slate-600 dark:text-slate-400 hover:text-indigo-700 dark:hover:text-indigo-300"
+          )}
+        >
+          <Globe className="h-3.5 w-3.5" />
+          OPENAPI & REST
+        </Link>
       </div>
 
       {activeTab === "mcp" ? (
         <McpServerHub />
+      ) : activeTab === "openapi" ? (
+        <OpenApiHub />
       ) : (
       <>
       {/* Matrix header */}

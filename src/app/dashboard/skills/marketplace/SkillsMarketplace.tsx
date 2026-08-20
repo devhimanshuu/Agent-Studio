@@ -28,6 +28,7 @@ import {
   List,
 } from "lucide-react";
 import { clsx } from "clsx";
+import { ItemIcon } from "@/components/common/ItemIcon";
 import { AgentSkill, SkillCategory } from "@/types/agent-studio-registry";
 
 const CATEGORIES: { id: SkillCategory | "ALL"; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -445,13 +446,22 @@ export function SkillsMarketplace() {
                     {/* Top */}
                     <div className="space-y-2">
                       <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <h3 className="text-xs font-mono font-bold text-slate-900 dark:text-slate-100 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                            {skill.name}
-                          </h3>
-                          <p className="text-[9px] font-mono text-slate-500">
-                            by <span className="font-semibold text-slate-700 dark:text-slate-300">{skill.author}</span>
-                          </p>
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <ItemIcon
+                            name={skill.name}
+                            category={skill.category}
+                            tags={skill.tags}
+                            owner={skill.author}
+                            size="sm"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <h3 className="text-xs font-mono font-bold text-slate-900 dark:text-slate-100 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                              {skill.name}
+                            </h3>
+                            <p className="text-[9px] font-mono text-slate-500">
+                              by <span className="font-semibold text-slate-700 dark:text-slate-300">{skill.author}</span>
+                            </p>
+                          </div>
                         </div>
                         {isInstalled && (
                           <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[7px] font-mono font-bold uppercase bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/50 shrink-0">
@@ -540,6 +550,13 @@ export function SkillsMarketplace() {
                     {/* Left: Info, Badges, Description */}
                     <div className="min-w-0 flex-1 space-y-1.5">
                       <div className="flex flex-wrap items-center gap-2">
+                        <ItemIcon
+                          name={skill.name}
+                          category={skill.category}
+                          tags={skill.tags}
+                          owner={skill.author}
+                          size="xs"
+                        />
                         <h3 className="text-xs font-mono font-bold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                           {skill.name}
                         </h3>
@@ -744,13 +761,22 @@ function SkillDetailModal({
       >
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-200 dark:border-indigo-950 bg-white/90 dark:bg-[#0a0a0a]/90 backdrop-blur-sm rounded-t-xl">
-          <div className="min-w-0">
-            <h3 className="text-sm font-mono font-bold text-slate-900 dark:text-slate-100 truncate">
-              {skill.name}
-            </h3>
-            <p className="text-[10px] font-mono text-slate-500">
-              by <span className="font-semibold text-slate-700 dark:text-slate-300">{skill.author}</span>
-            </p>
+          <div className="flex items-center gap-3 min-w-0">
+            <ItemIcon
+              name={skill.name}
+              category={skill.category}
+              tags={skill.tags}
+              owner={skill.author}
+              size="lg"
+            />
+            <div className="min-w-0">
+              <h3 className="text-sm font-mono font-bold text-slate-900 dark:text-slate-100 truncate">
+                {skill.name}
+              </h3>
+              <p className="text-[10px] font-mono text-slate-500">
+                by <span className="font-semibold text-slate-700 dark:text-slate-300">{skill.author}</span>
+              </p>
+            </div>
           </div>
           <button
             type="button"

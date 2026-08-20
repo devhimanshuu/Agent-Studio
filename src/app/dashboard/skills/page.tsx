@@ -27,6 +27,7 @@ import { SkeletonGrid } from "@/components/feedback/Skeleton";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { toast } from "@/stores/toastStore";
 import { clsx } from "clsx";
+import { ItemIcon } from "@/components/common/ItemIcon";
 import { SkillsMarketplace } from "./marketplace/SkillsMarketplace";
 
 const sortOptions = [
@@ -208,7 +209,14 @@ export default function SkillsDashboardPage() {
                       </span>
                       <span className="text-[9px] text-slate-500 uppercase">{tmpl.category}</span>
                     </div>
-                    <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100">{tmpl.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <ItemIcon
+                        name={tmpl.name}
+                        category={tmpl.category}
+                        size="xs"
+                      />
+                      <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">{tmpl.name}</h3>
+                    </div>
                     <p className="text-[11px] text-slate-600 dark:text-slate-400 font-serif leading-relaxed line-clamp-2">
                       {tmpl.purpose}
                     </p>
@@ -341,8 +349,12 @@ export default function SkillsDashboardPage() {
                   >
                     <div className="space-y-3">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="space-y-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
+                        <div className="space-y-1 min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <ItemIcon
+                              name={skill.name}
+                              size="xs"
+                            />
                             {isWorkflow ? (
                               <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-900/40">
                                 WORKFLOW

@@ -37,6 +37,7 @@ import {
   List,
 } from "lucide-react";
 import { clsx } from "clsx";
+import { ItemIcon } from "@/components/common/ItemIcon";
 import {
   McpHealth,
   McpPreset,
@@ -689,13 +690,19 @@ function ServerGridCard(props: {
       {/* Top */}
       <div className="space-y-2">
         <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <h3 className="text-xs font-mono font-bold text-slate-900 dark:text-slate-100 truncate">
-              {server.name}
-            </h3>
-            <p className="text-[9px] font-mono text-slate-500 truncate">
-              {server.transport === "SSE" ? server.endpointUrl : server.command}
-            </p>
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <ItemIcon
+              name={server.name}
+              size="sm"
+            />
+            <div className="min-w-0 flex-1">
+              <h3 className="text-xs font-mono font-bold text-slate-900 dark:text-slate-100 truncate">
+                {server.name}
+              </h3>
+              <p className="text-[9px] font-mono text-slate-500 truncate">
+                {server.transport === "SSE" ? server.endpointUrl : server.command}
+              </p>
+            </div>
           </div>
           <span className={clsx(
             "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border shrink-0",
@@ -784,7 +791,14 @@ function PresetCard({ preset, onUse }: { preset: McpPreset; onUse: () => void })
       className="text-left rounded border border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/60 p-3 space-y-1.5 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:-translate-y-0.5 hover:shadow-lg transition-all cursor-pointer group"
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] font-mono font-semibold text-slate-900 dark:text-slate-100 truncate">{preset.name}</span>
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <ItemIcon
+            name={preset.name}
+            category={preset.category}
+            size="xs"
+          />
+          <span className="text-[11px] font-mono font-semibold text-slate-900 dark:text-slate-100 truncate">{preset.name}</span>
+        </div>
         {preset.requiresAuthToken ? (
           <KeyRound className="h-3 w-3 text-amber-500 shrink-0" />
         ) : (
@@ -830,6 +844,10 @@ function ServerCard(props: {
       {/* Left: Info, Badges */}
       <div className="min-w-0 flex-1 space-y-1.5">
         <div className="flex flex-wrap items-center gap-2">
+          <ItemIcon
+            name={server.name}
+            size="xs"
+          />
           <h3 className="text-xs font-mono font-bold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
             {server.name}
           </h3>
