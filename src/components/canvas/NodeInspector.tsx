@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useRef, useState } from "react";
-import { Trash2, GitBranch, Braces, Boxes, CornerUpRight } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { Trash2, GitBranch, Braces, Boxes, CornerUpRight, RefreshCw } from "lucide-react";
 import { BUILT_IN_TOOL_CATALOG } from "@/modules/tools";
 import type { CanvasNode, CanvasNodeData } from "./graphUtils";
 import { GraphNodeType } from "@/types/graph";
+import type { McpServerDTO } from "@/types/mcp";
 
 interface NodeInspectorProps {
   node: CanvasNode;
@@ -162,6 +163,36 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
   );
   const [templateError, setTemplateError] = useState<string | null>(null);
   const type = (node.type ?? "agent") as GraphNodeType;
+
+  // ── Dynamically fetch connected MCP servers + their tools ──
+  const [mcpServers, setMcpServers] = useState<McpServerDTO[]>([]);
+  useEffect(() => {
+    fetch("/api/mcp/servers")
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data)) {
+          setMcpServers(json.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Build a map of serverId → tool names for the MCP tool selector
+  const mcpServerToolMap = React.useMemo(() => {
+    const map = new Map<string, { name: string; displayName: string; description: string }[]>();
+    for (const server of mcpServers) {
+      if (server.status !== "CONNECTED" || server.cachedTools.length === 0) continue;
+      map.set(
+        server.id,
+        server.cachedTools.map((t) => ({
+          name: t.name,
+          displayName: t.annotations?.title ?? t.name,
+          description: t.description ?? "",
+        }))
+      );
+    }
+    return map;
+  }, [mcpServers]);
 
   const inputMap = useJsonField(node.data.inputMapping, (v) => onUpdate({ inputMapping: v }));
   const outputMap = useJsonField(node.data.outputMapping, (v) => onUpdate({ outputMapping: v }));
@@ -453,6 +484,359 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
             <code>join</code>
             {' (or last edge) continues after all complete.'}
           </p>
+        </>
+      )}
+
+      {/* ─── MCP & Ecosystem Nodes ─── */}
+
+      {type === "mcp_server" && (
+        <>
+          <Field label="MCP Server" hint="Connected servers from your MCP Hub">
+            <div className="flex items-center gap-1.5">
+              <select
+                value={node.data.mcpServerId ?? ""}
+                onChange={(e) => onUpdate({ mcpServerId: e.target.value })}
+                className={`${inputClass} cursor-pointer flex-1`}
+              >
+                <option value="">— select connected server —</option>
+                {mcpServers.length === 0 && (
+                  <option value="" disabled>No servers connected — go to Tools → MCP Hub</option>
+                )}
+                {mcpServers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.cachedTools.length} tools) [{s.status}]
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => fetch("/api/mcp/servers").then(r => r.json()).then(j => { if (j.success) setMcpServers(j.data); }).catch(() => {})}
+                className="p-1.5 rounded border border-slate-300 dark:border-indigo-900/50 hover:bg-slate-100 dark:hover:bg-indigo-950/40 transition-colors cursor-pointer"
+                title="Refresh servers"
+              >
+                <RefreshCw className="h-3 w-3 text-slate-500" />
+              </button>
+            </div>
+          </Field>
+          <Field label="Transport">
+            <select
+              value={node.data.mcpTransport ?? "SSE"}
+              onChange={(e) => onUpdate({ mcpTransport: e.target.value as "STDIO" | "SSE" })}
+              className={`${inputClass} cursor-pointer`}
+            >
+              <option value="SSE">SSE (Remote)</option>
+              <option value="STDIO">STDIO (Local)</option>
+            </select>
+          </Field>
+          <Field label="Endpoint / Command">
+            <input
+              value={node.data.mcpEndpoint ?? ""}
+              onChange={(e) => onUpdate({ mcpEndpoint: e.target.value })}
+              placeholder="https://... or npx -y ..."
+              className={inputClass}
+            />
+            <p className="text-[8px] text-slate-500 leading-tight">URL for SSE, command for STDIO</p>
+          </Field>
+        </>
+      )}
+
+      {type === "mcp_tool" && (
+        <>
+          <Field label="MCP Server" hint="Select a connected server to pick its tools">
+            <select
+              value={node.data.mcpToolServer ?? ""}
+              onChange={(e) => {
+                onUpdate({ mcpToolServer: e.target.value, mcpToolName: "" });
+              }}
+              className={`${inputClass} cursor-pointer`}
+            >
+              <option value="">— select server —</option>
+              {mcpServers
+                .filter((s) => s.status === "CONNECTED" && s.cachedTools.length > 0)
+                .map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.cachedTools.length} tools)
+                  </option>
+                ))}
+            </select>
+          </Field>
+          <Field label="Tool Name" hint={node.data.mcpToolServer ? `Tools from selected server` : "Select a server first"}>
+            {node.data.mcpToolServer && mcpServerToolMap.has(node.data.mcpToolServer) ? (
+              <select
+                value={node.data.mcpToolName ?? ""}
+                onChange={(e) => onUpdate({ mcpToolName: e.target.value })}
+                className={`${inputClass} cursor-pointer`}
+              >
+                <option value="">— select tool —</option>
+                {mcpServerToolMap.get(node.data.mcpToolServer)!.map((t) => (
+                  <option key={t.name} value={t.name}>
+                    {t.displayName} ({t.name})
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                value={node.data.mcpToolName ?? ""}
+                onChange={(e) => onUpdate({ mcpToolName: e.target.value })}
+                placeholder="e.g. search_repositories, execute_sql"
+                className={inputClass}
+              />
+            )}
+          </Field>
+          <Field label="Input Parameters (JSON)">
+            <textarea
+              value={node.data.mcpToolParams ? JSON.stringify(node.data.mcpToolParams, null, 2) : ""}
+              onChange={(e) => {
+                try { onUpdate({ mcpToolParams: e.target.value ? JSON.parse(e.target.value) : {} }); } catch {}
+              }}
+              rows={4}
+              spellCheck={false}
+              placeholder="{ }"
+              className={`${inputClass} resize-y text-[9px] leading-relaxed`}
+            />
+          </Field>
+        </>
+      )}
+
+      {type === "skill" && (
+        <>
+          <Field label="Skill ID">
+            <input
+              value={node.data.skillId ?? ""}
+              onChange={(e) => onUpdate({ skillId: e.target.value })}
+              placeholder="e.g. skill-web-research-pipeline"
+              className={inputClass}
+            />
+            <p className="text-[8px] text-slate-500 leading-tight">Find skills in the Skills Marketplace tab</p>
+          </Field>
+          <Field label="Skill Input (JSON)">
+            <textarea
+              value={node.data.skillInput ? JSON.stringify(node.data.skillInput, null, 2) : ""}
+              onChange={(e) => {
+                try { onUpdate({ skillInput: e.target.value ? JSON.parse(e.target.value) : {} }); } catch {}
+              }}
+              rows={4}
+              spellCheck={false}
+              placeholder="{ }"
+              className={`${inputClass} resize-y text-[9px] leading-relaxed`}
+            />
+          </Field>
+        </>
+      )}
+
+      {type === "http" && (
+        <>
+          <Field label="Method">
+            <select
+              value={node.data.httpMethod ?? "GET"}
+              onChange={(e) => onUpdate({ httpMethod: e.target.value as any })}
+              className={`${inputClass} cursor-pointer`}
+            >
+              <option value="GET">GET</option>
+              <option value="POST">POST</option>
+              <option value="PUT">PUT</option>
+              <option value="PATCH">PATCH</option>
+              <option value="DELETE">DELETE</option>
+            </select>
+          </Field>
+          <Field label="URL">
+            <input
+              value={node.data.httpUrl ?? ""}
+              onChange={(e) => onUpdate({ httpUrl: e.target.value })}
+              placeholder="https://api.example.com/{{ input.id }}"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Headers (JSON)">
+            <textarea
+              value={node.data.httpHeaders ? JSON.stringify(node.data.httpHeaders, null, 2) : ""}
+              onChange={(e) => {
+                try { onUpdate({ httpHeaders: e.target.value ? JSON.parse(e.target.value) : {} }); } catch {}
+              }}
+              rows={3}
+              spellCheck={false}
+              placeholder={'{ "Authorization": "Bearer {{ input.token }}" }'}
+              className={`${inputClass} resize-y text-[9px] leading-relaxed`}
+            />
+          </Field>
+          <Field label="Body (JSON)">
+            <textarea
+              value={node.data.httpBody ? JSON.stringify(node.data.httpBody, null, 2) : ""}
+              onChange={(e) => {
+                try { onUpdate({ httpBody: e.target.value ? JSON.parse(e.target.value) : {} }); } catch {}
+              }}
+              rows={4}
+              spellCheck={false}
+              placeholder="{ }"
+              className={`${inputClass} resize-y text-[9px] leading-relaxed`}
+            />
+          </Field>
+          <Field label="Response Type">
+            <select
+              value={node.data.httpResponseType ?? "json"}
+              onChange={(e) => onUpdate({ httpResponseType: e.target.value as any })}
+              className={`${inputClass} cursor-pointer`}
+            >
+              <option value="json">JSON</option>
+              <option value="text">Text</option>
+              <option value="blob">Blob</option>
+            </select>
+          </Field>
+        </>
+      )}
+
+      {type === "transform" && (
+        <>
+          <Field label="Operation">
+            <select
+              value={node.data.transformOp ?? "map"}
+              onChange={(e) => onUpdate({ transformOp: e.target.value as any })}
+              className={`${inputClass} cursor-pointer`}
+            >
+              <option value="map">MAP (transform each item)</option>
+              <option value="filter">FILTER (keep matching items)</option>
+              <option value="merge">MERGE (combine objects)</option>
+              <option value="flatten">FLATTEN (nested arrays)</option>
+              <option value="sort">SORT (order items)</option>
+              <option value="dedupe">DEDUPE (remove duplicates)</option>
+              <option value="pick">PICK (select fields)</option>
+              <option value="omit">OMIT (exclude fields)</option>
+              <option value="template">TEMPLATE (string interpolation)</option>
+            </select>
+          </Field>
+          <Field label="Expression">
+            <input
+              value={node.data.transformExpr ?? ""}
+              onChange={(e) => onUpdate({ transformExpr: e.target.value })}
+              placeholder="e.g. item.name, item.price > 100, {{ results.agent_1 }}"
+              className={inputClass}
+            />
+            <p className="text-[8px] text-slate-500 leading-tight">Field path or expression to evaluate</p>
+          </Field>
+        </>
+      )}
+
+      {type === "delay" && (
+        <>
+          <Field label="Delay (ms)">
+            <input
+              type="number"
+              min={100}
+              max={300000}
+              value={node.data.delayMs ?? 1000}
+              onChange={(e) => onUpdate({ delayMs: Math.max(100, Number(e.target.value) || 1000) })}
+              className={inputClass}
+            />
+            <p className="text-[8px] text-slate-500 leading-tight">100ms — 5min (300,000ms)</p>
+          </Field>
+          <Field label="Or Template">
+            <input
+              value={node.data.delayTemplate ?? ""}
+              onChange={(e) => onUpdate({ delayTemplate: e.target.value })}
+              placeholder="{{ input.delayMs }}"
+              className={inputClass}
+            />
+            <p className="text-[8px] text-slate-500 leading-tight">Override with a dynamic value from state</p>
+          </Field>
+        </>
+      )}
+
+      {type === "aggregate" && (
+        <>
+          <Field label="Mode">
+            <select
+              value={node.data.aggregateMode ?? "concat"}
+              onChange={(e) => onUpdate({ aggregateMode: e.target.value as any })}
+              className={`${inputClass} cursor-pointer`}
+            >
+              <option value="concat">CONCAT (combine arrays)</option>
+              <option value="merge">MERGE (combine objects)</option>
+              <option value="count">COUNT (total items)</option>
+              <option value="first">FIRST (take first result)</option>
+              <option value="all">ALL (wait for all branches)</option>
+              <option value="custom">CUSTOM (JS expression)</option>
+            </select>
+          </Field>
+          {node.data.aggregateMode === "custom" && (
+            <Field label="Custom Expression">
+              <textarea
+                value={node.data.aggregateExpr ?? ""}
+                onChange={(e) => onUpdate({ aggregateExpr: e.target.value })}
+                rows={3}
+                spellCheck={false}
+                placeholder="(results) => results.flat()"
+                className={`${inputClass} resize-y text-[9px] leading-relaxed`}
+              />
+            </Field>
+          )}
+          <p className="text-[8px] text-amber-500/80 leading-tight">
+            Connect multiple incoming edges — this node waits for all branches to complete before combining.
+          </p>
+        </>
+      )}
+
+      {type === "variable" && (
+        <>
+          <Field label="Variable Name">
+            <input
+              value={node.data.varName ?? ""}
+              onChange={(e) => onUpdate({ varName: e.target.value })}
+              placeholder="e.g. counter, token, context"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Operation">
+            <select
+              value={node.data.varOp ?? "get"}
+              onChange={(e) => onUpdate({ varOp: e.target.value as any })}
+              className={`${inputClass} cursor-pointer`}
+            >
+              <option value="get">GET (read variable)</option>
+              <option value="set">SET (write variable)</option>
+            </select>
+          </Field>
+          {node.data.varOp === "set" && (
+            <Field label="Value (JSON)">
+              <textarea
+                value={node.data.varValue ? JSON.stringify(node.data.varValue, null, 2) : ""}
+                onChange={(e) => {
+                  try { onUpdate({ varValue: e.target.value ? JSON.parse(e.target.value) : undefined }); } catch {}
+                }}
+                rows={3}
+                spellCheck={false}
+                placeholder="{{ results.agent_1.content }}"
+                className={`${inputClass} resize-y text-[9px] leading-relaxed`}
+              />
+            </Field>
+          )}
+        </>
+      )}
+
+      {type === "output" && (
+        <>
+          <Field label="Output Template">
+            <textarea
+              value={node.data.outputTemplate ?? ""}
+              onChange={(e) => onUpdate({ outputTemplate: e.target.value })}
+              rows={4}
+              spellCheck={false}
+              placeholder="{{ results }}"
+              className={`${inputClass} resize-y text-[9px] leading-relaxed`}
+            />
+            <p className="text-[8px] text-slate-500 leading-tight">{`Template for the final output. Use {{ results }} for all node results.`}</p>
+          </Field>
+          <Field label="Field Mappings (JSON)">
+            <textarea
+              value={node.data.outputFields ? JSON.stringify(node.data.outputFields, null, 2) : ""}
+              onChange={(e) => {
+                try { onUpdate({ outputFields: e.target.value ? JSON.parse(e.target.value) : {} }); } catch {}
+              }}
+              rows={4}
+              spellCheck={false}
+              placeholder='{ "summary": "{{ results.agent_1.content }}", "data": "{{ results.tool_1.output }}" }'
+              className={`${inputClass} resize-y text-[9px] leading-relaxed`}
+            />
+          </Field>
         </>
       )}
 

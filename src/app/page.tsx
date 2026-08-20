@@ -47,6 +47,13 @@ import {
   Network,
   Webhook,
   Camera,
+  Globe,
+  Download,
+  Star,
+  TrendingUp,
+  Puzzle,
+  Package,
+  ServerCog,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Reveal } from "@/components/Reveal";
@@ -198,14 +205,7 @@ const canvasNodeTypes = [
 ];
 
 const upcomingNodeTypes = [
-  {
-    name: "MCP CONNECTOR",
-    tag: "SOON",
-    icon: Network,
-    desc: "Anthropic Model Context Protocol Client & Server Tool Sync",
-    cls: "text-violet-700 dark:text-violet-300 border-dashed border-violet-400/70 dark:border-violet-500/50 bg-violet-50/60 dark:bg-violet-950/30",
-    badgeCls: "bg-violet-100 dark:bg-violet-900/60 text-violet-800 dark:text-violet-200 border-violet-300 dark:border-violet-700",
-  },
+
   {
     name: "VECTOR MEMORY",
     tag: "Q3",
@@ -369,6 +369,42 @@ const faqExtra = [
   },
 ];
 
+// ────────────── Official MCP Ecosystem SVG Logos ──────────────
+function SmitheryOfficialLogo({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 135 159" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} aria-label="Smithery.ai Official Logo">
+      <path d="M31.3508 58.4053H0V78.9492C0 90.8872 9.67578 100.563 21.6138 100.563H42.1577V69.2122C42.1577 63.2432 37.3198 58.4053 31.3508 58.4053Z" fill="#FF5601"/>
+      <path d="M46.2327 69.2122V100.563H77.5835C83.5525 100.563 88.3904 95.7251 88.3904 89.7561V58.4053H57.0396C51.0706 58.4053 46.2327 63.2432 46.2327 69.2122Z" fill="#FF5601"/>
+      <path d="M113.013 58.4053H92.4695V89.7561C92.4695 95.7251 97.3074 100.563 103.276 100.563H134.627V80.0191C134.627 68.0811 124.951 58.4053 113.013 58.4053Z" fill="#FF5601"/>
+      <path d="M0.000244141 37.5535V54.351H31.3511C37.3201 54.351 42.158 49.5131 42.158 43.5441V6.01534C40.9332 5.97572 39.6616 5.9541 38.3323 5.9541C17.9865 5.9541 0.000244141 15.9001 0.000244141 37.5535Z" fill="#FF5601"/>
+      <path d="M46.2327 43.5332C46.2327 49.5022 51.0706 54.3401 57.0396 54.3401H88.3904V14.4735C71.0993 12.8596 64.1109 7.47418 46.2327 6.21338V43.5368V43.5332Z" fill="#FF5601"/>
+      <path d="M98.8636 14.9351C96.5833 14.9351 94.4616 14.8775 92.4695 14.773V54.3443H113.013C124.951 54.3443 134.627 44.6685 134.627 32.7305V0C127.945 8.91209 116.097 14.9351 98.8636 14.9351Z" fill="#FF5601"/>
+      <path d="M35.7697 144.068C38.05 144.068 40.1718 144.126 42.1638 144.23V104.659H21.6199C9.68188 104.659 0.00610352 114.335 0.00610352 126.273V159C6.68837 150.088 18.5363 144.065 35.7733 144.065L35.7697 144.068Z" fill="#FF5601"/>
+      <path d="M88.3904 115.466C88.3904 109.497 83.5525 104.659 77.5835 104.659H46.2327V144.529C63.5237 146.143 70.5122 151.529 88.3904 152.79V115.466Z" fill="#FF5601"/>
+      <path d="M134.627 121.5V104.659H103.276C97.3074 104.659 92.4695 109.497 92.4695 115.466V152.995C93.6943 153.034 94.9659 153.052 96.2951 153.052C116.63 153.052 134.606 143.121 134.627 121.496V121.5Z" fill="#FF5601"/>
+    </svg>
+  );
+}
+
+function GlamaOfficialLogo({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" fillRule="evenodd" xmlns="http://www.w3.org/2000/svg" className={className} aria-label="Glama.ai Official Logo">
+      <path d="M17.72 10.922c.237-.213.235-.254-.024-.514-.46-.46-.922-.917-1.382-1.377-.241-.241-.479-.487-.72-.728-.102-.101-.156-.193-.011-.303.082-.062.043-.129-.02-.182-.16-.135-.343-.203-.543-.113-.24.107-.422.226-.452.558-.094 1.041-.976 1.685-2.026 1.542-1.029-.14-1.69-1.042-1.72-1.981a.3.3 0 00-.118-.248c-.12-.09-.242-.179-.361-.267-.072.05-.05.108-.036.159.03.108-.012.17-.112.208-.628.238-1.254.483-1.884.714-.326.12-.648.249-.966.39a.89.89 0 00-.403.382c-.172-.093-.183-.227-.153-.371a.695.695 0 01.35-.49c.329-.186.686-.302 1.037-.436.549-.21 1.095-.427 1.645-.637.108-.042.223-.068.34-.103.019-.092-.022-.176-.034-.262-.032-.23.07-.39.298-.425.42-.065.846-.08 1.262-.172.3-.066.597-.14.91-.135.802.013 1.408.353 1.811 1.048.023.038.048.075.08.125.516-.31 1.026-.323 1.525.045.095-.132.157-.27.253-.387.4-.487.926-.745 1.534-.853.21-.037.415.018.614.069.418.107.845.162 1.27.226.18.027.363.067.43.27.072.215.008.415-.203.555-.28.186-.41.435-.43.768-.022.393-.197.732-.434 1.038-.185.24-.385.469-.685.575-.208.074-.415.14-.644.006.001.144.093.214.162.291.146.163.293.325.417.506.22.321.201.614-.064.898-.08.086-.093.143-.02.255.2.306.35.634.383 1.01.027.307-.204.705-.534.84-.134.054-.188.135-.239.265-.236.597-.662.97-1.316 1.054-.463.06-.894-.03-1.286-.277-.182-.114-.35-.156-.547-.044-.22.125-.435.262-.467.534-.092.768-.127 1.541-.105 2.314.006.18.095.332.207.468.11.134.15.28.055.434-.253.41-.125.785.102 1.148.086.137.189.265.3.383.113.122.13.256.095.405-.019.081-.035.17-.079.238-.128.202-.085.398.002.593.44.984.928 1.933 1.802 2.618.017.013.034.03.049.046.064.068.162.14.102.241a.292.292 0 01-.32.134.868.868 0 01-.418-.24c-.71-.668-1.251-1.447-1.554-2.38a8.814 8.814 0 00-.139-.397c-.07-.187-.084-.378.014-.553.078-.14.045-.258-.044-.354-.47-.505-.522-1.13-.536-1.771-.003-.128-.006-.262-.044-.382-.185-.59-.167-1.196-.15-1.8.006-.19-.061-.27-.235-.315-.77-.197-1.482-.518-2.09-1.036a1.43 1.43 0 00-.692-.308c-1.078-.205-2.006-1.133-2.219-2.208-.021-.109-.011-.208.083-.27.114-.074.24-.129.38-.083.058.018.075.077.081.137.107 1.048 1.096 1.814 2.102 1.97.752.115 1.481.042 2.213-.122.474-.107.96-.155 1.44-.22.207-.028.376.055.527.178.276.228.597.355.944.408.334.051.661.025.947-.185.119-.087.219-.19.243-.338-.021-.03-.044-.033-.064-.023-.4.196-.8.132-1.193-.007a3.36 3.36 0 01-1.392-.912.7.7 0 01-.117-.163c-.048-.099-.04-.196.054-.271.094-.075.188-.093.287-.006.305.268.626.509 1.02.634.279.089.557.095.843.027.494-.117.491-.832.215-1.13-.232-.249-.525-.273-.825-.31-.236-.03-.45-.104-.573-.33-.104-.19-.068-.287.134-.361.3-.11.606-.196.933-.178.27.016.468.136.593.377.038.075.076.15.124.219.082.117.154.114.23-.01.063-.105.116-.217.182-.335zm-5.344-3.915c-.046.216.04.367.26.433.171.053.34.107.487.216.106.077.196.146.114.3-.028.052-.017.133-.007.198.028.177.214.31.363.267.172-.05.233-.176.146-.375-.093-.213-.17-.423-.173-.659a.366.366 0 00-.103-.226 1.058 1.058 0 00-.578-.353c-.193-.04-.384-.027-.51.199zm5.594.506c.066-.002.136.015.187-.047.15-.179.009-.591-.221-.629a1.17 1.17 0 00-.334-.002c-.173.023-.226.165-.264.31-.035.136.066.187.16.24.137.079.278.144.472.128zm-.221 4.33c-.173.267-.138.556-.072.84a.26.26 0 00.28.196c.128-.012.165-.137.165-.256-.002-.333-.12-.64-.198-.959-.097.027-.112.11-.175.179zm.985-3.802c-.088-.19-.227-.259-.4-.192-.139.055-.145.174-.12.294.03.157.16.262.289.246.15-.018.24-.139.231-.348z" />
+      <path d="M17.747 5.752c-.302-.138-.56-.02-.815.1-.158.074-.294.184-.433.288-.077.057-.168.113-.264.07-.091-.043-.065-.145-.073-.227-.006-.061-.024-.124-.017-.184.072-.606-.3-.931-.764-1.186-.238-.13-.484-.266-.775-.241-.135.011-.246.056-.3.193.06.075.141.075.217.089.407.073.794.185 1.096.498.222.23.319.48.186.791a.339.339 0 00.088.413c.074.069.167.132.19.275a.995.995 0 01-.522-.228c-.082-.068-.149-.153-.226-.226-.107-.1-.155-.199-.095-.354.063-.163-.03-.313-.23-.416-.276-.144-.579-.2-.881-.261-.338-.07-.661-.187-.89-.465-.097-.117-.198-.117-.328-.08-.438.122-.852.31-1.275.472-.703.267-1.383.588-2.042.946-.758.411-1.516.83-2.188 1.376a3.723 3.723 0 00-1.01 1.284c-.07.143-.098.3-.096.457a.518.518 0 01-.132.369c-.406.46-.49.988-.327 1.568.047.168.08.338.02.512-.025.075-.065.133-.143.15-.582.126-1.166.18-1.73-.062-.437-.187-.565-.537-.402-.98.144-.391.397-.713.66-1.027.725-.868 1.563-1.615 2.465-2.298a19.235 19.235 0 012.204-1.447c.92-.515 1.867-.97 2.857-1.339.881-.33 1.765-.652 2.673-.897a14.209 14.209 0 012.337-.447c.558-.054 1.115-.098 1.672.004.171.03.337.081.492.164.356.19.476.487.317.861-.164.388-.435.703-.753.977-.182.157-.371.306-.554.463-.06.052-.118.085-.209.045zm-10.032.31c-.237.206-.286.194-.36-.113a6.627 6.627 0 01-.149-2.1c.035-.436.073-.871.24-1.28.288-.698.685-1.32 1.269-1.813.074-.062.227-.13.162-.238-.08-.132-.204-.004-.292.042-.37.196-.648.492-.867.847-.35.57-.646 1.163-.787 1.825-.054.252-.066.51-.093.764-.03.29-.044.581-.042.872a.642.642 0 01-.149.435c-.197-.23-.272-.494-.305-.772-.074-.625.107-1.207.306-1.786.203-.593.484-1.142.906-1.614.269-.301.615-.48.963-.663.228-.12.454-.244.686-.355.141-.067.293-.116.455-.089.416.07.586.365.494.85-.089.459-.329.854-.546 1.256-.425.788-.867 1.568-1.072 2.452-.077.332-.15.664-.222.997-.025.115-.075.197-.195.248-.138.059-.262.15-.402.235zm3.76-1.923c-.82.348-1.64.66-2.402 1.136-.041-.13-.015-.248.001-.356.042-.282.107-.56.161-.84.02-.107.072-.16.19-.17.204-.02.38-.127.563-.212a11.085 11.085 0 012.508-.843c.265-.053.534-.056.803-.048.037.001.083.009.11.031.144.125.284.253.423.383.032.03.058.07.041.124-.819.188-1.592.519-2.397.795z" />
+    </svg>
+  );
+}
+
+function McpProtocolLogo({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} aria-label="Model Context Protocol Logo">
+      <path d="M25 97.8528L92.8822 29.9706C102.255 20.598 117.451 20.598 126.823 29.9706V29.9706C136.196 39.3431 136.196 54.5391 126.823 63.9117L75.5581 115.177" stroke="currentColor" strokeWidth="16" strokeLinecap="round"/>
+      <path d="M76.2652 114.47L126.823 63.9117C136.196 54.5391 151.392 54.5391 160.765 63.9117L161.118 64.2652C170.491 73.6378 170.491 88.8338 161.118 98.2063L99.7248 159.6C96.6006 162.724 96.6006 167.789 99.7248 170.913L112.331 183.52" stroke="currentColor" strokeWidth="16" strokeLinecap="round"/>
+      <path d="M109.853 46.9411L59.6482 97.1457C50.2756 106.518 50.2756 121.714 59.6482 131.087V131.087C69.0208 140.459 84.2167 140.459 93.5893 131.087L143.794 80.8822" stroke="currentColor" strokeWidth="16" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
 export default function LandingPage() {
   return (
     <div className="space-y-16 sm:space-y-24 px-4 sm:px-6 lg:px-10 pt-0">
@@ -459,7 +495,7 @@ export default function LandingPage() {
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 font-mono text-center">
         <Reveal delay={0}>
           <div className="p-4 rounded-lg border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-1 h-full shadow-sm hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-300">
-            <div className="text-2xl font-pixel text-slate-900 dark:text-slate-100">10</div>
+            <div className="text-2xl font-pixel text-slate-900 dark:text-slate-100">9</div>
             <div className="text-[11px] text-indigo-700 dark:text-indigo-400 font-semibold">Node Types on Visual Canvas</div>
           </div>
         </Reveal>
@@ -763,11 +799,307 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* SECTION 8: CORE SAAS PILLARS (#features) */}
+      {/* SECTION 8: MCP MARKETPLACE ECOSYSTEM (#ecosystem) */}
+      <section id="ecosystem" className="space-y-8 pt-4">
+        <Reveal>
+          <div className="flex items-center justify-between text-xs font-mono text-indigo-700 dark:text-indigo-400/80 uppercase tracking-widest border-b border-slate-200 dark:border-indigo-950/80 pb-3 font-semibold">
+            <span className="flex items-center gap-2">
+              <McpProtocolLogo className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+              // 06. MCP MARKETPLACE ECOSYSTEM
+            </span>
+            <span className="text-[10px] sm:text-xs">UNIFIED DISCOVERY FROM 5 REGISTRIES</span>
+          </div>
+        </Reveal>
+
+        {/* Marketplace Source Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 font-mono">
+          {/* Smithery.ai */}
+          <Reveal delay={0}>
+            <div className="p-6 rounded border border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/80 space-y-4 hover:-translate-y-1 hover:border-[#FF5601]/60 dark:hover:border-[#FF5601]/60 hover:shadow-xl hover:shadow-[#FF5601]/10 transition-all duration-300 h-full shadow-sm flex flex-col justify-between">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-lg bg-[#FF5601]/10 dark:bg-[#FF5601]/15 border border-[#FF5601]/30 flex items-center justify-center p-1.5 shadow-sm shrink-0">
+                      <SmitheryOfficialLogo className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5 leading-tight">
+                        SMITHERY.AI
+                      </div>
+                      <div className="text-[9px] text-slate-500 font-mono">registry.smithery.ai</div>
+                    </div>
+                  </div>
+                  <span className="text-[9px] px-2 py-0.5 rounded border border-[#FF5601]/30 bg-[#FF5601]/10 text-[#FF5601] font-bold">PRIMARY</span>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-pixel text-[#FF5601]">10,263</span>
+                    <span className="text-[10px] text-slate-500 uppercase">MCP Servers</span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-pixel text-[#FF5601]">19,126+</span>
+                    <span className="text-[10px] text-slate-500 uppercase">Agent Skills</span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 font-serif leading-relaxed">
+                  The largest MCP registry with full tool schemas, quality scores, activation metrics, and category taxonomy. Every server includes detailed configuration, environment variables, and installation instructions.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-1.5 pt-2">
+                {["DATABASES", "BROWSER", "SEARCH", "CLOUD", "DEV", "AI", "COMMUNICATION"].map((tag) => (
+                  <span key={tag} className="text-[8px] px-1.5 py-0.5 rounded border border-[#FF5601]/25 dark:border-[#FF5601]/30 text-[#FF5601] font-bold uppercase">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </Reveal>
+
+          {/* Glama.ai + awesome-mcp-servers */}
+          <Reveal delay={80}>
+            <div className="p-6 rounded border border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/80 space-y-4 hover:-translate-y-1 hover:border-sky-400 dark:hover:border-sky-500/50 hover:shadow-xl hover:shadow-sky-500/10 transition-all duration-300 h-full shadow-sm flex flex-col justify-between">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-lg bg-sky-500/10 dark:bg-sky-500/15 border border-sky-500/30 flex items-center justify-center p-1.5 shadow-sm shrink-0 text-sky-600 dark:text-sky-400">
+                      <GlamaOfficialLogo className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5 leading-tight">
+                        GLAMA + AWESOME-MCP
+                      </div>
+                      <div className="text-[9px] text-slate-500 font-mono">glama.ai &middot; punkpeye</div>
+                    </div>
+                  </div>
+                  <span className="text-[9px] px-2 py-0.5 rounded border border-sky-300 dark:border-sky-500/40 bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 font-bold">CURATED</span>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-pixel text-sky-700 dark:text-sky-300">100K+</span>
+                    <span className="text-[10px] text-slate-500 uppercase">MCP Servers</span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-pixel text-sky-700 dark:text-sky-300">500+</span>
+                    <span className="text-[10px] text-slate-500 uppercase">Agent Skills</span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 font-serif leading-relaxed">
+                  Full Glama.ai directory (100K+ servers) plus awesome-mcp-servers community curation. Features verified, production-ready servers with README documentation, transport protocols, and community ratings.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-1.5 pt-2">
+                {["VERIFIED", "COMMUNITY", "PRODUCTION-READY", "DOCUMENTED"].map((tag) => (
+                  <span key={tag} className="text-[8px] px-1.5 py-0.5 rounded border border-sky-200 dark:border-sky-800/50 text-sky-600 dark:text-sky-400 font-bold uppercase">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </Reveal>
+
+          {/* mcp.so */}
+          <Reveal delay={160}>
+            <div className="p-6 rounded border border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/80 space-y-4 hover:-translate-y-1 hover:border-amber-400 dark:hover:border-amber-500/50 hover:shadow-xl hover:shadow-amber-500/10 transition-all duration-300 h-full shadow-sm flex flex-col justify-between">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-lg bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 flex items-center justify-center p-1.5 shadow-sm shrink-0 text-amber-600 dark:text-amber-400">
+                      <McpProtocolLogo className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5 leading-tight">
+                        MCP.SO
+                      </div>
+                      <div className="text-[9px] text-slate-500 font-mono">mcp.so &middot; community hub</div>
+                    </div>
+                  </div>
+                  <span className="text-[9px] px-2 py-0.5 rounded border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 font-bold">COMMUNITY</span>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-pixel text-amber-700 dark:text-amber-300">18,500+</span>
+                    <span className="text-[10px] text-slate-500 uppercase">MCP Servers</span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-pixel text-amber-700 dark:text-amber-300">150+</span>
+                    <span className="text-[10px] text-slate-500 uppercase">Agent Skills</span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 font-serif leading-relaxed">
+                  Community-driven discovery platform with curated categories, trending servers, and popularity metrics. Features weekly picks, author profiles, and community-contributed server configurations.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-1.5 pt-2">
+                {["TRENDING", "WEEKLY PICKS", "AUTHOR PROFILES", "COMMUNITY"].map((tag) => (
+                  <span key={tag} className="text-[8px] px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800/50 text-amber-600 dark:text-amber-400 font-bold uppercase">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </Reveal>
+
+          {/* Composio */}
+          <Reveal delay={200}>
+            <div className="p-6 rounded border border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/80 space-y-4 hover:-translate-y-1 hover:border-emerald-400 dark:hover:border-emerald-500/50 hover:shadow-xl hover:shadow-emerald-500/10 transition-all duration-300 h-full shadow-sm flex flex-col justify-between">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-lg bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center p-1 shadow-sm shrink-0">
+                      <img src="https://composio.dev/logos/composio-black.svg" alt="Composio" className="h-6 w-6" data-logo-invert />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5 leading-tight">
+                        COMPOSIO
+                      </div>
+                      <div className="text-[9px] text-slate-500 font-mono">composio.dev &middot; managed auth</div>
+                    </div>
+                  </div>
+                  <span className="text-[9px] px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-bold">MANAGED</span>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-pixel text-emerald-700 dark:text-emerald-300">1,000+</span>
+                    <span className="text-[10px] text-slate-500 uppercase">Toolkits</span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-pixel text-emerald-700 dark:text-emerald-300">100K+</span>
+                    <span className="text-[10px] text-slate-500 uppercase">Agent Tools</span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 font-serif leading-relaxed">
+                  Pre-authenticated toolkits with managed OAuth for Gmail, Slack, GitHub, Stripe, Notion, and 1,000+ more. Zero auth setup — connect instantly with one click.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-1.5 pt-2">
+                {["MANAGED OAUTH", "1-CLICK AUTH", "SANDBOX", "PARALLEL"].map((tag) => (
+                  <span key={tag} className="text-[8px] px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800/50 text-emerald-600 dark:text-emerald-400 font-bold uppercase">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </Reveal>
+
+          {/* Arcade */}
+          <Reveal delay={280}>
+            <div className="p-6 rounded border border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/80 space-y-4 hover:-translate-y-1 hover:border-rose-400 dark:hover:border-rose-500/50 hover:shadow-xl hover:shadow-rose-500/10 transition-all duration-300 h-full shadow-sm flex flex-col justify-between">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-lg bg-rose-500/10 dark:bg-rose-500/15 border border-rose-500/30 flex items-center justify-center p-1 shadow-sm shrink-0">
+                      <img src="https://www.arcade.dev/favicon.svg" alt="Arcade" className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5 leading-tight">
+                        ARCADE
+                      </div>
+                      <div className="text-[9px] text-slate-500 font-mono">arcade.dev &middot; MCP runtime</div>
+                    </div>
+                  </div>
+                  <span className="text-[9px] px-2 py-0.5 rounded border border-rose-300 dark:border-rose-500/40 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 font-bold">ENTERPRISE</span>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-pixel text-rose-700 dark:text-rose-300">7,500+</span>
+                    <span className="text-[10px] text-slate-500 uppercase">Agent Tools</span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-pixel text-rose-700 dark:text-rose-300">81</span>
+                    <span className="text-[10px] text-slate-500 uppercase">MCP Servers</span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 font-serif leading-relaxed">
+                  Enterprise MCP runtime with agent-optimized tools, per-action authorization, governance, and audit logs. Self-hosted or cloud deployment.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-1.5 pt-2">
+                {["AGENT AUTH", "GOVERNANCE", "AUDIT LOGS", "SELF-HOST"].map((tag) => (
+                  <span key={tag} className="text-[8px] px-1.5 py-0.5 rounded border border-rose-200 dark:border-rose-800/50 text-rose-600 dark:text-rose-400 font-bold uppercase">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </Reveal>
+        </div>
+
+        {/* Combined Stats & Capabilities */}
+        <Reveal delay={200}>
+          <div className="p-5 sm:p-6 rounded-lg border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-4 font-mono shadow-sm">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400 border-b border-slate-200 dark:border-indigo-950/60 pb-3 flex flex-wrap items-center justify-between gap-2 font-semibold">
+              <span className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> UNIFIED MARKETPLACE CAPABILITIES
+              </span>
+              <span className="text-[10px] text-slate-500 font-mono">ACROSS ALL 5 REGISTRIES</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs font-mono">
+              <div className="p-4 rounded border border-slate-200 dark:border-indigo-950/60 bg-slate-50/70 dark:bg-black/40 space-y-2 hover:-translate-y-1 hover:border-indigo-400 dark:hover:border-indigo-500/50 transition-all duration-300">
+                <div className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                  <span className="text-indigo-600 dark:text-indigo-400 font-mono font-bold">01.</span> Auto-Quality Scoring
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 font-serif leading-relaxed">
+                  Every server is scored on 6 dimensions — Schema Quality, Latency, Uptime, Documentation, Maintenance, Community — and graded A+ to F.
+                </p>
+              </div>
+
+              <div className="p-4 rounded border border-slate-200 dark:border-indigo-950/60 bg-slate-50/70 dark:bg-black/40 space-y-2 hover:-translate-y-1 hover:border-emerald-400 dark:hover:border-emerald-500/50 transition-all duration-300">
+                <div className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                  <span className="text-emerald-600 dark:text-emerald-400 font-mono font-bold">02.</span> 1-Click Install
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 font-serif leading-relaxed">
+                  Mount any server or skill with a single click. Environment variables, transport config, and tool schemas are auto-detected and prefilled.
+                </p>
+              </div>
+
+              <div className="p-4 rounded border border-slate-200 dark:border-indigo-950/60 bg-slate-50/70 dark:bg-black/40 space-y-2 hover:-translate-y-1 hover:border-violet-400 dark:hover:border-violet-500/50 transition-all duration-300">
+                <div className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                  <span className="text-violet-600 dark:text-violet-400 font-mono font-bold">03.</span> Server Composition
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 font-serif leading-relaxed">
+                  Chain multiple MCP servers into "mega-tools" — combine Database + Search + Browser into a single reusable workflow composition.
+                </p>
+              </div>
+
+              <div className="p-4 rounded border border-slate-200 dark:border-indigo-950/60 bg-slate-50/70 dark:bg-black/40 space-y-2 hover:-translate-y-1 hover:border-sky-400 dark:hover:border-sky-500/50 transition-all duration-300">
+                <div className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                  <span className="text-sky-600 dark:text-sky-400 font-mono font-bold">04.</span> Cross-Registry Search
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 font-serif leading-relaxed">
+                  Search across all 136,500+ servers, toolkits, and tools simultaneously with unified filters for category, transport, auth type, and source.
+                </p>
+              </div>
+            </div>
+
+            {/* Source Aggregation Stats */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-3 border-t border-slate-200 dark:border-indigo-950/60">
+              <div className="text-center p-3 rounded bg-violet-50/60 dark:bg-violet-950/20 border border-violet-200/60 dark:border-violet-800/30">
+                <div className="text-xl font-pixel text-violet-700 dark:text-violet-300">136,500+</div>
+                <div className="text-[9px] text-violet-600 dark:text-violet-400 font-bold uppercase tracking-wider">Total MCP Servers</div>
+              </div>
+              <div className="text-center p-3 rounded bg-sky-50/60 dark:bg-sky-950/20 border border-sky-200/60 dark:border-sky-800/30">
+                <div className="text-xl font-pixel text-sky-700 dark:text-sky-300">19,476+</div>
+                <div className="text-[9px] text-sky-600 dark:text-sky-400 font-bold uppercase tracking-wider">Total Agent Skills</div>
+              </div>
+              <div className="text-center p-3 rounded bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-800/30">
+                <div className="text-xl font-pixel text-amber-700 dark:text-amber-300">5</div>
+                <div className="text-[9px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wider">Unified Registries</div>
+              </div>
+              <div className="text-center p-3 rounded bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-800/30">
+                <div className="text-xl font-pixel text-emerald-700 dark:text-emerald-300">LIVE</div>
+                <div className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider">Real-Time Sync</div>
+              </div>
+            </div>
+          </div>
+        </Reveal>
+      </section>
+
+      {/* SECTION 9: CORE SAAS PILLARS (#features) */}
       <section id="features" className="space-y-8 pt-4">
         <Reveal>
           <div className="flex items-center justify-between text-xs font-mono text-indigo-700 dark:text-indigo-400/80 uppercase tracking-widest border-b border-slate-200 dark:border-indigo-950/80 pb-3 font-semibold">
-            <span>// 06. CORE PLATFORM CAPABILITIES</span>
+            <span>// 07. CORE PLATFORM CAPABILITIES</span>
             <span>ENTERPRISE GUARANTEES</span>
           </div>
         </Reveal>
@@ -944,7 +1276,7 @@ export default function LandingPage() {
       <section id="faq" className="space-y-6 pt-4 font-mono">
         <Reveal>
           <div className="flex items-center justify-between text-xs text-indigo-700 dark:text-indigo-400/80 uppercase tracking-widest border-b border-slate-200 dark:border-indigo-950/80 pb-3 font-semibold">
-            <span>// 08. FREQUENTLY ASKED QUESTIONS</span>
+            <span>// 09. FREQUENTLY ASKED QUESTIONS</span>
             <span>FAQ & DETAILS</span>
           </div>
         </Reveal>
@@ -994,6 +1326,7 @@ export default function LandingPage() {
             <a href="#steptypes" className="hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">Step Types</a>
             <a href="#runtime" className="hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">Runtime</a>
             <a href="#tooling" className="hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">Tooling</a>
+            <a href="#ecosystem" className="hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">Ecosystem</a>
             <a href="#features" className="hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">Features</a>
             <a href="#guardrails" className="hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">Guardrails</a>
             <a href="#faq" className="hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">FAQ</a>

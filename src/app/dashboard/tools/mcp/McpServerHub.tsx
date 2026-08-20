@@ -33,6 +33,8 @@ import {
   Wrench,
   Check,
   Brain,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import { clsx } from "clsx";
 import {
@@ -42,7 +44,9 @@ import {
   McpToolDefinition,
   McpToolTestResult,
 } from "@/types/mcp";
+import { PublicMcpServer } from "@/types/mcp-directory";
 import { MCP_PRESETS } from "@/modules/mcp/presets";
+import { McpDirectoryBrowser } from "./McpDirectoryBrowser";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -89,6 +93,7 @@ const PRESET_CATEGORIES = [
 export function McpServerHub() {
   const [servers, setServers] = useState<McpServerDTO[] | null>(null);
   const [presets, setPresets] = useState<McpPreset[]>(MCP_PRESETS);
+  const [hubCatalogMode, setHubCatalogMode] = useState<"PRESETS" | "DIRECTORY">("PRESETS");
   const [presetCategory, setPresetCategory] = useState<string>("ALL");
   const [presetSearch, setPresetSearch] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
@@ -100,6 +105,80 @@ export function McpServerHub() {
   const [busy, setBusy] = useState<string | null>(null);
   const [batchBusy, setBatchBusy] = useState<string | null>(null);
   const [health, setHealth] = useState<Record<string, McpHealth>>({});
+  const [serverViewMode, setServerViewMode] = useState<"list" | "grid">("list");
+
+  const handleMountFromDirectory = useCallback(async (server: PublicMcpServer) => {
+    // ── Deep integration: Composio toolkit ──
+    if (server.source === "composio") {
+      try {
+        setBusy(server.id);
+        const slug = server.id.replace("composio-", "");
+        const res = await api<{ sessionId: string; mcpUrl: string; mcpHeaders: Record<string, string> }>(
+          "/api/mcp/composio",
+          { method: "POST", body: JSON.stringify({ toolkits: [slug] }) }
+        );
+        // Create the MCP server entry pointing to Composio's hosted MCP endpoint
+        const created = await api<McpServerDTO>("/api/mcp/servers", {
+          method: "POST",
+          body: JSON.stringify({
+            name: `${server.name} [Composio]`,
+            transport: "SSE",
+            endpointUrl: res.mcpUrl,
+            headers: res.mcpHeaders,
+            connectOnCreate: true,
+          }),
+        });
+        setServers((prev) => [...(prev ?? []), created]);
+        setBusy(null);
+      } catch (e) {
+        setBusy(null);
+        setError(e instanceof Error ? e.message : "Failed to connect Composio toolkit");
+      }
+      return;
+    }
+
+    // ── Deep integration: Arcade integration ──
+    if (server.source === "arcade") {
+      try {
+        setBusy(server.id);
+        const slug = server.id.replace("arcade-", "");
+        const res = await api<{ mcpUrl: string; mcpHeaders: Record<string, string>; verified: boolean }>(
+          "/api/mcp/arcade",
+          { method: "POST", body: JSON.stringify({ integration: slug }) }
+        );
+        const created = await api<McpServerDTO>("/api/mcp/servers", {
+          method: "POST",
+          body: JSON.stringify({
+            name: `${server.name} [Arcade]`,
+            transport: "SSE",
+            endpointUrl: res.mcpUrl,
+            headers: res.mcpHeaders,
+            connectOnCreate: true,
+          }),
+        });
+        setServers((prev) => [...(prev ?? []), created]);
+        setBusy(null);
+      } catch (e) {
+        setBusy(null);
+        setError(e instanceof Error ? e.message : "Failed to connect Arcade integration");
+      }
+      return;
+    }
+
+    // ── Standard MCP server mount ──
+    const mappedPreset: McpPreset = {
+      id: server.id,
+      name: server.name,
+      transport: server.transport,
+      endpointUrl: server.endpointUrl,
+      command: server.command,
+      description: server.description,
+      requiresAuthToken: Boolean(server.requiresAuthToken || (server.envVarsRequired && server.envVarsRequired.length > 0)),
+      category: (server.category as any) || "UTILITY",
+    };
+    setConnectPreset(mappedPreset);
+    setConnectOpen(true);
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -285,6 +364,19 @@ export function McpServerHub() {
 
           <button
             type="button"
+            onClick={() => {
+              setHubCatalogMode("DIRECTORY");
+              const el = document.getElementById("mcp-catalog-section");
+              if (el) el.scrollIntoView({ behavior: "smooth" });
+            }}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-indigo-300 dark:border-indigo-800/80 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 text-[10px] font-mono font-semibold uppercase tracking-wider hover:border-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-all cursor-pointer shadow-xs"
+            title="Browse 120K+ MCP servers from Glama, mcp.so & Smithery"
+          >
+            <Globe className="h-3 w-3 text-indigo-500 animate-pulse" /> BROWSE REGISTRY
+          </button>
+
+          <button
+            type="button"
             onClick={() => setImportOpen(true)}
             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-slate-300 dark:border-indigo-900/60 bg-slate-100 dark:bg-indigo-950/40 text-slate-700 dark:text-slate-300 text-[10px] font-mono font-semibold uppercase tracking-wider hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all cursor-pointer"
             title="Import MCP server configurations from JSON"
@@ -323,84 +415,129 @@ export function McpServerHub() {
         </div>
       )}
 
-      {/* Presets strip */}
-      <div className="space-y-3 rounded-lg border border-slate-200 dark:border-indigo-900/40 bg-slate-50/50 dark:bg-[#0a0a0a]/40 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-[11px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400 font-bold flex items-center gap-1.5">
-            <Zap className="h-4 w-4 text-amber-500 fill-amber-500" />
-            1-CLICK ECOSYSTEM PRESETS ({presets.length} READY TO MOUNT)
-          </div>
+      {/* Presets & Directory Discovery Section */}
+      <div id="mcp-catalog-section" className="space-y-4 rounded-lg border border-slate-200 dark:border-indigo-900/40 bg-slate-50/50 dark:bg-[#0a0a0a]/40 p-4">
+        {/* Navigation Tabs */}
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-indigo-950 pb-3 gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setHubCatalogMode("PRESETS")}
+              className={clsx(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-[11px] font-mono font-bold uppercase tracking-wider transition-all cursor-pointer",
+                hubCatalogMode === "PRESETS"
+                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/30"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-indigo-950/40"
+              )}
+            >
+              <Zap className={clsx("h-3.5 w-3.5", hubCatalogMode === "PRESETS" ? "fill-amber-400 text-amber-300" : "text-amber-500")} />
+              1-CLICK ECOSYSTEM PRESETS ({presets.length})
+            </button>
 
-          {/* Search box for presets */}
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-            <input
-              type="text"
-              value={presetSearch}
-              onChange={(e) => setPresetSearch(e.target.value)}
-              placeholder="Search 22+ presets..."
-              className="w-full pl-8 pr-3 py-1 text-[11px] font-mono rounded border border-slate-200 dark:border-indigo-900/60 bg-white dark:bg-black/60 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
-            />
-            {presetSearch && (
-              <button
-                type="button"
-                onClick={() => setPresetSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setHubCatalogMode("DIRECTORY")}
+              className={clsx(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-[11px] font-mono font-bold uppercase tracking-wider transition-all cursor-pointer relative",
+                hubCatalogMode === "DIRECTORY"
+                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/30"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-indigo-950/40"
+              )}
+            >
+              <Globe className="h-3.5 w-3.5 text-indigo-400" />
+              PUBLIC REGISTRY (GLAMA & MCP.SO)
+              <span className="ml-1 px-1.5 py-0.2 rounded-full text-[8px] bg-amber-400 text-black font-bold uppercase">
+                120K+
+              </span>
+            </button>
+          </div>            <div className="text-[10px] font-mono text-slate-500 hidden sm:block">
+            {hubCatalogMode === "PRESETS"
+              ? "CURATED ZERO-CONFIG REFERENCE PRESETS"
+              : "LIVE DISCOVERY FROM GLAMA.AI, MCP.SO & SMITHERY"}
           </div>
         </div>
 
-        {/* Category Pills */}
-        <div className="flex flex-wrap items-center gap-1.5 pt-1 overflow-x-auto pb-1">
-          {PRESET_CATEGORIES.map((cat) => {
-            const Icon = cat.icon;
-            const count =
-              cat.id === "ALL"
-                ? presets.length
-                : presets.filter((p) => p.category === cat.id).length;
-            if (count === 0 && cat.id !== "ALL") return null;
-            const active = presetCategory === cat.id;
+        {hubCatalogMode === "DIRECTORY" ? (
+          <McpDirectoryBrowser onMount={handleMountFromDirectory} mountedServerIds={(servers ?? []).map((s) => s.name.toLowerCase().replace(/[^a-z0-9]/g, "-"))} />
+        ) : (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400 font-bold">
+                SELECT A LOCAL OR CLOUD TEMPLATE TO PREFILL CONNECTION
+              </div>
 
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => setPresetCategory(cat.id)}
-                className={clsx(
-                  "inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-mono font-semibold uppercase tracking-wider border transition-all cursor-pointer",
-                  active
-                    ? "border-indigo-500 bg-indigo-600 text-white shadow-sm"
-                    : "border-slate-200 dark:border-indigo-900/50 bg-white/70 dark:bg-black/40 text-slate-600 dark:text-slate-400 hover:border-indigo-400"
+              {/* Search box for presets */}
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                <input
+                  type="text"
+                  value={presetSearch}
+                  onChange={(e) => setPresetSearch(e.target.value)}
+                  placeholder="Search 22+ presets..."
+                  className="w-full pl-8 pr-3 py-1 text-[11px] font-mono rounded border border-slate-200 dark:border-indigo-900/60 bg-white dark:bg-black/60 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+                />
+                {presetSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setPresetSearch("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
                 )}
-              >
-                <Icon className="h-3 w-3" />
-                {cat.label} <span className="opacity-75 font-normal">({count})</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Presets Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-2.5 pt-1">
-          {filteredPresets.map((preset) => (
-            <PresetCard
-              key={preset.id}
-              preset={preset}
-              onUse={() => {
-                setConnectPreset(preset);
-                setConnectOpen(true);
-              }}
-            />
-          ))}
-          {filteredPresets.length === 0 && (
-            <div className="col-span-full text-center py-6 text-xs font-mono text-slate-500">
-              No presets matching &quot;{presetSearch}&quot; in this category.
+              </div>
             </div>
-          )}
-        </div>
+
+            {/* Category Pills */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-1 overflow-x-auto pb-1">
+              {PRESET_CATEGORIES.map((cat) => {
+                const Icon = cat.icon;
+                const count =
+                  cat.id === "ALL"
+                    ? presets.length
+                    : presets.filter((p) => p.category === cat.id).length;
+                if (count === 0 && cat.id !== "ALL") return null;
+                const active = presetCategory === cat.id;
+
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setPresetCategory(cat.id)}
+                    className={clsx(
+                      "inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-mono font-semibold uppercase tracking-wider border transition-all cursor-pointer",
+                      active
+                        ? "border-indigo-500 bg-indigo-600 text-white shadow-sm"
+                        : "border-slate-200 dark:border-indigo-900/50 bg-white/70 dark:bg-black/40 text-slate-600 dark:text-slate-400 hover:border-indigo-400"
+                    )}
+                  >
+                    <Icon className="h-3 w-3" />
+                    {cat.label} <span className="opacity-75 font-normal">({count})</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Presets Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-2.5 pt-1">
+              {filteredPresets.map((preset) => (
+                <PresetCard
+                  key={preset.id}
+                  preset={preset}
+                  onUse={() => {
+                    setConnectPreset(preset);
+                    setConnectOpen(true);
+                  }}
+                />
+              ))}
+              {filteredPresets.length === 0 && (
+                <div className="col-span-full text-center py-6 text-xs font-mono text-slate-500">
+                  No presets matching &quot;{presetSearch}&quot; in this category.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Server list */}
@@ -410,9 +547,41 @@ export function McpServerHub() {
             <Server className="h-4 w-4 text-indigo-500" />
             CONFIGURED MCP SERVERS
           </span>
-          <span className="text-[10px] font-normal text-slate-500">
-            DISCOVERED TOOLS ARE AUTO-REGISTERED IN WORKFLOW RUNTIMES
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-normal text-slate-500 hidden sm:block">
+              DISCOVERED TOOLS ARE AUTO-REGISTERED IN WORKFLOW RUNTIMES
+            </span>
+            {servers && servers.length > 0 && (
+              <div className="flex items-center rounded-lg border border-slate-200 dark:border-indigo-900/50 bg-slate-100 dark:bg-black/40 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setServerViewMode("list")}
+                  className={clsx(
+                    "p-1.5 rounded text-xs font-mono transition-all cursor-pointer",
+                    serverViewMode === "list"
+                      ? "bg-white dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                  )}
+                  title="List View"
+                >
+                  <List className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setServerViewMode("grid")}
+                  className={clsx(
+                    "p-1.5 rounded text-xs font-mono transition-all cursor-pointer",
+                    serverViewMode === "grid"
+                      ? "bg-white dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                  )}
+                  title="Grid View"
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {servers === null ? (
@@ -428,6 +597,23 @@ export function McpServerHub() {
             </p>
           </div>
         ) : (
+          serverViewMode === "grid" ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {servers.map((server) => (
+                <ServerGridCard
+                  key={server.id}
+                  server={server}
+                  health={health[server.id]}
+                  busy={busy === server.id}
+                  onConnect={() => refresh(server.id)}
+                  onDisconnect={() => disconnect(server.id)}
+                  onDelete={() => setDeleteTarget(server)}
+                  onHealth={() => probe(server.id)}
+                  onInspect={() => setExpanded((prev) => (prev === server.id ? null : server.id))}
+                />
+              ))}
+            </div>
+          ) : (
           <div className="space-y-3">
             {servers.map((server) => (
               <ServerCard
@@ -445,6 +631,7 @@ export function McpServerHub() {
               />
             ))}
           </div>
+          )
         )}
       </div>
 
@@ -479,6 +666,111 @@ export function McpServerHub() {
           onConfirm={confirmRemove}
         />
       )}
+    </div>
+  );
+}
+
+function ServerGridCard(props: {
+  server: McpServerDTO;
+  health?: McpHealth;
+  busy: boolean;
+  onConnect: () => void;
+  onDisconnect: () => void;
+  onDelete: () => void;
+  onHealth: () => void;
+  onInspect: () => void;
+}) {
+  const { server, health } = props;
+  const theme = statusTheme[server.status] ?? statusTheme.DISCONNECTED;
+  const isConnected = server.status === "CONNECTED";
+
+  return (
+    <div onClick={props.onInspect} className="rounded-lg border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/70 hover:border-indigo-500/60 dark:hover:border-indigo-500/50 hover:shadow-lg transition-all p-4 flex flex-col justify-between space-y-3 cursor-pointer">
+      {/* Top */}
+      <div className="space-y-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-xs font-mono font-bold text-slate-900 dark:text-slate-100 truncate">
+              {server.name}
+            </h3>
+            <p className="text-[9px] font-mono text-slate-500 truncate">
+              {server.transport === "SSE" ? server.endpointUrl : server.command}
+            </p>
+          </div>
+          <span className={clsx(
+            "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border shrink-0",
+            theme.chip
+          )}>
+            <span className={clsx("h-1.5 w-1.5 rounded-full", theme.dot)} />
+            {server.status}
+          </span>
+        </div>
+
+        {/* Badges */}
+        <div className="flex flex-wrap gap-1">
+          <span className="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border border-slate-200 dark:border-indigo-900/50 bg-white dark:bg-[#0a0a0a]/60 text-slate-600 dark:text-slate-400">
+            {server.transport}
+          </span>
+          <span className="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border border-slate-200 dark:border-indigo-900/50 bg-white dark:bg-[#0a0a0a]/60 text-slate-600 dark:text-slate-400">
+            {server.cachedTools.length} TOOLS
+          </span>
+          {health && (
+            <span className={clsx(
+              "px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border",
+              health.status === "healthy" ? "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300" :
+              health.status === "degraded" ? "border-amber-300 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300" :
+              "border-red-300 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300"
+            )}>
+              {health.status} · {health.latencyMs}ms
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100 dark:border-indigo-950/60">
+        {isConnected ? (
+          <button
+            type="button"
+            onClick={props.onDisconnect}
+            disabled={props.busy}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-300 dark:border-indigo-900/50 text-[8px] font-mono uppercase tracking-wider font-semibold text-slate-600 dark:text-slate-400 hover:border-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-all cursor-pointer disabled:opacity-50"
+          >
+            <Unplug className="h-2.5 w-2.5" /> DISCONNECT
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={props.onConnect}
+            disabled={props.busy}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded border border-indigo-500 bg-indigo-600 text-white text-[8px] font-mono uppercase tracking-wider font-semibold hover:bg-indigo-500 shadow-sm shadow-indigo-500/30 transition-all cursor-pointer disabled:opacity-50"
+          >
+            <PlugZap className="h-2.5 w-2.5" /> CONNECT
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={props.onHealth}
+          className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-300 dark:border-indigo-900/50 text-[8px] font-mono uppercase tracking-wider font-semibold text-slate-600 dark:text-slate-400 hover:border-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-all cursor-pointer"
+        >
+          <Activity className="h-2.5 w-2.5" /> PROBE
+        </button>
+        <button
+          type="button"
+          onClick={props.onInspect}
+          className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-300 dark:border-indigo-900/50 text-[8px] font-mono uppercase tracking-wider font-semibold text-slate-600 dark:text-slate-400 hover:border-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-all cursor-pointer"
+        >
+          <Braces className="h-2.5 w-2.5" /> INSPECT
+        </button>
+        <button
+          type="button"
+          onClick={props.onDelete}
+          disabled={props.busy}
+          className="inline-flex items-center gap-1 px-2 py-1 rounded border border-red-300 dark:border-red-500/30 text-[8px] font-mono uppercase tracking-wider font-semibold text-red-700 dark:text-red-300 hover:border-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all cursor-pointer disabled:opacity-50 ml-auto"
+        >
+          <Trash2 className="h-2.5 w-2.5" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -534,68 +826,49 @@ function ServerCard(props: {
   const isConnected = server.status === "CONNECTED";
 
   return (
-    <div className="rounded border border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/60 shadow-sm overflow-hidden">
-      <div className="p-4 space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <span className={clsx("p-2 rounded border shadow-sm", theme.chip)}>
-              <Server className="h-4 w-4" />
+    <div className="group rounded-lg border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/70 hover:border-indigo-500/60 dark:hover:border-indigo-500/50 hover:shadow-md transition-all p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3.5">
+      {/* Left: Info, Badges */}
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-xs font-mono font-bold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+            {server.name}
+          </h3>
+          <span className={clsx(
+            "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border",
+            theme.chip
+          )}>
+            <span className={clsx("h-1.5 w-1.5 rounded-full", theme.dot)} />
+            {server.status}
+          </span>
+          <span className="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border border-slate-200 dark:border-indigo-900/50 bg-white dark:bg-[#0a0a0a]/60 text-slate-600 dark:text-slate-400">
+            {server.transport}
+          </span>
+          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border border-slate-200 dark:border-indigo-900/50 bg-white dark:bg-[#0a0a0a]/60 text-slate-600 dark:text-slate-400">
+            <Braces className="h-2.5 w-2.5" /> {server.cachedTools.length} TOOLS
+          </span>
+          {health && (
+            <span className={clsx(
+              "px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border",
+              health.status === "healthy" ? "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300" :
+              health.status === "degraded" ? "border-amber-300 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300" :
+              "border-red-300 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300"
+            )}>
+              {health.status} · {health.latencyMs}ms
             </span>
-            <div className="min-w-0">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 font-mono truncate">{server.name}</h3>
-              <p className="text-[10px] font-mono text-indigo-700 dark:text-indigo-400/80 truncate font-medium">
-                {server.transport === "SSE" ? server.endpointUrl : server.command}
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5 text-[9px] font-mono">
-            <span className={clsx("inline-flex items-center gap-1.5 px-2 py-0.5 rounded border uppercase tracking-wider", theme.chip)}>
-              <span className={clsx("h-1.5 w-1.5 rounded-full animate-pulse", theme.dot)} />
-              {server.status}
-            </span>
-            <span className="px-1.5 py-0.5 rounded border border-slate-300 dark:border-indigo-900/50 bg-white dark:bg-[#0a0a0a]/60 text-slate-600 dark:text-slate-400 uppercase tracking-wider font-semibold">
-              {server.transport}
-            </span>
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-slate-300 dark:border-indigo-900/50 bg-white dark:bg-[#0a0a0a]/60 text-slate-600 dark:text-slate-400 uppercase tracking-wider font-semibold">
-              <Braces className="h-2.5 w-2.5" /> {server.cachedTools.length} TOOLS
-            </span>
-          </div>
+          )}
         </div>
 
+        <p className="text-[9px] font-mono text-slate-500 truncate">
+          {server.transport === "SSE" ? server.endpointUrl : server.command}
+        </p>
+
         {server.lastError && server.status === "ERROR" && (
-          <p className="text-[10px] font-mono text-red-700 dark:text-red-400 font-semibold break-all">⚠ {server.lastError}</p>
+          <p className="text-[9px] font-mono text-red-700 dark:text-red-400 font-semibold break-all">⚠ {server.lastError}</p>
         )}
+      </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 dark:border-indigo-950/60 pt-2.5">
-          <div className="flex items-center gap-2 text-[10px] font-mono text-slate-600 dark:text-slate-400 font-medium">
-            {health ? (
-              <span
-                className={clsx(
-                  "inline-flex items-center gap-1.5 px-2 py-0.5 rounded border uppercase tracking-wider font-semibold",
-                  health.status === "healthy"
-                    ? "border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300"
-                    : health.status === "degraded"
-                      ? "border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300"
-                      : "border-red-300 dark:border-red-500/40 bg-red-50 dark:bg-red-950/30 text-red-800 dark:text-red-300"
-                )}
-              >
-                <span
-                  className={clsx(
-                    "h-1.5 w-1.5 rounded-full",
-                    health.status === "healthy" ? "bg-emerald-500" : health.status === "degraded" ? "bg-amber-500" : "bg-red-500"
-                  )}
-                />
-                {health.status} · {health.latencyMs}ms
-              </span>
-            ) : (
-              <button type="button" onClick={props.onHealth} className="inline-flex items-center gap-1 hover:text-indigo-600 cursor-pointer">
-                <Activity className="h-3 w-3" /> PROBE
-              </button>
-            )}
-            <span className="text-slate-500">UPDATED {formatDate(server.updatedAt)}</span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-1.5">
+      {/* Right: Actions */}
+      <div className="flex items-center gap-1.5">
             {isConnected ? (
               <ActionButton icon={Unplug} label="Disconnect" onClick={props.onDisconnect} disabled={busy} tone="neutral" />
             ) : (
@@ -606,14 +879,12 @@ function ServerCard(props: {
             <button
               type="button"
               onClick={props.onToggle}
-              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-300 dark:border-indigo-900/50 text-[9px] font-mono uppercase tracking-wider font-semibold text-slate-600 dark:text-slate-400 hover:border-indigo-400 transition-all cursor-pointer"
+              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-300 dark:border-indigo-900/50 text-[8px] font-mono uppercase tracking-wider font-semibold text-slate-600 dark:text-slate-400 hover:border-indigo-400 transition-all cursor-pointer"
             >
               {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
               Inspect
             </button>
           </div>
-        </div>
-      </div>
 
       {expanded && <ToolInspector server={server} />}
     </div>
@@ -2055,6 +2326,4 @@ function ImportMcpModal({
   );
 }
 
-function formatDate(d: Date | string): string {
-  return new Date(d).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-}
+

@@ -20,7 +20,7 @@
 
 Agent Studio is a production-grade **Visual AI Agent Platform** (combining the visual architecture of LangGraph Studio, the enterprise control of LangSmith, and the modularity of the OpenAI Agents SDK) built on Next.js 15 and React Flow. 
 
-Users can visually design **Multi-Agent Graphs**, orchestrate **Chained Workflows**, connect to **Model Context Protocol (MCP)** servers, and configure **Reusable Skills**, versioning them like software and running them on an autonomous **Graph Interpreter Runtime (v2)** with real-time SSE streaming, permission validation, circuit-breaker LLM routing, and HITL approval gates.
+Users can visually design **Multi-Agent Graphs**, orchestrate **Chained Workflows**, connect to **Model Context Protocol (MCP)** servers from a public directory of 500+ servers, configure **Reusable Skills**, version them like software, chain them into **Skill Chains**, build **Server Compositions**, track **Usage Analytics & Costs**, monitor **Health Dashboards**, and run everything on an autonomous **Graph Interpreter Runtime (v2)** with real-time SSE streaming, permission validation, circuit-breaker LLM routing, and HITL approval gates.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
@@ -97,13 +97,51 @@ Users can visually design **Multi-Agent Graphs**, orchestrate **Chained Workflow
 - **Adaptive Cooldowns**: Temporarily parks failing models and automatically reinstates them once healthy.
 
 ### 🎮 8. Interactive Live Canvas Landing Page
-- **Zero-Login Interactive Playground**: Visitors can explore, step through, and test real multi-agent execution graphs directly on the public landing page with live streaming node animations and trace telemetry.
+- **Zero-Login Interactive Playground**: Visitors can explore, step through, and test real multi-agent execution graphs directly on the public landing page with live streaming node animations and trace telemetry.### 🔌 9. Model Context Protocol (MCP) Ecosystem
 
-### 🔌 9. Model Context Protocol (MCP) Ecosystem
 - **MCP Client Hub (`/dashboard/tools?tab=mcp`)**: Connect remote **SSE / Streamable HTTP** endpoints and local **stdio** MCP servers, auto-discover their `tools/list` definitions, validate schemas, and register them as first-class tools inside the LangGraph runtime (permission-gated via `allowedTools`, HITL approval for WRITE tools, 15s timeouts, and circuit breakers).
+
 - **1-Click Ecosystem Presets**: GitHub, Postgres, SQLite, Web Fetch, Brave Search, and Filesystem — with connect modals for endpoint URLs and auth tokens.
+
 - **Live Tool Testing**: Inspect discovered JSON schemas and execute real payloads straight from the hub.
+
 - **Agent Studio as an MCP Server**: External agents (Cursor, Claude Desktop, Antigravity) connect to `/api/mcp/sse` (Streamable HTTP + SSE) and get every published workflow as a callable `run_skill_*` tool. Auth via Clerk session or `MCP_ACCESS_TOKEN` bearer token.
+
+### 🌐 10. Public MCP Directory & Discovery
+
+- **500+ MCP Servers**: Browse servers from Glama.ai, mcp.so, and awesome-mcp-servers registry.
+- **40+ Categories**: Databases, Browser Automation, Search, Dev Tools, Cloud, AI, Security, and more.
+- **Language Filtering**: Filter by TypeScript, Python, Go, Rust, C#, Java, C/C++, Ruby.
+- **Server Detail Modal**: Health ping, GitHub release info, README preview, auth requirements.
+- **Favorites & Bookmarks**: Star servers for quick access (localStorage persistence).
+- **Recently Mounted Badge**: Detect servers already in your configuration.
+- **Quality Scoring**: Auto-grade servers A+ to F on schema quality, latency, uptime, docs, maintenance, community.
+- **License Detection**: MIT, Apache-2.0, GPL, etc. displayed on cards.
+
+### 🧩 11. MCP Server Composition & Chaining
+
+- **Visual Composition Builder**: Chain multiple MCP servers into reusable workflows.
+- **Node Types**: INPUT, MCP_SERVER, TRANSFORM, CONDITION, OUTPUT.
+- **Pre-built Compositions**: Research Pipeline, ETL Pipeline, PR Review Pipeline.
+- **Edge System**: Connect nodes with labels (Yes/No for conditions).
+
+### 🤖 12. Agent Registry & Discovery
+
+- **Registered Agents**: Discover AI agents with capabilities, trust scores, and latency estimates.
+- **Agent Registration**: Register your own agents as discoverable MCP endpoints.
+- **Trust Scoring**: Based on verification, usage, and community feedback.
+- **Capability Matching**: Find agents by their specific tool capabilities.
+
+### 📊 13. Advanced MCP Features
+
+- **MCP Client Manager**: Track which AI clients (Claude Desktop, Cursor, VS Code) connect to which servers.
+- **Tool Versioning**: Track MCP server versions, auto-update, rollback on failure.
+- **Dependency Graph**: Visualize server relationships (requires, enhances, conflicts).
+- **Usage Analytics**: Track tool usage, latency, cost per call with budget alerts.
+- **Server Templates**: Pre-built stacks (Supabase, Cloudflare, AI Research, Stripe, Jira, Data Science).
+- **Skill Chains**: Chain multiple skills into reusable multi-step workflows.
+- **Health Dashboard**: Persistent monitoring with alerts, SLA tracking, uptime graphs.
+- **Community Reviews**: Rate and review MCP servers with pros/cons and use cases.
 
 ---
 
@@ -182,7 +220,28 @@ Every tool implements the unified `ITool` contract (`id`, `name`, `description`,
 │   │   │   ├── approvals/             # Review queue & idempotent approval responses
 │   │   │   ├── audit/                 # Audit trail querying & JSON export
 │   │   │   ├── tools/                 # Tool catalog & health status
-│   │   │   └── settings/              # Provider status & telemetry settings
+│   │   │   ├── settings/              # Provider status & telemetry settings
+│   │   │   └── mcp/                   # MCP Ecosystem APIs
+│   │   │       ├── servers/           # MCP server CRUD, connect, disconnect, discover, health, test
+│   │   │       ├── presets/           # MCP preset configurations
+│   │   │       ├── directory/         # Public MCP directory (Glama, mcp.so, awesome-mcp)
+│   │   │       │   ├── route.ts       # Directory listing with 40+ categories, language filter
+│   │   │       │   ├── github/        # GitHub proxy for releases & README
+│   │   │       │   └── health/        # SSE endpoint health ping
+│   │   │       ├── skills-feed/       # Skills Marketplace feed from Glama/awesome-mcp
+│   │   │       ├── quality/           # Auto-quality scoring (A+ to F grades)
+│   │   │       ├── compositions/      # Server composition builder (chain MCP servers)
+│   │   │       ├── agents/            # Agent registry (discover & register AI agents)
+│   │   │       ├── clients/           # MCP client manager (track Cursor, Claude, VS Code)
+│   │   │       ├── versions/          # Tool versioning & rollback tracking
+│   │   │       ├── analytics/         # Usage analytics & cost tracking with budgets
+│   │   │       ├── templates/         # MCP server templates (full-stack presets)
+│   │   │       ├── skill-chains/      # Agent skill chains (multi-step workflows)
+│   │   │       ├── health-dashboard/  # Persistent health monitoring with alerts & SLA
+│   │   │       ├── reviews/           # Community server reviews (rate & review)
+│   │   │       ├── dependencies/      # Dependency graph (requires/enhances/conflicts)
+│   │   │       ├── sse/               # MCP SSE server endpoint
+│   │   │       └── messages/          # MCP message endpoint
 │   │   ├── dashboard/
 │   │   │   ├── canvas/                # Visual Graph Builder ([id], /new, /[id]/snapshot)
 │   │   │   ├── workflows/             # Multi-step Workflow Pipelines (/new, /[id]/edit)
@@ -192,7 +251,11 @@ Every tool implements the unified `ITool` contract (`id`, `name`, `description`,
 │   │   │   ├── history/               # Platform Observability & Success Metrics
 │   │   │   ├── compare/               # Side-by-side Skill & Graph Diffing
 │   │   │   ├── audit/                 # Security Audit Trail
-│   │   │   ├── tools/                 # Tool Registry Browser
+│   │   │   ├── tools/                 # Tool Registry Browser + MCP Server Hub
+│   │   │   │   └── mcp/               # MCP Dashboard components
+│   │   │   │       ├── McpServerHub.tsx        # Main MCP management hub
+│   │   │   │       ├── McpDirectoryBrowser.tsx # Public directory with 500+ servers
+│   │   │   │       └── ...                    # Modal, card, and inspector components
 │   │   │   └── settings/              # Appearance & AI Provider Health
 │   │   ├── page.tsx                   # Landing page with interactive Live Agent Canvas Demo
 │   │   └── layout.tsx                 # Root layout with Clerk, Theme, and Sidebar providers
@@ -209,12 +272,23 @@ Every tool implements the unified `ITool` contract (`id`, `name`, `description`,
 │   │   ├── execution/                 # Graph nodes, Planner, Executor, State definitions
 │   │   ├── approval/                  # ApprovalEngine, Idempotency validators
 │   │   ├── history/                   # ExecutionHistoryService
+│   │   ├── mcp/                       # MCP protocol, client service, presets
 │   │   └── tools/                     # Tool Registry + 8 Builtin Tool Implementations
 │   ├── providers/llm/                 # LLMProvider, GroqProvider, OpenRouterProvider, LLMRouter
 │   ├── repositories/                  # Prisma data repositories (+ Dependency Inversion interfaces)
 │   ├── services/                      # SkillService, ExecutionService, ApprovalService, VersionService
-│   ├── types/                         # TypeScript interfaces (graph.ts, skill.ts, execution.ts, etc.)
+│   ├── types/                         # TypeScript interfaces
+│   │   ├── mcp.ts                     # MCP server, tool, health types
+│   │   ├── mcp-directory.ts           # Public MCP server, GitHub, health types
+│   │   ├── agent-studio-registry.ts   # Skills, quality, compositions, agents types
+│   │   └── mcp-advanced.ts            # Clients, versioning, analytics, templates, reviews types
+│   ├── lib/
+│   │   ├── config/                    # Environment validation (Zod)
+│   │   ├── logger/                    # Structured logging (Pino)
+│   │   └── api/                       # API handlers, middleware
 │   └── validators/                    # Zod schemas for graphs, skills, executions, and requests
+├── scripts/
+│   └── check-published.ts             # Published skills verification script
 ├── tests/
 │   └── unit/                          # Vitest unit suites (Graph Interpreter, Validation, Services, Tools)
 └── docs/
@@ -313,6 +387,21 @@ All endpoints require Clerk session authentication. Responses follow a standardi
 | `POST`                 | `/api/mcp/servers/:id/discover`   | Re-run `tools/list` and refresh the cached tool definitions          |
 | `GET`                  | `/api/mcp/servers/:id/health`     | Live latency probe + circuit status                                  |
 | `POST`                 | `/api/mcp/servers/:id/test`       | Live-execute a discovered MCP tool with a test payload               |
+| `GET`                  | `/api/mcp/directory`              | Public MCP directory (500+ servers from Glama, mcp.so, awesome-mcp)  |
+| `GET`                  | `/api/mcp/directory/github`       | GitHub proxy for releases & README preview                           |
+| `POST`                 | `/api/mcp/directory/health`       | SSE endpoint health ping                                             |
+| `GET`                  | `/api/mcp/skills-feed`            | Skills Marketplace feed (auto-derived from Glama/awesome-mcp)        |
+| `POST`                 | `/api/mcp/quality`                | Auto-quality scoring (A+ to F on 6 dimensions)                       |
+| `GET / POST`           | `/api/mcp/compositions`           | Server composition builder (chain MCP servers)                        |
+| `GET / POST`           | `/api/mcp/agents`                 | Agent registry (discover & register AI agents)                        |
+| `GET`                  | `/api/mcp/clients`                | MCP client manager (track Cursor, Claude, VS Code connections)       |
+| `GET`                  | `/api/mcp/versions`               | Tool versioning & rollback tracking                                   |
+| `GET`                  | `/api/mcp/analytics`              | Usage analytics & cost tracking with budgets                          |
+| `GET`                  | `/api/mcp/templates`              | MCP server templates (full-stack preset configurations)              |
+| `GET / POST`           | `/api/mcp/skill-chains`           | Agent skill chains (multi-step reusable workflows)                   |
+| `GET`                  | `/api/mcp/health-dashboard`       | Persistent health monitoring with alerts & SLA tracking              |
+| `GET / POST`           | `/api/mcp/reviews`                | Community server reviews (rate & review servers)                     |
+| `GET`                  | `/api/mcp/dependencies`           | Dependency graph (requires/enhances/conflicts visualization)         |
 | `GET / POST`           | `/api/mcp/sse`                    | **MCP Server**: external agents connect here (Streamable HTTP / SSE) |
 | `POST`                 | `/api/mcp/messages`               | **MCP Server**: message endpoint for open sessions                   |
 | `GET`                  | `/api/settings/providers`         | Query LLM provider health and active model rosters                   |
@@ -361,9 +450,36 @@ npm run typecheck
 
 ## 🔮 Roadmap
 
+### ✅ Completed
+- [x] Public MCP Directory (500+ servers from Glama, mcp.so, awesome-mcp)
+- [x] Server Detail Modal with health ping, GitHub info, README preview
+- [x] Favorites/Bookmarks with localStorage persistence
+- [x] Recently Mounted badge detection
+- [x] Popularity sorting (stars, A-Z)
+- [x] Language filtering (TypeScript, Python, Go, Rust, C#, Java)
+- [x] Quality scoring (A+ to F grades on 6 dimensions)
+- [x] License detection and display
+- [x] Skills Marketplace feed (auto-derived from Glama/awesome-mcp)
+- [x] Server Composition Builder (chain MCP servers into workflows)
+- [x] Agent Registry (discover & register AI agents)
+- [x] MCP Client Manager (track Cursor, Claude, VS Code connections)
+- [x] Tool Versioning & Rollback tracking
+- [x] Usage Analytics & Cost Tracking with budgets
+- [x] MCP Server Templates (full-stack preset configurations)
+- [x] Agent Skill Chains (multi-step reusable workflows)
+- [x] Persistent Health Dashboard with alerts & SLA tracking
+- [x] Community Server Reviews (rate & review servers)
+- [x] Dependency Graph visualization (requires/enhances/conflicts)
+
+### 🚧 In Progress
 - [ ] Custom Tool Builder with OpenAPI / Swagger schema import
 - [ ] Multi-tenant organization workspaces with role-based access control (RBAC)
-- [ ] Community Skill & Graph Template Marketplace
+- [ ] Community Skill & Graph Template Marketplace UI
 - [ ] Webhook notifications & Slack / Discord review queue integrations
+
+### 📋 Planned
 - [ ] Vector database integrations (Pinecone, Qdrant, pgvector) for custom RAG knowledge bases
-- [ ] Cost estimation and token usage analytics per agent node
+- [ ] Real-time cost estimation and token usage analytics per agent node
+- [ ] MCP Server auto-discovery on local network
+- [ ] Agent reputation system with trust scores
+- [ ] Cross-agent communication protocol

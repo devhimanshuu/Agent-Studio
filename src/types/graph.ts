@@ -14,7 +14,16 @@ export type GraphNodeType =
   | "approval"
   | "loop"
   | "parallel"
-  | "subgraph";
+  | "subgraph"
+  | "mcp_server"
+  | "mcp_tool"
+  | "skill"
+  | "http"
+  | "transform"
+  | "delay"
+  | "aggregate"
+  | "variable"
+  | "output";
 
 /** Router node evaluation modes. */
 export type RouterMode = "deterministic" | "ai";
@@ -63,6 +72,63 @@ export interface GraphNodeData {
   inputMapping?: Record<string, string>;
   /** Maps outer result key → inner result template (`results.<innerNodeId>.<path>`). */
   outputMapping?: Record<string, string>;
+  // mcp_server
+  /** MCP server ID to connect to (from preset or directory). */
+  mcpServerId?: string;
+  /** MCP server transport type. */
+  mcpTransport?: "STDIO" | "SSE";
+  /** MCP server endpoint URL or command. */
+  mcpEndpoint?: string;
+  // mcp_tool
+  /** Name of the MCP tool to call. */
+  mcpToolName?: string;
+  /** MCP server to call the tool from. */
+  mcpToolServer?: string;
+  /** Input parameters for the MCP tool (JSON template). */
+  mcpToolParams?: Record<string, unknown>;
+  // skill
+  /** Skill ID to execute. */
+  skillId?: string;
+  /** Skill input data (JSON template). */
+  skillInput?: Record<string, unknown>;
+  // http
+  /** HTTP method. */
+  httpMethod?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  /** HTTP endpoint URL (supports template strings). */
+  httpUrl?: string;
+  /** HTTP request headers (JSON). */
+  httpHeaders?: Record<string, string>;
+  /** HTTP request body (JSON template). */
+  httpBody?: Record<string, unknown>;
+  /** Expected response type. */
+  httpResponseType?: "json" | "text" | "blob";
+  // transform
+  /** Transform operation type. */
+  transformOp?: "map" | "filter" | "merge" | "flatten" | "sort" | "dedupe" | "pick" | "omit" | "template";
+  /** Transform expression or field path. */
+  transformExpr?: string;
+  // delay
+  /** Delay duration in milliseconds. */
+  delayMs?: number;
+  /** Delay duration as a template string (e.g. `{{ input.delay }}`). */
+  delayTemplate?: string;
+  // aggregate
+  /** How to combine results from incoming branches. */
+  aggregateMode?: "concat" | "merge" | "count" | "first" | "all" | "custom";
+  /** Custom aggregation expression (JS). */
+  aggregateExpr?: string;
+  // variable
+  /** Variable name to get or set. */
+  varName?: string;
+  /** Operation: get or set. */
+  varOp?: "get" | "set";
+  /** Value to set (JSON template). */
+  varValue?: unknown;
+  // output
+  /** Output format template. */
+  outputTemplate?: string;
+  /** Output field mappings. */
+  outputFields?: Record<string, string>;
 }
 
 export interface GraphNodeDefinition {

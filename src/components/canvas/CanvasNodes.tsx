@@ -13,6 +13,15 @@ import {
   Repeat,
   Target,
   Boxes,
+  ServerCog,
+  Plug,
+  Puzzle,
+  Globe,
+  Shuffle,
+  Timer,
+  Layers,
+  Variable,
+  FileOutput,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { CANVAS_NODE_TYPE_MAP } from "./nodeTypes";
@@ -23,17 +32,17 @@ interface NodePropsShape {
   selected?: boolean;
 }
 
-/** Live trace status → ring/pulse styling. */
+/** Live trace status → animation class. */
 function statusClasses(status: CanvasNodeData["traceStatus"]): string {
   switch (status) {
     case "RUNNING":
-      return "border-indigo-400 shadow-[0_0_18px_rgba(99,102,241,0.55)] animate-pulse";
+      return "canvas-node-running";
     case "SUCCESS":
-      return "border-emerald-400 shadow-[0_0_18px_rgba(16,185,129,0.5)]";
+      return "canvas-node-success";
     case "FAILED":
-      return "border-red-400 shadow-[0_0_18px_rgba(239,68,68,0.55)]";
+      return "canvas-node-failed";
     case "AWAITING_APPROVAL":
-      return "border-amber-400 shadow-[0_0_18px_rgba(245,158,11,0.55)] animate-pulse";
+      return "canvas-node-awaiting";
     case "SKIPPED":
       return "border-slate-500 opacity-60";
     default:
@@ -96,7 +105,7 @@ function BaseShell({
   return (
     <div
       className={clsx(
-        "relative w-full rounded border bg-white dark:bg-[#0b0b12]/95 font-mono shadow-md dark:shadow-xl transition-all duration-200",
+        "relative w-full rounded border bg-white dark:bg-[#0b0b12]/95 font-mono shadow-md dark:shadow-xl canvas-node",
         accentClass,
         statusClasses(data.traceStatus) || heatmapClasses(data.heatmapLatency, data.heatmapMax),
         selected && "ring-2 ring-indigo-500/70 dark:ring-indigo-400/70"
@@ -330,6 +339,160 @@ function EndNode({ data, selected }: NodePropsShape) {
   );
 }
 
+// ─── MCP & Ecosystem Nodes ───
+
+function McpServerNode({ data, selected }: NodePropsShape) {
+  const meta = CANVAS_NODE_TYPE_MAP.mcp_server;
+  return (
+    <BaseShell
+      data={data}
+      icon={<ServerCog className="h-3.5 w-3.5" />}
+      accentClass={meta.accent}
+      badgeClass={meta.badgeClass}
+      badge={meta.tag}
+      selected={selected}
+    >
+      <div className="text-[9px] text-violet-700 dark:text-violet-300 font-semibold truncate">{data.mcpServerId ?? "no server"}</div>
+      <div className="text-[8px] text-slate-500 dark:text-slate-400 truncate">{data.mcpTransport ?? "SSE"} · {data.mcpEndpoint ?? "—"}</div>
+    </BaseShell>
+  );
+}
+
+function McpToolNode({ data, selected }: NodePropsShape) {
+  const meta = CANVAS_NODE_TYPE_MAP.mcp_tool;
+  return (
+    <BaseShell
+      data={data}
+      icon={<Plug className="h-3.5 w-3.5" />}
+      accentClass={meta.accent}
+      badgeClass={meta.badgeClass}
+      badge={meta.tag}
+      selected={selected}
+    >
+      <div className="text-[9px] text-fuchsia-700 dark:text-fuchsia-300 font-semibold truncate">{data.mcpToolName ?? "no tool"}</div>
+      <div className="text-[8px] text-slate-500 dark:text-slate-400 truncate">server: {data.mcpToolServer ?? "—"}</div>
+    </BaseShell>
+  );
+}
+
+function SkillNode({ data, selected }: NodePropsShape) {
+  const meta = CANVAS_NODE_TYPE_MAP.skill;
+  return (
+    <BaseShell
+      data={data}
+      icon={<Puzzle className="h-3.5 w-3.5" />}
+      accentClass={meta.accent}
+      badgeClass={meta.badgeClass}
+      badge={meta.tag}
+      selected={selected}
+    >
+      <div className="text-[9px] text-sky-700 dark:text-sky-300 font-semibold truncate">{data.skillId || "select skill"}</div>
+      <div className="text-[8px] text-slate-500 dark:text-slate-400">marketplace skill</div>
+    </BaseShell>
+  );
+}
+
+function HttpNode({ data, selected }: NodePropsShape) {
+  const meta = CANVAS_NODE_TYPE_MAP.http;
+  return (
+    <BaseShell
+      data={data}
+      icon={<Globe className="h-3.5 w-3.5" />}
+      accentClass={meta.accent}
+      badgeClass={meta.badgeClass}
+      badge={data.httpMethod ?? "GET"}
+      selected={selected}
+    >
+      <div className="text-[8px] text-slate-500 dark:text-slate-400 truncate" title={data.httpUrl}>{data.httpUrl ?? "https://…"}</div>
+    </BaseShell>
+  );
+}
+
+function TransformNode({ data, selected }: NodePropsShape) {
+  const meta = CANVAS_NODE_TYPE_MAP.transform;
+  return (
+    <BaseShell
+      data={data}
+      icon={<Shuffle className="h-3.5 w-3.5" />}
+      accentClass={meta.accent}
+      badgeClass={meta.badgeClass}
+      badge={meta.tag}
+      selected={selected}
+    >
+      <div className="text-[9px] text-emerald-700 dark:text-emerald-300 font-semibold truncate">{data.transformOp ?? "map"}</div>
+      <div className="text-[8px] text-slate-500 dark:text-slate-400 truncate">{data.transformExpr ?? "—"}</div>
+    </BaseShell>
+  );
+}
+
+function DelayNode({ data, selected }: NodePropsShape) {
+  const meta = CANVAS_NODE_TYPE_MAP.delay;
+  return (
+    <BaseShell
+      data={data}
+      icon={<Timer className="h-3.5 w-3.5" />}
+      accentClass={meta.accent}
+      badgeClass={meta.badgeClass}
+      badge={`${(data.delayMs ?? 1000) >= 1000 ? `${(data.delayMs ?? 1000) / 1000}s` : `${data.delayMs ?? 1000}ms`}`}
+      selected={selected}
+    >
+      <div className="text-[8px] text-slate-500 dark:text-slate-400">pause execution</div>
+    </BaseShell>
+  );
+}
+
+function AggregateNode({ data, selected }: NodePropsShape) {
+  const meta = CANVAS_NODE_TYPE_MAP.aggregate;
+  return (
+    <BaseShell
+      data={data}
+      icon={<Layers className="h-3.5 w-3.5" />}
+      accentClass={meta.accent}
+      badgeClass={meta.badgeClass}
+      badge={meta.tag}
+      selected={selected}
+      sourceCount={2}
+    >
+      <div className="text-[9px] text-amber-700 dark:text-amber-300 font-semibold truncate">{data.aggregateMode ?? "concat"}</div>
+      <div className="text-[8px] text-slate-500 dark:text-slate-400">combine branch results</div>
+    </BaseShell>
+  );
+}
+
+function VariableNode({ data, selected }: NodePropsShape) {
+  const meta = CANVAS_NODE_TYPE_MAP.variable;
+  return (
+    <BaseShell
+      data={data}
+      icon={<Variable className="h-3.5 w-3.5" />}
+      accentClass={meta.accent}
+      badgeClass={meta.badgeClass}
+      badge={data.varOp === "set" ? "SET" : "GET"}
+      selected={selected}
+    >
+      <div className="text-[9px] text-indigo-700 dark:text-indigo-300 font-semibold truncate">{data.varName ?? "var"}</div>
+      {data.varOp === "set" && <div className="text-[8px] text-slate-500 dark:text-slate-400 truncate">{JSON.stringify(data.varValue).slice(0, 40)}</div>}
+    </BaseShell>
+  );
+}
+
+function OutputNode({ data, selected }: NodePropsShape) {
+  const meta = CANVAS_NODE_TYPE_MAP.output;
+  return (
+    <BaseShell
+      data={data}
+      icon={<FileOutput className="h-3.5 w-3.5" />}
+      accentClass={meta.accent}
+      badgeClass={meta.badgeClass}
+      badge={meta.tag}
+      selected={selected}
+      showSource={false}
+    >
+      <div className="text-[8px] text-slate-500 dark:text-slate-400 truncate">{data.outputTemplate ?? "{{ results }}"}</div>
+    </BaseShell>
+  );
+}
+
 export const canvasNodeTypes = {
   start: memo(StartNode),
   end: memo(EndNode),
@@ -341,4 +504,13 @@ export const canvasNodeTypes = {
   loop: memo(LoopNode),
   parallel: memo(ParallelNode),
   subgraph: memo(SubgraphNode),
+  mcp_server: memo(McpServerNode),
+  mcp_tool: memo(McpToolNode),
+  skill: memo(SkillNode),
+  http: memo(HttpNode),
+  transform: memo(TransformNode),
+  delay: memo(DelayNode),
+  aggregate: memo(AggregateNode),
+  variable: memo(VariableNode),
+  output: memo(OutputNode),
 };

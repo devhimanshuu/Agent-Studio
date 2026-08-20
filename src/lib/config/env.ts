@@ -17,6 +17,8 @@ const envSchema = z.object({
    * may connect.
    */
   MCP_ACCESS_TOKEN: z.string().optional(),
+  COMPOSIO_API_KEY: z.string().optional(),
+  ARCADE_API_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

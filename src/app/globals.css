@@ -809,3 +809,159 @@
   color: #dc2626 !important;
   text-shadow: 0 2px 10px rgba(220, 38, 38, 0.25) !important;
 }
+
+/* ==========================================================================
+   Canvas Execution Animations — Agent Graph Runtime
+   ========================================================================== */
+
+/* Node RUNNING: breathing glow + pulse */
+@keyframes node-running {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(99, 102, 241, 0.4), 0 0 20px rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(99, 102, 241, 0.7), 0 0 40px rgba(99, 102, 241, 0.35), 0 0 60px rgba(99, 102, 241, 0.15);
+    border-color: rgba(129, 140, 248, 0.9);
+  }
+}
+
+/* Node SUCCESS: green flash then settle */
+@keyframes node-success {
+  0% {
+    box-shadow: 0 0 0 rgba(16, 185, 129, 0);
+    border-color: rgba(99, 102, 241, 0.7);
+  }
+  30% {
+    box-shadow: 0 0 30px rgba(16, 185, 129, 0.7), 0 0 60px rgba(16, 185, 129, 0.3);
+    border-color: rgba(52, 211, 153, 0.9);
+  }
+  100% {
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+    border-color: rgba(52, 211, 153, 0.6);
+  }
+}
+
+/* Node FAILED: red flash then settle */
+@keyframes node-failed {
+  0% {
+    box-shadow: 0 0 0 rgba(239, 68, 68, 0);
+    border-color: rgba(99, 102, 241, 0.7);
+  }
+  20% {
+    box-shadow: 0 0 30px rgba(239, 68, 68, 0.8), 0 0 60px rgba(239, 68, 68, 0.35);
+    border-color: rgba(248, 113, 113, 0.95);
+  }
+  40% {
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.5), 0 0 40px rgba(239, 68, 68, 0.2);
+    border-color: rgba(248, 113, 113, 0.7);
+  }
+  100% {
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+    border-color: rgba(248, 113, 113, 0.5);
+  }
+}
+
+/* Node AWAITING: amber pulse */
+@keyframes node-awaiting {
+  0%, 100% {
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.3);
+    border-color: rgba(245, 158, 11, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.6), 0 0 40px rgba(245, 158, 11, 0.2);
+    border-color: rgba(251, 191, 36, 0.8);
+  }
+}
+
+/* Ripple effect when node completes */
+@keyframes node-ripple {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+/* Edge traversal: traveling light dot */
+@keyframes edge-travel {
+  0% {
+    stroke-dashoffset: 20;
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0.3;
+  }
+}
+
+/* Edge glow when traversed */
+@keyframes edge-glow {
+  0%, 100% {
+    stroke: rgba(99, 102, 241, 0.5);
+    stroke-width: 1.5;
+  }
+  50% {
+    stroke: rgba(129, 140, 248, 0.9);
+    stroke-width: 2.5;
+  }
+}
+
+/* Canvas node animation classes */
+.canvas-node-running {
+  animation: node-running 1.2s ease-in-out infinite !important;
+}
+
+.canvas-node-success {
+  animation: node-success 0.6s ease-out forwards !important;
+}
+
+.canvas-node-failed {
+  animation: node-failed 0.8s ease-out forwards !important;
+}
+
+.canvas-node-awaiting {
+  animation: node-awaiting 1.5s ease-in-out infinite !important;
+}
+
+/* Edge animation classes */
+.canvas-edge-traversed {
+  animation: edge-glow 1.5s ease-in-out infinite !important;
+}
+
+.canvas-edge-traveling {
+  stroke-dasharray: 10 10;
+  animation: edge-travel 0.8s linear infinite !important;
+}
+
+/* Node transition for smooth status changes */
+.canvas-node {
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, transform 0.2s ease;
+}
+
+.canvas-node:hover {
+  transform: translateY(-1px);
+}
+
+/* Dark mode logo inversion for light-on-dark logos */
+.dark img[data-logo-invert] {
+  filter: invert(1) brightness(2);
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .canvas-node-running,
+  .canvas-node-success,
+  .canvas-node-failed,
+  .canvas-node-awaiting,
+  .canvas-edge-traversed,
+  .canvas-edge-traveling {
+    animation: none !important;
+  }
+}

@@ -26,6 +26,31 @@ export interface CanvasNodeData {
   inputMapping?: Record<string, string>;
   /** Maps outer result key → inner result template (`results.<innerNodeId>.<path>`). */
   outputMapping?: Record<string, string>;
+  // MCP & ecosystem fields
+  mcpServerId?: string;
+  mcpTransport?: "STDIO" | "SSE";
+  mcpEndpoint?: string;
+  mcpToolName?: string;
+  mcpToolServer?: string;
+  mcpToolParams?: Record<string, unknown>;
+  skillId?: string;
+  skillInput?: Record<string, unknown>;
+  httpMethod?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  httpUrl?: string;
+  httpHeaders?: Record<string, string>;
+  httpBody?: Record<string, unknown>;
+  httpResponseType?: "json" | "text" | "blob";
+  transformOp?: "map" | "filter" | "merge" | "flatten" | "sort" | "dedupe" | "pick" | "omit" | "template";
+  transformExpr?: string;
+  delayMs?: number;
+  delayTemplate?: string;
+  aggregateMode?: "concat" | "merge" | "count" | "first" | "all" | "custom";
+  aggregateExpr?: string;
+  varName?: string;
+  varOp?: "get" | "set";
+  varValue?: unknown;
+  outputTemplate?: string;
+  outputFields?: Record<string, string>;
   /** Live trace status — only set in trace mode. */
   traceStatus?: "RUNNING" | "SUCCESS" | "FAILED" | "AWAITING_APPROVAL" | "SKIPPED";
   /** Live trace detail message. */
@@ -60,6 +85,31 @@ function nodeDataToGraphData(data: CanvasNodeData): GraphNodeDefinition["data"] 
     subgraph: data.subgraph,
     inputMapping: data.inputMapping,
     outputMapping: data.outputMapping,
+    // MCP & ecosystem fields
+    mcpServerId: data.mcpServerId,
+    mcpTransport: data.mcpTransport,
+    mcpEndpoint: data.mcpEndpoint,
+    mcpToolName: data.mcpToolName,
+    mcpToolServer: data.mcpToolServer,
+    mcpToolParams: data.mcpToolParams,
+    skillId: data.skillId,
+    skillInput: data.skillInput,
+    httpMethod: data.httpMethod,
+    httpUrl: data.httpUrl,
+    httpHeaders: data.httpHeaders,
+    httpBody: data.httpBody,
+    httpResponseType: data.httpResponseType,
+    transformOp: data.transformOp,
+    transformExpr: data.transformExpr,
+    delayMs: data.delayMs,
+    delayTemplate: data.delayTemplate,
+    aggregateMode: data.aggregateMode,
+    aggregateExpr: data.aggregateExpr,
+    varName: data.varName,
+    varOp: data.varOp,
+    varValue: data.varValue,
+    outputTemplate: data.outputTemplate,
+    outputFields: data.outputFields,
   };
 }
 
