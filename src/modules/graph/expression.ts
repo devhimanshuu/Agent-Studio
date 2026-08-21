@@ -2,7 +2,7 @@
  * Safe expression evaluator for router node conditions.
  *
  * Deliberately NOT `eval`/`new Function`: conditions are authored on the canvas
- * (possibly by end users) and must be sandboxed. The grammar is intentionally
+ * (possibly by end users) and must be safe. The grammar is intentionally
  * small:
  *
  *   expr        := orExpr

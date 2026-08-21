@@ -7,6 +7,7 @@ import { aiExtractionInputSchema } from "./validators/aiExtraction";
 import { aiClassificationInputSchema } from "./validators/aiClassification";
 import { conditionInputSchema } from "./validators/deterministicCondition";
 import { finalReportInputSchema } from "./validators/finalReport";
+import { codeExecutionInputSchema } from "./validators/codeExecution";
 
 /** Registry metadata for the built-in tools. Source of truth for the
  * `tool_definitions` catalog sync (DB rows mirror this list). */
@@ -103,6 +104,18 @@ export const BUILT_IN_TOOL_CATALOG: ToolCatalogItem[] = [
     category: "TASK",
     type: "READ",
     parameters: finalReportInputSchema,
+    requiresAuth: false,
+    requiresApproval: false,
+    isSystem: true,
+  },
+  {
+    name: "code_execution",
+    displayName: "Code Execution Sandbox",
+    description:
+      "Execute JavaScript or Python code in an isolated sandbox. Use for data processing, calculations, text manipulation, regex, JSON transformation, or any algorithmic task.",
+    category: "COMPUTE",
+    type: "READ",
+    parameters: codeExecutionInputSchema,
     requiresAuth: false,
     requiresApproval: false,
     isSystem: true,

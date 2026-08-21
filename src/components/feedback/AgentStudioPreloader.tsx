@@ -686,18 +686,6 @@ export function AgentStudioPreloader({
                 </text>
               </g>
 
-              {/* Node 5: SANDBOX_EXEC */}
-              <g transform="translate(100, 365)">
-                <circle r="22" fill="url(#preloader-node-grad)" stroke="hsl(var(--preloader-border))" strokeWidth="1.5" />
-                <circle r="26" fill="none" stroke="hsl(var(--preloader-primary))" strokeWidth="1" strokeDasharray="4 3" className="animate-preloader-orbit-cw" />
-                <path d="M -6 -3 L -2 0 L -6 3 M 0 3 L 5 3" fill="none" stroke="hsl(var(--preloader-primary))" strokeWidth="1.6" strokeLinecap="round" />
-                <text x="0" y="36" textAnchor="middle" fill="hsl(var(--preloader-text))" fontSize="9" fontFamily="monospace" fontWeight="bold">
-                  SANDBOX
-                </text>
-                <text x="0" y="46" textAnchor="middle" fill="hsl(var(--preloader-muted))" fontSize="7.5" fontFamily="monospace">
-                  WASM_EXEC
-                </text>
-              </g>
 
               {/* Node 6: GUARDRAIL */}
               <g transform="translate(55, 230)">

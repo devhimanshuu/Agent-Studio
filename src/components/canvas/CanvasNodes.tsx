@@ -157,6 +157,7 @@ function BaseShell({
 function AgentNode({ data, selected }: NodePropsShape) {
   const meta = CANVAS_NODE_TYPE_MAP.agent;
   const promptPreview = (data.prompt ?? "").slice(0, 80);
+  const llmCall = data.traceLlmCall as { model?: string; inputTokens?: number; outputTokens?: number; durationMs?: number } | undefined;
   return (
     <BaseShell
       data={data}
@@ -169,12 +170,28 @@ function AgentNode({ data, selected }: NodePropsShape) {
       <div className="text-[8px] text-slate-500 dark:text-slate-400 leading-tight line-clamp-2" title={data.prompt}>
         {promptPreview || "No prompt configured"}
       </div>
+      {llmCall && (
+        <div className="flex items-center gap-1.5 mt-1 text-[7px] text-slate-400">
+          {llmCall.model && <span className="text-indigo-500 dark:text-indigo-400 font-semibold">{llmCall.model}</span>}
+          {llmCall.inputTokens !== undefined && (
+            <span>↑{llmCall.inputTokens}</span>
+          )}
+          {llmCall.outputTokens !== undefined && (
+            <span>↓{llmCall.outputTokens}</span>
+          )}
+          {llmCall.durationMs !== undefined && (
+            <span>{llmCall.durationMs}ms</span>
+          )}
+        </div>
+      )}
     </BaseShell>
   );
 }
 
 function SupervisorNode({ data, selected }: NodePropsShape) {
   const meta = CANVAS_NODE_TYPE_MAP.supervisor;
+  const llmCall = data.traceLlmCall as { model?: string; inputTokens?: number; outputTokens?: number; durationMs?: number } | undefined;
+  const decision = data.traceRouterDecision as { chosenLabel: string; mode: string; reason?: string } | undefined;
   return (
     <BaseShell
       data={data}
@@ -188,12 +205,27 @@ function SupervisorNode({ data, selected }: NodePropsShape) {
       <div className="text-[8px] text-slate-500 dark:text-slate-400 leading-tight line-clamp-2" title={data.prompt}>
         {(data.prompt ?? "No prompt configured").slice(0, 80)}
       </div>
+      {llmCall && (
+        <div className="flex items-center gap-1.5 mt-1 text-[7px] text-slate-400">
+          {llmCall.model && <span className="text-violet-500 dark:text-violet-400 font-semibold">{llmCall.model}</span>}
+          {llmCall.inputTokens !== undefined && <span>↑{llmCall.inputTokens}</span>}
+          {llmCall.outputTokens !== undefined && <span>↓{llmCall.outputTokens}</span>}
+        </div>
+      )}
+      {decision && (
+        <div className="flex items-center gap-1 mt-1">
+          <span className="text-[8px] px-1.5 py-0.5 rounded bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 font-bold border border-violet-200 dark:border-violet-700/50">
+            → {decision.chosenLabel || "default"}
+          </span>
+        </div>
+      )}
     </BaseShell>
   );
 }
 
 function ToolNode({ data, selected }: NodePropsShape) {
   const meta = CANVAS_NODE_TYPE_MAP.tool;
+  const toolCall = data.traceToolCall as { toolName: string; action?: string; durationMs?: number; status: string } | undefined;
   return (
     <BaseShell
       data={data}
@@ -205,12 +237,29 @@ function ToolNode({ data, selected }: NodePropsShape) {
     >
       <div className="text-[9px] text-cyan-700 dark:text-cyan-300 font-semibold truncate">{data.toolName ?? "no tool selected"}</div>
       <div className="text-[8px] text-slate-500 dark:text-slate-400 truncate">action · {data.action ?? "—"}</div>
+      {toolCall && (
+        <div className="flex items-center gap-1 mt-1">
+          <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold border ${
+            toolCall.status === "SUCCESS"
+              ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700/50"
+              : toolCall.status === "RUNNING"
+                ? "bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300 border-cyan-200 dark:border-cyan-700/50"
+                : "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700/50"
+          }`}>
+            {toolCall.status === "RUNNING" ? "⏳ executing" : toolCall.status === "SUCCESS" ? `✓ ${toolCall.toolName}` : `✗ failed`}
+          </span>
+          {toolCall.durationMs !== undefined && (
+            <span className="text-[7px] text-slate-400">{toolCall.durationMs}ms</span>
+          )}
+        </div>
+      )}
     </BaseShell>
   );
 }
 
 function RouterNode({ data, selected }: NodePropsShape) {
   const meta = CANVAS_NODE_TYPE_MAP.router;
+  const decision = data.traceRouterDecision as { chosenLabel: string; mode: string; reason?: string } | undefined;
   return (
     <BaseShell
       data={data}
@@ -224,12 +273,25 @@ function RouterNode({ data, selected }: NodePropsShape) {
       <div className="text-[8px] text-slate-500 dark:text-slate-400 leading-tight line-clamp-2" title={data.condition}>
         {data.routerMode === "ai" ? (data.routerPrompt ?? "AI router — model picks branch") : (data.condition ?? "no condition")}
       </div>
+      {decision && (
+        <div className="flex items-center gap-1 mt-1">
+          <span className="text-[8px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 font-bold border border-amber-200 dark:border-amber-700/50">
+            → {decision.chosenLabel || "default"}
+          </span>
+          {decision.reason && (
+            <span className="text-[7px] text-slate-400 truncate max-w-[80px]" title={decision.reason}>
+              {decision.reason}
+            </span>
+          )}
+        </div>
+      )}
     </BaseShell>
   );
 }
 
 function ApprovalNode({ data, selected }: NodePropsShape) {
   const meta = CANVAS_NODE_TYPE_MAP.approval;
+  const approval = data.traceApproval as { reason?: string; action?: string; decision?: string } | undefined;
   return (
     <BaseShell
       data={data}
@@ -242,12 +304,24 @@ function ApprovalNode({ data, selected }: NodePropsShape) {
       <div className="text-[8px] text-slate-500 dark:text-slate-400 leading-tight line-clamp-2" title={data.approvalReason}>
         {data.approvalReason ?? "No reason configured"}
       </div>
+      {approval?.decision && (
+        <div className="flex items-center gap-1 mt-1">
+          <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold border ${
+            approval.decision === "APPROVED"
+              ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700/50"
+              : "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700/50"
+          }`}>
+            {approval.decision === "APPROVED" ? "✓ APPROVED" : "✗ DENIED"}
+          </span>
+        </div>
+      )}
     </BaseShell>
   );
 }
 
 function LoopNode({ data, selected }: NodePropsShape) {
   const meta = CANVAS_NODE_TYPE_MAP.loop;
+  const loopState = data.traceLoopState as { iteration: number; maxIterations: number; exited: boolean } | undefined;
   return (
     <BaseShell
       data={data}
@@ -258,6 +332,17 @@ function LoopNode({ data, selected }: NodePropsShape) {
       selected={selected}
     >
       <div className="text-[8px] text-slate-500 dark:text-slate-400">repeats body edge, then exits</div>
+      {loopState && (
+        <div className="flex items-center gap-1 mt-1">
+          <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold border ${
+            loopState.exited
+              ? "bg-slate-100 dark:bg-slate-800/40 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700/50"
+              : "bg-fuchsia-100 dark:bg-fuchsia-900/40 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-200 dark:border-fuchsia-700/50"
+          }`}>
+            {loopState.exited ? `✓ exited` : `${loopState.iteration}/${loopState.maxIterations}`}
+          </span>
+        </div>
+      )}
     </BaseShell>
   );
 }

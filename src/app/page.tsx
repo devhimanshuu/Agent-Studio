@@ -4,7 +4,6 @@ import {
   Check,
   CheckSquare,
   GitCompare,
-  Terminal,
   ArrowRight,
   Lock,
   Wrench,
@@ -229,14 +228,6 @@ const upcomingNodeTypes = [
     desc: "Perceptual vision analysis & streaming audio agents",
     cls: "text-rose-700 dark:text-rose-300 border-dashed border-rose-400/70 dark:border-rose-500/50 bg-rose-50/60 dark:bg-rose-950/30",
     badgeCls: "bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 border-rose-300 dark:border-rose-700",
-  },
-  {
-    name: "CODE SANDBOX",
-    tag: "LABS",
-    icon: Terminal,
-    desc: "Isolated WebAssembly / E2B micro-VM container execution",
-    cls: "text-cyan-700 dark:text-cyan-300 border-dashed border-cyan-400/70 dark:border-cyan-500/50 bg-cyan-50/60 dark:bg-cyan-950/30",
-    badgeCls: "bg-cyan-100 dark:bg-cyan-900/60 text-cyan-800 dark:text-cyan-200 border-cyan-300 dark:border-cyan-700",
   },
 ];
 
@@ -976,7 +967,7 @@ export default function LandingPage() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-1.5 pt-2">
-                {["MANAGED OAUTH", "1-CLICK AUTH", "SANDBOX", "PARALLEL"].map((tag) => (
+                {["MANAGED OAUTH", "1-CLICK AUTH", "PARALLEL"].map((tag) => (
                   <span key={tag} className="text-[8px] px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800/50 text-emerald-600 dark:text-emerald-400 font-bold uppercase">
                     {tag}
                   </span>

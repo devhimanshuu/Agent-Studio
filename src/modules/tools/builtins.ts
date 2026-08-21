@@ -7,6 +7,7 @@ import { aiExtractionTool } from "./ai-extraction/aiExtractionTool";
 import { aiClassificationTool } from "./ai-classification/aiClassificationTool";
 import { deterministicConditionTool } from "./deterministic-condition/conditionTool";
 import { finalReportTool } from "./final-report/finalReportTool";
+import { codeExecutionTool } from "./code-execution/codeExecutionTool";
 
 /** The built-in tools, self-registered by the registry factory. New tools
  * are added here (and to `toolCatalog.ts`) to go live. */
@@ -19,5 +20,6 @@ export const BUILT_IN_TOOLS: Tool[] = [
   aiClassificationTool,
   deterministicConditionTool,
   finalReportTool,
+  codeExecutionTool,
 ];
 

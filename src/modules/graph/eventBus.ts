@@ -7,6 +7,10 @@
  * trace view. In single-instance deployments this is lossless; for horizontally
  * scaled deployments, the SSE route also replays persisted ExecutionStep rows
  * on connect so late viewers still see the full trace.
+ *
+ * Granular events (tool:call, llm:call, mcp:tool, approval, router:decision,
+ * loop:iteration, parallel:branch) provide detailed trace visibility for
+ * debugging and observability.
  */
 
 export type GraphNodeStatus = "RUNNING" | "SUCCESS" | "FAILED" | "AWAITING_APPROVAL" | "SKIPPED";
@@ -57,12 +61,120 @@ export interface ExecutionLogEvent extends ExecutionEventBase {
   message: string;
 }
 
+// ─── Granular Events ───
+
+export interface ToolCallStartedEvent extends ExecutionEventBase {
+  type: "tool:call:start";
+  nodeId: string;
+  toolName: string;
+  action?: string;
+  input?: unknown;
+}
+
+export interface ToolCallCompletedEvent extends ExecutionEventBase {
+  type: "tool:call:end";
+  nodeId: string;
+  toolName: string;
+  status: "SUCCESS" | "FAILED";
+  output?: unknown;
+  error?: string;
+  durationMs?: number;
+}
+
+export interface LlmCallStartedEvent extends ExecutionEventBase {
+  type: "llm:call:start";
+  nodeId: string;
+  model?: string;
+  promptPreview?: string;
+  tokenEstimate?: number;
+}
+
+export interface LlmCallCompletedEvent extends ExecutionEventBase {
+  type: "llm:call:end";
+  nodeId: string;
+  status: "SUCCESS" | "FAILED";
+  model?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  durationMs?: number;
+  error?: string;
+}
+
+export interface McpToolStartedEvent extends ExecutionEventBase {
+  type: "mcp:tool:start";
+  nodeId: string;
+  serverId: string;
+  toolName: string;
+  params?: unknown;
+}
+
+export interface McpToolCompletedEvent extends ExecutionEventBase {
+  type: "mcp:tool:end";
+  nodeId: string;
+  serverId: string;
+  toolName: string;
+  status: "SUCCESS" | "FAILED";
+  output?: unknown;
+  error?: string;
+  durationMs?: number;
+}
+
+export interface ApprovalRequestedEvent extends ExecutionEventBase {
+  type: "approval:requested";
+  nodeId: string;
+  reason?: string;
+  action?: string;
+}
+
+export interface ApprovalResolvedEvent extends ExecutionEventBase {
+  type: "approval:resolved";
+  nodeId: string;
+  decision: "APPROVED" | "DENIED";
+  resolvedBy?: string;
+}
+
+export interface RouterDecisionEvent extends ExecutionEventBase {
+  type: "router:decision";
+  nodeId: string;
+  mode: "deterministic" | "ai";
+  chosenLabel: string;
+  reason?: string;
+}
+
+export interface LoopIterationEvent extends ExecutionEventBase {
+  type: "loop:iteration";
+  nodeId: string;
+  iteration: number;
+  maxIterations: number;
+  exited: boolean;
+}
+
+export interface ParallelBranchEvent extends ExecutionEventBase {
+  type: "parallel:branch";
+  nodeId: string;
+  branchNodeId: string;
+  status: "started" | "completed";
+  mode: "map" | "fan-out";
+  branchIndex?: number;
+}
+
 export type ExecutionEvent =
   | NodeStartedEvent
   | NodeCompletedEvent
   | EdgeTraversedEvent
   | ExecutionStatusEvent
-  | ExecutionLogEvent;
+  | ExecutionLogEvent
+  | ToolCallStartedEvent
+  | ToolCallCompletedEvent
+  | LlmCallStartedEvent
+  | LlmCallCompletedEvent
+  | McpToolStartedEvent
+  | McpToolCompletedEvent
+  | ApprovalRequestedEvent
+  | ApprovalResolvedEvent
+  | RouterDecisionEvent
+  | LoopIterationEvent
+  | ParallelBranchEvent;
 
 type Listener = (event: ExecutionEvent) => void;
 

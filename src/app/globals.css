@@ -949,6 +949,102 @@
   transform: translateY(-1px);
 }
 
+/* ─── Data Flow Particle Animation ─── */
+@keyframes data-flow-particle {
+  0% {
+    stroke-dashoffset: 20;
+    opacity: 0.2;
+  }
+  20% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0.2;
+  }
+}
+
+.canvas-edge-data-flow {
+  stroke-dasharray: 4 16;
+  animation: data-flow-particle 1.2s linear infinite !important;
+}
+
+/* ─── Router Decision Pulse ─── */
+@keyframes router-decision-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.3), 0 0 16px rgba(245, 158, 11, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 14px rgba(245, 158, 11, 0.5), 0 0 28px rgba(245, 158, 11, 0.25);
+  }
+}
+
+.canvas-node-router-decided {
+  animation: router-decision-pulse 2s ease-in-out infinite !important;
+}
+
+/* ─── Loop Iteration Glow ─── */
+@keyframes loop-iteration-glow {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(217, 70, 239, 0.3), 0 0 16px rgba(217, 70, 239, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 14px rgba(217, 70, 239, 0.5), 0 0 28px rgba(217, 70, 239, 0.25);
+  }
+}
+
+.canvas-node-loop-active {
+  animation: loop-iteration-glow 1.5s ease-in-out infinite !important;
+}
+
+/* ─── Parallel Branch Fan-Out Glow ─── */
+@keyframes parallel-fan-glow {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(20, 184, 166, 0.3), 0 0 16px rgba(20, 184, 166, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 14px rgba(20, 184, 166, 0.5), 0 0 28px rgba(20, 184, 166, 0.25);
+  }
+}
+
+.canvas-node-parallel-active {
+  animation: parallel-fan-glow 1.5s ease-in-out infinite !important;
+}
+
+/* ─── Approval Pending Pulse ─── */
+@keyframes approval-pending-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(249, 115, 22, 0.3), 0 0 16px rgba(249, 115, 22, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(249, 115, 22, 0.6), 0 0 32px rgba(249, 115, 22, 0.3);
+  }
+}
+
+.canvas-node-approval-pending {
+  animation: approval-pending-pulse 1.8s ease-in-out infinite !important;
+}
+
+/* ─── LLM Streaming Glow ─── */
+@keyframes llm-streaming-glow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.4), 0 0 20px rgba(99, 102, 241, 0.2);
+  }
+  33% {
+    box-shadow: 0 0 14px rgba(139, 92, 246, 0.5), 0 0 28px rgba(139, 92, 246, 0.25);
+  }
+  66% {
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.45), 0 0 24px rgba(99, 102, 241, 0.22);
+  }
+}
+
+.canvas-node-llm-streaming {
+  animation: llm-streaming-glow 2s ease-in-out infinite !important;
+}
+
 /* Dark mode logo inversion for light-on-dark logos */
 .dark img[data-logo-invert] {
   filter: invert(1) brightness(2);

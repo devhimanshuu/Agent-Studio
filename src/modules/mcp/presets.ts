@@ -132,7 +132,7 @@ export const MCP_PRESETS: McpPreset[] = [
     name: "Filesystem MCP",
     transport: "STDIO",
     command: "npx -y @modelcontextprotocol/server-filesystem <ALLOWED_DIRECTORY>",
-    description: "Read/write access to local files, sandboxed to the allowed directory roots.",
+    description: "Read/write access to local files, restricted to the allowed directory roots.",
     requiresAuthToken: false,
     category: "PRODUCTIVITY",
   },

@@ -281,7 +281,7 @@ export function WorkflowForm({
         </div>
 
         <p className="text-[11px] text-slate-600 dark:text-slate-400 font-serif leading-relaxed">
-          Enable the deterministic step types and sandbox tools permitted for this workflow. The LangGraph runtime will strictly reject any tool not checked below.
+          Enable the deterministic step types and tools permitted for this workflow. The LangGraph runtime will strictly reject any tool not checked below.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">

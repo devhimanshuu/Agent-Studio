@@ -88,7 +88,7 @@ export const CANVAS_NODE_TYPES: CanvasNodeTypeMeta[] = [
     label: "TOOL",
     tag: "DETERMINISTIC",
     icon: Wrench,
-    description: "Sandboxed tool invocation (search, calculator, extraction…).",
+    description: "Deterministic tool invocation (search, calculator, extraction…).",
     accent: "border-cyan-500/70 text-cyan-600 dark:text-cyan-400",
     badgeClass: "bg-cyan-50 dark:bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border-cyan-200 dark:border-cyan-500/40",
     defaults: {

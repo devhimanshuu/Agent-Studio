@@ -311,6 +311,12 @@ function CanvasInner({
   const effTraversed = replayed?.traversedEdges ?? trace.traversedEdges;
   const effDurations = replayed?.nodeDurations ?? trace.nodeDurations;
   const effExecutionStatus = replayed?.executionStatus ?? trace.executionStatus;
+  const effRouterDecisions = replayed?.routerDecisions ?? trace.routerDecisions;
+  const effLoopState = replayed?.loopState ?? trace.loopState;
+  const effToolCalls = replayed?.toolCalls ?? trace.toolCalls;
+  const effLlmCalls = replayed?.llmCalls ?? trace.llmCalls;
+  const effMcpCalls = replayed?.mcpCalls ?? trace.mcpCalls;
+  const effApprovalState = replayed?.approvalState ?? trace.approvalState;
 
   // Playback: step through events while playing; stop at the end.
   useEffect(() => {
@@ -329,6 +335,15 @@ function CanvasInner({
   const writeBackSubgraph = useCallback(() => {
     if (subgraphStack.length === 0) return;
     const entry = subgraphStack[subgraphStack.length - 1];
+    // In trace mode, just navigate back without writing changes
+    if (inTraceMode) {
+      setNodes(entry.parentNodes);
+      setEdges(entry.parentEdges);
+      setSelectedNodeId(null);
+      setSelectedEdgeId(null);
+      setSubgraphStack((s) => s.slice(0, -1));
+      return;
+    }
     const inner = flowToGraph(nodes, edges);
     const parentNodes = entry.parentNodes.map((n) =>
       n.id === entry.nodeId ? { ...n, data: { ...n.data, subgraph: inner } } : n
@@ -340,9 +355,9 @@ function CanvasInner({
     setSubgraphStack((s) => s.slice(0, -1));
     onSubgraphEdit?.(subgraphStack.length > 1);
     notifyChange(parentNodes, entry.parentEdges);
-  }, [subgraphStack, nodes, edges, setNodes, setEdges, notifyChange, onSubgraphEdit]);
+  }, [subgraphStack, nodes, edges, setNodes, setEdges, notifyChange, onSubgraphEdit, inTraceMode]);
 
-  // Enter subgraph editing: load the inner graph onto the canvas.
+  // Enter subgraph editing or trace viewing: load the inner graph onto the canvas.
   const openSubgraph = useCallback(
     (node: CanvasNode) => {
       const inner = node.data.subgraph;
@@ -356,9 +371,9 @@ function CanvasInner({
       setEdges(view.edges);
       setSelectedNodeId(null);
       setSelectedEdgeId(null);
-      onSubgraphEdit?.(true);
+      if (!inTraceMode) onSubgraphEdit?.(true);
     },
-    [nodes, edges, setNodes, setEdges, onSubgraphEdit]
+    [nodes, edges, setNodes, setEdges, onSubgraphEdit, inTraceMode]
   );
 
   // Collapse the current selection into a subgraph (macro) node.
@@ -416,10 +431,17 @@ function CanvasInner({
           traceDetail: effDetails[n.id],
           heatmapLatency: latency,
           heatmapMax: latency !== undefined ? maxLatency : undefined,
+          // Granular trace data
+          traceRouterDecision: effRouterDecisions[n.id],
+          traceLoopState: effLoopState[n.id],
+          traceToolCall: effToolCalls[n.id],
+          traceLlmCall: effLlmCalls[n.id],
+          traceMcpCall: effMcpCalls[n.id],
+          traceApproval: effApprovalState[n.id],
         },
       };
     });
-  }, [nodes, inTraceMode, heatmap, effStatuses, effDetails, nodeLatencies, maxLatency]);
+  }, [nodes, inTraceMode, heatmap, effStatuses, effDetails, nodeLatencies, maxLatency, effRouterDecisions, effLoopState, effToolCalls, effLlmCalls, effMcpCalls, effApprovalState]);
 
   // Animate + highlight edges as they are traversed during a live run.
   const traceEdges = useMemo(() => {
@@ -697,15 +719,15 @@ function CanvasInner({
         )}
 
         {/* ─── Subgraph breadcrumb ─── */}
-        {!inTraceMode && inSubgraph && (
+        {inSubgraph && (
           <div className="shrink-0 flex items-center justify-between px-3 py-1.5 border-b border-slate-700/50 bg-slate-900/60 text-[9px]">
             <div className="flex items-center gap-1.5 text-slate-400">
               <Boxes className="h-3 w-3" />
-              <span className="font-bold uppercase">Editing macro</span>
+              <span className="font-bold uppercase">{inTraceMode ? "SUBGRAPH TRACE" : "Editing macro"}</span>
               <span className="text-indigo-400 font-bold">› {subgraphStack[subgraphStack.length - 1].label}</span>
             </div>
             <button onClick={writeBackSubgraph} className="inline-flex items-center gap-1 rounded border border-indigo-500/50 bg-indigo-600/80 px-2 py-1 text-[9px] font-bold text-white hover:bg-indigo-500 transition-colors cursor-pointer">
-              <CornerUpLeft className="h-3 w-3" /> EXIT
+              <CornerUpLeft className="h-3 w-3" /> {inTraceMode ? "BACK" : "EXIT"}
             </button>
           </div>
         )}
@@ -857,6 +879,10 @@ function CanvasInner({
             {fsRightOpen && (
               <div className="flex-1 overflow-y-auto p-3">
                 {inTraceMode ? (
+                  selectedNode && selectedNode.type === "subgraph" ? (
+                    /* In trace mode, allow opening subgraph nodes to view inner trace */
+                    <NodeInspector node={selectedNode} onUpdate={() => {}} onDelete={() => {}} allNodeIds={nodes.map((n) => n.id)} onOpenSubgraph={openSubgraph} />
+                  ) : (
                   <div className="space-y-3">
                     <div className="text-[9px] uppercase tracking-widest text-indigo-400 font-bold">{isPreview ? "GHOST PREVIEW" : "LIVE TRACE"}</div>
                     <p className="text-[9px] text-slate-400 leading-relaxed">{isPreview ? "Dry-run — nothing persisted, approvals auto-pass." : "Canvas locked while agent traverses the graph."}</p>
@@ -876,6 +902,7 @@ function CanvasInner({
                       <div className="flex justify-between text-[9px] text-slate-400"><span>Status</span><span className="text-emerald-400 font-bold">{effExecutionStatus ?? "—"}</span></div>
                     </div>
                   </div>
+                  )
                 ) : selectedEdge ? (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
@@ -972,13 +999,13 @@ function CanvasInner({
         )}
 
         {/* Subgraph breadcrumb */}
-        {!inTraceMode && inSubgraph && (
+        {inSubgraph && (
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded border border-slate-400/50 dark:border-slate-500/50 bg-slate-100 dark:bg-slate-900/60 px-3 py-1.5">
             <div className="flex items-center gap-1.5 text-[10px] font-mono text-slate-700 dark:text-slate-300">
               <Boxes className="h-3.5 w-3.5 text-slate-500" />
-              <span className="font-bold uppercase tracking-widest">Editing macro</span>
+              <span className="font-bold uppercase tracking-widest">{inTraceMode ? "SUBGRAPH TRACE" : "Editing macro"}</span>
               <span className="text-indigo-600 dark:text-indigo-400 font-bold">› {subgraphStack[subgraphStack.length - 1].label}</span>
-              <span className="text-[9px] text-amber-600 dark:text-amber-400 font-semibold">(exit to save it back)</span>
+              {!inTraceMode && <span className="text-[9px] text-amber-600 dark:text-amber-400 font-semibold">(exit to save it back)</span>}
             </div>
             <button
               type="button"

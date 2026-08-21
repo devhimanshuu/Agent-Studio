@@ -476,9 +476,28 @@ export class GraphInterpreter {
     const resolvedInput = resolveTemplate(data.inputTemplate ?? {}, ctx);
     const executionInput = { ...(resolvedInput as Record<string, unknown>), ...(data.action ? { action: data.action } : {}) };
 
+    // Emit tool call start event
+    this.emit(ctx, {
+      type: "tool:call:start",
+      nodeId: node.id,
+      toolName,
+      action: data.action,
+      input: executionInput,
+    });
+
     const started = Date.now();
     const output = await this.deps.toolRegistry.executeTool(toolName, executionInput);
     const durationMs = Date.now() - started;
+
+    // Emit tool call end event
+    this.emit(ctx, {
+      type: "tool:call:end",
+      nodeId: node.id,
+      toolName,
+      status: "SUCCESS",
+      output,
+      durationMs,
+    });
 
     const record: ToolCallRecord = {
       stepNumber: ctx.stepCounter,
@@ -542,6 +561,16 @@ export class GraphInterpreter {
       outgoing.find((e) => !e.label) ??
       outgoing[0];
     ctx.results[node.id] = { decision: chosen?.label ?? chosen?.target ?? null };
+
+    // Emit router decision event
+    this.emit(ctx, {
+      type: "router:decision",
+      nodeId: node.id,
+      mode: data.routerMode ?? "deterministic",
+      chosenLabel: chosen?.label ?? chosen?.target ?? "",
+      reason: data.routerMode === "ai" ? `AI chose: ${decision}` : `condition: ${data.condition}`,
+    });
+
     await this.persistStep(ctx, node, "SUCCESS", { condition: data.condition ?? null, decision: chosen?.label ?? null });
     this.emitNodeEnd(ctx, node, "SUCCESS", `→ ${chosen?.label ?? chosen?.target}`);
     return chosen?.target ?? "ended";
@@ -580,6 +609,12 @@ export class GraphInterpreter {
         });
         if (matched) {
           ctx.results[node.id] = { approved: true, autoApproved: true };
+          // Emit approval resolved event (auto-approved)
+          this.emit(ctx, {
+            type: "approval:resolved",
+            nodeId: node.id,
+            decision: "APPROVED",
+          });
           await this.persistStep(ctx, node, "SUCCESS", { approved: true, autoApproved: true });
           this.emitNodeEnd(ctx, node, "SUCCESS", "auto-approved by condition");
           await this.deps.logRepo.log({
@@ -608,6 +643,12 @@ export class GraphInterpreter {
     const existing = await this.deps.approvalRepo.findByIdempotencyKey(idempotencyKey);
     if (existing?.status === "APPROVED") {
       ctx.results[node.id] = { approved: true };
+      // Emit approval resolved event
+      this.emit(ctx, {
+        type: "approval:resolved",
+        nodeId: node.id,
+        decision: "APPROVED",
+      });
       await this.persistStep(ctx, node, "SUCCESS", { approved: true, resumed: true });
       this.emitNodeEnd(ctx, node, "SUCCESS", "approved");
       return this.firstSuccessor(outgoing, node);
@@ -652,6 +693,14 @@ export class GraphInterpreter {
       }, escalateInMs).unref?.();
     }
 
+    // Emit approval requested event
+    this.emit(ctx, {
+      type: "approval:requested",
+      nodeId: node.id,
+      reason: data.approvalReason ?? undefined,
+      action,
+    });
+
     await this.persistStep(ctx, node, "AWAITING_APPROVAL", { action, nodeId: node.id });
     this.emitNodeEnd(ctx, node, "AWAITING_APPROVAL", `awaiting approval for ${action}`);
     executionEventBus.publish(ctx.executionId, { type: "execution:status", status: "PAUSED_FOR_APPROVAL" });
@@ -686,6 +735,16 @@ export class GraphInterpreter {
     const shouldExit = iteration > maxIterations;
     const chosen = shouldExit ? exitEdge : bodyEdge;
     ctx.results[node.id] = { iteration, exited: shouldExit };
+
+    // Emit loop iteration event
+    this.emit(ctx, {
+      type: "loop:iteration",
+      nodeId: node.id,
+      iteration,
+      maxIterations,
+      exited: shouldExit,
+    });
+
     await this.persistStep(ctx, node, "SUCCESS", { iteration, exited: shouldExit });
     this.emitNodeEnd(ctx, node, "SUCCESS", shouldExit ? `exit (${iteration - 1}/${maxIterations})` : `iteration ${iteration}/${maxIterations}`);
 
@@ -721,9 +780,29 @@ export class GraphInterpreter {
       const outputs: unknown[] = [];
       await Promise.all(
         items.map(async (item, idx) => {
+          // Emit parallel branch start event
+          this.emit(ctx, {
+            type: "parallel:branch",
+            nodeId: node.id,
+            branchNodeId: workerNodeId,
+            status: "started",
+            mode: "map",
+            branchIndex: idx,
+          });
+
           const sub = this.childCtx(ctx, item, `${data.mapField}[${idx}]`);
           await this.walkLinear(sub, workerNodeId);
           outputs[idx] = sub.results[workerNodeId];
+
+          // Emit parallel branch end event
+          this.emit(ctx, {
+            type: "parallel:branch",
+            nodeId: node.id,
+            branchNodeId: workerNodeId,
+            status: "completed",
+            mode: "map",
+            branchIndex: idx,
+          });
         })
       );
       ctx.results[node.id] = { outputs, count: outputs.length };
@@ -738,9 +817,27 @@ export class GraphInterpreter {
     const branchOutputs: Record<string, unknown> = {};
     await Promise.all(
       branchTargets.map(async (targetId) => {
+        // Emit parallel branch start event
+        this.emit(ctx, {
+          type: "parallel:branch",
+          nodeId: node.id,
+          branchNodeId: targetId,
+          status: "started",
+          mode: "fan-out",
+        });
+
         const sub = this.childCtx(ctx, undefined, node.id);
         await this.walkLinear(sub, targetId);
         branchOutputs[targetId] = sub.results[targetId];
+
+        // Emit parallel branch end event
+        this.emit(ctx, {
+          type: "parallel:branch",
+          nodeId: node.id,
+          branchNodeId: targetId,
+          status: "completed",
+          mode: "fan-out",
+        });
       })
     );
     ctx.results[node.id] = { branches: branchOutputs };
@@ -928,7 +1025,28 @@ export class GraphInterpreter {
       },
     ];
 
+    // Emit LLM call start event
+    this.emit(ctx, {
+      type: "llm:call:start",
+      nodeId: node.id,
+      model: ctx.llm.name,
+      promptPreview: systemPrompt.slice(0, 120),
+    });
+
+    const llmStarted = Date.now();
     const completion = await ctx.llm.complete(messages, { temperature: 0.2, maxTokens: 800 });
+    const llmDurationMs = Date.now() - llmStarted;
+
+    // Emit LLM call end event
+    this.emit(ctx, {
+      type: "llm:call:end",
+      nodeId: node.id,
+      status: "SUCCESS",
+      model: ctx.llm.name,
+      inputTokens: completion.usage?.inputTokens,
+      outputTokens: completion.usage?.outputTokens,
+      durationMs: llmDurationMs,
+    });
 
     // Budget guardrail: accumulate provider-reported usage and stop the run
     // with the offending node named when the global budget is exceeded.

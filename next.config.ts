@@ -23,7 +23,25 @@ const nextConfig: NextConfig = {
     "@modelcontextprotocol/sdk",
     "@prisma/client",
     "prisma",
+    "pyodide",
   ],
+  webpack: (config, { isServer }) => {
+    // Exclude Node.js modules from client bundle
+    if (!isServer) {
+      config.resolve = config.resolve || {};
+      config.resolve.alias = config.resolve.alias || {};
+      // Mark node: modules as external for client builds
+      config.externals = config.externals || [];
+      if (Array.isArray(config.externals)) {
+        config.externals.push({
+          "node:vm": "commonjs node:vm",
+          "node:child_process": "commonjs node:child_process",
+          "node:util": "commonjs node:util",
+        });
+      }
+    }
+    return config;
+  },
   async headers() {
     return [
       {
