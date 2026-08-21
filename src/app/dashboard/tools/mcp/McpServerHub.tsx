@@ -459,7 +459,14 @@ export function McpServerHub() {
         </div>
 
         {hubCatalogMode === "DIRECTORY" ? (
-          <McpDirectoryBrowser onMount={handleMountFromDirectory} mountedServerIds={(servers ?? []).map((s) => s.name.toLowerCase().replace(/[^a-z0-9]/g, "-"))} />
+          <McpDirectoryBrowser
+            onMount={handleMountFromDirectory}
+            mountedServerIds={[
+              ...(servers ?? []).map((s) => s.id),
+              ...(servers ?? []).map((s) => s.name.toLowerCase().replace(/[^a-z0-9]/g, "-")),
+              ...(servers ?? []).map((s) => s.name.toLowerCase()),
+            ]}
+          />
         ) : (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">

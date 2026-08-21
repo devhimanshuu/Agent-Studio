@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   Search,
   X,
@@ -26,10 +26,87 @@ import {
   Sparkles,
   LayoutGrid,
   List,
+  Trash2,
 } from "lucide-react";
 import { clsx } from "clsx";
+import { useQueryClient } from "@tanstack/react-query";
 import { ItemIcon } from "@/components/common/ItemIcon";
 import { AgentSkill, SkillCategory } from "@/types/agent-studio-registry";
+import { toast } from "@/stores/toastStore";
+
+/** Persistent map of marketplace skill IDs → database Skill IDs */
+const INSTALLED_MAP_KEY = "skill-installed-map";
+
+function loadInstalledMap(): Map<string, string> {
+  if (typeof window === "undefined") return new Map();
+  try {
+    const raw = localStorage.getItem(INSTALLED_MAP_KEY);
+    if (!raw) return new Map();
+    return new Map(Object.entries(JSON.parse(raw)));
+  } catch {
+    return new Map();
+  }
+}
+
+function saveInstalledMap(map: Map<string, string>) {
+  try {
+    localStorage.setItem(INSTALLED_MAP_KEY, JSON.stringify(Object.fromEntries(map)));
+  } catch {}
+}
+
+/**
+ * Build human-readable step-by-step instructions from the marketplace skill's steps.
+ */
+function buildInstructions(skill: AgentSkill): string {
+  const lines = [
+    `Skill: ${skill.name}`,
+    `Source: ${skill.source}`,
+    `Category: ${skill.category} | Difficulty: ${skill.difficulty}`,
+    "",
+    "## Instructions",
+    skill.description,
+    "",
+    "## Workflow Steps",
+  ];
+  for (const step of skill.steps) {
+    lines.push(`${step.order}. ${step.description}${step.requiredTool ? ` (tool: ${step.requiredTool})` : ""}`);
+  }
+  return lines.join("\n");
+}
+
+/**
+ * Build the allowedTools list. We combine:
+ *  - requiredTools from the marketplace skill metadata
+ *  - mcp_<serverId>_* wildcard-style entries for each mounted server
+ * The permission checker will match these at execution time.
+ */
+function buildAllowedTools(skill: AgentSkill, mountedServerIds: string[]): string[] {
+  const tools = new Set<string>();
+
+  // Add explicitly required tools from the skill definition
+  if (skill.requiredTools?.length) {
+    for (const t of skill.requiredTools) {
+      if (t && t.trim()) tools.add(t.trim());
+    }
+  }
+
+  // Add MCP tool entries for each mounted server
+  for (const serverId of mountedServerIds) {
+    // Generic MCP tool entries — the agent will discover actual tools at runtime
+    tools.add(`mcp_${serverId}_*`);
+  }
+
+  // Also add wildcard "*" so skill runtime can invoke any mounted tool for this skill
+  tools.add("*");
+
+  // Fallback: if we still have no tools, add a generic one from the skill name
+  if (tools.size === 0) {
+    const safeName = skill.name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+    tools.add(`mcp_${safeName}`);
+  }
+
+  return Array.from(tools).slice(0, 20);
+}
 
 const CATEGORIES: { id: SkillCategory | "ALL"; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: "ALL", label: "ALL", icon: Sparkles },
@@ -87,6 +164,7 @@ const SOURCE_COLORS: Record<string, string> = {
 };
 
 export function SkillsMarketplace() {
+  const queryClient = useQueryClient();
   const [skills, setSkills] = useState<AgentSkill[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -96,6 +174,7 @@ export function SkillsMarketplace() {
   const [source, setSource] = useState<string>("ALL");
   const [category, setCategory] = useState<SkillCategory | "ALL">("ALL");
   const [difficulty, setDifficulty] = useState("ALL");
+  const [showInstalledOnly, setShowInstalledOnly] = useState(false);
   const [detailSkill, setDetailSkill] = useState<AgentSkill | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
@@ -114,14 +193,8 @@ export function SkillsMarketplace() {
     } catch {}
   };
 
-  const [installedIds, setInstalledIds] = useState<Set<string>>(() => {
-    if (typeof window === "undefined") return new Set();
-    try {
-      return new Set(JSON.parse(localStorage.getItem("skill-installed") || "[]"));
-    } catch {
-      return new Set();
-    }
-  });
+  // Map of marketplaceSkillId → databaseSkillId
+  const [installedMap, setInstalledMap] = useState<Map<string, string>>(loadInstalledMap);
 
   const PAGE_SIZE = 50;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
@@ -166,108 +239,275 @@ export function SkillsMarketplace() {
     return () => clearTimeout(timer);
   }, [search, source, category, difficulty]);
 
+  // Client-side installed filter
+  const filteredSkills = useMemo(() => {
+    if (!showInstalledOnly) return skills;
+    return skills.filter((s) => installedMap.has(s.id));
+  }, [skills, showInstalledOnly, installedMap]);
+
   const [installing, setInstalling] = useState<string | null>(null);
 
-  const handleInstall = async (skill: AgentSkill) => {
-    const skillId = skill.id;
-    const isAlreadyInstalled = installedIds.has(skillId);
+  /**
+   * Mount required MCP servers and return the IDs of servers that were
+   * mounted or already connected.
+   */
+  const mountRequiredServers = useCallback(async (skill: AgentSkill): Promise<string[]> => {
+    const mountedServerIds: string[] = [];
+    if (!skill.requiredServers || skill.requiredServers.length === 0) return mountedServerIds;
 
-    // Toggle off if already installed
-    if (isAlreadyInstalled) {
-      setInstalledIds((prev) => {
-        const next = new Set(prev);
-        next.delete(skillId);
-        try { localStorage.setItem("skill-installed", JSON.stringify(Array.from(next))); } catch {}
-        return next;
-      });
-      return;
-    }
+    // Fetch existing servers once
+    const existingRes = await fetch("/api/mcp/servers").then((r) => r.json());
+    const existingServers = existingRes.data || [];
 
-    // ── Deep install: auto-mount MCP server + create Skill with allowedTools ──
-    try {
-      setInstalling(skillId);
+    const serverNamesToMount =
+      skill.requiredServers && skill.requiredServers.length > 0
+        ? skill.requiredServers
+        : [
+            skill.name.replace(/ (Automation|Toolkit|Skill)$/i, ""),
+            ...(skill.tags || []).slice(0, 2),
+          ].filter(Boolean);
 
-      // 1. If the skill requires MCP servers, auto-mount them
-      if (skill.requiredServers && skill.requiredServers.length > 0) {
-        for (const serverName of skill.requiredServers) {
-          // Try to find an existing connected server by name
-          const existingRes = await fetch("/api/mcp/servers").then((r) => r.json());
-          const existingServers = existingRes.data || [];
-          const alreadyConnected = existingServers.find((s: any) =>
-            s.name.toLowerCase().includes(serverName.toLowerCase().replace(/ \(composio\)/gi, "")) &&
-            s.status === "CONNECTED"
-          );
+    for (const serverName of serverNamesToMount) {
+      // Check if a matching server is already connected
+      const cleanServerName = serverName.toLowerCase().replace(/ \((composio|arcade)\)/gi, "");
+      const alreadyConnected = existingServers.find((s: any) =>
+        s.name.toLowerCase().includes(cleanServerName) &&
+        (s.status === "CONNECTED" || s.status === "READY")
+      );
 
-          if (!alreadyConnected && skill.source === "composio") {
-            // Auto-mount Composio toolkit
-            const slug = serverName.toLowerCase().replace(/ \(composio\)/gi, "").replace(/ /g, "-");
-            try {
-              const sessionRes = await fetch("/api/mcp/composio", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ toolkits: [slug] }),
-              }).then((r) => r.json());
-
-              if (sessionRes.success && sessionRes.data?.mcpUrl) {
-                await fetch("/api/mcp/servers", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    name: `${serverName} [Composio]`,
-                    transport: "SSE",
-                    endpointUrl: sessionRes.data.mcpUrl,
-                    headers: sessionRes.data.mcpHeaders || {},
-                    connectOnCreate: true,
-                  }),
-                });
-              }
-            } catch (err) {
-              console.warn("[Marketplace] Failed to auto-mount Composio server:", err);
-            }
-          } else if (!alreadyConnected && skill.source !== "composio") {
-            // For non-Composio skills, try the directory mount flow
-            const dirRes = await fetch(`/api/mcp/directory?q=${encodeURIComponent(serverName)}&source=ALL`).then((r) => r.json());
-            const match = (dirRes.data || []).find((s: any) =>
-              s.name.toLowerCase().includes(serverName.toLowerCase())
-            );
-            if (match && match.endpointUrl) {
-              await fetch("/api/mcp/servers", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  name: match.name,
-                  transport: match.transport || "SSE",
-                  endpointUrl: match.endpointUrl,
-                  command: match.command,
-                  connectOnCreate: true,
-                }),
-              });
-            }
-          }
-        }
+      if (alreadyConnected) {
+        mountedServerIds.push(alreadyConnected.id);
+        continue;
       }
 
-      // 2. Mark as installed in localStorage
-      setInstalledIds((prev) => {
-        const next = new Set(prev);
-        next.add(skillId);
-        try { localStorage.setItem("skill-installed", JSON.stringify(Array.from(next))); } catch {}
+      // ── Composio auto-mount ──
+      if (skill.source === "composio") {
+        const slug = cleanServerName.replace(/ /g, "-");
+        try {
+          const sessionRes = await fetch("/api/mcp/composio", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ toolkits: [slug] }),
+          }).then((r) => r.json());
+
+          if (sessionRes.success && sessionRes.data?.mcpUrl) {
+            const serverRes = await fetch("/api/mcp/servers", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: `${serverName} [Composio]`,
+                transport: "SSE",
+                endpointUrl: sessionRes.data.mcpUrl,
+                headers: sessionRes.data.mcpHeaders || {},
+                connectOnCreate: true,
+              }),
+            }).then((r) => r.json());
+
+            if (serverRes.success && serverRes.data?.id) {
+              mountedServerIds.push(serverRes.data.id);
+            }
+          }
+        } catch (err) {
+          console.warn("[Marketplace] Failed to auto-mount Composio server:", err);
+        }
+      } else if (skill.source === "arcade") {
+        // ── Arcade auto-mount ──
+        const slug = cleanServerName.replace(/ /g, "-");
+        try {
+          const sessionRes = await fetch("/api/mcp/arcade", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ integration: slug }),
+          }).then((r) => r.json());
+
+          if (sessionRes.success && sessionRes.data?.mcpUrl) {
+            const serverRes = await fetch("/api/mcp/servers", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: `${serverName} [Arcade]`,
+                transport: "SSE",
+                endpointUrl: sessionRes.data.mcpUrl,
+                headers: sessionRes.data.mcpHeaders || {},
+                connectOnCreate: true,
+              }),
+            }).then((r) => r.json());
+
+            if (serverRes.success && serverRes.data?.id) {
+              mountedServerIds.push(serverRes.data.id);
+            }
+          }
+        } catch (err) {
+          console.warn("[Marketplace] Failed to auto-mount Arcade server:", err);
+        }
+      } else {
+        // ── Smithery, Glama, MCP.SO, Awesome-MCP: search directory for a matching server ──
+        try {
+          const dirRes = await fetch(`/api/mcp/directory?q=${encodeURIComponent(cleanServerName)}&source=ALL`).then((r) => r.json());
+          const match = (dirRes.data || []).find((s: any) =>
+            s.name.toLowerCase().includes(cleanServerName) ||
+            cleanServerName.includes(s.name.toLowerCase().replace(/ mcp$/i, ""))
+          );
+
+          if (match) {
+            const transport = match.endpointUrl ? "SSE" : "STDIO";
+            const command = match.command || (transport === "STDIO" ? `npx -y ${match.id.replace(/^pub-/, "")}` : undefined);
+            const body: Record<string, unknown> = {
+              name: match.name,
+              transport,
+              connectOnCreate: true,
+            };
+            if (transport === "SSE" && match.endpointUrl) body.endpointUrl = match.endpointUrl;
+            if (transport === "STDIO" && command) body.command = command;
+
+            const serverRes = await fetch("/api/mcp/servers", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+            }).then((r) => r.json());
+
+            if (serverRes.success && serverRes.data?.id) {
+              mountedServerIds.push(serverRes.data.id);
+            }
+          }
+        } catch (err) {
+          console.warn("[Marketplace] Failed to auto-mount server:", err);
+        }
+      }
+    }
+
+    return mountedServerIds;
+  }, []);
+
+  /**
+   * Full install: mount MCP servers → create Skill in DB → update state.
+   */
+  // Prune any stale installedMap entries against active DB skills on mount
+  useEffect(() => {
+    fetch("/api/skills")
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success && Array.isArray(res.data?.items)) {
+          const activeDbSkillIds = new Set(res.data.items.map((s: any) => s.id));
+          setInstalledMap((prev) => {
+            let changed = false;
+            const next = new Map(prev);
+            for (const [mId, dbId] of next.entries()) {
+              if (!activeDbSkillIds.has(dbId)) {
+                next.delete(mId);
+                changed = true;
+              }
+            }
+            if (changed) saveInstalledMap(next);
+            return changed ? next : prev;
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleInstall = useCallback(async (skill: AgentSkill) => {
+    const marketplaceId = skill.id;
+
+    // Already installed — do nothing (uninstall is a separate action)
+    if (installedMap.has(marketplaceId)) return;
+
+    try {
+      setInstalling(marketplaceId);
+
+      // 1. Mount required MCP servers
+      const mountedServerIds = await mountRequiredServers(skill);
+
+      // 2. Create a real Skill record in the database via POST /api/skills
+      const allowedTools = buildAllowedTools(skill, mountedServerIds);
+      const safeName = (skill.name?.trim() || "Marketplace Skill").slice(0, 100);
+      const validName = safeName.length >= 2 ? safeName : `${safeName} Tool`;
+      const rawPurpose = skill.description?.trim() || `Marketplace skill: ${validName}`;
+      const safePurpose = (rawPurpose.length >= 5 ? rawPurpose : `Marketplace skill: ${validName}`).slice(0, 1000);
+      const safeInstructions = buildInstructions(skill).slice(0, 20000);
+
+      const createRes = await fetch("/api/skills", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: validName,
+          purpose: safePurpose,
+          instructions: safeInstructions,
+          allowedTools,
+          maxExecutionSteps: Math.max(10, (skill.steps?.length || 1) * 3),
+          notes: `Installed from ${skill.source} marketplace. ID: ${marketplaceId}`,
+        }),
+      });
+
+      if (!createRes.ok) {
+        const errBody = await createRes.json().catch(() => ({}));
+        throw new Error(errBody.error || `Failed to create skill (HTTP ${createRes.status})`);
+      }
+
+      const createJson = await createRes.json();
+      if (!createJson.success || !createJson.data?.id) {
+        throw new Error("Failed to create skill record");
+      }
+
+      const dbSkillId = createJson.data.id as string;
+
+      // 3. Persist the marketplace→DB mapping
+      setInstalledMap((prev) => {
+        const next = new Map(prev);
+        next.set(marketplaceId, dbSkillId);
+        saveInstalledMap(next);
         return next;
       });
 
-      setInstalling(null);
+      // 4. Invalidate skills query so the Studio tab updates immediately
+      queryClient.invalidateQueries({ queryKey: ["skills"] });
+
+      toast.success("Skill installed", `${validName} is now available in Skills Studio`);
     } catch (err) {
       console.error("[Marketplace] Install failed:", err);
+      toast.error("Install failed", err instanceof Error ? err.message : "Unknown error");
+    } finally {
       setInstalling(null);
-      // Still mark as installed so user can retry
-      setInstalledIds((prev) => {
-        const next = new Set(prev);
-        next.add(skillId);
-        try { localStorage.setItem("skill-installed", JSON.stringify(Array.from(next))); } catch {}
+    }
+  }, [installedMap, mountRequiredServers, queryClient]);
+
+  /**
+   * Uninstall: delete the Skill from DB and remove from installed map.
+   */
+  const handleUninstall = useCallback(async (skill: AgentSkill) => {
+    const marketplaceId = skill.id;
+    const dbSkillId = installedMap.get(marketplaceId);
+    if (!dbSkillId) return;
+
+    try {
+      setInstalling(marketplaceId);
+
+      // Delete the skill from the database (allow 404 if already removed elsewhere)
+      const delRes = await fetch(`/api/skills/${dbSkillId}`, { method: "DELETE" });
+      if (!delRes.ok && delRes.status !== 404) {
+        const errBody = await delRes.json().catch(() => ({}));
+        throw new Error(errBody.error || `Failed to delete skill (HTTP ${delRes.status})`);
+      }
+
+      // Remove from the installed map
+      setInstalledMap((prev) => {
+        const next = new Map(prev);
+        next.delete(marketplaceId);
+        saveInstalledMap(next);
         return next;
       });
+
+      // Invalidate skills query so the Studio tab updates
+      queryClient.invalidateQueries({ queryKey: ["skills"] });
+
+      toast.success("Skill uninstalled", `${skill.name} has been removed`);
+    } catch (err) {
+      console.error("[Marketplace] Uninstall failed:", err);
+      toast.error("Uninstall failed", err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setInstalling(null);
     }
-  };
+  }, [installedMap, queryClient]);
 
   return (
     <div className="space-y-5">
@@ -342,7 +582,7 @@ export function SkillsMarketplace() {
           )}
         </div>
 
-        {/* Source Pills */}
+        {/* Source Pills + Installed Filter */}
         <div className="flex flex-wrap items-center gap-1.5 pt-1">
           <span className="text-[9px] font-mono text-slate-500 font-semibold">SOURCE:</span>
           {SOURCES.map((src) => {
@@ -360,9 +600,26 @@ export function SkillsMarketplace() {
                 )}
               >
                 {src.label}
-              </button>
-            );
+              </button>              )
+            ;
           })}
+          <div className="w-px h-4 bg-slate-200 dark:bg-indigo-900/50 mx-0.5" />
+          <button
+            type="button"
+            onClick={() => setShowInstalledOnly((p) => !p)}
+            className={clsx(
+              "inline-flex items-center gap-1 px-2 py-1 rounded text-[9px] font-mono font-semibold uppercase tracking-wider border transition-all cursor-pointer",
+              showInstalledOnly
+                ? "border-emerald-500 bg-emerald-600 text-white shadow-sm"
+                : "border-slate-200 dark:border-indigo-900/50 bg-white/70 dark:bg-black/40 text-slate-500 dark:text-slate-400 hover:border-emerald-400"
+            )}
+          >
+            <Check className="h-3 w-3" />
+            INSTALLED
+            {installedMap.size > 0 && (
+              <span className="opacity-75 font-normal">({installedMap.size})</span>
+            )}
+          </button>
         </div>
 
         {/* Category Pills */}
@@ -431,8 +688,8 @@ export function SkillsMarketplace() {
           {viewMode === "grid" ? (
             /* ────────────── Grid / Card View ────────────── */
             <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {skills.map((skill) => {
-                const isInstalled = installedIds.has(skill.id);
+              {filteredSkills.map((skill) => {
+                const isInstalled = installedMap.has(skill.id);
                 const catColor = CATEGORY_COLORS[skill.category] || CATEGORY_COLORS.PRODUCTIVITY;
                 const diffColor = DIFFICULTY_COLORS[skill.difficulty] || DIFFICULTY_COLORS.BEGINNER;
                 const srcColor = SOURCE_COLORS[skill.source] || SOURCE_COLORS.glama;
@@ -510,24 +767,40 @@ export function SkillsMarketplace() {
                       <span className="text-[8px] text-slate-400">{skill.steps.length} steps</span>
                     </div>
 
-                    {/* Install Button */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleInstall(skill);
-                      }}
-                      disabled={installing === skill.id}
-                      className={clsx(
-                        "w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider transition-all cursor-pointer",
-                        installing === skill.id ? "opacity-60 cursor-wait" : "",
-                        isInstalled
-                          ? "border border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300"
-                          : "border border-indigo-500 bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm shadow-indigo-500/25 active:scale-95"
-                      )}
-                    >
-                      {isInstalled ? <><Check className="h-3 w-3" /> INSTALLED</> : <><Plus className="h-3 w-3" /> INSTALL SKILL</>}
-                    </button>
+                    {/* Install / Uninstall Buttons */}
+                    {isInstalled ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleUninstall(skill);
+                        }}
+                        disabled={installing === skill.id}
+                        className={clsx(
+                          "w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider transition-all cursor-pointer",
+                          installing === skill.id ? "opacity-60 cursor-wait" : "",
+                          "border border-red-300 dark:border-red-500/40 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-950/60"
+                        )}
+                      >
+                        {installing === skill.id ? <><Loader2 className="h-3 w-3 animate-spin" /> REMOVING...</> : <><Trash2 className="h-3 w-3" /> UNINSTALL</>}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleInstall(skill);
+                        }}
+                        disabled={installing === skill.id}
+                        className={clsx(
+                          "w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider transition-all cursor-pointer",
+                          installing === skill.id ? "opacity-60 cursor-wait" : "",
+                          "border border-indigo-500 bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm shadow-indigo-500/25 active:scale-95"
+                        )}
+                      >
+                        {installing === skill.id ? <><Loader2 className="h-3 w-3 animate-spin" /> INSTALLING...</> : <><Plus className="h-3 w-3" /> INSTALL SKILL</>}
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -535,8 +808,8 @@ export function SkillsMarketplace() {
           ) : (
             /* ────────────── Row / List View ────────────── */
             <div ref={gridRef} className="space-y-2.5">
-              {skills.map((skill) => {
-                const isInstalled = installedIds.has(skill.id);
+              {filteredSkills.map((skill) => {
+                const isInstalled = installedMap.has(skill.id);
                 const catColor = CATEGORY_COLORS[skill.category] || CATEGORY_COLORS.PRODUCTIVITY;
                 const diffColor = DIFFICULTY_COLORS[skill.difficulty] || DIFFICULTY_COLORS.BEGINNER;
                 const srcColor = SOURCE_COLORS[skill.source] || SOURCE_COLORS.glama;
@@ -608,23 +881,39 @@ export function SkillsMarketplace() {
                         </span>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleInstall(skill);
-                        }}
-                        disabled={installing === skill.id}
-                        className={clsx(
-                          "inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider transition-all cursor-pointer shrink-0 min-w-[90px]",
-                          installing === skill.id ? "opacity-60 cursor-wait" : "",
-                          isInstalled
-                            ? "border border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300"
-                            : "border border-indigo-500 bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm shadow-indigo-500/25 active:scale-95"
-                        )}
-                      >
-                        {isInstalled ? <><Check className="h-3 w-3" /> INSTALLED</> : <><Plus className="h-3 w-3" /> INSTALL</>}
-                      </button>
+                      {isInstalled ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUninstall(skill);
+                          }}
+                          disabled={installing === skill.id}
+                          className={clsx(
+                            "inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider transition-all cursor-pointer shrink-0 min-w-[90px]",
+                            installing === skill.id ? "opacity-60 cursor-wait" : "",
+                            "border border-red-300 dark:border-red-500/40 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-950/60"
+                          )}
+                        >
+                          {installing === skill.id ? <><Loader2 className="h-3 w-3 animate-spin" /> ...</> : <><Trash2 className="h-3 w-3" /> REMOVE</>}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleInstall(skill);
+                          }}
+                          disabled={installing === skill.id}
+                          className={clsx(
+                            "inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider transition-all cursor-pointer shrink-0 min-w-[90px]",
+                            installing === skill.id ? "opacity-60 cursor-wait" : "",
+                            "border border-indigo-500 bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm shadow-indigo-500/25 active:scale-95"
+                          )}
+                        >
+                          {installing === skill.id ? <><Loader2 className="h-3 w-3 animate-spin" /> ...</> : <><Plus className="h-3 w-3" /> INSTALL</>}
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -714,12 +1003,12 @@ export function SkillsMarketplace() {
       )}
 
       {/* Empty State */}
-      {!loading && !error && skills.length === 0 && (
+      {!loading && !error && filteredSkills.length === 0 && (
         <div className="text-center py-12">
           <Sparkles className="h-8 w-8 text-indigo-400 mx-auto" />
           <p className="text-xs font-mono font-semibold text-slate-800 dark:text-slate-200 mt-3">NO SKILLS FOUND</p>
           <p className="text-[10px] font-mono text-slate-500 mt-1">
-            No skills matching &quot;{search}&quot; in this category.
+            {showInstalledOnly ? "No installed skills match this filter." : `No skills matching "${search}" in this category.`}
           </p>
         </div>
       )}
@@ -728,8 +1017,8 @@ export function SkillsMarketplace() {
       {detailSkill && (
         <SkillDetailModal
           skill={detailSkill}
-          isInstalled={installedIds.has(detailSkill.id)}
-          onInstall={() => handleInstall(detailSkill)}
+          isInstalled={installedMap.has(detailSkill.id)}
+          onInstall={() => installedMap.has(detailSkill.id) ? handleUninstall(detailSkill) : handleInstall(detailSkill)}
           onClose={() => setDetailSkill(null)}
         />
       )}
@@ -885,18 +1174,23 @@ function SkillDetailModal({
           >
             CLOSE
           </button>
-          <button
-            type="button"
-            onClick={onInstall}
-            className={clsx(
-              "inline-flex items-center gap-1.5 px-4 py-2 rounded border text-[10px] font-mono font-semibold uppercase tracking-wider transition-all cursor-pointer",
-              isInstalled
-                ? "border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300"
-                : "border-indigo-500 bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm shadow-indigo-500/25 active:scale-95"
-            )}
-          >
-            {isInstalled ? <><Check className="h-3 w-3" /> INSTALLED</> : <><Plus className="h-3 w-3" /> INSTALL SKILL</>}
-          </button>
+          {isInstalled ? (
+            <button
+              type="button"
+              onClick={onInstall}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded border text-[10px] font-mono font-semibold uppercase tracking-wider transition-all cursor-pointer border-red-300 dark:border-red-500/40 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-950/60"
+            >
+              <Trash2 className="h-3 w-3" /> UNINSTALL
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onInstall}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded border text-[10px] font-mono font-semibold uppercase tracking-wider transition-all cursor-pointer border-indigo-500 bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm shadow-indigo-500/25 active:scale-95"
+            >
+              <Plus className="h-3 w-3" /> INSTALL SKILL
+            </button>
+          )}
         </div>
       </div>
     </div>

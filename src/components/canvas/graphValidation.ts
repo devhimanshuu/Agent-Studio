@@ -163,6 +163,29 @@ export function validateGraph(graph: AgentGraphDefinition | null | undefined): G
       case "approval":
         // Approval inside a parallel branch is rejected at runtime — flag early.
         break;
+      case "mcp_tool":
+        if (!d.mcpToolName) {
+          issues.push({ severity: "warning", message: `MCP Tool node "${d.label}" has no tool name selected.`, nodeId: n.id });
+        }
+        if (!d.mcpToolServer) {
+          issues.push({ severity: "warning", message: `MCP Tool node "${d.label}" has no server selected.`, nodeId: n.id });
+        }
+        break;
+      case "http":
+        if (!d.httpUrl) {
+          issues.push({ severity: "warning", message: `HTTP node "${d.label}" has no URL configured.`, nodeId: n.id });
+        }
+        break;
+      case "variable":
+        if (!d.varName) {
+          issues.push({ severity: "warning", message: `Variable node "${d.label}" has no variable name.`, nodeId: n.id });
+        }
+        break;
+      case "skill":
+        if (!d.skillId) {
+          issues.push({ severity: "warning", message: `Skill node "${d.label}" has no skill ID configured.`, nodeId: n.id });
+        }
+        break;
       default:
         break;
     }

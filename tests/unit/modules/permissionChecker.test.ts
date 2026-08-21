@@ -47,4 +47,26 @@ describe("PermissionChecker", () => {
     const verdict = checker.check("calculator", ["calculator"], registry, ["calculator"]);
     expect(verdict).toEqual({ ok: false, reason: "TOOL_BLOCKED", toolName: "calculator" });
   });
+
+  it("allows any tool when allowedTools contains '*'", () => {
+    const registry = makeRegistry();
+    expect(checker.check("calculator", ["*"], registry)).toEqual({ ok: true });
+  });
+
+  it("allows tool matching a prefix wildcard pattern like 'mcp_srv1_*'", () => {
+    const registry = new ToolRegistry();
+    registry.registerTool(makeTool({ name: "mcp_srv1_query", description: "Query" }));
+    expect(checker.check("mcp_srv1_query", ["mcp_srv1_*"], registry)).toEqual({ ok: true });
+    expect(checker.check("mcp_srv1_query", ["mcp_srv2_*"], registry)).toEqual({
+      ok: false,
+      reason: "TOOL_NOT_ALLOWED",
+      toolName: "mcp_srv1_query",
+    });
+  });
+
+  it("allows tool matching by base action name", () => {
+    const registry = new ToolRegistry();
+    registry.registerTool(makeTool({ name: "mcp_supabase_run_sql", description: "SQL" }));
+    expect(checker.check("mcp_supabase_run_sql", ["run_sql"], registry)).toEqual({ ok: true });
+  });
 });

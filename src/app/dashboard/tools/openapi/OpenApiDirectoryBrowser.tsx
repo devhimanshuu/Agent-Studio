@@ -21,6 +21,7 @@ import {
   Play,
   Copy,
   Check,
+  Plus,
   Code,
   Server,
   BookOpen,
@@ -88,12 +89,36 @@ export function OpenApiDirectoryBrowser({ onSelectSpecUrl }: OpenApiDirectoryBro
   const [totalCount, setTotalCount] = useState(0);
 
   const [loading, setLoading] = useState(true);
+  const [showInstalledOnly, setShowInstalledOnly] = useState(false);
+  const [installedSpecUrls, setInstalledSpecUrls] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      return new Set(JSON.parse(localStorage.getItem("openapi-installed") || "[]"));
+    } catch {
+      return new Set();
+    }
+  });
 
   // Detail Modal
   const [detailItem, setDetailItem] = useState<DirectoryApiItem | null>(null);
 
   // Container Ref for scrolling to top when page changes
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const toggleInstalled = useCallback((specUrl: string) => {
+    setInstalledSpecUrls((prev) => {
+      const next = new Set(prev);
+      if (next.has(specUrl)) {
+        next.delete(specUrl);
+      } else {
+        next.add(specUrl);
+      }
+      try {
+        localStorage.setItem("openapi-installed", JSON.stringify(Array.from(next)));
+      } catch {}
+      return next;
+    });
+  }, []);
 
   const fetchDirectory = useCallback(
     async (
@@ -151,6 +176,12 @@ export function OpenApiDirectoryBrowser({ onSelectSpecUrl }: OpenApiDirectoryBro
 
   const totalPages = useMemo(() => Math.ceil(totalCount / 24), [totalCount]);
 
+  // Client-side installed filter
+  const filteredItems = useMemo(() => {
+    if (!showInstalledOnly) return items;
+    return items.filter((item) => installedSpecUrls.has(item.specUrl));
+  }, [items, showInstalledOnly, installedSpecUrls]);
+
   return (
     <div ref={containerRef} className="space-y-4 w-full font-mono">
       {/* Directory Metrics Top Box */}
@@ -193,6 +224,21 @@ export function OpenApiDirectoryBrowser({ onSelectSpecUrl }: OpenApiDirectoryBro
             {p.label}
           </button>
         ))}
+        <div className="w-px h-5 bg-slate-200 dark:bg-indigo-950 mx-1" />
+        <button
+          type="button"
+          onClick={() => setShowInstalledOnly((p) => !p)}
+          className={clsx(
+            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-semibold whitespace-nowrap transition-all border uppercase cursor-pointer",
+            showInstalledOnly
+              ? "border-emerald-400 bg-emerald-600 text-white shadow-xs"
+              : "border-slate-300 dark:border-indigo-950/60 bg-white dark:bg-[#0a0a0a]/60 text-slate-700 dark:text-slate-400 hover:border-emerald-400"
+          )}
+        >
+          <Check className="h-3 w-3" />
+          INSTALLED
+          {installedSpecUrls.size > 0 && <span className="opacity-75">({installedSpecUrls.size})</span>}
+        </button>
       </div>
 
       {/* Search & Category Filter Bar */}
@@ -229,15 +275,17 @@ export function OpenApiDirectoryBrowser({ onSelectSpecUrl }: OpenApiDirectoryBro
         <div className="flex items-center justify-center py-20 text-slate-500 text-xs">
           <Loader2 className="w-4 h-4 animate-spin mr-2 text-indigo-500" /> SEARCHING APIS.GURU INDEX...
         </div>
-      ) : items.length === 0 ? (
+      ) : filteredItems.length === 0 ? (
         <div className="p-8 text-center border border-dashed border-slate-300 dark:border-indigo-900/60 rounded-md space-y-1 bg-white/40 dark:bg-[#08080c]/60">
           <p className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase">NO APIS FOUND</p>
-          <p className="text-[11px] text-slate-500">Try searching for a different keyword or provider name.</p>
+          <p className="text-[11px] text-slate-500">{showInstalledOnly ? "No installed APIs match this filter." : "Try searching for a different keyword or provider name."}</p>
         </div>
       ) : (
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {items.map((item) => (
+            {filteredItems.map((item) => {
+              const isInstalled = installedSpecUrls.has(item.specUrl);
+              return (
               <div
                 key={item.id}
                 onClick={() => setDetailItem(item)}
@@ -263,9 +311,16 @@ export function OpenApiDirectoryBrowser({ onSelectSpecUrl }: OpenApiDirectoryBro
                       </div>
                     </div>
 
-                    <span className="px-1.5 py-0.5 text-[8px] font-mono font-semibold rounded bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-indigo-950 uppercase shrink-0">
-                      OAS {item.openapiVer}
-                    </span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {isInstalled && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[7px] font-mono font-bold uppercase bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/50">
+                          <Check className="h-2.5 w-2.5" /> INSTALLED
+                        </span>
+                      )}
+                      <span className="px-1.5 py-0.5 text-[8px] font-mono font-semibold rounded bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-indigo-950 uppercase">
+                        OAS {item.openapiVer}
+                      </span>
+                    </div>
                   </div>
 
                   <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">
@@ -291,19 +346,22 @@ export function OpenApiDirectoryBrowser({ onSelectSpecUrl }: OpenApiDirectoryBro
                     Inspect Details <ArrowRight className="w-2.5 h-2.5" />
                   </span>
 
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelectSpecUrl(item.specUrl);
-                    }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-indigo-500 bg-indigo-600 text-white text-[10px] font-mono font-semibold uppercase tracking-wider hover:bg-indigo-500 shadow-xs transition-all cursor-pointer"
-                  >
-                    <Download className="w-3 h-3" /> 1-Click Import
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectSpecUrl(item.specUrl);
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1 rounded border border-indigo-500 bg-indigo-600 text-white text-[10px] font-mono font-semibold uppercase tracking-wider hover:bg-indigo-500 shadow-sm shadow-indigo-500/25 active:scale-95 transition-all cursor-pointer"
+                    >
+                      <Download className="w-3 h-3" /> IMPORT SPEC
+                    </button>
+                  </div>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
 
           {/* Proper Pagination */}

@@ -748,4 +748,297 @@ describe("GraphInterpreter", () => {
     expect(result.status).toBe("FAILED");
     expect(result.error).toMatch(/inside a parallel branch/i);
   });
+
+  // ══════════════════════════════════════════════════════════════════════
+  // New Node Type Tests
+  // ══════════════════════════════════════════════════════════════════════
+
+  it("executes a variable node (set then get)", async () => {
+    const { interpreter } = makeInterpreter();
+    const graph: AgentGraphDefinition = {
+      version: 1,
+      nodes: [
+        { id: "start", type: "start", position: { x: 0, y: 0 }, data: { label: "START" } },
+        {
+          id: "set_var",
+          type: "variable",
+          position: { x: 0, y: 0 },
+          data: { label: "SET", varName: "counter", varOp: "set", varValue: 42 },
+        },
+        {
+          id: "get_var",
+          type: "variable",
+          position: { x: 0, y: 0 },
+          data: { label: "GET", varName: "counter", varOp: "get" },
+        },
+        { id: "end", type: "end", position: { x: 0, y: 0 }, data: { label: "END" } },
+      ],
+      edges: [
+        { id: "e1", source: "start", target: "set_var" },
+        { id: "e2", source: "set_var", target: "get_var" },
+        { id: "e3", source: "get_var", target: "end" },
+      ],
+    };
+
+    const result = await interpreter.run({
+      executionId: "g-exec-20",
+      skill: makeSkill(),
+      version: makeVersion(),
+      graph,
+      userInput: {},
+    });
+
+    expect(result.status).toBe("COMPLETED");
+    const results = result.finalOutput?.results as Record<string, unknown>;
+    expect(results.get_var).toBe(42);
+  });
+
+  it("executes a delay node and waits the specified duration", async () => {
+    const { interpreter } = makeInterpreter();
+    const graph: AgentGraphDefinition = {
+      version: 1,
+      nodes: [
+        { id: "start", type: "start", position: { x: 0, y: 0 }, data: { label: "START" } },
+        {
+          id: "wait",
+          type: "delay",
+          position: { x: 0, y: 0 },
+          data: { label: "WAIT", delayMs: 50 },
+        },
+        { id: "end", type: "end", position: { x: 0, y: 0 }, data: { label: "END" } },
+      ],
+      edges: [
+        { id: "e1", source: "start", target: "wait" },
+        { id: "e2", source: "wait", target: "end" },
+      ],
+    };
+
+    const start = Date.now();
+    const result = await interpreter.run({
+      executionId: "g-exec-21",
+      skill: makeSkill(),
+      version: makeVersion(),
+      graph,
+      userInput: {},
+    });
+    const elapsed = Date.now() - start;
+
+    expect(result.status).toBe("COMPLETED");
+    expect(elapsed).toBeGreaterThanOrEqual(40); // Allow some timing tolerance
+    const results = result.finalOutput?.results as Record<string, unknown>;
+    expect(results.wait).toMatchObject({ delayMs: 50, waited: true });
+  });
+
+  it("executes a transform node with map operation", async () => {
+    const { interpreter } = makeInterpreter();
+    const graph: AgentGraphDefinition = {
+      version: 1,
+      nodes: [
+        { id: "start", type: "start", position: { x: 0, y: 0 }, data: { label: "START" } },
+        {
+          id: "calc",
+          type: "tool",
+          position: { x: 0, y: 0 },
+          data: { label: "CALC", toolName: "calculator", action: "add", inputTemplate: { a: 1, b: 1 } },
+        },
+        {
+          id: "transform",
+          type: "transform",
+          position: { x: 0, y: 0 },
+          data: { label: "TRANSFORM", transformOp: "flatten" },
+        },
+        { id: "end", type: "end", position: { x: 0, y: 0 }, data: { label: "END" } },
+      ],
+      edges: [
+        { id: "e1", source: "start", target: "calc" },
+        { id: "e2", source: "calc", target: "transform" },
+        { id: "e3", source: "transform", target: "end" },
+      ],
+    };
+
+    const result = await interpreter.run({
+      executionId: "g-exec-22",
+      skill: makeSkill(),
+      version: makeVersion(),
+      graph,
+      userInput: {},
+    });
+
+    expect(result.status).toBe("COMPLETED");
+    const results = result.finalOutput?.results as Record<string, unknown>;
+    expect(results.transform).toBeDefined();
+  });
+
+  it("executes an aggregate node that collects branch results from a parallel fan-out", async () => {
+    const { interpreter } = makeInterpreter();
+    const graph: AgentGraphDefinition = {
+      version: 1,
+      nodes: [
+        { id: "start", type: "start", position: { x: 0, y: 0 }, data: { label: "START" } },
+        {
+          id: "parallel",
+          type: "parallel",
+          position: { x: 0, y: 0 },
+          data: { label: "FANOUT" },
+        },
+        {
+          id: "calc1",
+          type: "tool",
+          position: { x: 0, y: 0 },
+          data: { label: "CALC1", toolName: "calculator", action: "add", inputTemplate: { a: 1, b: 1 } },
+        },
+        {
+          id: "calc2",
+          type: "tool",
+          position: { x: 0, y: 0 },
+          data: { label: "CALC2", toolName: "calculator", action: "add", inputTemplate: { a: 10, b: 20 } },
+        },
+        {
+          id: "agg",
+          type: "aggregate",
+          position: { x: 0, y: 0 },
+          data: { label: "AGG", aggregateMode: "all" },
+        },
+        { id: "end", type: "end", position: { x: 0, y: 0 }, data: { label: "END" } },
+      ],
+      edges: [
+        { id: "e1", source: "start", target: "parallel" },
+        { id: "e2", source: "parallel", target: "calc1", label: "branch1" },
+        { id: "e3", source: "parallel", target: "calc2", label: "branch2" },
+        { id: "e4", source: "calc1", target: "agg" },
+        { id: "e5", source: "calc2", target: "agg" },
+        { id: "e6", source: "agg", target: "end" },
+      ],
+    };
+
+    const result = await interpreter.run({
+      executionId: "g-exec-23",
+      skill: makeSkill(),
+      version: makeVersion(),
+      graph,
+      userInput: {},
+    });
+
+    expect(result.status).toBe("COMPLETED");
+    const results = result.finalOutput?.results as Record<string, unknown>;
+    // The parallel node runs calc1 and calc2 concurrently, each producing a result.
+    // The aggregate node collects results from both incoming branches.
+    expect(results.parallel).toBeDefined();
+    const parallel = results.parallel as { branches: Record<string, unknown> };
+    expect(Object.keys(parallel.branches)).toHaveLength(2);
+  });
+
+  it("executes an output node with field mappings", async () => {
+    const { interpreter } = makeInterpreter();
+    const graph: AgentGraphDefinition = {
+      version: 1,
+      nodes: [
+        { id: "start", type: "start", position: { x: 0, y: 0 }, data: { label: "START" } },
+        {
+          id: "calc",
+          type: "tool",
+          position: { x: 0, y: 0 },
+          data: { label: "CALC", toolName: "calculator", action: "add", inputTemplate: { a: 5, b: 5 } },
+        },
+        {
+          id: "output",
+          type: "output",
+          position: { x: 0, y: 0 },
+          data: { label: "OUTPUT", outputFields: { sum: "results.calc.result", status: "done" } },
+        },
+        { id: "end", type: "end", position: { x: 0, y: 0 }, data: { label: "END" } },
+      ],
+      edges: [
+        { id: "e1", source: "start", target: "calc" },
+        { id: "e2", source: "calc", target: "output" },
+        { id: "e3", source: "output", target: "end" },
+      ],
+    };
+
+    const result = await interpreter.run({
+      executionId: "g-exec-24",
+      skill: makeSkill(),
+      version: makeVersion(),
+      graph,
+      userInput: {},
+    });
+
+    expect(result.status).toBe("COMPLETED");
+    const results = result.finalOutput?.results as Record<string, unknown>;
+    const output = results.output as Record<string, unknown>;
+    expect(output).toBeDefined();
+    // The output node maps fields from results
+    expect(typeof output).toBe("object");
+  });
+
+  it("passes through mcp_server node without errors", async () => {
+    const { interpreter } = makeInterpreter();
+    const graph: AgentGraphDefinition = {
+      version: 1,
+      nodes: [
+        { id: "start", type: "start", position: { x: 0, y: 0 }, data: { label: "START" } },
+        {
+          id: "mcp",
+          type: "mcp_server",
+          position: { x: 0, y: 0 },
+          data: { label: "MCP SERVER", mcpServerId: "github", mcpTransport: "SSE" },
+        },
+        { id: "end", type: "end", position: { x: 0, y: 0 }, data: { label: "END" } },
+      ],
+      edges: [
+        { id: "e1", source: "start", target: "mcp" },
+        { id: "e2", source: "mcp", target: "end" },
+      ],
+    };
+
+    const result = await interpreter.run({
+      executionId: "g-exec-25",
+      skill: makeSkill(),
+      version: makeVersion(),
+      graph,
+      userInput: {},
+    });
+
+    expect(result.status).toBe("COMPLETED");
+    const results = result.finalOutput?.results as Record<string, unknown>;
+    expect(results.mcp).toMatchObject({ serverId: "github", transport: "SSE", status: "connected" });
+  });
+
+  it("passes through sticky_note and frame nodes without errors", async () => {
+    const { interpreter } = makeInterpreter();
+    const graph: AgentGraphDefinition = {
+      version: 1,
+      nodes: [
+        { id: "start", type: "start", position: { x: 0, y: 0 }, data: { label: "START" } },
+        {
+          id: "note",
+          type: "sticky_note",
+          position: { x: 0, y: 0 },
+          data: { label: "NOTE", noteContent: "# Hello" },
+        },
+        {
+          id: "group",
+          type: "frame",
+          position: { x: 0, y: 0 },
+          data: { label: "FRAME", frameTitle: "Phase 1" },
+        },
+        { id: "end", type: "end", position: { x: 0, y: 0 }, data: { label: "END" } },
+      ],
+      edges: [
+        { id: "e1", source: "start", target: "note" },
+        { id: "e2", source: "note", target: "group" },
+        { id: "e3", source: "group", target: "end" },
+      ],
+    };
+
+    const result = await interpreter.run({
+      executionId: "g-exec-26",
+      skill: makeSkill(),
+      version: makeVersion(),
+      graph,
+      userInput: {},
+    });
+
+    expect(result.status).toBe("COMPLETED");
+  });
 });

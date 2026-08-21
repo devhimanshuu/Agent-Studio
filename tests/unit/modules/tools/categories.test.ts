@@ -72,7 +72,7 @@ describe("Category-first ToolRegistry", () => {
 
   it("the built-in registry covers every category comprehensively", () => {
     const registry = createToolRegistry();
-    expect(registry.countToolsByCategory()).toEqual({ COMPUTE: 2, SEARCH: 1, DATA: 3, TASK: 2 });
+    expect(registry.countToolsByCategory()).toEqual({ COMPUTE: 3, SEARCH: 1, DATA: 3, TASK: 2 });
   });
 });
 

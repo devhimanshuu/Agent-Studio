@@ -785,9 +785,9 @@ function CanvasInner({
   // ══════════════════════════════════════════════════════════════════════
   if (isFullScreen) {
     return (
-      <div className="fixed inset-0 z-[9999] flex flex-col bg-[#07070d] dark:bg-[#07070d] font-mono overflow-hidden">
+      <div className={clsx("fixed inset-0 z-[9999] flex flex-col font-mono overflow-hidden", canvasTheme === "paper" ? "bg-slate-100" : canvasTheme === "graphite" ? "bg-[#0e1015]" : "bg-[#07070d]")}>
         {/* ─── Top Toolbar ─── */}
-        <div className="h-11 shrink-0 flex items-center justify-between px-3 border-b border-indigo-900/60 bg-[#0a0a14]">
+        <div className={clsx("h-11 shrink-0 flex items-center justify-between px-3 border-b", canvasTheme === "paper" ? "border-slate-200 bg-white" : canvasTheme === "graphite" ? "border-slate-600 bg-[#1a1d27]" : "border-indigo-900/60 bg-[#0a0a14]")}>
           <div className="flex items-center gap-2">
             <button onClick={toggleFullScreen} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[9px] font-bold uppercase tracking-wider text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer" title="Exit full-screen (F11)">
               <Minimize className="h-3.5 w-3.5" /> EXIT
@@ -814,6 +814,24 @@ function CanvasInner({
                 <button onClick={() => setShowDebugger((p) => !p)} className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer" title="Toggle Debugger"><Bug className="h-3.5 w-3.5" /></button>
                 <div className="w-px h-5 bg-indigo-900/50 mx-1" />
                 <button onClick={() => setShowNodeSearch((s) => !s)} className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer" title="Find node"><Search className="h-3.5 w-3.5" /></button>
+                <button onClick={handleCollapse} disabled={!nodes.some((n) => n.selected || n.id === selectedNodeId)} className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer disabled:opacity-30" title="Collapse selection into macro"><Boxes className="h-3.5 w-3.5" /></button>
+                {coverage && coverage.length > 0 && (
+                  <button onClick={() => setCoverageMode((c) => !c)} className={clsx("inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold transition-colors cursor-pointer", coverageMode ? "text-emerald-400 bg-emerald-950/40" : "text-slate-400 hover:text-white hover:bg-white/5")} title="Branch coverage"><GitBranch className="h-3.5 w-3.5" /></button>
+                )}
+                <div className="relative">
+                  <button onClick={() => setShowShortcuts((s) => !s)} className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer" title="Keyboard shortcuts"><Keyboard className="h-3.5 w-3.5" /></button>
+                  {showShortcuts && (
+                    <div className="absolute right-0 top-8 z-50 w-64 space-y-1 rounded border border-slate-700 bg-[#0a0a14]/95 p-2.5 shadow-2xl">
+                      <div className="text-[9px] font-bold uppercase tracking-widest text-indigo-400">SHORTCUTS</div>
+                      {[["⌘+Z", "undo"], ["⌘+Shift+Z", "redo"], ["⌘+C", "copy"], ["⌘+V", "paste"], ["⌘+D", "duplicate"], ["⌘+F", "find node"], ["⌘+E", "export"], ["F11", "fullscreen"], ["⌥+click", "duplicate node"], ["⌫", "delete"]].map(([key, desc]) => (
+                        <div key={key} className="flex items-center justify-between gap-2 text-[9px]">
+                          <kbd className="rounded border border-slate-600 bg-black/50 px-1 py-0.5 font-mono text-slate-300">{key}</kbd>
+                          <span className="text-slate-500">{desc}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <button onClick={cycleTheme} className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer" title="Cycle theme">{canvasTheme?.toUpperCase()}</button>
               </>
             )}
@@ -826,7 +844,7 @@ function CanvasInner({
 
         {/* ─── Trace status bar ─── */}
         {inTraceMode && (
-          <div className="shrink-0 flex items-center justify-between gap-2 px-3 py-1.5 border-b border-indigo-500/30 bg-indigo-950/40 text-[9px]">
+          <div className={clsx("shrink-0 flex items-center justify-between gap-2 px-3 py-1.5 border-b text-[9px]", canvasTheme === "paper" ? "border-indigo-200 bg-indigo-50" : canvasTheme === "graphite" ? "border-indigo-500/30 bg-indigo-950/40" : "border-indigo-500/30 bg-indigo-950/40")}>
             <div className="flex items-center gap-2">
               <span className={clsx("inline-block h-2 w-2 rounded-full", trace.connected ? "bg-emerald-500 animate-pulse" : "bg-red-500")} />
               <span className="font-bold text-indigo-300">{isPreview ? "GHOST PREVIEW" : "LIVE TRACE"} · {effExecutionStatus ?? "CONNECTING…"}</span>
@@ -837,8 +855,8 @@ function CanvasInner({
 
         {/* ─── Subgraph breadcrumb ─── */}
         {inSubgraph && (
-          <div className="shrink-0 flex items-center justify-between px-3 py-1.5 border-b border-slate-700/50 bg-slate-900/60 text-[9px]">
-            <div className="flex items-center gap-1.5 text-slate-400">
+          <div className={clsx("shrink-0 flex items-center justify-between px-3 py-1.5 border-b text-[9px]", canvasTheme === "paper" ? "border-slate-200 bg-slate-100" : canvasTheme === "graphite" ? "border-slate-600 bg-slate-900/60" : "border-slate-700/50 bg-slate-900/60")}>
+            <div className={clsx("flex items-center gap-1.5", canvasTheme === "paper" ? "text-slate-600" : "text-slate-400")}>
               <Boxes className="h-3 w-3" />
               <span className="font-bold uppercase">{inTraceMode ? "SUBGRAPH TRACE" : "Editing macro"}</span>
               <span className="text-indigo-400 font-bold">› {subgraphStack[subgraphStack.length - 1].label}</span>
@@ -854,12 +872,17 @@ function CanvasInner({
           {/* Left sidebar: Node Palette (collapsible) */}
           {!readOnly && (
             <div className={clsx(
-              "shrink-0 border-r border-indigo-900/40 bg-[#0a0a14] transition-all duration-200 overflow-hidden",
+              "shrink-0 border-r transition-all duration-200 overflow-hidden",
+              canvasTheme === "paper"
+                ? "border-slate-200 bg-white"
+                : canvasTheme === "graphite"
+                  ? "border-slate-600 bg-[#1a1d27]"
+                  : "border-indigo-900/40 bg-[#0a0a14]",
               fsLeftOpen ? "w-56" : "w-10"
             )}>
-              <div className="flex items-center justify-between px-2 py-2 border-b border-indigo-900/30">
-                {fsLeftOpen && <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest">NODES</span>}
-                <button onClick={() => setFsLeftOpen((p) => !p)} className="p-1 rounded hover:bg-white/5 text-slate-500 hover:text-white transition-colors cursor-pointer" title={fsLeftOpen ? "Collapse palette" : "Expand palette"}>
+              <div className={clsx("flex items-center justify-between px-2 py-2 border-b", canvasTheme === "paper" ? "border-slate-200" : canvasTheme === "graphite" ? "border-slate-600" : "border-indigo-900/30")}>
+                {fsLeftOpen && <span className={clsx("text-[9px] font-bold uppercase tracking-widest", canvasTheme === "paper" ? "text-indigo-700" : "text-indigo-400")}>NODES</span>}
+                <button onClick={() => setFsLeftOpen((p) => !p)} className={clsx("p-1 rounded transition-colors cursor-pointer", canvasTheme === "paper" ? "hover:bg-slate-100 text-slate-400 hover:text-slate-600" : "hover:bg-white/5 text-slate-500 hover:text-white")} title={fsLeftOpen ? "Collapse palette" : "Expand palette"}>
                   {fsLeftOpen ? <X className="h-3.5 w-3.5" /> : <Boxes className="h-3.5 w-3.5" />}
                 </button>
               </div>
@@ -872,7 +895,14 @@ function CanvasInner({
           )}
 
           {/* Center canvas */}
-          <div ref={wrapperRef} onDrop={onDrop} onDragOver={onDragOver} className="flex-1 min-w-0 relative bg-[#07070d]">
+          <div ref={wrapperRef} onDrop={onDrop} onDragOver={onDragOver} className={clsx(
+            "flex-1 min-w-0 relative",
+            canvasTheme === "paper"
+              ? "bg-slate-50"
+              : canvasTheme === "graphite"
+                ? "bg-[#14161c]"
+                : "bg-[#07070d]"
+          )}>
             {/* Validation warnings */}
             {!inTraceMode && !readOnly && issues.length > 0 && (
               <div className="absolute top-2 left-2 right-2 z-10 rounded border border-amber-500/40 bg-amber-950/60 backdrop-blur-sm px-3 py-2 space-y-1 max-h-24 overflow-y-auto">
@@ -941,19 +971,34 @@ function CanvasInner({
               elementsSelectable={!inTraceMode}
               proOptions={{ hideAttribution: true }}
             >
-              <Background variant={BackgroundVariant.Dots} gap={24} size={1.5} color="#1e1e2e" />
-              <Controls className="!border-slate-700 !bg-[#0a0a14] !shadow-lg [&>button]:!border-slate-700 [&>button]:!text-slate-400 [&>button]:!bg-[#0a0a14] [&>button:hover]:!bg-slate-800 [&>button:hover]:!text-white" position="bottom-right" />
+              <Background variant={BackgroundVariant.Dots} gap={24} size={1.5} color={canvasTheme === "paper" ? "#cbd5e1" : canvasTheme === "graphite" ? "#2a2e3a" : isDark ? "#334155" : "#cbd5e1"} />
+              <Controls className={clsx(
+                "!shadow-lg [&>button]:!shadow-sm",
+                canvasTheme === "paper"
+                  ? "!border-slate-200 !bg-white [&>button]:!border-slate-200 [&>button]:!text-slate-700 [&>button]:!bg-white [&>button:hover]:!bg-slate-100"
+                  : canvasTheme === "graphite"
+                    ? "!border-slate-600 !bg-[#1a1d27] [&>button]:!border-slate-600 [&>button]:!text-slate-300 [&>button]:!bg-[#1a1d27] [&>button:hover]:!bg-slate-700"
+                    : "!border-slate-700 !bg-[#0a0a14] [&>button]:!border-slate-700 [&>button]:!text-slate-400 [&>button]:!bg-[#0a0a14] [&>button:hover]:!bg-slate-800 [&>button:hover]:!text-white"
+              )} position="bottom-right" />
               <MiniMap
-                pannable zoomable
-                className="!bg-[#0a0a14] !border-slate-700 !shadow-lg"
-                maskColor="rgba(0, 0, 0, 0.6)"
+                pannable
+                zoomable
+                className={clsx(
+                  "!shadow-lg",
+                  canvasTheme === "paper"
+                    ? "!bg-white !border-slate-200"
+                    : canvasTheme === "graphite"
+                      ? "!bg-[#1a1d27] !border-slate-600"
+                      : "!bg-[#0a0a14] !border-slate-700"
+                )}
+                maskColor={isDark ? "rgba(0, 0, 0, 0.6)" : "rgba(241, 245, 249, 0.7)"}
                 nodeColor={(n) => {
                   const t = n.data?.traceStatus;
                   if (t === "RUNNING") return "#818cf8";
                   if (t === "SUCCESS") return "#34d399";
                   if (t === "FAILED") return "#f87171";
                   if (t === "AWAITING_APPROVAL") return "#fbbf24";
-                  return "#1e1e2e";
+                  return canvasTheme === "paper" ? "#cbd5e1" : canvasTheme === "graphite" ? "#2a2e3a" : isDark ? "#334155" : "#cbd5e1";
                 }}
               />
             </ReactFlow>
@@ -961,23 +1006,30 @@ function CanvasInner({
             {/* Node search overlay */}
             {showNodeSearch && (
               <div className="absolute left-1/2 top-2 z-20 -translate-x-1/2 w-80">
-                <div className="rounded-lg border border-indigo-500/50 bg-[#0a0a14]/95 backdrop-blur-sm p-2.5 shadow-2xl">
+                <div className={clsx(
+                  "rounded-lg backdrop-blur-sm p-2.5 shadow-2xl",
+                  canvasTheme === "paper"
+                    ? "border border-indigo-300 bg-white/95"
+                    : canvasTheme === "graphite"
+                      ? "border border-indigo-500/50 bg-[#1a1d27]/95"
+                      : "border border-indigo-500/50 bg-[#0a0a14]/95"
+                )}>
                   <div className="flex items-center gap-2">
                     <Search className="h-4 w-4 text-indigo-400 shrink-0" />
-                    <input autoFocus value={nodeSearchQuery} onChange={(e) => setNodeSearchQuery(e.target.value)} placeholder="Search nodes..." className="flex-1 bg-transparent text-[11px] font-mono text-white placeholder:text-slate-500 focus:outline-none"
+                    <input autoFocus value={nodeSearchQuery} onChange={(e) => setNodeSearchQuery(e.target.value)} placeholder="Search nodes..." className={clsx("flex-1 bg-transparent text-[11px] font-mono placeholder:text-slate-500 focus:outline-none", canvasTheme === "paper" ? "text-slate-900" : "text-white")}
                       onKeyDown={(e) => {
                         if (e.key === "Escape") { setShowNodeSearch(false); setNodeSearchQuery(""); }
                         if (e.key === "Enter" && filteredNodes.length > 0) focusNode(filteredNodes[0].id);
                       }}
                     />
-                    <button onClick={() => { setShowNodeSearch(false); setNodeSearchQuery(""); }} className="text-slate-500 hover:text-white"><X className="h-3.5 w-3.5" /></button>
+                    <button onClick={() => { setShowNodeSearch(false); setNodeSearchQuery(""); }} className={clsx("hover:text-opacity-80", canvasTheme === "paper" ? "text-slate-400 hover:text-slate-600" : "text-slate-500 hover:text-white")}><X className="h-3.5 w-3.5" /></button>
                   </div>
                   {nodeSearchQuery && filteredNodes.length > 0 && (
                     <div className="mt-2 max-h-48 overflow-y-auto space-y-0.5">
                       {filteredNodes.map((n) => (
-                        <button key={n.id} onClick={() => focusNode(n.id)} className="w-full flex items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-indigo-500/20 transition-colors cursor-pointer">
-                          <span className="text-[8px] font-mono text-indigo-400 uppercase shrink-0 w-16">{n.type}</span>
-                          <span className="text-[10px] font-mono text-white truncate">{n.data.label}</span>
+                        <button key={n.id} onClick={() => focusNode(n.id)} className={clsx("w-full flex items-center gap-2 rounded px-2 py-1.5 text-left transition-colors cursor-pointer", canvasTheme === "paper" ? "hover:bg-indigo-50" : "hover:bg-indigo-500/20")}>
+                          <span className={clsx("text-[8px] font-mono uppercase shrink-0 w-16", canvasTheme === "paper" ? "text-indigo-600" : "text-indigo-400")}>{n.type}</span>
+                          <span className={clsx("text-[10px] font-mono truncate", canvasTheme === "paper" ? "text-slate-800" : "text-white")}>{n.data.label}</span>
                         </button>
                       ))}
                     </div>
@@ -991,9 +1043,9 @@ function CanvasInner({
             {nodes.length <= 2 && !inTraceMode && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                 <div className="text-center space-y-3">
-                  <Workflow className="h-12 w-12 mx-auto text-indigo-500/40" />
-                  <p className="text-[12px] text-slate-500 font-medium">Drag nodes from the left palette</p>
-                  <p className="text-[10px] text-slate-600">Connect them to design your multi-agent architecture</p>
+                  <Workflow className={clsx("h-12 w-12 mx-auto", canvasTheme === "paper" ? "text-indigo-400/60" : "text-indigo-500/40")} />
+                  <p className={clsx("text-[12px] font-medium", canvasTheme === "paper" ? "text-slate-600" : "text-slate-500")}>Drag nodes from the left palette</p>
+                  <p className={clsx("text-[10px]", canvasTheme === "paper" ? "text-slate-500" : "text-slate-600")}>Connect them to design your multi-agent architecture</p>
                 </div>
               </div>
             )}
@@ -1008,12 +1060,17 @@ function CanvasInner({
 
           {/* Right sidebar: Inspector (collapsible) */}
           <div className={clsx(
-            "shrink-0 border-l border-indigo-900/40 bg-[#0a0a14] transition-all duration-200 overflow-hidden flex flex-col",
+            "shrink-0 border-l transition-all duration-200 overflow-hidden flex flex-col",
+            canvasTheme === "paper"
+              ? "border-slate-200 bg-white"
+              : canvasTheme === "graphite"
+                ? "border-slate-600 bg-[#1a1d27]"
+                : "border-indigo-900/40 bg-[#0a0a14]",
             fsRightOpen ? "w-72" : "w-10"
           )}>
-            <div className="flex items-center justify-between px-2 py-2 border-b border-indigo-900/30">
-              {fsRightOpen && <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest">INSPECTOR</span>}
-              <button onClick={() => setFsRightOpen((p) => !p)} className="p-1 rounded hover:bg-white/5 text-slate-500 hover:text-white transition-colors cursor-pointer" title={fsRightOpen ? "Collapse inspector" : "Expand inspector"}>
+            <div className={clsx("flex items-center justify-between px-2 py-2 border-b", canvasTheme === "paper" ? "border-slate-200" : canvasTheme === "graphite" ? "border-slate-600" : "border-indigo-900/30")}>
+              {fsRightOpen && <span className={clsx("text-[9px] font-bold uppercase tracking-widest", canvasTheme === "paper" ? "text-indigo-700" : "text-indigo-400")}>INSPECTOR</span>}
+              <button onClick={() => setFsRightOpen((p) => !p)} className={clsx("p-1 rounded transition-colors cursor-pointer", canvasTheme === "paper" ? "hover:bg-slate-100 text-slate-400 hover:text-slate-600" : "hover:bg-white/5 text-slate-500 hover:text-white")} title={fsRightOpen ? "Collapse inspector" : "Expand inspector"}>
                 {fsRightOpen ? <X className="h-3.5 w-3.5" /> : <Search className="h-3.5 w-3.5" />}
               </button>
             </div>
@@ -1077,13 +1134,13 @@ function CanvasInner({
 
         {/* ─── Time scrubber ─── */}
         {inTraceMode && trace.events.length > 1 && (
-          <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 border-t border-indigo-900/40 bg-[#0a0a14]">
-            <button onClick={toggleScrubPlay} className="inline-flex h-6 w-6 items-center justify-center rounded border border-indigo-500/50 text-indigo-300 hover:bg-indigo-950/50 transition-colors cursor-pointer">
+          <div className={clsx("shrink-0 flex items-center gap-2 px-3 py-1.5 border-t", canvasTheme === "paper" ? "border-slate-200 bg-white" : canvasTheme === "graphite" ? "border-slate-600 bg-[#1a1d27]" : "border-indigo-900/40 bg-[#0a0a14]")}>
+            <button onClick={toggleScrubPlay} className={clsx("inline-flex h-6 w-6 items-center justify-center rounded border transition-colors cursor-pointer", canvasTheme === "paper" ? "border-indigo-300 text-indigo-600 hover:bg-indigo-50" : "border-indigo-500/50 text-indigo-300 hover:bg-indigo-950/50")}>
               {scrubPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
             </button>
             <input type="range" min={0} max={totalEvents} value={clampedScrubIndex} onChange={(e) => { setScrubIndex(Number(e.target.value)); setScrubPlaying(false); }} className="flex-1 accent-indigo-500 cursor-pointer" />
-            <span className="shrink-0 text-[9px] text-slate-500 tabular-nums">{clampedScrubIndex}/{totalEvents}</span>
-            <select value={scrubSpeed} onChange={(e) => setScrubSpeed(Number(e.target.value))} className="shrink-0 rounded border border-slate-700 bg-[#0a0a14] px-1 py-0.5 text-[9px] text-slate-400 cursor-pointer">
+            <span className={clsx("shrink-0 text-[9px] tabular-nums", canvasTheme === "paper" ? "text-slate-600" : "text-slate-500")}>{clampedScrubIndex}/{totalEvents}</span>
+            <select value={scrubSpeed} onChange={(e) => setScrubSpeed(Number(e.target.value))} className={clsx("shrink-0 rounded border px-1 py-0.5 text-[9px] cursor-pointer", canvasTheme === "paper" ? "border-slate-200 bg-white text-slate-700" : canvasTheme === "graphite" ? "border-slate-600 bg-[#1a1d27] text-slate-300" : "border-slate-700 bg-[#0a0a14] text-slate-400")}>
               <option value={1}>1×</option><option value={2}>2×</option><option value={4}>4×</option><option value={8}>8×</option>
             </select>
             {scrubIndex !== null && <button onClick={() => { setScrubIndex(null); setScrubPlaying(false); }} className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold text-emerald-400 hover:bg-emerald-950/50 transition-colors cursor-pointer"><Radio className="h-2.5 w-2.5" /> LIVE</button>}
@@ -1092,16 +1149,16 @@ function CanvasInner({
 
         {/* ─── Live event console ─── */}
         {inTraceMode && trace.events.length > 0 && (
-          <div className="shrink-0 h-28 overflow-y-auto border-t border-indigo-900/40 bg-black/50 p-2 space-y-0.5 font-mono text-[8px]">
+          <div className={clsx("shrink-0 h-28 overflow-y-auto border-t p-2 space-y-0.5 font-mono text-[8px]", canvasTheme === "paper" ? "border-slate-200 bg-slate-50" : canvasTheme === "graphite" ? "border-slate-600 bg-black/50" : "border-indigo-900/40 bg-black/50")}>
             {trace.events.slice(-30).map((ev, i) => {
               const nodeId = "nodeId" in ev ? ev.nodeId : undefined;
               const detail = "detail" in ev ? ev.detail : undefined;
               return (
-                <div key={i} className="flex items-center gap-2 text-slate-500">
+                <div key={i} className={clsx("flex items-center gap-2", canvasTheme === "paper" ? "text-slate-600" : "text-slate-500")}>
                   <span className="shrink-0">{new Date(ev.at).toLocaleTimeString()}</span>
-                  <span className="text-indigo-400 font-semibold shrink-0">{ev.type}</span>
-                  {nodeId && <span className="text-slate-300 truncate">{nodeId}</span>}
-                  {detail && <span className="text-slate-600 truncate">{detail}</span>}
+                  <span className={clsx("font-semibold shrink-0", canvasTheme === "paper" ? "text-indigo-600" : "text-indigo-400")}>{ev.type}</span>
+                  {nodeId && <span className={clsx("truncate", canvasTheme === "paper" ? "text-slate-800" : "text-slate-300")}>{nodeId}</span>}
+                  {detail && <span className={clsx("truncate", canvasTheme === "paper" ? "text-slate-500" : "text-slate-600")}>{detail}</span>}
                 </div>
               );
             })}
@@ -1158,7 +1215,13 @@ function CanvasInner({
 
         {/* ─── Macro Library Panel ─── */}
         {showMacroLibrary && (
-          <div className="absolute left-14 top-12 z-20 w-64 max-h-[70vh] overflow-y-auto rounded-lg border border-slate-700/60 bg-[#0a0a14]/95 backdrop-blur-md p-3 shadow-2xl font-mono">
+          <div className={clsx("absolute left-14 top-12 z-20 w-64 max-h-[70vh] overflow-y-auto rounded-lg backdrop-blur-md p-3 shadow-2xl font-mono",
+            canvasTheme === "paper"
+              ? "border border-slate-200 bg-white/95"
+              : canvasTheme === "graphite"
+                ? "border border-slate-600/60 bg-[#1a1d27]/95"
+                : "border border-slate-700/60 bg-[#0a0a14]/95"
+          )}>
             <MacroLibrary
               nodes={nodes}
               edges={edges as any}
@@ -1172,7 +1235,13 @@ function CanvasInner({
 
         {/* ─── Debugger Panel ─── */}
         {showDebugger && (
-          <div className="absolute right-14 top-12 z-20 w-64 max-h-[60vh] overflow-y-auto rounded-lg border border-slate-700/60 bg-[#0a0a14]/95 backdrop-blur-md p-3 shadow-2xl">
+          <div className={clsx("absolute right-14 top-12 z-20 w-64 max-h-[60vh] overflow-y-auto rounded-lg backdrop-blur-md p-3 shadow-2xl",
+            canvasTheme === "paper"
+              ? "border border-slate-200 bg-white/95"
+              : canvasTheme === "graphite"
+                ? "border border-slate-600/60 bg-[#1a1d27]/95"
+                : "border border-slate-700/60 bg-[#0a0a14]/95"
+          )}>
             <DebuggerPanel
               nodeStatuses={effStatuses}
               nodeDetails={effDetails}

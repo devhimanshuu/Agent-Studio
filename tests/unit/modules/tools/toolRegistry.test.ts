@@ -44,6 +44,7 @@ describe("ToolRegistry", () => {
       "ai_classification",
       "ai_extraction",
       "calculator",
+      "code_execution",
       "deterministic_condition",
       "document_search",
       "final_report",

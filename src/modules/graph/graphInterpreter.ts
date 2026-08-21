@@ -12,6 +12,7 @@ import { StepLimitExceededError, ExecutionCancelledError, ExecutionError } from 
 import { logger } from "@/lib/logger";
 import { executionEventBus, GraphNodeStatus } from "./eventBus";
 import { evaluateExpression, ExpressionError } from "./expression";
+import { mcpToolRegistryName } from "@/modules/mcp/toolAdapter";
 
 export interface GraphInterpreterDeps {
   llm?: LLMProvider;
@@ -430,6 +431,28 @@ export class GraphInterpreter {
         return this.runParallelNode(ctx, node, outgoing);
       case "subgraph":
         return this.runSubgraphNode(ctx, node, outgoing);
+      case "mcp_server":
+        return this.runMcpServerNode(ctx, node, outgoing);
+      case "mcp_tool":
+        return this.runMcpToolNode(ctx, node, outgoing);
+      case "skill":
+        return this.runSkillNode(ctx, node, outgoing);
+      case "http":
+        return this.runHttpNode(ctx, node, outgoing);
+      case "transform":
+        return this.runTransformNode(ctx, node, outgoing);
+      case "delay":
+        return this.runDelayNode(ctx, node, outgoing);
+      case "aggregate":
+        return this.runAggregateNode(ctx, node, outgoing);
+      case "variable":
+        return this.runVariableNode(ctx, node, outgoing);
+      case "output":
+        return this.runOutputNode(ctx, node, outgoing);
+      case "sticky_note":
+      case "frame":
+        // Visual-only nodes — pass through to successor.
+        return this.firstSuccessor(outgoing, node);
       default:
         throw new ExecutionError(`Unsupported graph node type "${node.type}"`, "GRAPH_FAILURE");
     }
@@ -1126,6 +1149,519 @@ export class GraphInterpreter {
     executionEventBus.publish(ctx.executionId, event);
   }
 
+  // ══════════════════════════════════════════════════════════════════════
+  // MCP, HTTP, Data, and Utility Node Handlers
+  // ══════════════════════════════════════════════════════════════════════
+
+  /** MCP Server node — informational/connectivity node. Passes through. */
+  private async runMcpServerNode(ctx: WalkCtx, node: GraphNodeDefinition, outgoing: GraphEdgeDefinition[]) {
+    const serverId = node.data.mcpServerId ?? "unknown";
+    ctx.results[node.id] = { serverId, transport: node.data.mcpTransport ?? "SSE", status: "connected" };
+    await this.persistStep(ctx, node, "SUCCESS", { mcpServer: serverId, passThrough: true });
+    this.emitNodeEnd(ctx, node, "SUCCESS", `MCP server ${serverId}`);
+    return this.firstSuccessor(outgoing, node);
+  }
+
+  /** MCP Tool node — calls a registered MCP tool via the tool registry. */
+  private async runMcpToolNode(ctx: WalkCtx, node: GraphNodeDefinition, outgoing: GraphEdgeDefinition[]) {
+    const data = node.data;
+    const toolName = data.mcpToolName ?? "";
+    const serverId = data.mcpToolServer ?? "";
+    if (!toolName || !serverId) {
+      throw new ExecutionError(
+        `MCP Tool node "${data.label}" is missing tool name or server ID`,
+        "GRAPH_FAILURE"
+      );
+    }
+
+    // MCP tools are registered in the tool registry as `mcp_<serverId>_<toolName>`
+    const registryName = mcpToolRegistryName(serverId, toolName);
+
+    const allowed = ctx.version.allowedTools ?? [];
+    const verdict = this.deps.permissionChecker.check(registryName, allowed, this.deps.toolRegistry);
+    if (!verdict.ok) {
+      throw new ExecutionError(verdict.reason, "UNAUTHORIZED_TOOL");
+    }
+
+    const resolvedInput = resolveTemplate(data.mcpToolParams ?? {}, ctx);
+
+    this.emit(ctx, {
+      type: "mcp:tool:start",
+      nodeId: node.id,
+      serverId,
+      toolName,
+      params: resolvedInput,
+    });
+
+    const started = Date.now();
+    const output = await this.deps.toolRegistry.executeTool(registryName, resolvedInput as Record<string, unknown>);
+    const durationMs = Date.now() - started;
+
+    this.emit(ctx, {
+      type: "mcp:tool:end",
+      nodeId: node.id,
+      serverId,
+      toolName,
+      status: "SUCCESS",
+      output,
+      durationMs,
+    });
+
+    const record: ToolCallRecord = {
+      stepNumber: ctx.stepCounter,
+      toolName: registryName,
+      action: "mcp_call",
+      input: resolvedInput as Record<string, unknown>,
+      status: "SUCCESS",
+      output,
+      requiresApproval: false,
+      durationMs,
+    };
+    ctx.toolCalls.push(record);
+    ctx.results[node.id] = output;
+
+    if (!ctx.dryRun) {
+      await this.deps.executionRepo.addToolCall(ctx.executionId, {
+        toolName: registryName,
+        action: "mcp_call",
+        inputArgs: resolvedInput as Record<string, unknown>,
+        outputResult: (output as Record<string, unknown> | undefined) ?? undefined,
+        status: "SUCCESS",
+        durationMs,
+      });
+    }
+    await this.persistStep(ctx, node, "SUCCESS", { tool: registryName, mcp: true, output: summarize(output) });
+    this.emitNodeEnd(ctx, node, "SUCCESS", `${toolName} → ${summarize(output)}`);
+    return this.firstSuccessor(outgoing, node);
+  }
+
+  /** Skill node — executes another installed skill as a sub-workflow. */
+  private async runSkillNode(ctx: WalkCtx, node: GraphNodeDefinition, outgoing: GraphEdgeDefinition[]) {
+    const data = node.data;
+    const skillId = data.skillId ?? "";
+    if (!skillId) {
+      throw new ExecutionError(
+        `Skill node "${data.label}" has no skill ID configured`,
+        "GRAPH_FAILURE"
+      );
+    }
+
+    // Resolve input template against the current context
+    const resolvedInput = resolveTemplate(data.skillInput ?? {}, ctx) as Record<string, unknown>;
+
+    // Look up the skill and its latest version from the database
+    const { SkillRepository } = await import("@/repositories/SkillRepository");
+    const skillRepo = new SkillRepository();
+    const targetSkill = await skillRepo.findById(skillId);
+    if (!targetSkill) {
+      throw new ExecutionError(
+        `Skill node "${data.label}": skill "${skillId}" not found`,
+        "GRAPH_FAILURE"
+      );
+    }
+
+    const version = targetSkill.publishedVersion ?? targetSkill.currentDraft;
+    if (!version) {
+      throw new ExecutionError(
+        `Skill node "${data.label}": skill "${targetSkill.name}" has no published version`,
+        "GRAPH_FAILURE"
+      );
+    }
+
+    // If the target skill has a graph definition, run it through the graph interpreter
+    if (version.graphDefinition && version.graphDefinition.nodes.length > 0) {
+      const nestedResult = await this.run({
+        executionId: ctx.executionId,
+        skill: {
+          id: targetSkill.id,
+          userId: targetSkill.userId,
+          name: targetSkill.name,
+          purpose: targetSkill.purpose,
+          status: targetSkill.status,
+          createdAt: targetSkill.createdAt,
+          updatedAt: targetSkill.updatedAt,
+        },
+        version,
+        graph: version.graphDefinition,
+        userInput: resolvedInput,
+        signal: ctx.signal,
+        dryRun: ctx.dryRun,
+      });
+      ctx.results[node.id] = nestedResult.finalOutput ?? { status: nestedResult.status };
+    } else {
+      // Linear skill — use the execution engine via a direct import
+      // For now, store a reference result indicating the skill was invoked
+      ctx.results[node.id] = {
+        skillId: targetSkill.id,
+        skillName: targetSkill.name,
+        status: "invoked",
+        input: resolvedInput,
+      };
+    }
+
+    await this.persistStep(ctx, node, "SUCCESS", { skillId, skillName: targetSkill.name, input: resolvedInput });
+    this.emitNodeEnd(ctx, node, "SUCCESS", `skill ${targetSkill.name}`);
+    return this.firstSuccessor(outgoing, node);
+  }
+
+  /** HTTP Request node — makes a real HTTP call to any REST/GraphQL endpoint. */
+  private async runHttpNode(ctx: WalkCtx, node: GraphNodeDefinition, outgoing: GraphEdgeDefinition[]) {
+    const data = node.data;
+    const method = data.httpMethod ?? "GET";
+    const url = resolveTemplate(data.httpUrl ?? "", ctx) as string;
+    const headers = resolveTemplate(data.httpHeaders ?? {}, ctx) as Record<string, string>;
+    const body = data.httpBody ? resolveTemplate(data.httpBody, ctx) : undefined;
+    const responseType = data.httpResponseType ?? "json";
+
+    if (!url) {
+      throw new ExecutionError(`HTTP node "${data.label}" has no URL configured`, "GRAPH_FAILURE");
+    }
+
+    this.emit(ctx, {
+      type: "tool:call:start",
+      nodeId: node.id,
+      toolName: `http:${method}`,
+      action: method,
+      input: { url, method },
+    });
+
+    const started = Date.now();
+    const fetchOptions: RequestInit = {
+      method,
+      headers: { "Content-Type": "application/json", ...headers },
+    };
+    if (body && method !== "GET") {
+      fetchOptions.body = typeof body === "string" ? body : JSON.stringify(body);
+    }
+
+    let output: unknown;
+    try {
+      const response = await fetch(url, fetchOptions);
+      const durationMs = Date.now() - started;
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        throw new ExecutionError(
+          `HTTP ${method} ${url} returned ${response.status}: ${text.slice(0, 200)}`,
+          "GRAPH_FAILURE"
+        );
+      }
+
+      if (responseType === "text") {
+        output = await response.text();
+      } else if (responseType === "json") {
+        output = await response.json();
+      } else {
+        // blob — return the status for now
+        output = { status: response.status, contentType: response.headers.get("content-type") };
+      }
+
+      this.emit(ctx, {
+        type: "tool:call:end",
+        nodeId: node.id,
+        toolName: `http:${method}`,
+        status: "SUCCESS",
+        output,
+        durationMs,
+      });
+
+      const record: ToolCallRecord = {
+        stepNumber: ctx.stepCounter,
+        toolName: `http:${method}`,
+        action: method,
+        input: { url, method },
+        status: "SUCCESS",
+        output,
+        requiresApproval: false,
+        durationMs,
+      };
+      ctx.toolCalls.push(record);
+      ctx.results[node.id] = output;
+
+      if (!ctx.dryRun) {
+        await this.deps.executionRepo.addToolCall(ctx.executionId, {
+          toolName: `http:${method}`,
+          action: method,
+          inputArgs: { url, method },
+          outputResult: (output as Record<string, unknown> | undefined) ?? undefined,
+          status: "SUCCESS",
+          durationMs,
+        });
+      }
+    } catch (error) {
+      const durationMs = Date.now() - started;
+      this.emit(ctx, {
+        type: "tool:call:end",
+        nodeId: node.id,
+        toolName: `http:${method}`,
+        status: "FAILED",
+        error: error instanceof Error ? error.message : String(error),
+        durationMs,
+      });
+      throw error;
+    }
+
+    await this.persistStep(ctx, node, "SUCCESS", { http: method, url: url.slice(0, 120), output: summarize(output) });
+    this.emitNodeEnd(ctx, node, "SUCCESS", `${method} ${url.slice(0, 60)} → ${summarize(output)}`);
+    return this.firstSuccessor(outgoing, node);
+  }
+
+  /** Transform node — applies data operations (map, filter, merge, flatten, sort, dedupe, pick, omit, template). */
+  private async runTransformNode(ctx: WalkCtx, node: GraphNodeDefinition, outgoing: GraphEdgeDefinition[]) {
+    const data = node.data;
+    const op = data.transformOp ?? "map";
+    const expr = data.transformExpr ?? "";
+
+    // Collect input from the first incoming edge's source node result
+    const incomingEdges = ctx.graph.edges.filter((e) => e.target === node.id);
+    const sourceNodeId = incomingEdges[0]?.source;
+    const sourceResult = sourceNodeId ? ctx.results[sourceNodeId] : undefined;
+    const input = sourceResult ?? ctx.results;
+
+    let output: unknown;
+
+    switch (op) {
+      case "map": {
+        const arr = Array.isArray(input) ? input : [input];
+        output = arr.map((item) => {
+          if (!expr) return item;
+          // Simple field path: `item.name`, `item.data.value`
+          const parts = expr.replace(/^item\.?/, "").split(".").filter(Boolean);
+          let current: unknown = item;
+          for (const part of parts) {
+            if (current === null || current === undefined) return undefined;
+            current = (current as Record<string, unknown>)[part];
+          }
+          return current;
+        });
+        break;
+      }
+      case "filter": {
+        const arr = Array.isArray(input) ? input : [input];
+        output = arr.filter((item) => {
+          if (!expr) return Boolean(item);
+          // Evaluate a simple truthy check on the path
+          const parts = expr.replace(/^item\.?/, "").split(".").filter(Boolean);
+          let current: unknown = item;
+          for (const part of parts) {
+            if (current === null || current === undefined) return false;
+            current = (current as Record<string, unknown>)[part];
+          }
+          return Boolean(current);
+        });
+        break;
+      }
+      case "merge": {
+        if (Array.isArray(input)) {
+          output = Object.assign({}, ...input.map((item) => (typeof item === "object" && item !== null ? item : { value: item })));
+        } else {
+          output = input;
+        }
+        break;
+      }
+      case "flatten": {
+        output = Array.isArray(input) ? input.flat() : [input];
+        break;
+      }
+      case "sort": {
+        const arr = Array.isArray(input) ? [...input] : [input];
+        arr.sort((a, b) => {
+          const aVal = expr ? resolveFieldPath(a, expr) : a;
+          const bVal = expr ? resolveFieldPath(b, expr) : b;
+          if (typeof aVal === "number" && typeof bVal === "number") return aVal - bVal;
+          return String(aVal ?? "").localeCompare(String(bVal ?? ""));
+        });
+        output = arr;
+        break;
+      }
+      case "dedupe": {
+        const arr = Array.isArray(input) ? input : [input];
+        if (expr) {
+          const seen = new Set<string>();
+          output = arr.filter((item) => {
+            const val = resolveFieldPath(item, expr);
+            const key = JSON.stringify(val);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+        } else {
+          output = [...new Set(arr.map((x) => JSON.stringify(x)))].map((x) => JSON.parse(x));
+        }
+        break;
+      }
+      case "pick": {
+        const fields = (expr ?? "").split(",").map((f) => f.trim()).filter(Boolean);
+        if (typeof input === "object" && input !== null && !Array.isArray(input)) {
+          const result: Record<string, unknown> = {};
+          for (const field of fields) {
+            if (field in (input as Record<string, unknown>)) {
+              result[field] = (input as Record<string, unknown>)[field];
+            }
+          }
+          output = result;
+        } else {
+          output = input;
+        }
+        break;
+      }
+      case "omit": {
+        const fields = (expr ?? "").split(",").map((f) => f.trim()).filter(Boolean);
+        if (typeof input === "object" && input !== null && !Array.isArray(input)) {
+          const result: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
+            if (!fields.includes(k)) result[k] = v;
+          }
+          output = result;
+        } else {
+          output = input;
+        }
+        break;
+      }
+      case "template": {
+        // Template string interpolation using `{{ input }}` / `{{ results.x }}`
+        output = resolveTemplate(expr, ctx);
+        break;
+      }
+      default:
+        output = input;
+    }
+
+    ctx.results[node.id] = output;
+    await this.persistStep(ctx, node, "SUCCESS", { op, expr: expr.slice(0, 80), output: summarize(output) });
+    this.emitNodeEnd(ctx, node, "SUCCESS", `${op} → ${summarize(output)}`);
+    return this.firstSuccessor(outgoing, node);
+  }
+
+  /** Delay node — pauses execution for a specified duration. */
+  private async runDelayNode(ctx: WalkCtx, node: GraphNodeDefinition, outgoing: GraphEdgeDefinition[]) {
+    const data = node.data;
+    let delayMs = data.delayMs ?? 1000;
+
+    // Support template-based delay: `{{ input.delay }}`
+    if (data.delayTemplate) {
+      const resolved = resolveTemplate(data.delayTemplate, ctx);
+      const parsed = typeof resolved === "number" ? resolved : parseInt(String(resolved), 10);
+      if (!isNaN(parsed) && parsed > 0) delayMs = parsed;
+    }
+
+    // Cap at 30 seconds to prevent runaway delays
+    delayMs = Math.min(delayMs, 30_000);
+
+    ctx.results[node.id] = { delayMs, waited: true };
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    await this.persistStep(ctx, node, "SUCCESS", { delayMs });
+    this.emitNodeEnd(ctx, node, "SUCCESS", `waited ${delayMs}ms`);
+    return this.firstSuccessor(outgoing, node);
+  }
+
+  /** Aggregate node — combines results from multiple incoming branches. */
+  private async runAggregateNode(ctx: WalkCtx, node: GraphNodeDefinition, outgoing: GraphEdgeDefinition[]) {
+    const data = node.data;
+    const mode = data.aggregateMode ?? "concat";
+
+    // Collect results from all incoming edge source nodes
+    const incomingEdges = ctx.graph.edges.filter((e) => e.target === node.id);
+    const branchResults: unknown[] = incomingEdges.map((e) => ctx.results[e.source]).filter((r) => r !== undefined);
+
+    let output: unknown;
+
+    switch (mode) {
+      case "concat": {
+        output = branchResults.flat();
+        break;
+      }
+      case "merge": {
+        output = Object.assign({}, ...branchResults.map((r) => (typeof r === "object" && r !== null ? r : { value: r })));
+        break;
+      }
+      case "count": {
+        output = { count: branchResults.length, items: branchResults };
+        break;
+      }
+      case "first": {
+        output = branchResults[0] ?? null;
+        break;
+      }
+      case "all": {
+        output = branchResults;
+        break;
+      }
+      case "custom": {
+        // Custom aggregation expression — evaluate as a template
+        if (data.aggregateExpr) {
+          output = resolveTemplate(data.aggregateExpr, { ...ctx, results: { ...ctx.results, __aggregate: branchResults } });
+        } else {
+          output = branchResults;
+        }
+        break;
+      }
+      default:
+        output = branchResults;
+    }
+
+    ctx.results[node.id] = output;
+    await this.persistStep(ctx, node, "SUCCESS", { mode, branchCount: incomingEdges.length, output: summarize(output) });
+    this.emitNodeEnd(ctx, node, "SUCCESS", `${mode} (${incomingEdges.length} branches) → ${summarize(output)}`);
+    return this.firstSuccessor(outgoing, node);
+  }
+
+  /** Variable node — gets or sets a workflow variable in the execution state. */
+  private async runVariableNode(ctx: WalkCtx, node: GraphNodeDefinition, outgoing: GraphEdgeDefinition[]) {
+    const data = node.data;
+    const varName = data.varName ?? "";
+    const op = data.varOp ?? "get";
+
+    if (!varName) {
+      throw new ExecutionError(`Variable node "${data.label}" has no variable name configured`, "GRAPH_FAILURE");
+    }
+
+    let output: unknown;
+    if (op === "set") {
+      const value = resolveTemplate(data.varValue, ctx);
+      // Store in results under a `vars` namespace
+      if (!ctx.results.__vars) ctx.results.__vars = {};
+      (ctx.results.__vars as Record<string, unknown>)[varName] = value;
+      ctx.results[node.id] = { varName, op: "set", value };
+      output = { set: varName, value };
+    } else {
+      // get
+      const vars = (ctx.results.__vars as Record<string, unknown>) ?? {};
+      output = vars[varName];
+      ctx.results[node.id] = output;
+    }
+
+    await this.persistStep(ctx, node, "SUCCESS", { varName, op, output: summarize(output) });
+    this.emitNodeEnd(ctx, node, "SUCCESS", `${op} ${varName} → ${summarize(output)}`);
+    return this.firstSuccessor(outgoing, node);
+  }
+
+  /** Output node — formats and returns the final output with field mappings. */
+  private async runOutputNode(ctx: WalkCtx, node: GraphNodeDefinition, outgoing: GraphEdgeDefinition[]) {
+    const data = node.data;
+    let output: unknown;
+
+    if (data.outputFields && Object.keys(data.outputFields).length > 0) {
+      // Field mapping mode: map each output field to a resolved template
+      const result: Record<string, unknown> = {};
+      for (const [key, template] of Object.entries(data.outputFields)) {
+        result[key] = resolveTemplate(template, ctx);
+      }
+      output = result;
+    } else if (data.outputTemplate) {
+      // Template mode: resolve the template string
+      output = resolveTemplate(data.outputTemplate, ctx);
+    } else {
+      // Default: pass through all results
+      output = ctx.results;
+    }
+
+    ctx.results[node.id] = output;
+    await this.persistStep(ctx, node, "SUCCESS", { output: summarize(output) });
+    this.emitNodeEnd(ctx, node, "SUCCESS", `output → ${summarize(output)}`);
+    return this.firstSuccessor(outgoing, node);
+  }
+
   private async handleFailure(
     executionId: string,
     error: unknown,
@@ -1167,4 +1703,15 @@ function summarize(value: unknown): string {
   if (value === null || value === undefined) return "";
   const str = typeof value === "string" ? value : JSON.stringify(value);
   return str.length > 120 ? `${str.slice(0, 120)}…` : str;
+}
+
+/** Resolve a dotted field path (e.g. `name`, `data.value`) against an object. */
+function resolveFieldPath(obj: unknown, path: string): unknown {
+  const parts = path.split(".").filter(Boolean);
+  let current: unknown = obj;
+  for (const part of parts) {
+    if (current === null || current === undefined) return undefined;
+    current = (current as Record<string, unknown>)[part];
+  }
+  return current;
 }

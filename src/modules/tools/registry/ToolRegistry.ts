@@ -71,11 +71,26 @@ export class ToolRegistry {
   }
 
   getTool(name: string): Tool | null {
-    return this.tools.get(name) ?? null;
+    if (this.tools.has(name)) return this.tools.get(name)!;
+
+    // Fallback: match by base tool name if unambiguous
+    // e.g. "read_file" or "search" matching "mcp_<serverId>_read_file" or "openapi_<id>_search"
+    const candidates = [...this.tools.values()].filter(
+      (t) =>
+        t.name === name ||
+        t.name.endsWith(`_${name}`) ||
+        t.name.replace(/^mcp_[^_]+_/, "") === name ||
+        t.name.replace(/^openapi_[^_]+_/, "") === name
+    );
+    if (candidates.length === 1) {
+      return candidates[0];
+    }
+
+    return null;
   }
 
   hasTool(name: string): boolean {
-    return this.tools.has(name);
+    return this.getTool(name) !== null;
   }
 
   /** All registered tools (enabled and disabled). */
@@ -101,14 +116,9 @@ export class ToolRegistry {
 
   /** Registered-tool count per category (dashboard summary chips). */
   countToolsByCategory(): Record<ToolCategory, number> {
-    const counts: Record<ToolCategory, number> = {
-      COMPUTE: 0,
-      SEARCH: 0,
-      DATA: 0,
-      TASK: 0,
-    };
+    const counts = { COMPUTE: 0, SEARCH: 0, DATA: 0, TASK: 0 } as Record<ToolCategory, number>;
     for (const tool of this.tools.values()) {
-      if (tool.category in counts) counts[tool.category] += 1;
+      counts[tool.category] = (counts[tool.category] ?? 0) + 1;
     }
     return counts;
   }
@@ -116,7 +126,7 @@ export class ToolRegistry {
   /** Returns human-readable input issues for a tool ([] = valid). Throws
    * ToolNotFoundError for unregistered tools. */
   validateTool(name: string, input: Record<string, unknown>): string[] {
-    const tool = this.tools.get(name);
+    const tool = this.getTool(name);
     if (!tool) throw new ToolNotFoundError(name);
     return tool.validate(input);
   }
@@ -129,7 +139,7 @@ export class ToolRegistry {
    *  - ToolExecutionFailureError (underlying execution failure)
    */
   async executeTool(name: string, input: Record<string, unknown>): Promise<unknown> {
-    const tool = this.tools.get(name);
+    const tool = this.getTool(name);
     if (!tool) throw new ToolNotFoundError(name);
     if (!tool.enabled) throw new ToolDisabledError(name);
 

@@ -166,6 +166,7 @@ export function McpDirectoryBrowser({ onMount, mountedServerIds = [] }: McpDirec
   const [language, setLanguage] = useState<string>("ALL");
   const [sortBy, setSortBy] = useState<SortOption>("default");
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [showInstalledOnly, setShowInstalledOnly] = useState(false);
   const [counts, setCounts] = useState<{ glamaCount: number; mcpSoCount: number; smitheryCount: number; composioCount: number; arcadeCount: number }>({ glamaCount: 0, mcpSoCount: 0, smitheryCount: 0, composioCount: 0, arcadeCount: 0 });
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -177,7 +178,25 @@ export function McpDirectoryBrowser({ onMount, mountedServerIds = [] }: McpDirec
 
   const { favorites, toggleFavorite, isFavorite } = useDirectoryFavorites();
 
-  const mountedSet = useMemo(() => new Set(mountedServerIds), [mountedServerIds]);
+  const mountedSet = useMemo(
+    () => new Set(mountedServerIds.map((id) => id.toLowerCase())),
+    [mountedServerIds]
+  );
+
+  const isServerMounted = useCallback(
+    (server: PublicMcpServer) => {
+      const normId = server.id.toLowerCase();
+      const normName = server.name.toLowerCase().replace(/[^a-z0-9]/g, "-");
+      const plainName = server.name.toLowerCase();
+      return (
+        mountedSet.has(normId) ||
+        mountedSet.has(normName) ||
+        mountedSet.has(plainName) ||
+        mountedSet.has(normId.replace(/^pub-/, ""))
+      );
+    },
+    [mountedSet]
+  );
 
   const fetchDirectory = async () => {
     setLoading(true);
@@ -267,6 +286,11 @@ export function McpDirectoryBrowser({ onMount, mountedServerIds = [] }: McpDirec
     // Favorites filter
     if (showFavoritesOnly) {
       list = list.filter((s) => favorites.includes(s.id));
+    }
+
+    // Installed filter
+    if (showInstalledOnly) {
+      list = list.filter((s) => mountedSet.has(s.id));
     }
 
     // Sorting
@@ -423,6 +447,22 @@ export function McpDirectoryBrowser({ onMount, mountedServerIds = [] }: McpDirec
 
         {/* Sort + Favorites Toggle */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Installed toggle */}
+          <button
+            type="button"
+            onClick={() => setShowInstalledOnly((prev) => !prev)}
+            className={clsx(
+              "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider border transition-all cursor-pointer",
+              showInstalledOnly
+                ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 shadow-sm"
+                : "border-slate-200 dark:border-indigo-900/50 bg-white/70 dark:bg-black/40 text-slate-500 dark:text-slate-400 hover:border-emerald-300 hover:text-emerald-600"
+            )}
+          >
+            <Check className="h-3 w-3" />
+            INSTALLED
+            {mountedSet.size > 0 && <span>({mountedSet.size})</span>}
+          </button>
+
           {/* Favorites toggle */}
           <button
             type="button"
@@ -699,16 +739,22 @@ export function McpDirectoryBrowser({ onMount, mountedServerIds = [] }: McpDirec
                         )}
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onMount(server);
-                        }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-indigo-500 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-mono font-semibold uppercase tracking-wider shadow-sm shadow-indigo-500/25 active:scale-95 transition-all cursor-pointer"
-                      >
-                        <Plus className="h-3 w-3" /> 1-CLICK MOUNT
-                      </button>
+                      {isServerMounted(server) ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded border border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-mono font-semibold uppercase">
+                          <Check className="h-3 w-3" /> CONNECTED
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onMount(server);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-indigo-500 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-mono font-semibold uppercase tracking-wider shadow-sm shadow-indigo-500/25 active:scale-95 transition-all cursor-pointer"
+                        >
+                          <Plus className="h-3 w-3" /> 1-CLICK MOUNT
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -826,16 +872,22 @@ export function McpDirectoryBrowser({ onMount, mountedServerIds = [] }: McpDirec
                       </button>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onMount(server);
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-indigo-500 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-mono font-semibold uppercase tracking-wider shadow-sm shadow-indigo-500/25 active:scale-95 transition-all cursor-pointer shrink-0 min-w-[90px]"
-                    >
-                      <Plus className="h-3 w-3" /> MOUNT
-                    </button>
+                    {isServerMounted(server) ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded border border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-mono font-semibold uppercase shrink-0 min-w-[90px] justify-center">
+                        <Check className="h-3 w-3" /> CONNECTED
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onMount(server);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-indigo-500 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-mono font-semibold uppercase tracking-wider shadow-sm shadow-indigo-500/25 active:scale-95 transition-all cursor-pointer shrink-0 min-w-[90px]"
+                      >
+                        <Plus className="h-3 w-3" /> MOUNT
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -866,7 +918,7 @@ export function McpDirectoryBrowser({ onMount, mountedServerIds = [] }: McpDirec
           }}
           isFavorite={isFavorite(detailServer.id)}
           onToggleFavorite={() => toggleFavorite(detailServer.id)}
-          isMounted={mountedSet.has(detailServer.id)}
+          isMounted={isServerMounted(detailServer)}
         />,
         document.body
       )}

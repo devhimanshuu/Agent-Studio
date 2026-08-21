@@ -10,7 +10,7 @@ export interface AgentSkill {
   description: string;
   category: SkillCategory;
   author: string;
-  source: "glama" | "mcp.so" | "awesome-mcp" | "community" | "smithery" | "composio";
+  source: "glama" | "mcp.so" | "awesome-mcp" | "community" | "smithery" | "composio" | "arcade";
   sourceUrl?: string;
   requiredServers: string[]; // MCP server IDs needed
   requiredTools: string[];   // Specific tool names needed
