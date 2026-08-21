@@ -176,6 +176,10 @@ export function nodeDefaultSize(type: string): { width: number; height: number }
       return { width: 220, height: 104 };
     case "subgraph":
       return { width: 220, height: 100 };
+    case "sticky_note":
+      return { width: 240, height: 160 };
+    case "frame":
+      return { width: 400, height: 300 };
     default:
       return { width: 220, height: 100 };
   }

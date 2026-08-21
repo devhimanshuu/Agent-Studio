@@ -19,6 +19,8 @@ import {
   Layers,
   Variable,
   FileOutput,
+  StickyNote,
+  Frame,
   type LucideIcon,
 } from "lucide-react";
 
@@ -279,6 +281,34 @@ export const CANVAS_NODE_TYPES: CanvasNodeTypeMeta[] = [
     defaults: {
       outputTemplate: "{{ results }}",
       outputFields: {},
+    },
+  },
+  // ─── Visual & Documentation Nodes ───
+  {
+    type: "sticky_note",
+    label: "STICKY NOTE",
+    tag: "DOCS",
+    icon: StickyNote,
+    description: "Markdown sticky note for inline architecture documentation and team comments.",
+    accent: "border-yellow-400/70 text-yellow-600 dark:text-yellow-400",
+    badgeClass: "bg-yellow-50 dark:bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-500/40",
+    defaults: {
+      noteContent: "# Notes\n\nAdd documentation here...",
+      noteColor: "yellow",
+    },
+  },
+  {
+    type: "frame",
+    label: "FRAME",
+    tag: "GROUP",
+    icon: Frame,
+    description: "Visual container to group nodes (e.g. 'Research Phase', 'Validation Stage').",
+    accent: "border-indigo-400/70 text-indigo-600 dark:text-indigo-400",
+    badgeClass: "bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-500/40",
+    defaults: {
+      frameTitle: "Phase",
+      frameOpacity: 0.08,
+      containedNodeIds: [],
     },
   },
 ];

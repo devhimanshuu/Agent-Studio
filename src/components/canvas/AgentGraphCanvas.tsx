@@ -33,7 +33,14 @@ import { computeLayout } from "./autoLayout";
 import { validateGraph } from "./graphValidation";
 import { collapseSelection } from "./subgraphUtils";
 import { clsx } from "clsx";
-import { Workflow, Play, Save, Link2, X, Pause, Radio, Flame, LayoutTemplate, AlertTriangle, GitBranch, Keyboard, Copy, Boxes, CornerUpLeft, Maximize, Minimize, Undo2, Redo2, Search, Download, Upload, ClipboardPaste, Command } from "lucide-react";
+import { Workflow, Play, Save, Link2, X, Pause, Radio, Flame, LayoutTemplate, AlertTriangle, GitBranch, Keyboard, Copy, Boxes, CornerUpLeft, Maximize, Minimize, Undo2, Redo2, Search, Download, Upload, ClipboardPaste, Command, Package, Bug, Sparkles } from "lucide-react";
+import { QuickConnectSearch } from "./quickConnectSearch";
+import { AlignmentBar } from "./AlignmentBar";
+import { CanvasCopilot } from "./CanvasCopilot";
+import { ExportDialog } from "./ExportDialog";
+import { MacroLibrary } from "./MacroLibrary";
+import { DebuggerPanel } from "./DebuggerPanel";
+import { CollaborationOverlay } from "./CollaborationOverlay";
 
 const labelClass = "text-[9px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400/80 font-semibold";
 
@@ -92,6 +99,19 @@ function CanvasInner({
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const lastEmittedRef = useRef<AgentGraphDefinition | null>(null);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  // Quick-Connect Radial Search state
+  const [quickConnect, setQuickConnect] = useState<{ position: { x: number; y: number }; sourceNodeId?: string; sourceHandleId?: string } | null>(null);
+  // Alignment bar state
+  const [alignmentBarVisible, setAlignmentBarVisible] = useState(false);
+  // Export dialog state
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  // Macro library state
+  const [showMacroLibrary, setShowMacroLibrary] = useState(false);
+  // Debugger state
+  const [showDebugger, setShowDebugger] = useState(false);
+  // Collaboration viewport
+  const [viewport, setViewport] = useState({ x: 0, y: 0, zoom: 1 });
+
   const [showNodeSearch, setShowNodeSearch] = useState(false);
   const [nodeSearchQuery, setNodeSearchQuery] = useState("");
   const [clipboard, setClipboard] = useState<{ nodes: CanvasNode[]; edges: Edge[] } | null>(null);
@@ -252,6 +272,99 @@ function CanvasInner({
     input.click();
   }, [setNodes, setEdges, notifyChange, pushHistory]);
 
+  // ─── Quick-Connect Radial Search ───
+  const handleQuickConnectSelect = useCallback((type: GraphNodeType) => {
+    if (!quickConnect) return;
+    const node = createNodeFromType(type, quickConnect.position, nodes);
+    const nextNodes = [...nodes, node];
+    setNodes(nextNodes);
+    // Auto-wire: connect source node to the new node
+    if (quickConnect.sourceNodeId) {
+      const newEdge: Edge = {
+        id: nextEdgeId(edges),
+        source: quickConnect.sourceNodeId,
+        target: node.id,
+        type: "smoothstep",
+        animated: false,
+        labelStyle: { fontSize: 10, fontFamily: "monospace" },
+        labelBgPadding: [4, 2] as [number, number],
+        labelBgBorderRadius: 4,
+      };
+      const nextEdges = [...edges, newEdge];
+      setEdges(nextEdges);
+      notifyChange(nextNodes, nextEdges);
+    } else {
+      notifyChange(nextNodes, edges);
+    }
+    setSelectedNodeId(node.id);
+    setSelectedEdgeId(null);
+    setQuickConnect(null);
+  }, [quickConnect, nodes, edges, setNodes, setEdges, notifyChange]);
+
+  // ─── Alignment Bar ───
+  const selectedNodesForAlignment = useMemo(
+    () => nodes.filter((n) => n.selected),
+    [nodes]
+  );
+
+  const handleAlignment = useCallback((updatedNodes: CanvasNode[]) => {
+    const selectedIds = new Set(selectedNodesForAlignment.map((n) => n.id));
+    const nextNodes = nodes.map((n) => {
+      const updated = updatedNodes.find((u) => u.id === n.id);
+      return updated ? { ...n, position: updated.position } : n;
+    });
+    setNodes(nextNodes);
+    notifyChange(nextNodes, edges);
+  }, [nodes, edges, selectedNodesForAlignment, setNodes, notifyChange]);
+
+  // ─── Breakpoint Toggle ───
+  const handleToggleBreakpoint = useCallback((nodeId: string) => {
+    setNodes((prev) => {
+      const next = prev.map((n) =>
+        n.id === nodeId
+          ? { ...n, data: { ...n.data, breakpoint: !n.data.breakpoint } }
+          : n
+      );
+      notifyChange(next, edges);
+      return next;
+    });
+  }, [edges, setNodes, notifyChange]);
+
+  // ─── Macro Library Handlers ───
+  const handleAddMacro = useCallback((macroGraph: AgentGraphDefinition) => {
+    const flow = graphToFlow(macroGraph);
+    // Offset positions to avoid overlap
+    const offset = { x: 200, y: 100 };
+    const newNodes = flow.nodes.map((n) => ({
+      ...n,
+      id: nextNodeId((n.type ?? "agent") as GraphNodeType, [...nodes, ...flow.nodes]),
+      position: { x: n.position.x + offset.x, y: n.position.y + offset.y },
+      data: { ...n.data, traceStatus: undefined, traceDetail: undefined },
+    }));
+    const idMap = new Map<string, string>();
+    flow.nodes.forEach((orig, i) => idMap.set(orig.id, newNodes[i].id));
+    const newEdges = flow.edges.map((e) => ({
+      ...e,
+      id: nextEdgeId([...edges, ...flow.edges]),
+      source: idMap.get(e.source) ?? e.source,
+      target: idMap.get(e.target) ?? e.target,
+    }));
+    const allNodes = [...nodes, ...newNodes];
+    const allEdges = [...edges, ...newEdges];
+    setNodes(allNodes);
+    setEdges(allEdges);
+    notifyChange(allNodes, allEdges);
+  }, [nodes, edges, setNodes, setEdges, notifyChange]);
+
+  // ─── Canvas Copilot: Generate graph from NL prompt ───
+  const handleCopilotGraphGenerated = useCallback((generatedGraph: AgentGraphDefinition) => {
+    const flow = graphToFlow(generatedGraph);
+    setNodes(flow.nodes);
+    setEdges(flow.edges);
+    pushHistory(flow.nodes, flow.edges);
+    notifyChange(flow.nodes, flow.edges);
+  }, [setNodes, setEdges, pushHistory, notifyChange]);
+
   // ─── Node Search ───
   const filteredNodes = useMemo(() => {
     if (!nodeSearchQuery.trim()) return [];
@@ -289,8 +402,8 @@ function CanvasInner({
       if (meta && e.key === "d") { e.preventDefault(); if (selectedNodeId) { const node = nodes.find((n) => n.id === selectedNodeId); if (node && duplicateNodeRef.current) duplicateNodeRef.current(node); } }
       // ⌘+F = node search
       if (meta && e.key === "f") { e.preventDefault(); setShowNodeSearch((s) => !s); }
-      // ⌘+E = export
-      if (meta && e.key === "e") { e.preventDefault(); exportGraph(); }
+      // ⌘+E = export dialog
+      if (meta && e.key === "e") { e.preventDefault(); setShowExportDialog(true); }
       // F11 or Escape = toggle fullscreen
       if (e.key === "F11") { e.preventDefault(); toggleFullScreen(); }
       if (e.key === "Escape" && isFullScreen) { e.preventDefault(); toggleFullScreen(); }
@@ -696,6 +809,10 @@ function CanvasInner({
                 <button onClick={exportGraph} className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer" title="Export"><Download className="h-3.5 w-3.5" /></button>
                 <button onClick={importGraph} className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer" title="Import"><Upload className="h-3.5 w-3.5" /></button>
                 <div className="w-px h-5 bg-indigo-900/50 mx-1" />
+                <button onClick={() => setShowExportDialog(true)} className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer" title="Export (PNG/SVG/PDF/Mermaid/LangGraph)"><Download className="h-3.5 w-3.5" /> EXPORT…</button>
+                <button onClick={() => setShowMacroLibrary((p) => !p)} className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer" title="Toggle My Components"><Package className="h-3.5 w-3.5" /></button>
+                <button onClick={() => setShowDebugger((p) => !p)} className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer" title="Toggle Debugger"><Bug className="h-3.5 w-3.5" /></button>
+                <div className="w-px h-5 bg-indigo-900/50 mx-1" />
                 <button onClick={() => setShowNodeSearch((s) => !s)} className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer" title="Find node"><Search className="h-3.5 w-3.5" /></button>
                 <button onClick={cycleTheme} className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer" title="Cycle theme">{canvasTheme?.toUpperCase()}</button>
               </>
@@ -780,6 +897,30 @@ function CanvasInner({
               onNodesDelete={onNodesDelete}
               onEdgesDelete={onEdgesDelete}
               onConnect={onConnect}
+              onConnectStart={(params: any) => {
+                // Track connection start for Quick-Connect Radial Search
+                if (params?.nodeId) {
+                  (window as any).__connectSourceId = params.nodeId;
+                }
+              }}
+              onConnectEnd={(event: any) => {
+                if (inTraceMode) return;
+                // If user released on the canvas pane (not a handle), show Quick-Connect search
+                const sourceId = (window as any).__connectSourceId;
+                if (sourceId && wrapperRef.current) {
+                  const rect = wrapperRef.current.getBoundingClientRect();
+                  const clientX = event.clientX ?? event.touches?.[0]?.clientX ?? 0;
+                  const clientY = event.clientY ?? event.touches?.[0]?.clientY ?? 0;
+                  const x = clientX - rect.left;
+                  const y = clientY - rect.top;
+                  setQuickConnect({
+                    position: { x: clientX, y: clientY },
+                    sourceNodeId: sourceId,
+                  });
+                  (window as any).__connectSourceId = null;
+                }
+              }}
+              onViewportChange={(vp) => setViewport(vp)}
               onNodeClick={(event, node) => {
                 if (event.altKey) { duplicateNode(node); return; }
                 setSelectedNodeId(node.id);
@@ -881,7 +1022,7 @@ function CanvasInner({
                 {inTraceMode ? (
                   selectedNode && selectedNode.type === "subgraph" ? (
                     /* In trace mode, allow opening subgraph nodes to view inner trace */
-                    <NodeInspector node={selectedNode} onUpdate={() => {}} onDelete={() => {}} allNodeIds={nodes.map((n) => n.id)} onOpenSubgraph={openSubgraph} />
+                    <NodeInspector node={selectedNode} onUpdate={() => {}} onDelete={() => {}} allNodeIds={nodes.map((n) => n.id)} onOpenSubgraph={openSubgraph} onToggleBreakpoint={handleToggleBreakpoint} />
                   ) : (
                   <div className="space-y-3">
                     <div className="text-[9px] uppercase tracking-widest text-indigo-400 font-bold">{isPreview ? "GHOST PREVIEW" : "LIVE TRACE"}</div>
@@ -916,7 +1057,7 @@ function CanvasInner({
                     <div className="text-[8px] text-slate-500 font-mono">{selectedEdge.source} → {selectedEdge.target}</div>
                   </div>
                 ) : selectedNode ? (
-                  <NodeInspector node={selectedNode} onUpdate={(patch) => updateNodeData(selectedNode.id, patch)} onDelete={deleteSelected} allNodeIds={nodes.map((n) => n.id)} onOpenSubgraph={openSubgraph} />
+                  <NodeInspector node={selectedNode} onUpdate={(patch) => updateNodeData(selectedNode.id, patch)} onDelete={deleteSelected} allNodeIds={nodes.map((n) => n.id)} onOpenSubgraph={openSubgraph} onToggleBreakpoint={handleToggleBreakpoint} />
                 ) : (
                   <div className="space-y-3">
                     <div className="text-[9px] uppercase tracking-widest text-indigo-400 font-bold">INSPECTOR</div>
@@ -964,6 +1105,80 @@ function CanvasInner({
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* ─── Quick-Connect Radial Search ─── */}
+        {quickConnect && (
+          <QuickConnectSearch
+            position={quickConnect.position}
+            sourceNodeId={quickConnect.sourceNodeId}
+            onSelect={handleQuickConnectSelect}
+            onClose={() => setQuickConnect(null)}
+          />
+        )}
+
+        {/* ─── Canvas Copilot (NL Graph Generator) ─── */}
+        {!inTraceMode && !readOnly && (
+          <CanvasCopilot
+            onGraphGenerated={handleCopilotGraphGenerated}
+            disabled={inTraceMode}
+          />
+        )}
+
+        {/* ─── Alignment Bar ─── */}
+        {selectedNodesForAlignment.length >= 2 && !inTraceMode && (
+          <AlignmentBar
+            selectedNodes={selectedNodesForAlignment}
+            edges={edges as any}
+            onAlign={handleAlignment}
+            onDismiss={() => {
+              nodes.forEach((n) => {
+                if (n.selected) {
+                  setNodes((prev) => prev.map((p) => p.id === n.id ? { ...p, selected: false } : p));
+                }
+              });
+            }}
+          />
+        )}
+
+        {/* ─── Collaboration Overlay ─── */}
+        <CollaborationOverlay
+          canvasContainerRef={wrapperRef}
+          viewport={viewport}
+        />
+
+        {/* ─── Export Dialog ─── */}
+        <ExportDialog
+          isOpen={showExportDialog}
+          onClose={() => setShowExportDialog(false)}
+          graph={flowToGraph(nodes, edges)}
+          canvasContainerRef={wrapperRef}
+        />
+
+        {/* ─── Macro Library Panel ─── */}
+        {showMacroLibrary && (
+          <div className="absolute left-14 top-12 z-20 w-64 max-h-[70vh] overflow-y-auto rounded-lg border border-slate-700/60 bg-[#0a0a14]/95 backdrop-blur-md p-3 shadow-2xl font-mono">
+            <MacroLibrary
+              nodes={nodes}
+              edges={edges as any}
+              selectedNodeIds={new Set(nodes.filter((n) => n.selected).map((n) => n.id))}
+              onAddMacro={handleAddMacro}
+              isOpen={showMacroLibrary}
+              onToggle={() => setShowMacroLibrary(!showMacroLibrary)}
+            />
+          </div>
+        )}
+
+        {/* ─── Debugger Panel ─── */}
+        {showDebugger && (
+          <div className="absolute right-14 top-12 z-20 w-64 max-h-[60vh] overflow-y-auto rounded-lg border border-slate-700/60 bg-[#0a0a14]/95 backdrop-blur-md p-3 shadow-2xl">
+            <DebuggerPanel
+              nodeStatuses={effStatuses}
+              nodeDetails={effDetails}
+              isRunning={inTraceMode && effExecutionStatus === "RUNNING"}
+              onToggleBreakpoint={handleToggleBreakpoint}
+            />
           </div>
         )}
       </div>
@@ -1057,6 +1272,25 @@ function CanvasInner({
             onNodesDelete={onNodesDelete}
             onEdgesDelete={onEdgesDelete}
             onConnect={onConnect}
+            onConnectStart={(params: any) => {
+              if (params?.nodeId) {
+                (window as any).__connectSourceId = params.nodeId;
+              }
+            }}
+            onConnectEnd={(event: any) => {
+              if (inTraceMode) return;
+              const sourceId = (window as any).__connectSourceId;
+              if (sourceId && wrapperRef.current) {
+                const clientX = event.clientX ?? event.touches?.[0]?.clientX ?? 0;
+                const clientY = event.clientY ?? event.touches?.[0]?.clientY ?? 0;
+                setQuickConnect({
+                  position: { x: clientX, y: clientY },
+                  sourceNodeId: sourceId,
+                });
+                (window as any).__connectSourceId = null;
+              }
+            }}
+            onViewportChange={(vp) => setViewport(vp)}
             onNodeClick={(event, node) => {
               if (event.altKey) {
                 duplicateNode(node);
@@ -1224,6 +1458,30 @@ function CanvasInner({
                 title="Import graph from JSON"
               >
                 <Upload className="h-3 w-3" /> IMPORT
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowExportDialog(true)}
+                className="inline-flex items-center gap-1 rounded border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0b0b12]/95 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors shadow-sm cursor-pointer"
+                title="Export graph (PNG/SVG/PDF/Mermaid/LangGraph)"
+              >
+                <Download className="h-3 w-3" /> EXPORT…
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowMacroLibrary((p) => !p)}
+                className="inline-flex items-center gap-1 rounded border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0b0b12]/95 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors shadow-sm cursor-pointer"
+                title="Toggle My Components library"
+              >
+                <Package className="h-3 w-3" /> COMPONENTS
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDebugger((p) => !p)}
+                className="inline-flex items-center gap-1 rounded border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0b0b12]/95 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors shadow-sm cursor-pointer"
+                title="Toggle debugger panel"
+              >
+                <Bug className="h-3 w-3" /> DEBUG
               </button>
               {coverage && coverage.length > 0 && (
                 <button
@@ -1489,6 +1747,80 @@ function CanvasInner({
           </div>
         )}
       </div>
+
+      {/* ─── Quick-Connect Radial Search ─── */}
+      {quickConnect && (
+        <QuickConnectSearch
+          position={quickConnect.position}
+          sourceNodeId={quickConnect.sourceNodeId}
+          onSelect={handleQuickConnectSelect}
+          onClose={() => setQuickConnect(null)}
+        />
+      )}
+
+      {/* ─── Alignment Bar ─── */}
+      {selectedNodesForAlignment.length >= 2 && !inTraceMode && (
+        <AlignmentBar
+          selectedNodes={selectedNodesForAlignment}
+          edges={edges as any}
+          onAlign={handleAlignment}
+          onDismiss={() => {
+            nodes.forEach((n) => {
+              if (n.selected) {
+                setNodes((prev) => prev.map((p) => p.id === n.id ? { ...p, selected: false } : p));
+              }
+            });
+          }}
+        />
+      )}
+
+      {/* ─── Canvas Copilot (NL Graph Generator) ─── */}
+      {!inTraceMode && !readOnly && (
+        <CanvasCopilot
+          onGraphGenerated={handleCopilotGraphGenerated}
+          disabled={inTraceMode}
+        />
+      )}
+
+      {/* ─── Collaboration Overlay ─── */}
+      <CollaborationOverlay
+        canvasContainerRef={wrapperRef}
+        viewport={viewport}
+      />
+
+      {/* ─── Export Dialog ─── */}
+      <ExportDialog
+        isOpen={showExportDialog}
+        onClose={() => setShowExportDialog(false)}
+        graph={flowToGraph(nodes, edges)}
+        canvasContainerRef={wrapperRef}
+      />
+
+      {/* ─── Macro Library Panel (shown via toolbar button) ─── */}
+      {showMacroLibrary && (
+        <div className="absolute left-2 top-16 z-20 w-64 max-h-[70vh] overflow-y-auto rounded-lg border border-slate-700/60 bg-[#0a0a14]/95 backdrop-blur-md p-3 shadow-2xl font-mono">
+          <MacroLibrary
+            nodes={nodes}
+            edges={edges as any}
+            selectedNodeIds={new Set(nodes.filter((n) => n.selected).map((n) => n.id))}
+            onAddMacro={handleAddMacro}
+            isOpen={showMacroLibrary}
+            onToggle={() => setShowMacroLibrary(!showMacroLibrary)}
+          />
+        </div>
+      )}
+
+      {/* ─── Debugger Panel ─── */}
+      {showDebugger && (
+        <div className="absolute right-2 bottom-16 z-20 w-64 max-h-[60vh] overflow-y-auto rounded-lg border border-slate-700/60 bg-[#0a0a14]/95 backdrop-blur-md p-3 shadow-2xl">
+          <DebuggerPanel
+            nodeStatuses={effStatuses}
+            nodeDetails={effDetails}
+            isRunning={inTraceMode && effExecutionStatus === "RUNNING"}
+            onToggleBreakpoint={handleToggleBreakpoint}
+          />
+        </div>
+      )}
     </div>
   );
 }

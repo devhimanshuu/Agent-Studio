@@ -392,6 +392,12 @@ export function AgentStudioPreloader({
                 </span>
               </div>
               <div className="flex items-center justify-between">
+                <span className="text-[hsl(var(--preloader-muted))]">SANDBOX EXEC:</span>
+                <span className="font-semibold text-emerald-400">
+                  ISOLATED
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
                 <span className="text-[hsl(var(--preloader-muted))]">SECURITY GUARD:</span>
                 <span className="font-semibold text-emerald-400">
                   ENFORCED
@@ -621,12 +627,19 @@ export function AgentStudioPreloader({
               <g transform="translate(100, 95)">
                 <circle r="22" fill="url(#preloader-node-grad)" stroke="hsl(var(--preloader-border))" strokeWidth="1.5" />
                 <circle r="26" fill="none" stroke="hsl(var(--preloader-primary))" strokeWidth="1" strokeDasharray="3 4" className="animate-preloader-orbit-cw" />
+                {/* AI Intelligence Spark / Neural Core */}
                 <path
-                  d="M -7 -4 C -7 -8 -2 -10 2 -9 C 6 -10 10 -7 9 -2 C 11 0 11 4 8 7 C 6 9 1 9 -2 8 C -6 9 -9 6 -8 2 Z"
+                  d="M 0 -9 Q 0 0 -9 0 Q 0 0 0 9 Q 0 0 9 0 Q 0 0 0 -9 Z"
                   fill="none"
                   stroke="hsl(var(--preloader-primary))"
-                  strokeWidth="1.6"
+                  strokeWidth="1.5"
+                  strokeLinejoin="round"
                 />
+                <circle cx="0" cy="0" r="2.5" fill="hsl(var(--preloader-primary))" />
+                <circle cx="-5" cy="-5" r="1" fill="hsl(var(--preloader-primary))" opacity="0.75" />
+                <circle cx="5" cy="5" r="1" fill="hsl(var(--preloader-primary))" opacity="0.75" />
+                <circle cx="5" cy="-5" r="1" fill="hsl(var(--preloader-primary))" opacity="0.75" />
+                <circle cx="-5" cy="5" r="1" fill="hsl(var(--preloader-primary))" opacity="0.75" />
                 <text x="0" y="36" textAnchor="middle" fill="hsl(var(--preloader-text))" fontSize="9" fontFamily="monospace" fontWeight="bold">
                   LLM_REASON
                 </text>
@@ -686,6 +699,26 @@ export function AgentStudioPreloader({
                 </text>
               </g>
 
+              {/* Node 5: CODE_EXEC */}
+              <g transform="translate(100, 365)">
+                <circle r="22" fill="url(#preloader-node-grad)" stroke="hsl(var(--preloader-border))" strokeWidth="1.5" />
+                <circle r="26" fill="none" stroke="hsl(var(--preloader-primary))" strokeWidth="1" strokeDasharray="3 4" className="animate-preloader-orbit-cw" />
+                {/* Cyber Terminal / Code Sandbox Icon */}
+                <path
+                  d="M -6 -5 L -1 0 L -6 5 M 2 5 L 7 5"
+                  fill="none"
+                  stroke="hsl(var(--preloader-primary))"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <text x="0" y="36" textAnchor="middle" fill="hsl(var(--preloader-text))" fontSize="9" fontFamily="monospace" fontWeight="bold">
+                  CODE_EXEC
+                </text>
+                <text x="0" y="46" textAnchor="middle" fill="hsl(var(--preloader-muted))" fontSize="7.5" fontFamily="monospace">
+                  SANDBOX
+                </text>
+              </g>
 
               {/* Node 6: GUARDRAIL */}
               <g transform="translate(55, 230)">

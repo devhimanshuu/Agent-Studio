@@ -23,7 +23,9 @@ export type GraphNodeType =
   | "delay"
   | "aggregate"
   | "variable"
-  | "output";
+  | "output"
+  | "sticky_note"
+  | "frame";
 
 /** Router node evaluation modes. */
 export type RouterMode = "deterministic" | "ai";
@@ -129,6 +131,28 @@ export interface GraphNodeData {
   outputTemplate?: string;
   /** Output field mappings. */
   outputFields?: Record<string, string>;
+  // sticky_note
+  /** Markdown content for the sticky note. */
+  noteContent?: string;
+  /** Background color for the sticky note. */
+  noteColor?: string;
+  // frame
+  /** Frame title / section label. */
+  frameTitle?: string;
+  /** Frame background opacity (0-1). */
+  frameOpacity?: number;
+  /** IDs of nodes contained within this frame (visual grouping). */
+  containedNodeIds?: string[];
+  // breakpoint
+  /** Whether this node has a breakpoint set (debug mode). */
+  breakpoint?: boolean;
+  // token tracking
+  /** Token usage stats for this node during execution. */
+  tokenUsage?: { inputTokens?: number; outputTokens?: number; totalCost?: number; model?: string; };
+  /** Streaming text token from LLM. */
+  streamingText?: string;
+  /** Whether this node is currently streaming. */
+  isStreaming?: boolean;
 }
 
 export interface GraphNodeDefinition {

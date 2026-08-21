@@ -22,6 +22,8 @@ import {
   Layers,
   Variable,
   FileOutput,
+  StickyNote,
+  Frame,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { CANVAS_NODE_TYPE_MAP } from "./nodeTypes";
@@ -578,6 +580,65 @@ function OutputNode({ data, selected }: NodePropsShape) {
   );
 }
 
+// ─── Sticky Note (Markdown Documentation) ───
+
+const NOTE_COLORS: Record<string, string> = {
+  yellow: "bg-yellow-50 dark:bg-yellow-950/30 border-yellow-300 dark:border-yellow-500/40",
+  pink: "bg-pink-50 dark:bg-pink-950/30 border-pink-300 dark:border-pink-500/40",
+  blue: "bg-blue-50 dark:bg-blue-950/30 border-blue-300 dark:border-blue-500/40",
+  green: "bg-green-50 dark:bg-green-950/30 border-green-300 dark:border-green-500/40",
+  purple: "bg-purple-50 dark:bg-purple-950/30 border-purple-300 dark:border-purple-500/40",
+};
+
+function StickyNoteNode({ data, selected }: NodePropsShape) {
+  const color = (data.noteColor as string) ?? "yellow";
+  const content = (data.noteContent as string) ?? "# Notes\nAdd documentation here...";
+  return (
+    <div
+      className={clsx(
+        "relative w-full rounded-lg border-2 border-dashed font-mono shadow-md p-3 min-h-[120px]",
+        NOTE_COLORS[color] || NOTE_COLORS.yellow,
+        selected && "ring-2 ring-indigo-500/70 dark:ring-indigo-400/70"
+      )}
+    >
+      <div className="flex items-center gap-1.5 mb-2">
+        <StickyNote className="h-3.5 w-3.5 text-yellow-600 dark:text-yellow-400" />
+        <span className="text-[9px] font-bold text-yellow-700 dark:text-yellow-400 uppercase tracking-wider">
+          {data.label}
+        </span>
+      </div>
+      <div className="text-[9px] text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed line-clamp-6">
+        {content}
+      </div>
+    </div>
+  );
+}
+
+// ─── Frame (Visual Container / Swimlane) ───
+
+function FrameNode({ data, selected }: NodePropsShape) {
+  return (
+    <div
+      className={clsx(
+        "relative w-full h-full rounded-lg border-2 border-dashed border-indigo-400/50 dark:border-indigo-500/40",
+        "bg-indigo-50/8 dark:bg-indigo-950/15",
+        selected && "ring-2 ring-indigo-500/70 dark:ring-indigo-400/70"
+      )}
+      style={{ minHeight: 200, minWidth: 300 }}
+    >
+      <div className="absolute -top-3 left-3 px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/60 rounded border border-indigo-300 dark:border-indigo-500/40">
+        <div className="flex items-center gap-1.5">
+          <Frame className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
+          <span className="text-[9px] font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider">
+            {(data.frameTitle as string) ?? "Phase"}
+          </span>
+        </div>
+      </div>
+      {/* Frame is a visual-only container — no handles needed */}
+    </div>
+  );
+}
+
 export const canvasNodeTypes = {
   start: memo(StartNode),
   end: memo(EndNode),
@@ -598,4 +659,6 @@ export const canvasNodeTypes = {
   aggregate: memo(AggregateNode),
   variable: memo(VariableNode),
   output: memo(OutputNode),
+  sticky_note: memo(StickyNoteNode),
+  frame: memo(FrameNode),
 };

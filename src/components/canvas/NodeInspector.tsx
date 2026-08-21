@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { Trash2, GitBranch, Braces, Boxes, CornerUpRight, RefreshCw } from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Trash2, GitBranch, Braces, Boxes, CornerUpRight, RefreshCw, Sparkles, Circle, Bug } from "lucide-react";
+import { clsx } from "clsx";
 import { BUILT_IN_TOOL_CATALOG } from "@/modules/tools";
 import type { CanvasNode, CanvasNodeData } from "./graphUtils";
 import { GraphNodeType } from "@/types/graph";
@@ -15,6 +16,8 @@ interface NodeInspectorProps {
   allNodeIds?: string[];
   /** Opens a subgraph node for nested editing (canvas pushes the inner graph). */
   onOpenSubgraph?: (node: CanvasNode) => void;
+  /** Toggle a breakpoint on this node (debug mode). */
+  onToggleBreakpoint?: (nodeId: string) => void;
 }
 
 const inputClass =
@@ -155,7 +158,43 @@ function useJsonField(
   return { raw, setRaw, error, handle };
 }
 
-export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubgraph }: NodeInspectorProps) {
+export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubgraph, onToggleBreakpoint }: NodeInspectorProps) {
+  // Prompt optimizer state
+  const [optimizing, setOptimizing] = useState(false);
+  const [optimizeError, setOptimizeError] = useState<string | null>(null);
+  const [optimizeStats, setOptimizeStats] = useState<{ originalTokens: number; optimizedTokens: number; improvement: string } | null>(null);
+
+  const handleOptimizePrompt = useCallback(async () => {
+    const currentPrompt = node.data.prompt ?? "";
+    if (!currentPrompt.trim() || optimizing) return;
+    setOptimizing(true);
+    setOptimizeError(null);
+    setOptimizeStats(null);
+    try {
+      const res = await fetch("/api/canvas/optimize-prompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: currentPrompt,
+          nodeType: node.type,
+          label: node.data.label,
+          condition: node.data.condition,
+          toolName: node.data.toolName,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.optimizedPrompt) {
+        onUpdate({ prompt: data.optimizedPrompt });
+        if (data.stats) setOptimizeStats(data.stats);
+      } else {
+        setOptimizeError(data.error ?? "Optimization failed");
+      }
+    } catch (e) {
+      setOptimizeError(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setOptimizing(false);
+    }
+  }, [node, onUpdate, optimizing]);
   const [templateRaw, setTemplateRaw] = useState(() =>
     node.data.inputTemplate && Object.keys(node.data.inputTemplate).length > 0
       ? JSON.stringify(node.data.inputTemplate, null, 2)
@@ -240,14 +279,43 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
       </Field>
 
       {type === "agent" && (
-        <PromptField
-          label="Agent Prompt"
-          hint="System prompt for this specialist agent. Receives the accumulated workflow context."
-          value={node.data.prompt ?? ""}
-          onChange={(v) => onUpdate({ prompt: v })}
-          rows={6}
-          allNodeIds={allNodeIds}
-        />
+        <>
+          <PromptField
+            label="Agent Prompt"
+            hint="System prompt for this specialist agent. Receives the accumulated workflow context."
+            value={node.data.prompt ?? ""}
+            onChange={(v) => onUpdate({ prompt: v })}
+            rows={6}
+            allNodeIds={allNodeIds}
+          />
+          {/* Optimize Prompt Button */}
+          {node.data.prompt && node.data.prompt.trim().length > 20 && (
+            <button
+              type="button"
+              onClick={handleOptimizePrompt}
+              disabled={optimizing}
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded border border-purple-400/50 bg-purple-950/30 px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-purple-300 hover:bg-purple-900/40 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {optimizing ? (
+                <>
+                  <RefreshCw className="h-3 w-3 animate-spin" /> OPTIMIZING…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-3 w-3" /> OPTIMIZE PROMPT
+                </>
+              )}
+            </button>
+          )}
+          {optimizeStats && (
+            <div className="text-[8px] text-purple-400 font-mono">
+              {optimizeStats.originalTokens}→{optimizeStats.optimizedTokens} tokens ({optimizeStats.improvement})
+            </div>
+          )}
+          {optimizeError && (
+            <div className="text-[8px] text-red-400">✗ {optimizeError}</div>
+          )}
+        </>
       )}
 
       {type === "supervisor" && (
@@ -260,6 +328,33 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
             rows={5}
             allNodeIds={allNodeIds}
           />
+          {/* Optimize Prompt Button */}
+          {node.data.prompt && node.data.prompt.trim().length > 20 && (
+            <button
+              type="button"
+              onClick={handleOptimizePrompt}
+              disabled={optimizing}
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded border border-purple-400/50 bg-purple-950/30 px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-purple-300 hover:bg-purple-900/40 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {optimizing ? (
+                <>
+                  <RefreshCw className="h-3 w-3 animate-spin" /> OPTIMIZING…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-3 w-3" /> OPTIMIZE PROMPT
+                </>
+              )}
+            </button>
+          )}
+          {optimizeStats && (
+            <div className="text-[8px] text-purple-400 font-mono">
+              {optimizeStats.originalTokens}→{optimizeStats.optimizedTokens} tokens ({optimizeStats.improvement})
+            </div>
+          )}
+          {optimizeError && (
+            <div className="text-[8px] text-red-400">✗ {optimizeError}</div>
+          )}
           <Field label="Routing Hint" hint="Add label text to each outgoing edge — the supervisor returns one of them.">
             <div className="rounded border border-violet-300 dark:border-violet-500/30 bg-violet-50 dark:bg-violet-950/20 p-2 text-[9px] text-violet-700 dark:text-violet-300">
               <GitBranch className="h-3 w-3 inline mr-1" />
@@ -838,6 +933,82 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
             />
           </Field>
         </>
+      )}
+
+      {/* Sticky Note Inspector */}
+      {type === "sticky_note" && (
+        <>
+          <Field label="Note Color">
+            <select
+              value={(node.data.noteColor as string) ?? "yellow"}
+              onChange={(e) => onUpdate({ noteColor: e.target.value })}
+              className={`${inputClass} cursor-pointer`}
+            >
+              <option value="yellow">🟡 Yellow</option>
+              <option value="pink">🩷 Pink</option>
+              <option value="blue">🔵 Blue</option>
+              <option value="green">🟢 Green</option>
+              <option value="purple">🟣 Purple</option>
+            </select>
+          </Field>
+          <Field label="Content (Markdown)">
+            <textarea
+              value={(node.data.noteContent as string) ?? ""}
+              onChange={(e) => onUpdate({ noteContent: e.target.value })}
+              rows={8}
+              spellCheck={false}
+              placeholder="# Notes\nAdd documentation here..."
+              className={`${inputClass} resize-y leading-relaxed`}
+            />
+          </Field>
+        </>
+      )}
+
+      {/* Frame Inspector */}
+      {type === "frame" && (
+        <>
+          <Field label="Frame Title">
+            <input
+              value={(node.data.frameTitle as string) ?? ""}
+              onChange={(e) => onUpdate({ frameTitle: e.target.value })}
+              placeholder="e.g. Research Phase"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Background Opacity">
+            <input
+              type="range"
+              min={0}
+              max={0.5}
+              step={0.05}
+              value={(node.data.frameOpacity as number) ?? 0.08}
+              onChange={(e) => onUpdate({ frameOpacity: Number(e.target.value) })}
+              className="w-full accent-indigo-500 cursor-pointer"
+            />
+            <div className="text-[8px] text-slate-500 text-right">
+              {(((node.data.frameOpacity as number) ?? 0.08) * 100).toFixed(0)}%
+            </div>
+          </Field>
+        </>
+      )}
+
+      {/* Breakpoint Toggle (debug mode) */}
+      {onToggleBreakpoint && (type === "agent" || type === "supervisor" || type === "tool" || type === "router" || type === "approval") && (
+        <div className="border-t border-slate-200 dark:border-slate-700/60 pt-2">
+          <button
+            type="button"
+            onClick={() => onToggleBreakpoint(node.id)}
+            className={clsx(
+              "inline-flex w-full items-center justify-center gap-1.5 rounded border px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider transition-colors cursor-pointer",
+              node.data.breakpoint
+                ? "border-red-400 bg-red-950/40 text-red-300"
+                : "border-slate-700 text-slate-400 hover:border-red-400 hover:text-red-300"
+            )}
+          >
+            <Circle className={clsx("h-3 w-3", node.data.breakpoint ? "fill-red-500 text-red-500" : "text-slate-500")} />
+            {node.data.breakpoint ? "BREAKPOINT SET" : "SET BREAKPOINT"}
+          </button>
+        </div>
       )}
 
       <div className="border-t border-slate-200 dark:border-slate-700/60 pt-2">
