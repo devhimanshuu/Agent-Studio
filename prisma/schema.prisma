@@ -72,6 +72,17 @@ enum OpenApiStatus {
   ERROR
 }
 
+enum VaultCategory {
+  API_KEY
+  OAUTH_TOKEN
+  DATABASE_URL
+  CONNECTION_STRING
+  PASSWORD
+  CERTIFICATE
+  WEBHOOK_SECRET
+  OTHER
+}
+
 model User {
   id            String         @id @default(cuid())
   email         String         @unique
@@ -86,6 +97,7 @@ model User {
   auditLogs     AuditLog[]
   mcpServers    McpServer[]
   openApiIntegrations OpenApiIntegration[]
+  vaultEntries  VaultEntry[]
 
   @@map("users")
 }
@@ -349,5 +361,27 @@ model OpenApiIntegration {
 
   @@index([userId])
   @@map("openapi_integrations")
+}
+
+model VaultEntry {
+  id          String    @id @default(cuid())
+  userId      String
+  name        String    // Human-readable name (e.g. "GitHub PAT", "Postgres URL")
+  category    VaultCategory @default(API_KEY)
+  key         String    // Environment variable name (e.g. GITHUB_TOKEN, DATABASE_URL)
+  value       String    // Encrypted value (AES-256-GCM)
+  iv          String    // Initialization vector for decryption
+  tag         String    // Auth tag for AES-GCM verification
+  description String?   // Optional description of what this secret is for
+  tags        String[]  @default([]) // Tags for organization
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@index([userId])
+  @@map("vault_entries")
 }
 

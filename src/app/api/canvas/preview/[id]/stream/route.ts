@@ -112,6 +112,11 @@ export async function GET(
   return new Response(stream, { headers: SSE_HEADERS });
 }
 
+import { McpClientService } from "@/services/McpClientService";
+import { McpServerRepository } from "@/repositories/McpServerRepository";
+import { OpenApiService } from "@/services/OpenApiService";
+import { OpenApiRepository } from "@/repositories/OpenApiRepository";
+
 /** Run the graph interpreter in dry-run mode against the preview session. */
 async function runPreview(
   previewId: string,
@@ -125,9 +130,22 @@ async function runPreview(
   const skill = await skillRepo.findByIdForUser(version.skillId, userId);
   if (!skill) throw new Error("Skill not found");
 
+  const toolRegistry = createToolRegistry();
+  const mcpService = new McpClientService(new McpServerRepository());
+  const openApiService = new OpenApiService(new OpenApiRepository());
+
+  await Promise.all([
+    mcpService.syncRegistryTools(userId, toolRegistry).catch((err) => {
+      logger.warn({ userId, err }, "Failed to sync MCP tools for preview");
+    }),
+    openApiService.syncRegistryTools(userId, toolRegistry).catch((err) => {
+      logger.warn({ userId, err }, "Failed to sync OpenAPI tools for preview");
+    }),
+  ]);
+
   const interpreter = new GraphInterpreter({
     llm: getLLMProvider(),
-    toolRegistry: createToolRegistry(),
+    toolRegistry,
     permissionChecker: new PermissionChecker(),
     executionRepo: new ExecutionRepository(),
     approvalRepo: new ApprovalRepository(),

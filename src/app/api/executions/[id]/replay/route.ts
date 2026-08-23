@@ -11,18 +11,32 @@ import { ApprovalHistoryRepository } from "@/repositories/ApprovalHistoryReposit
 import { unauthorized, serverError, notFound, forbidden } from "@/lib/api/handlers";
 import { rateLimit } from "@/lib/api/rateLimit";
 
+import { McpClientService } from "@/services/McpClientService";
+import { McpServerRepository } from "@/repositories/McpServerRepository";
+import { OpenApiService } from "@/services/OpenApiService";
+import { OpenApiRepository } from "@/repositories/OpenApiRepository";
+
 const executionRepo = new ExecutionRepository();
 const skillRepo = new SkillRepository();
 const auditRepo = new AuditLogRepository();
-const executionService = new ExecutionService(executionRepo, skillRepo, auditRepo);
+const approvalRepo = new ApprovalRepository();
+const historyRepo = new ApprovalHistoryRepository();
+const mcpService = new McpClientService(new McpServerRepository());
+const openApiService = new OpenApiService(new OpenApiRepository());
+
+const executionService = new ExecutionService(executionRepo, skillRepo, auditRepo, {
+  mcpService,
+  openApiService,
+  approvalRepo,
+});
 const historyService = new ExecutionHistoryService(
   executionRepo,
   skillRepo,
   auditRepo,
   executionService,
   new ExecutionLogRepository(),
-  new ApprovalRepository(),
-  new ApprovalHistoryRepository()
+  approvalRepo,
+  historyRepo
 );
 
 /**

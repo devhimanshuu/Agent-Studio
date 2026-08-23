@@ -16,13 +16,23 @@ const resumeSchema = z.object({
   idempotencyKey: z.string().min(1, "Idempotency key is required"),
 });
 
+import { McpClientService } from "@/services/McpClientService";
+import { McpServerRepository } from "@/repositories/McpServerRepository";
+import { OpenApiService } from "@/services/OpenApiService";
+import { OpenApiRepository } from "@/repositories/OpenApiRepository";
+
 const executionRepo = new ExecutionRepository();
 const skillRepo = new SkillRepository();
 const auditRepo = new AuditLogRepository();
 const approvalRepo = new ApprovalRepository();
 const historyRepo = new ApprovalHistoryRepository();
+const mcpService = new McpClientService(new McpServerRepository());
+const openApiService = new OpenApiService(new OpenApiRepository());
+
 const approvalEngine = new ApprovalEngine(approvalRepo, historyRepo, executionRepo);
 const executionService = new ExecutionService(executionRepo, skillRepo, auditRepo, {
+  mcpService,
+  openApiService,
   approvalRepo,
 });
 

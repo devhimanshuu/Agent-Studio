@@ -8,11 +8,21 @@ import { ApprovalRepository } from "@/repositories/ApprovalRepository";
 import { unauthorized, forbidden, notFound, serverError, badRequest } from "@/lib/api/handlers";
 import { rateLimit } from "@/lib/api/rateLimit";
 
+import { McpClientService } from "@/services/McpClientService";
+import { McpServerRepository } from "@/repositories/McpServerRepository";
+import { OpenApiService } from "@/services/OpenApiService";
+import { OpenApiRepository } from "@/repositories/OpenApiRepository";
+
 const executionRepo = new ExecutionRepository();
 const skillRepo = new SkillRepository();
 const auditRepo = new AuditLogRepository();
 const approvalRepo = new ApprovalRepository();
+const mcpService = new McpClientService(new McpServerRepository());
+const openApiService = new OpenApiService(new OpenApiRepository());
+
 const executionService = new ExecutionService(executionRepo, skillRepo, auditRepo, {
+  mcpService,
+  openApiService,
   approvalRepo,
 });
 

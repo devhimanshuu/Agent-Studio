@@ -46,7 +46,7 @@ function serverToSkill(server: AwesomeMcpServer): AgentSkill {
     source: server.source,
     sourceUrl: server.repoUrl,
     requiredServers: [server.name],
-    requiredTools: server.command ? ["mcp_execute"] : ["mcp_connect"],
+    requiredTools: [],
     tags: Array.from(new Set([server.source, ...(server.tags || [])])).slice(0, 5),
     stars: server.isVerified ? 180 : 45,
     installs: server.isVerified ? 2100 : 380,
@@ -56,11 +56,8 @@ function serverToSkill(server: AwesomeMcpServer): AgentSkill {
     steps: [
       {
         order: 1,
-        action: "connect",
-        description: server.command
-          ? `Initialize ${server.name} via command (${server.command.slice(0, 40)}...)`
-          : `Connect to ${server.name} endpoint`,
-        requiredTool: server.command ? "execute_command" : "connect",
+        action: "prepare",
+        description: `Prepare ${server.name} integration context`,
       },
       {
         order: 2,
@@ -89,7 +86,7 @@ function composioToolkitToSkill(tk: ComposioToolkit): AgentSkill {
     source: "composio" as const,
     sourceUrl: tk.appUrl || `https://composio.dev/toolkits/${tk.slug}`,
     requiredServers: [`${tk.name} (Composio)`],
-    requiredTools: tk.noAuth ? [] : ["composio_auth"],
+    requiredTools: [],
     tags: [...tk.categories.map((c) => c.name.toLowerCase()), "composio", "managed-auth", tk.slug].slice(0, 5),
     stars: tk.toolsCount,
     installs: tk.toolsCount * 10,
@@ -97,7 +94,7 @@ function composioToolkitToSkill(tk: ComposioToolkit): AgentSkill {
     difficulty: tk.noAuth ? "BEGINNER" : "INTERMEDIATE",
     estimatedTime: "2 min",
     steps: [
-      { order: 1, action: "connect", description: `Connect to ${tk.name} via Composio managed OAuth`, requiredTool: "composio_connect" },
+      { order: 1, action: "connect", description: `Connect to ${tk.name} via Composio managed OAuth` },
       { order: 2, action: "discover", description: `Auto-discover ${tk.toolsCount} tools available in ${tk.name}` },
       { order: 3, action: "execute", description: `Execute ${tk.name} tools in your agent workflow` },
     ],
@@ -127,7 +124,7 @@ function composioToolToSkill(tool: ComposioTool): AgentSkill {
     difficulty: inputProps.length > 4 ? "ADVANCED" : inputProps.length > 2 ? "INTERMEDIATE" : "BEGINNER",
     estimatedTime: "1 min",
     steps: [
-      { order: 1, action: "configure", description: `Configure ${tool.toolkitName} authentication`, requiredTool: "composio_auth" },
+      { order: 1, action: "configure", description: `Configure ${tool.toolkitName} authentication` },
       { order: 2, action: "execute", description: `Execute ${cleanName} with parameters: ${inputProps.join(", ")}` },
     ],
   };
@@ -168,9 +165,9 @@ function smitheryItemToSkill(s: any): AgentSkill {
     difficulty: (s.qualityScore > 0.9 ? "ADVANCED" : s.qualityScore > 0.7 ? "INTERMEDIATE" : "BEGINNER") as AgentSkill["difficulty"],
     estimatedTime: "5 min",
     steps: [
-      { order: 1, action: "install", description: `Install ${s.displayName || s.slug} skill`, requiredTool: "smithery-cli" },
-      { order: 2, action: "configure", description: "Configure skill settings" },
-      { order: 3, action: "activate", description: "Activate and start using the skill" },
+      { order: 1, action: "execute", description: `Execute ${s.displayName || s.slug} skill capabilities` },
+      { order: 2, action: "process", description: "Process results and generate output" },
+      { order: 3, action: "deliver", description: "Deliver final response to user" },
     ],
   };
 }

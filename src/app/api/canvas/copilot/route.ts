@@ -75,11 +75,17 @@ export async function POST(request: NextRequest) {
       { temperature: 0.4, maxTokens: 4096 }
     );
 
-    // Extract JSON from the response (handle markdown fences)
+    // Extract JSON from the response (handle markdown fences, preambles, and conversational text)
     let jsonStr = llmResponse.content.trim();
-    // Strip markdown code fences if present
-    if (jsonStr.startsWith("```")) {
-      jsonStr = jsonStr.replace(/^```(?:json)?\s*\n?/, "").replace(/\n?```\s*$/, "");
+    const codeBlockMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (codeBlockMatch) {
+      jsonStr = codeBlockMatch[1].trim();
+    } else {
+      const jsonStart = jsonStr.indexOf("{");
+      const jsonEnd = jsonStr.lastIndexOf("}");
+      if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+        jsonStr = jsonStr.slice(jsonStart, jsonEnd + 1).trim();
+      }
     }
 
     let graph: AgentGraphDefinition;
