@@ -57,6 +57,12 @@ describe("expression evaluator", () => {
     expect(evaluateExpression("results.nope.x.y == 1", ctx)).toBe(false);
   });
 
+  it("evaluates negative numbers in comparison contexts", () => {
+    expect(evaluateExpression("input.amount > -100", ctx)).toBe(true);
+    expect(evaluateExpression("-50 < 0", ctx)).toBe(true);
+    expect(evaluateExpression("results.classifier.count == -(-3)", ctx)).toBe(true);
+  });
+
   it("throws a clear ExpressionError on syntax errors", () => {
     expect(() => evaluateExpression("results.x >", ctx)).toThrow(ExpressionError);
     expect(() => evaluateExpression("@@", ctx)).toThrow(ExpressionError);

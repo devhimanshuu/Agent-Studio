@@ -425,4 +425,30 @@ describe("ExecutionEngine (graph-first runtime)", () => {
     // (The tool receives `action` merged into its input and echoes it back.)
     expect(resumed.finalOutput?.results).toEqual({ step_1: 3, step_2: { action: "create_record", note: "x" } });
   });
+
+  it("resolves prior step references in 'none' pass-through generation steps", async () => {
+    const plan = {
+      reasoning: "Compute sum and then output final summary.",
+      requiredTools: ["calculator"],
+      steps: [
+        { stepNumber: 1, toolName: "calculator", action: "add", input: { a: 10, b: 20 }, requiresApproval: false },
+        { stepNumber: 2, toolName: "none", action: "reason", input: { summary: "Total is $step1.result" }, requiresApproval: false },
+      ],
+      expectedOutput: "Total is 30",
+    };
+    const version = makeVersion({ allowedTools: ["calculator", "none"] });
+    const { engine } = makeEngine(plan, version);
+
+    const result = await engine.run({
+      executionId: "exec-none-ref",
+      skill: makeSkill(),
+      version,
+      userInput: {},
+    });
+
+    expect(result.status).toBe("COMPLETED");
+    expect(result.finalOutput?.results?.step_2).toEqual({
+      summary: "Total is 30",
+    });
+  });
 });

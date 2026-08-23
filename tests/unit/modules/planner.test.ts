@@ -90,6 +90,22 @@ describe("PlannerService", () => {
     expect(call?.options?.maxTokens).toBe(2000);
     expect(call?.options?.timeoutMs).toBe(5000);
   });
+
+  it("passes availableTools into planner messages to guide tool selection", async () => {
+    const llm = new StubLLM({ plan: samplePlan });
+    const planner = new PlannerService(llm);
+    await planner.plan({
+      skill: makeSkill(),
+      version: makeVersion(),
+      userInput: {},
+      availableTools: [{ name: "calculator", description: "Performs math" }],
+    });
+
+    const call = llm.calls.find((c) => c.method === "structuredOutput");
+    const userMsg = call?.messages?.find((m) => m.role === "user");
+    const parsed = JSON.parse(userMsg?.content || "{}");
+    expect(parsed.availableTools).toEqual([{ name: "calculator", description: "Performs math" }]);
+  });
 });
 
 describe("requestStructuredOutput", () => {
