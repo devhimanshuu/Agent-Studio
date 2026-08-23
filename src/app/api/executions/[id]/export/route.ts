@@ -3,7 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { unauthorized, serverError, notFound } from "@/lib/api/handlers";
 import { apiServices } from "@/lib/api/services";
 
-const { executionService, historyService } = apiServices();
+const { historyService } = apiServices();
 
 /**
  * JSON export of a full execution report: trace data, structured logs,

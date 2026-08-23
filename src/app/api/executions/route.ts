@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { startExecutionSchema } from "@/validators/executionSchema";
-import { ExecutionHistoryService } from "@/modules/history";
 import { unauthorized, badRequest, serverError, isValidIsoDate } from "@/lib/api/handlers";
 import { rateLimit } from "@/lib/api/rateLimit";
 import { ExecutionError } from "@/modules/execution/executor/errors";

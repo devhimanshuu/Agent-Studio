@@ -48,7 +48,7 @@ const EXAMPLES: CopilotExample[] = [
  * A prompt bar at the top of the canvas that takes a natural language description
  * and generates a full agent graph definition with nodes, prompts, and layouts.
  */
-export function CanvasCopilot({ onGraphGenerated, disabled = false, position = "top" }: CanvasCopilotProps) {
+export function CanvasCopilot({ onGraphGenerated, disabled = false, position = "bottom" }: CanvasCopilotProps) {
   const [prompt, setPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,15 +93,48 @@ export function CanvasCopilot({ onGraphGenerated, disabled = false, position = "
 
   if (disabled) return null;
 
+  const isBottom = position === "bottom";
+
   return (
-    <div className={clsx(
-      "absolute left-1/2 z-30 -translate-x-1/2 w-[560px] max-w-[calc(100%-3rem)]",
-      position === "bottom" ? "bottom-14" : "top-2"
-    )}>
-      <div className="rounded-xl border border-slate-200 dark:border-indigo-500/40 bg-white/95 dark:bg-[#0a0a14]/95 backdrop-blur-md shadow-2xl shadow-indigo-500/10 font-mono overflow-hidden">
+    <div
+      className={clsx(
+        "absolute left-1/2 z-40 -translate-x-1/2 w-[600px] max-w-[calc(100%-3rem)] transition-all",
+        isBottom ? "bottom-5" : "top-3"
+      )}
+    >
+      <div className="rounded-xl border border-slate-200 dark:border-indigo-500/40 bg-white/95 dark:bg-[#0a0a14]/95 backdrop-blur-md shadow-2xl shadow-indigo-500/20 font-mono overflow-hidden flex flex-col">
+        {/* If positioned at bottom, expanded examples appear above the input */}
+        {expanded && isBottom && (
+          <div className="border-b border-slate-200 dark:border-indigo-500/20 px-3 py-2.5 space-y-1 bg-slate-50/50 dark:bg-black/30 max-h-52 overflow-y-auto">
+            <div className="text-[8px] text-slate-500 uppercase tracking-widest font-bold mb-1">
+              Example Prompts (Talk to Graph)
+            </div>
+            {EXAMPLES.map((ex) => (
+              <button
+                key={ex.label}
+                onClick={() => applyExample(ex)}
+                className="w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-left hover:bg-indigo-50/80 dark:hover:bg-indigo-500/10 border border-transparent hover:border-indigo-200 dark:hover:border-indigo-500/30 transition-all cursor-pointer"
+              >
+                <Sparkles className="h-3 w-3 text-indigo-500 dark:text-indigo-400 shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-[9px] font-bold text-indigo-700 dark:text-indigo-300">{ex.label}</div>
+                  <div className="text-[8px] text-slate-500 truncate">{ex.prompt}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Error */}
+        {error && (
+          <div className="px-3 py-1.5 border-b border-red-300 dark:border-red-500/30 bg-red-50 dark:bg-red-950/40 text-[9px] text-red-600 dark:text-red-400">
+            ✗ {error}
+          </div>
+        )}
+
         {/* Main input row */}
-        <div className="flex items-center gap-2 px-3 py-2">
-          <Sparkles className="h-4 w-4 text-indigo-500 dark:text-indigo-400 shrink-0" />
+        <div className="flex items-center gap-2 px-3.5 py-2.5">
+          <Sparkles className="h-4 w-4 text-indigo-500 dark:text-indigo-400 shrink-0 animate-pulse" />
           <input
             value={prompt}
             onChange={(e) => {
@@ -114,8 +147,8 @@ export function CanvasCopilot({ onGraphGenerated, disabled = false, position = "
                 handleSubmit();
               }
             }}
-            placeholder="Describe your agent graph… e.g. 'Build a customer support pipeline with intent classification and HITL approval'"
-            className="flex-1 bg-transparent text-[11px] text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none"
+            placeholder="Talk to graph… e.g. 'Build a customer support pipeline with intent classification and HITL approval'"
+            className="flex-1 bg-transparent text-[11px] text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none"
             disabled={isGenerating}
           />
           <button
@@ -124,7 +157,7 @@ export function CanvasCopilot({ onGraphGenerated, disabled = false, position = "
             className={clsx(
               "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer",
               prompt.trim() && !isGenerating
-                ? "bg-indigo-600 text-white hover:bg-indigo-500 shadow-md shadow-indigo-500/20"
+                ? "bg-indigo-600 text-white hover:bg-indigo-500 shadow-md shadow-indigo-500/25 active:scale-95"
                 : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed"
             )}
           >
@@ -143,19 +176,16 @@ export function CanvasCopilot({ onGraphGenerated, disabled = false, position = "
             className="p-1 rounded hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-white transition-colors cursor-pointer"
             title="Show examples"
           >
-            {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            {expanded ? (
+              isBottom ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />
+            ) : (
+              isBottom ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />
+            )}
           </button>
         </div>
 
-        {/* Error */}
-        {error && (
-          <div className="px-3 py-1.5 border-t border-red-300 dark:border-red-500/30 bg-red-50 dark:bg-red-950/40 text-[9px] text-red-600 dark:text-red-400">
-            ✗ {error}
-          </div>
-        )}
-
-        {/* Examples panel */}
-        {expanded && (
+        {/* If positioned at top, expanded examples appear below the input */}
+        {expanded && !isBottom && (
           <div className="border-t border-slate-200 dark:border-indigo-500/20 px-3 py-2 space-y-1">
             <div className="text-[8px] text-slate-500 uppercase tracking-widest font-bold mb-1">
               Example Prompts

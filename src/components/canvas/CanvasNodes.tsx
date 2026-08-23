@@ -107,13 +107,13 @@ function BaseShell({
   return (
     <div
       className={clsx(
-        "relative w-full rounded border bg-white dark:bg-[#0b0b12]/95 font-mono shadow-md dark:shadow-xl canvas-node",
+        "relative w-[230px] rounded-xl border bg-white/95 dark:bg-[#0c0d18]/95 font-mono shadow-md dark:shadow-xl dark:shadow-black/50 transition-all duration-150 canvas-node",
         accentClass,
         statusClasses(data.traceStatus) || heatmapClasses(data.heatmapLatency, data.heatmapMax),
-        selected && "ring-2 ring-indigo-500/70 dark:ring-indigo-400/70"
+        selected && "ring-2 ring-indigo-500/80 dark:ring-indigo-400/80 shadow-indigo-500/20"
       )}
     >
-      {showTarget && <Handle type="target" position={Position.Left} className="!bg-indigo-500 dark:!bg-indigo-400 !border-0 !w-2.5 !h-2.5" />}
+      {showTarget && <Handle type="target" position={Position.Left} className="!bg-indigo-500 dark:!bg-indigo-400 !border-0 !w-2.5 !h-2.5 shadow-sm" />}
       {Array.from({ length: Math.max(1, sourceCount) }).map((_, i) => (
         <Handle
           key={i}
@@ -583,11 +583,11 @@ function OutputNode({ data, selected }: NodePropsShape) {
 // ─── Sticky Note (Markdown Documentation) ───
 
 const NOTE_COLORS: Record<string, string> = {
-  yellow: "bg-yellow-50 dark:bg-yellow-950/30 border-yellow-300 dark:border-yellow-500/40",
-  pink: "bg-pink-50 dark:bg-pink-950/30 border-pink-300 dark:border-pink-500/40",
-  blue: "bg-blue-50 dark:bg-blue-950/30 border-blue-300 dark:border-blue-500/40",
-  green: "bg-green-50 dark:bg-green-950/30 border-green-300 dark:border-green-500/40",
-  purple: "bg-purple-50 dark:bg-purple-950/30 border-purple-300 dark:border-purple-500/40",
+  yellow: "bg-amber-500/10 border-amber-400/50 text-amber-900 dark:text-amber-200",
+  pink: "bg-pink-500/10 border-pink-400/50 text-pink-900 dark:text-pink-200",
+  blue: "bg-blue-500/10 border-blue-400/50 text-blue-900 dark:text-blue-200",
+  green: "bg-emerald-500/10 border-emerald-400/50 text-emerald-900 dark:text-emerald-200",
+  purple: "bg-purple-500/10 border-purple-400/50 text-purple-900 dark:text-purple-200",
 };
 
 function StickyNoteNode({ data, selected }: NodePropsShape) {
@@ -596,18 +596,18 @@ function StickyNoteNode({ data, selected }: NodePropsShape) {
   return (
     <div
       className={clsx(
-        "relative w-full rounded-lg border-2 border-dashed font-mono shadow-md p-3 min-h-[120px]",
+        "relative w-[260px] max-w-[320px] rounded-xl border backdrop-blur-md font-mono shadow-md p-3.5 min-h-[100px] transition-all",
         NOTE_COLORS[color] || NOTE_COLORS.yellow,
-        selected && "ring-2 ring-indigo-500/70 dark:ring-indigo-400/70"
+        selected && "ring-2 ring-indigo-500/80 dark:ring-indigo-400/80"
       )}
     >
-      <div className="flex items-center gap-1.5 mb-2">
-        <StickyNote className="h-3.5 w-3.5 text-yellow-600 dark:text-yellow-400" />
-        <span className="text-[9px] font-bold text-yellow-700 dark:text-yellow-400 uppercase tracking-wider">
-          {data.label}
+      <div className="flex items-center gap-1.5 mb-2 border-b border-black/5 dark:border-white/10 pb-1.5">
+        <StickyNote className="h-3.5 w-3.5 opacity-80" />
+        <span className="text-[10px] font-bold uppercase tracking-wider truncate">
+          {data.label || "NOTE"}
         </span>
       </div>
-      <div className="text-[9px] text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed line-clamp-6">
+      <div className="text-[10px] opacity-90 whitespace-pre-wrap leading-relaxed line-clamp-6">
         {content}
       </div>
     </div>

@@ -4,7 +4,7 @@ import { unauthorized, serverError, notFound, forbidden } from "@/lib/api/handle
 import { rateLimit } from "@/lib/api/rateLimit";
 import { apiServices } from "@/lib/api/services";
 
-const { executionService, historyService } = apiServices();
+const { historyService } = apiServices();
 
 /**
  * Replay a previous execution. Reuses its skill version + input, creates a NEW

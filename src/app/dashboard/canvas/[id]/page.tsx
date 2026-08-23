@@ -1,6 +1,6 @@
 "use client";
 
-import React, { use, useEffect, useMemo, useState } from "react";
+import React, { use, useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -17,6 +17,7 @@ import {
   Share2,
   Activity,
   GitBranch,
+  Check,
 } from "lucide-react";
 import { skillsApi } from "@/lib/api/skills";
 import { executionsApi } from "@/lib/api/executions";
@@ -29,6 +30,9 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { toast } from "@/stores/toastStore";
 import { AgentGraphDefinition } from "@/types/graph";
 import { clsx } from "clsx";
+import { getPrefilledExecutionInput, safeParseExecutionInput } from "@/lib/execution/inputHelper";
+import { JsonEditorModal } from "@/components/common/JsonEditorModal";
+import { Maximize2, ChevronDown, ChevronUp } from "lucide-react";
 
 export default function CanvasEditorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -84,10 +88,14 @@ export default function CanvasEditorPage({ params }: { params: Promise<{ id: str
   const [graph, setGraph] = useState<AgentGraphDefinition | null>(null);
   const [runInput, setRunInput] = useState("{\n  \n}");
   const [runInputError, setRunInputError] = useState<string | null>(null);
+  const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
+  const [showInputBox, setShowInputBox] = useState(false);
   const [activeExecutionId, setActiveExecutionId] = useState<string | null>(null);
   const [activePreviewId, setActivePreviewId] = useState<string | null>(null);
   const [showDiff, setShowDiff] = useState(false);
   const [editingSubgraph, setEditingSubgraph] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<"synced" | "saving" | "unsaved">("synced");
+  const [isDirty, setIsDirty] = useState(false);
 
   // Version diff: working graph vs the last published version.
   const publishedGraph = skill?.publishedVersion?.graphDefinition ?? null;
@@ -96,28 +104,58 @@ export default function CanvasEditorPage({ params }: { params: Promise<{ id: str
     [graph, publishedGraph]
   );
 
-  // Initialize graph state from the draft once it loads.
+  // Initialize graph state and preloaded input from the draft once it loads.
   const [initialized, setInitialized] = useState(false);
   useEffect(() => {
     if (draft && !initialized) {
       setGraph(draft.graphDefinition ?? null);
+      setRunInput(getPrefilledExecutionInput(draft));
       setInitialized(true);
     }
   }, [draft, initialized]);
+
+  const handleGraphChange = useCallback((newGraph: AgentGraphDefinition) => {
+    setGraph(newGraph);
+    setIsDirty(true);
+    setSyncStatus("unsaved");
+  }, []);
+
+  // Debounced Auto-Sync effect
+  useEffect(() => {
+    if (!isDirty || !graph || !draft) return;
+    const timer = setTimeout(async () => {
+      setSyncStatus("saving");
+      try {
+        await skillsApi.update(id, { graphDefinition: graph, instructions: "Visual multi-agent graph." });
+        setIsDirty(false);
+        setSyncStatus("synced");
+        queryClient.invalidateQueries({ queryKey: ["skill", id] });
+      } catch (err) {
+        setSyncStatus("unsaved");
+      }
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [graph, isDirty, draft, id, queryClient]);
 
   const hasGraph = graph !== null && graph.nodes.length > 0;
 
   const saveMutation = useMutation({
     mutationFn: () => {
       if (!graph) throw new Error("Nothing to save");
+      setSyncStatus("saving");
       return skillsApi.update(id, { graphDefinition: graph, instructions: "Visual multi-agent graph." });
     },
     onSuccess: () => {
-      toast.success("Graph saved", "Draft updated on the canvas.");
+      setIsDirty(false);
+      setSyncStatus("synced");
+      toast.success("Graph synced", "All changes saved to draft.");
       queryClient.invalidateQueries({ queryKey: ["skill", id] });
       queryClient.invalidateQueries({ queryKey: ["skills"] });
     },
-    onError: (e) => toast.error("Save failed", e instanceof Error ? e.message : undefined),
+    onError: (e) => {
+      setSyncStatus("unsaved");
+      toast.error("Save failed", e instanceof Error ? e.message : undefined);
+    },
   });
 
   const runMutation = useMutation({
@@ -183,12 +221,20 @@ export default function CanvasEditorPage({ params }: { params: Promise<{ id: str
     }
     const inputData = parseInput();
     if (!inputData) return;
-    // Persist the graph first so the executed version matches the canvas.
-    saveMutation.mutateAsync().then(() => {
-      runMutation.mutate({ versionId: draft.id, inputData });
-    }).catch(() => {
-      // Save failure already toasted.
-    });
+
+    // Flush dirty changes quietly in background so latest graph runs
+    if (isDirty && graph) {
+      skillsApi.update(id, { graphDefinition: graph, instructions: "Visual multi-agent graph." })
+        .then(() => {
+          setIsDirty(false);
+          setSyncStatus("synced");
+          queryClient.invalidateQueries({ queryKey: ["skill", id] });
+        })
+        .catch(() => {});
+    }
+
+    // Directly trigger execution without blocking on manual save
+    runMutation.mutate({ versionId: draft.id, inputData });
   };
 
   const handlePreview = () => {
@@ -241,6 +287,21 @@ export default function CanvasEditorPage({ params }: { params: Promise<{ id: str
                 {skill.name}
               </h1>
               <StatusBadge status={skill.status} />
+              {syncStatus === "saving" && (
+                <span className="text-[9px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold border border-amber-500/30 inline-flex items-center gap-1">
+                  <Loader2 className="h-2.5 w-2.5 animate-spin" /> SAVING…
+                </span>
+              )}
+              {syncStatus === "unsaved" && (
+                <span className="text-[9px] px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold border border-blue-500/30 inline-flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" /> UNSAVED
+                </span>
+              )}
+              {syncStatus === "synced" && (
+                <span className="text-[9px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/30 inline-flex items-center gap-1">
+                  <Check className="h-2.5 w-2.5 text-emerald-500" /> AUTO-SYNCED
+                </span>
+              )}
               {hasGraph && (
                 <span className="text-[9px] px-1.5 py-0.5 rounded bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-300 font-bold border border-violet-200 dark:border-violet-500/40 inline-flex items-center gap-1">
                   <Network className="h-3 w-3" /> GRAPH
@@ -345,12 +406,12 @@ export default function CanvasEditorPage({ params }: { params: Promise<{ id: str
             <Activity className="h-3 w-3 text-emerald-600 dark:text-emerald-400" /> Analytics
           </span>
           <span className="text-slate-600 dark:text-slate-400">runs <b className="text-slate-900 dark:text-slate-100">{analytics.runs}</b></span>
-          <span className="text-slate-600 dark:text-slate-400">success{' '}
+          <span className="text-slate-600 dark:text-slate-400">success{" "}
             <b className={clsx(analytics.successRate !== null && analytics.successRate >= 70 ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400")}>
               {analytics.successRate === null ? "—" : `${analytics.successRate}%`}
             </b>
           </span>
-          <span className="text-slate-600 dark:text-slate-400">avg{' '}
+          <span className="text-slate-600 dark:text-slate-400">avg{" "}
             <b className="text-slate-900 dark:text-slate-100">
               {analytics.avgDurationMs >= 1000 ? `${(analytics.avgDurationMs / 1000).toFixed(1)}s` : `${Math.round(analytics.avgDurationMs)}ms`}
             </b>
@@ -359,30 +420,74 @@ export default function CanvasEditorPage({ params }: { params: Promise<{ id: str
         </div>
       )}
 
-      {/* Input editor (collapsed when tracing) */}
+      {/* Sleek Execution Input Action Bar */}
       {!tracing && (
-        <div className="shrink-0 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 p-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400/80 flex items-center gap-1.5 font-semibold">
-              <Play className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /> Execution Input (JSON)
+        <div className="shrink-0 rounded-lg border border-slate-200 dark:border-indigo-900/40 bg-white/95 dark:bg-[#0c0d16]/90 p-2.5 space-y-2 shadow-xs backdrop-blur-xs font-mono">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5 shrink-0">
+                <Play className="h-3 w-3 text-emerald-500 fill-emerald-500/20" /> INPUT:
+              </span>
+              <div
+                onClick={() => setIsJsonModalOpen(true)}
+                className="flex-1 min-w-0 px-3 py-1 rounded bg-slate-100 dark:bg-black/50 border border-slate-200 dark:border-indigo-950/60 text-[11px] text-slate-700 dark:text-slate-300 truncate cursor-pointer hover:border-indigo-400 transition-colors"
+                title="Click to expand full JSON editor"
+              >
+                {runInput.replace(/\s+/g, " ").slice(0, 120) || "{ }"}
+              </div>
             </div>
-            <span className="text-[9px] font-mono text-slate-500">Sent as user input to the graph</span>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsJsonModalOpen(true)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/80 dark:bg-indigo-950/50 text-[10px] text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/80 transition-all cursor-pointer font-bold shadow-xs"
+                title="Expand fullscreen JSON editor"
+              >
+                <Maximize2 className="h-3 w-3" /> Expand JSON
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowInputBox((p) => !p)}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-200 dark:border-slate-800 text-[10px] text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                title={showInputBox ? "Hide raw text box" : "Show inline text box"}
+              >
+                {showInputBox ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                {showInputBox ? "Hide" : "Raw"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRunInput(getPrefilledExecutionInput(draft));
+                  if (runInputError) setRunInputError(null);
+                  toast.info("Input reloaded from schema sample");
+                }}
+                className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer flex items-center gap-1"
+              >
+                ↻ Sample
+              </button>
+            </div>
           </div>
-          <textarea
-            value={runInput}
-            onChange={(e) => {
-              setRunInput(e.target.value);
-              if (runInputError) setRunInputError(null);
-            }}
-            rows={2}
-            spellCheck={false}
-            placeholder="{ }"
-            className={`w-full rounded border bg-white dark:bg-black/60 px-3 py-2 text-[11px] font-mono text-slate-900 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none transition-colors resize-y shadow-sm ${
-              runInputError ? "border-red-500" : "border-slate-300 dark:border-indigo-900/50 focus:border-indigo-500"
-            }`}
-          />
+
+          {showInputBox && (
+            <div className="pt-1">
+              <textarea
+                value={runInput}
+                onChange={(e) => {
+                  setRunInput(e.target.value);
+                  if (runInputError) setRunInputError(null);
+                }}
+                rows={3}
+                spellCheck={false}
+                placeholder="{ }"
+                className={`w-full rounded border bg-white dark:bg-black/60 px-3 py-2 text-[11px] text-slate-900 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none transition-colors resize-y shadow-inner ${
+                  runInputError ? "border-red-500" : "border-slate-300 dark:border-indigo-900/50 focus:border-indigo-500"
+                }`}
+              />
+            </div>
+          )}
           {runInputError && (
-            <p className="text-[10px] font-mono text-red-600 dark:text-red-400 font-semibold">[ JSON ERROR ] {runInputError}</p>
+            <p className="text-[10px] text-red-600 dark:text-red-400 font-semibold">[ JSON ERROR ] {runInputError}</p>
           )}
         </div>
       )}
@@ -391,7 +496,7 @@ export default function CanvasEditorPage({ params }: { params: Promise<{ id: str
       <div className={clsx("flex-1 min-h-0", running ? "opacity-100" : "")}>
         <AgentGraphCanvas
           graph={graph}
-          onChange={setGraph}
+          onChange={handleGraphChange}
           executionId={activeExecutionId ?? activePreviewId}
           mode={activePreviewId ? "preview" : "execution"}
           coverage={coveredEdges}
@@ -420,6 +525,20 @@ export default function CanvasEditorPage({ params }: { params: Promise<{ id: str
           onClose={() => setShowDiff(false)}
         />
       )}
+
+      <JsonEditorModal
+        isOpen={isJsonModalOpen}
+        onClose={() => setIsJsonModalOpen(false)}
+        value={runInput}
+        onApply={(updated) => {
+          setRunInput(updated);
+          if (runInputError) setRunInputError(null);
+        }}
+        onResetSample={() => {
+          const sample = getPrefilledExecutionInput(draft);
+          setRunInput(sample);
+        }}
+      />
     </div>
   );
 }

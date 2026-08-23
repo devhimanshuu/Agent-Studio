@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -18,6 +18,7 @@ import {
   Code2,
   StickyNote,
   Play,
+  Maximize2,
 } from "lucide-react";
 import { skillsApi } from "@/lib/api/skills";
 import { executionsApi } from "@/lib/api/executions";
@@ -26,6 +27,8 @@ import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { SkeletonSkillDetail } from "@/components/feedback/Skeleton";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { toast } from "@/stores/toastStore";
+import { getPrefilledExecutionInput, safeParseExecutionInput } from "@/lib/execution/inputHelper";
+import { JsonEditorModal } from "@/components/common/JsonEditorModal";
 
 function JsonPreview({ label, value }: { label: string; value?: Record<string, unknown> | null }) {
   return (
@@ -48,11 +51,22 @@ export default function SkillDetailPage() {
   const [isPending, setIsPending] = useState(false);
   const [runInput, setRunInput] = useState("{\n  \n}");
   const [runInputError, setRunInputError] = useState<string | null>(null);
+  const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
 
   const { data: skill, isLoading, isError } = useQuery({
     queryKey: ["skill", id],
     queryFn: () => skillsApi.get(id),
   });
+
+  const draft = skill?.currentDraft ?? null;
+
+  const [initialized, setInitialized] = useState(false);
+  useEffect(() => {
+    if (draft && !initialized) {
+      setRunInput(getPrefilledExecutionInput(draft));
+      setInitialized(true);
+    }
+  }, [draft, initialized]);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["skill", id] });
@@ -89,19 +103,13 @@ export default function SkillDetailPage() {
 
   const runDraft = () => {
     if (!draft) return;
-    let inputData: Record<string, unknown>;
     try {
-      const trimmed = runInput.trim();
-      inputData = trimmed ? JSON.parse(trimmed) : {};
-      if (Array.isArray(inputData) || inputData === null || typeof inputData !== "object") {
-        throw new Error("Must be a JSON object");
-      }
+      const inputData = safeParseExecutionInput(runInput);
+      setRunInputError(null);
+      runMutation.mutate({ versionId: draft.id, inputData });
     } catch (err) {
       setRunInputError(err instanceof Error ? err.message : "Invalid JSON input payload");
-      return;
     }
-    setRunInputError(null);
-    runMutation.mutate({ versionId: draft.id, inputData });
   };
 
   const runConfirm = async () => {
@@ -142,8 +150,6 @@ export default function SkillDetailPage() {
       />
     );
   }
-
-  const draft = skill.currentDraft;
 
   return (
     <div className="space-y-6 w-full">
@@ -242,7 +248,28 @@ export default function SkillDetailPage() {
             <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400/80 flex items-center gap-1.5 font-semibold">
               <Play className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /> Execution Input (JSON)
             </div>
-            <span className="text-[10px] font-mono text-slate-500">Sent as user input to the skill</span>
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setIsJsonModalOpen(true)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/70 dark:bg-indigo-950/40 text-[10px] font-mono text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-all cursor-pointer font-semibold shadow-xs"
+                title="Expand fullscreen JSON editor"
+              >
+                <Maximize2 className="h-3 w-3" /> Expand JSON
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRunInput(getPrefilledExecutionInput(draft));
+                  if (runInputError) setRunInputError(null);
+                  toast.info("Input reloaded from schema sample");
+                }}
+                className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer flex items-center gap-1"
+              >
+                ↻ Load Sample Input
+              </button>
+              <span className="text-[10px] font-mono text-slate-500">Sent as user input to the skill</span>
+            </div>
           </div>
           <textarea
             value={runInput}
@@ -253,9 +280,8 @@ export default function SkillDetailPage() {
             rows={4}
             spellCheck={false}
             placeholder="{ }"
-            className={`w-full rounded border bg-white dark:bg-black/60 px-3 py-2 text-[11px] font-mono text-slate-900 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none transition-colors resize-y shadow-sm ${
-              runInputError ? "border-red-500" : "border-slate-300 dark:border-indigo-900/50 focus:border-indigo-500"
-            }`}
+            className={`w-full rounded border bg-white dark:bg-black/60 px-3 py-2 text-[11px] font-mono text-slate-900 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none transition-colors resize-y shadow-sm ${runInputError ? "border-red-500" : "border-slate-300 dark:border-indigo-900/50 focus:border-indigo-500"
+              }`}
           />
           {runInputError && <p className="text-[10px] font-mono text-red-600 dark:text-red-400 font-semibold">[ JSON ERROR ] {runInputError}</p>}
         </div>
@@ -342,6 +368,20 @@ export default function SkillDetailPage() {
         isPending={isPending}
         onConfirm={runConfirm}
         onClose={() => setConfirm(null)}
+      />
+
+      <JsonEditorModal
+        isOpen={isJsonModalOpen}
+        onClose={() => setIsJsonModalOpen(false)}
+        value={runInput}
+        onApply={(updated) => {
+          setRunInput(updated);
+          if (runInputError) setRunInputError(null);
+        }}
+        onResetSample={() => {
+          const sample = getPrefilledExecutionInput(draft);
+          setRunInput(sample);
+        }}
       />
     </div>
   );

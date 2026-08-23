@@ -31,7 +31,7 @@ import { useExecutionStream, replayEvents } from "./useExecutionStream";
 import { computeLayout } from "./autoLayout";
 import { validateGraph } from "./graphValidation";
 import { collapseSelection } from "./subgraphUtils";
-import { Workflow, Play, Link2, X, Pause, Radio, Flame, LayoutTemplate, AlertTriangle, GitBranch, Keyboard, Copy, Boxes, CornerUpLeft, Maximize, Minimize, Undo2, Redo2, Search, Download, Upload, ClipboardPaste, Package, Bug, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight } from "lucide-react";
+import { Workflow, Play, Link2, X, Pause, Radio, Flame, LayoutTemplate, AlertTriangle, GitBranch, Keyboard, Copy, Boxes, CornerUpLeft, Maximize, Minimize, Undo2, Redo2, Search, Download, Upload, ClipboardPaste, Package, Bug, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "@/stores/toastStore";
 import { QuickConnectSearch } from "./quickConnectSearch";
 import { AlignmentBar } from "./AlignmentBar";
@@ -81,6 +81,7 @@ function CanvasInner({
   const [heatmap, setHeatmap] = useState(false);
   const [coverageMode, setCoverageMode] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [showValidationDetails, setShowValidationDetails] = useState(false);
   const [subgraphStack, setSubgraphStack] = useState<{ nodeId: string; label: string; parentNodes: CanvasNode[]; parentEdges: Edge[] }[]>([]);
   const inSubgraph = subgraphStack.length > 0;
   const [canvasTheme, setCanvasTheme] = useState<string | null>(null);
@@ -198,14 +199,15 @@ function CanvasInner({
   }, [setNodes, setEdges, emitGraphChange]);
 
   // Sync external graph changes (e.g. initial fetch or reset) to local React Flow state.
-  // Without this, the canvas never updates after the first render.
+  // Do NOT re-sync while in active trace mode to prevent canvas position disturbances.
   useEffect(() => {
+    if (inTraceMode) return;
     if (graph && graph !== lastEmittedRef.current) {
       const next = graphToFlow(graph);
       setNodes(next.nodes);
       setEdges(next.edges);
     }
-  }, [graph, setNodes, setEdges]);
+  }, [graph, inTraceMode, setNodes, setEdges]);
 
   // Initialize history when graph first loads
   useEffect(() => {
@@ -446,7 +448,7 @@ function CanvasInner({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [undo, redo, copySelection, pasteClipboard, selectedNodeId, nodes, exportGraph, toggleFullScreen, isFullScreen]);  
+  }, [undo, redo, copySelection, pasteClipboard, selectedNodeId, nodes, exportGraph, toggleFullScreen, isFullScreen]);
 
   // Time-scrub: replay the event prefix; otherwise use the live trace state.
   const totalEvents = trace.events.length;
@@ -569,11 +571,9 @@ function CanvasInner({
     return nodes.map((n) => {
       const latency = heatmap ? nodeLatencies[n.id] : undefined;
       const status = effStatuses[n.id];
-      // Scale RUNNING nodes slightly larger for emphasis
-      const scale = status === "RUNNING" ? 1.05 : 1;
       return {
         ...n,
-        style: { ...n.style, transform: `scale(${scale})`, transition: "transform 0.3s ease" },
+        style: n.style,
         data: {
           ...n.data,
           traceStatus: status,
@@ -824,54 +824,100 @@ function CanvasInner({
     return (
       <div className={clsx("fixed inset-0 z-[9999] flex flex-col font-mono overflow-hidden", canvasTheme === "paper" ? "bg-slate-100" : canvasTheme === "graphite" ? "bg-[#0e1015]" : "bg-[#07070d]")}>
         {/* ─── Top Toolbar ─── */}
-        <div className={clsx("h-11 shrink-0 flex items-center justify-between px-3 border-b", canvasTheme === "paper" ? "border-slate-200 bg-white" : canvasTheme === "graphite" ? "border-slate-600 bg-[#1a1d27]" : "border-indigo-900/60 bg-[#0a0a14]")}>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-1.5">
-              <Workflow className="h-4 w-4" /> CANVAS EDITOR
-            </span>
-            <span className="text-[9px] text-slate-600">·</span>
-            <span className="text-[9px] text-slate-500">{nodes.length} nodes · {edges.length} edges</span>
+        <div className={clsx("h-12 shrink-0 flex items-center justify-between px-4 border-b backdrop-blur-md relative z-40", canvasTheme === "paper" ? "border-slate-200 bg-white/90" : canvasTheme === "graphite" ? "border-slate-700/80 bg-[#141722]/90" : "border-indigo-950/80 bg-[#0a0a14]/90")}>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Workflow className="h-4 w-4 text-indigo-400" />
+              <span className="text-[11px] font-bold text-slate-100 uppercase tracking-widest">CANVAS EDITOR</span>
+            </div>
+            <span className="text-slate-600 font-mono text-[10px]">·</span>
+            <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
+              <span><b>{nodes.length}</b> nodes</span>
+              <span>·</span>
+              <span><b>{edges.length}</b> edges</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
+
+          <div className="flex items-center gap-2 flex-wrap">
             {!readOnly && (
               <>
-                <button onClick={undo} disabled={historyIndex <= 0} className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer disabled:opacity-30" title="Undo"><Undo2 className="h-3.5 w-3.5" /></button>
-                <button onClick={redo} disabled={historyIndex >= history.length - 1} className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer disabled:opacity-30" title="Redo"><Redo2 className="h-3.5 w-3.5" /></button>
-                <div className="w-px h-5 bg-indigo-900/50 mx-1" />
-                <button onClick={handleAutoLayout} className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer" title="Auto Layout"><LayoutTemplate className="h-3.5 w-3.5" /></button>
-                <button onClick={copySelection} className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer" title="Copy"><Copy className="h-3.5 w-3.5" /></button>
-                <button onClick={pasteClipboard} disabled={!clipboard} className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer disabled:opacity-30" title="Paste"><ClipboardPaste className="h-3.5 w-3.5" /></button>
-                <button onClick={exportGraph} className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer" title="Export"><Download className="h-3.5 w-3.5" /></button>
-                <button onClick={importGraph} className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer" title="Import"><Upload className="h-3.5 w-3.5" /></button>
-                <div className="w-px h-5 bg-indigo-900/50 mx-1" />
-                <button onClick={() => setShowExportDialog(true)} className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer" title="Export (PNG/SVG/PDF/Mermaid/LangGraph)"><Download className="h-3.5 w-3.5" /> EXPORT…</button>
-                <button onClick={() => setShowMacroLibrary((p) => !p)} className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer" title="Toggle My Components"><Package className="h-3.5 w-3.5" /></button>
-                <button onClick={() => setShowDebugger((p) => !p)} className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer" title="Toggle Debugger"><Bug className="h-3.5 w-3.5" /></button>
-                <div className="w-px h-5 bg-indigo-900/50 mx-1" />
-                <button onClick={() => setShowNodeSearch((s) => !s)} className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer" title="Find node"><Search className="h-3.5 w-3.5" /></button>
-                <button onClick={handleCollapse} disabled={!nodes.some((n) => n.selected || n.id === selectedNodeId)} className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer disabled:opacity-30" title="Collapse selection into macro"><Boxes className="h-3.5 w-3.5" /></button>
-                {coverage && coverage.length > 0 && (
-                  <button onClick={() => setCoverageMode((c) => !c)} className={clsx("inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold transition-colors cursor-pointer", coverageMode ? "text-emerald-400 bg-emerald-950/40" : "text-slate-400 hover:text-white hover:bg-white/5")} title="Branch coverage"><GitBranch className="h-3.5 w-3.5" /></button>
-                )}
+                {/* History Group */}
+                <div className="flex items-center rounded-lg border border-slate-700/60 bg-white/5 shadow-xs overflow-hidden">
+                  <button onClick={undo} disabled={historyIndex <= 0} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-30 cursor-pointer" title="Undo (⌘+Z)"><Undo2 className="h-3.5 w-3.5" /></button>
+                  <div className="w-px h-3.5 bg-slate-700/60" />
+                  <button onClick={redo} disabled={historyIndex >= history.length - 1} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-30 cursor-pointer" title="Redo (⌘+Shift+Z)"><Redo2 className="h-3.5 w-3.5" /></button>
+                </div>
+
+                {/* Layout & Macros */}
+                <div className="flex items-center rounded-lg border border-slate-700/60 bg-white/5 shadow-xs overflow-hidden">
+                  <button onClick={handleAutoLayout} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-bold uppercase text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer" title="Auto Layout">
+                    <LayoutTemplate className="h-3 w-3 text-indigo-400" /> AUTO LAYOUT
+                  </button>
+                  <div className="w-px h-3.5 bg-slate-700/60" />
+                  <button onClick={handleCollapse} disabled={!nodes.some((n) => n.selected || n.id === selectedNodeId)} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-bold uppercase text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer disabled:opacity-30" title="Collapse Selection into Macro">
+                    <Boxes className="h-3 w-3 text-violet-400" /> MACRO
+                  </button>
+                  <div className="w-px h-3.5 bg-slate-700/60" />
+                  <button onClick={() => setShowNodeSearch((s) => !s)} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-bold uppercase text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer" title="Find Node (⌘+F)">
+                    <Search className="h-3 w-3 text-cyan-400" /> FIND
+                  </button>
+                </div>
+
+                {/* Portability */}
+                <div className="flex items-center rounded-lg border border-slate-700/60 bg-white/5 shadow-xs overflow-hidden">
+                  <button onClick={importGraph} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer" title="Import Graph JSON"><Upload className="h-3.5 w-3.5" /></button>
+                  <div className="w-px h-3.5 bg-slate-700/60" />
+                  <button onClick={exportGraph} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer" title="Quick Export JSON"><Download className="h-3.5 w-3.5" /></button>
+                  <div className="w-px h-3.5 bg-slate-700/60" />
+                  <button onClick={() => setShowExportDialog(true)} className="inline-flex items-center gap-1 px-2.5 py-1 text-[9px] font-bold uppercase text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer" title="Export formats">
+                    EXPORT…
+                  </button>
+                </div>
+
+                {/* Tools */}
+                <div className="flex items-center rounded-lg border border-slate-700/60 bg-white/5 shadow-xs overflow-hidden">
+                  <button onClick={() => setShowMacroLibrary((p) => !p)} className={clsx("inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-bold uppercase transition-colors cursor-pointer", showMacroLibrary ? "text-indigo-400 bg-indigo-950/60" : "text-slate-300 hover:text-white hover:bg-white/10")} title="Components Library">
+                    <Package className="h-3 w-3" /> COMPONENTS
+                  </button>
+                  <div className="w-px h-3.5 bg-slate-700/60" />
+                  <button onClick={() => setShowDebugger((p) => !p)} className={clsx("inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-bold uppercase transition-colors cursor-pointer", showDebugger ? "text-indigo-400 bg-indigo-950/60" : "text-slate-300 hover:text-white hover:bg-white/10")} title="Debugger Panel">
+                    <Bug className="h-3 w-3" /> DEBUG
+                  </button>
+                  {coverage && coverage.length > 0 && (
+                    <>
+                      <div className="w-px h-3.5 bg-slate-700/60" />
+                      <button onClick={() => setCoverageMode((c) => !c)} className={clsx("inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-bold uppercase transition-colors cursor-pointer", coverageMode ? "text-emerald-400 bg-emerald-950/60" : "text-slate-300 hover:text-white hover:bg-white/10")} title="Coverage">
+                        <GitBranch className="h-3 w-3" /> COVERAGE
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Shortcuts & Theme */}
                 <div className="relative">
-                  <button onClick={() => setShowShortcuts((s) => !s)} className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer" title="Keyboard shortcuts"><Keyboard className="h-3.5 w-3.5" /></button>
+                  <button onClick={() => setShowShortcuts((s) => !s)} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-700/60 bg-white/5 text-[9px] font-bold uppercase text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer" title="Keyboard Shortcuts">
+                    <Keyboard className="h-3.5 w-3.5" /> SHORTCUTS
+                  </button>
                   {showShortcuts && (
-                    <div className="absolute right-0 top-8 z-50 w-64 space-y-1 rounded border border-slate-700 bg-[#0a0a14]/95 p-2.5 shadow-2xl">
-                      <div className="text-[9px] font-bold uppercase tracking-widest text-indigo-400">SHORTCUTS</div>
+                    <div className="absolute right-0 top-8 z-[100] w-64 space-y-1.5 rounded-xl border border-slate-700/80 dark:border-indigo-500/30 bg-white/75 dark:bg-[#0a0a14]/75 p-3 shadow-2xl backdrop-blur-2xl">
+                      <div className="text-[9px] font-bold uppercase tracking-widest text-indigo-400 mb-1.5">KEYBOARD SHORTCUTS</div>
                       {[["⌘+Z", "undo"], ["⌘+Shift+Z", "redo"], ["⌘+C", "copy"], ["⌘+V", "paste"], ["⌘+D", "duplicate"], ["⌘+F", "find node"], ["⌘+E", "export"], ["F11", "fullscreen"], ["⌥+click", "duplicate node"], ["⌫", "delete"]].map(([key, desc]) => (
                         <div key={key} className="flex items-center justify-between gap-2 text-[9px]">
-                          <kbd className="rounded border border-slate-600 bg-black/50 px-1 py-0.5 font-mono text-slate-300">{key}</kbd>
-                          <span className="text-slate-500">{desc}</span>
+                          <kbd className="rounded border border-slate-700 bg-black/60 px-1 py-0.5 font-mono text-slate-300">{key}</kbd>
+                          <span className="text-slate-400">{desc}</span>
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
-                <button onClick={cycleTheme} className="inline-flex items-center gap-1 px-2 py-1.5 rounded text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer" title="Cycle theme">{canvasTheme?.toUpperCase()}</button>
+
+                <button onClick={cycleTheme} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-700/60 bg-white/5 text-[9px] font-bold uppercase text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer" title="Cycle Theme">
+                  <Copy className="h-3.5 w-3.5" /> {canvasTheme?.toUpperCase() ?? "THEME"}
+                </button>
               </>
             )}
-            <div className="w-px h-5 bg-indigo-900/50 mx-1" />
-            <button onClick={toggleFullScreen} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-indigo-600 text-white text-[9px] font-bold uppercase tracking-wider hover:bg-indigo-500 transition-colors cursor-pointer shadow-md shadow-indigo-500/20" title="Exit full-screen">
+
+            <button onClick={toggleFullScreen} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-600 text-white text-[9px] font-bold uppercase tracking-wider hover:bg-indigo-500 transition-all cursor-pointer shadow-md shadow-indigo-500/25" title="Exit Full-screen (F11)">
               <Minimize className="h-3.5 w-3.5" /> EXIT FULLSCREEN
             </button>
           </div>
@@ -938,18 +984,47 @@ function CanvasInner({
                 ? "bg-[#14161c]"
                 : "bg-[#07070d]"
           )}>
-            {/* Validation warnings */}
+            {/* Validation warnings (Floating at bottom-left in Fullscreen) */}
             {!inTraceMode && !readOnly && issues.length > 0 && (
-              <div className="absolute top-2 left-2 right-2 z-10 rounded border border-amber-500/40 bg-amber-950/60 backdrop-blur-sm px-3 py-2 space-y-1 max-h-24 overflow-y-auto">
-                <div className="flex items-center gap-1.5 text-[9px] font-bold text-amber-400">
-                  <AlertTriangle className="h-3 w-3" /> {issues.filter((i) => i.severity === "error").length} error(s), {issues.filter((i) => i.severity === "warning").length} warning(s)
+              <div className="absolute bottom-3 left-4 z-20 font-mono">
+                <div className="relative">
+                  {showValidationDetails && (
+                    <div className="absolute bottom-9 left-0 w-80 max-h-52 overflow-y-auto rounded-xl border border-amber-400/50 dark:border-amber-500/40 bg-white/95 dark:bg-[#0d0e1a]/95 backdrop-blur-md shadow-2xl p-3 space-y-1.5 z-30">
+                      <div className="flex items-center justify-between border-b border-amber-200 dark:border-amber-500/20 pb-1.5 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                          Graph Issues ({issues.length})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setShowValidationDetails(false)}
+                          className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                      {issues.map((issue, i) => (
+                        <div key={i} className="flex items-start gap-1.5 text-[9px] leading-tight text-slate-800 dark:text-slate-200">
+                          <span className={clsx("shrink-0 font-bold", issue.severity === "error" ? "text-red-500" : "text-amber-500")}>
+                            [{issue.severity.toUpperCase()}]
+                          </span>
+                          <span>{issue.message}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setShowValidationDetails((p) => !p)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-amber-400/60 dark:border-amber-500/40 bg-amber-50/95 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/60 transition-all shadow-md backdrop-blur-md text-[10px] font-bold cursor-pointer"
+                  >
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                    <span>
+                      {issues.filter((i) => i.severity === "error").length} Error(s) · {issues.filter((i) => i.severity === "warning").length} Warning(s)
+                    </span>
+                    {showValidationDetails ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+                  </button>
                 </div>
-                {issues.map((issue, i) => (
-                  <div key={i} className="flex items-start gap-1.5 text-[8px] text-amber-300/80">
-                    <span className={clsx("shrink-0 font-bold", issue.severity === "error" ? "text-red-400" : "text-amber-400")}>[{issue.severity.toUpperCase()}]</span>
-                    <span>{issue.message}</span>
-                  </div>
-                ))}
               </div>
             )}
 
@@ -1117,27 +1192,27 @@ function CanvasInner({
                 {inTraceMode ? (
                   selectedNode && selectedNode.type === "subgraph" ? (
                     /* In trace mode, allow opening subgraph nodes to view inner trace */
-                    <NodeInspector node={selectedNode} onUpdate={() => {}} onDelete={() => {}} allNodeIds={nodes.map((n) => n.id)} onOpenSubgraph={openSubgraph} onToggleBreakpoint={handleToggleBreakpoint} />
+                    <NodeInspector node={selectedNode} onUpdate={() => { }} onDelete={() => { }} allNodeIds={nodes.map((n) => n.id)} onOpenSubgraph={openSubgraph} onToggleBreakpoint={handleToggleBreakpoint} />
                   ) : (
-                  <div className="space-y-3">
-                    <div className="text-[9px] uppercase tracking-widest text-indigo-400 font-bold">{isPreview ? "GHOST PREVIEW" : "LIVE TRACE"}</div>
-                    <p className="text-[9px] text-slate-400 leading-relaxed">{isPreview ? "Dry-run — nothing persisted, approvals auto-pass." : "Canvas locked while agent traverses the graph."}</p>
-                    <div className="space-y-1 text-[9px]">
-                      <div className="flex items-center gap-1.5"><span className="inline-block h-2 w-2 rounded-full bg-indigo-400 animate-pulse" /> RUNNING</div>
-                      <div className="flex items-center gap-1.5"><span className="inline-block h-2 w-2 rounded-full bg-emerald-400" /> SUCCESS</div>
-                      <div className="flex items-center gap-1.5"><span className="inline-block h-2 w-2 rounded-full bg-amber-400" /> AWAITING APPROVAL</div>
-                      <div className="flex items-center gap-1.5"><span className="inline-block h-2 w-2 rounded-full bg-red-400" /> FAILED</div>
+                    <div className="space-y-3">
+                      <div className="text-[9px] uppercase tracking-widest text-indigo-400 font-bold">{isPreview ? "GHOST PREVIEW" : "LIVE TRACE"}</div>
+                      <p className="text-[9px] text-slate-400 leading-relaxed">{isPreview ? "Dry-run — nothing persisted, approvals auto-pass." : "Canvas locked while agent traverses the graph."}</p>
+                      <div className="space-y-1 text-[9px]">
+                        <div className="flex items-center gap-1.5"><span className="inline-block h-2 w-2 rounded-full bg-indigo-400 animate-pulse" /> RUNNING</div>
+                        <div className="flex items-center gap-1.5"><span className="inline-block h-2 w-2 rounded-full bg-emerald-400" /> SUCCESS</div>
+                        <div className="flex items-center gap-1.5"><span className="inline-block h-2 w-2 rounded-full bg-amber-400" /> AWAITING APPROVAL</div>
+                        <div className="flex items-center gap-1.5"><span className="inline-block h-2 w-2 rounded-full bg-red-400" /> FAILED</div>
+                      </div>
+                      <button onClick={() => setHeatmap((h) => !h)} className={clsx("w-full inline-flex items-center justify-center gap-1.5 rounded border px-2 py-2 text-[9px] font-bold uppercase tracking-wider transition-colors cursor-pointer", heatmap ? "border-orange-400 bg-orange-950/40 text-orange-300" : "border-slate-700 text-slate-400 hover:border-orange-400 hover:text-orange-300")}>
+                        <Flame className="h-3 w-3" /> {heatmap ? "HEATMAP ON" : "LATENCY HEATMAP"}
+                      </button>
+                      <div className="border-t border-indigo-900/30 pt-2 space-y-1.5">
+                        <div className="text-[8px] uppercase tracking-wider text-slate-500 font-bold">STATS</div>
+                        <div className="flex justify-between text-[9px] text-slate-400"><span>Events</span><span className="text-indigo-400 font-bold">{trace.events.length}</span></div>
+                        <div className="flex justify-between text-[9px] text-slate-400"><span>Nodes touched</span><span className="text-indigo-400 font-bold">{Object.keys(effStatuses).length}</span></div>
+                        <div className="flex justify-between text-[9px] text-slate-400"><span>Status</span><span className="text-emerald-400 font-bold">{effExecutionStatus ?? "—"}</span></div>
+                      </div>
                     </div>
-                    <button onClick={() => setHeatmap((h) => !h)} className={clsx("w-full inline-flex items-center justify-center gap-1.5 rounded border px-2 py-2 text-[9px] font-bold uppercase tracking-wider transition-colors cursor-pointer", heatmap ? "border-orange-400 bg-orange-950/40 text-orange-300" : "border-slate-700 text-slate-400 hover:border-orange-400 hover:text-orange-300")}>
-                      <Flame className="h-3 w-3" /> {heatmap ? "HEATMAP ON" : "LATENCY HEATMAP"}
-                    </button>
-                    <div className="border-t border-indigo-900/30 pt-2 space-y-1.5">
-                      <div className="text-[8px] uppercase tracking-wider text-slate-500 font-bold">STATS</div>
-                      <div className="flex justify-between text-[9px] text-slate-400"><span>Events</span><span className="text-indigo-400 font-bold">{trace.events.length}</span></div>
-                      <div className="flex justify-between text-[9px] text-slate-400"><span>Nodes touched</span><span className="text-indigo-400 font-bold">{Object.keys(effStatuses).length}</span></div>
-                      <div className="flex justify-between text-[9px] text-slate-400"><span>Status</span><span className="text-emerald-400 font-bold">{effExecutionStatus ?? "—"}</span></div>
-                    </div>
-                  </div>
                   )
                 ) : selectedEdge ? (
                   <div className="space-y-3">
@@ -1211,12 +1286,13 @@ function CanvasInner({
             onSelect={handleQuickConnectSelect}
             onClose={() => setQuickConnect(null)}
           />
-        )}        {/* ─── Canvas Copilot (NL Graph Generator) ─── */}
+        )}
+        {/* ─── Canvas Copilot (Talk to Graph NL Generator) ─── */}
         {!inTraceMode && !readOnly && (
           <CanvasCopilot
             onGraphGenerated={handleCopilotGraphGenerated}
             disabled={inTraceMode}
-            position="top"
+            position="bottom"
           />
         )}
 
@@ -1359,23 +1435,7 @@ function CanvasInner({
           </div>
         )}
 
-        {/* Validation warnings */}
-        {!inTraceMode && !readOnly && issues.length > 0 && (
-          <div className="mb-2 rounded border border-amber-300 dark:border-amber-500/40 bg-amber-50/90 dark:bg-amber-950/30 px-3 py-2 space-y-1 max-h-28 overflow-y-auto">
-            <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-amber-700 dark:text-amber-300">
-              <AlertTriangle className="h-3 w-3" /> Graph validation · {issues.filter((i) => i.severity === "error").length} error(s),{" "}
-              {issues.filter((i) => i.severity === "warning").length} warning(s)
-            </div>
-            {issues.map((issue, i) => (
-              <div key={i} className="flex items-start gap-1.5 text-[9px] leading-tight text-amber-800 dark:text-amber-200/80">
-                <span className={clsx("shrink-0 font-bold", issue.severity === "error" ? "text-red-500" : "text-amber-500")}>
-                  [{issue.severity.toUpperCase()}]
-                </span>
-                <span>{issue.message}</span>
-              </div>
-            ))}
-          </div>
-        )}
+
 
         <div
           ref={wrapperRef}
@@ -1476,19 +1536,19 @@ function CanvasInner({
 
           {/* Shortcut hints + theme + fullscreen (edit mode) */}
           {!inTraceMode && !readOnly && (
-            <div className="absolute right-2 top-2 z-10 flex items-center gap-1.5">
+            <div className="absolute right-2 top-2 z-30 flex items-center gap-1.5 shrink-0">
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setShowShortcuts((s) => !s)}
-                  className="inline-flex items-center gap-1 rounded border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0b0b12]/95 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors shadow-sm cursor-pointer"
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0c0d18]/95 px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors shadow-sm cursor-pointer"
                   title="Keyboard shortcuts"
                 >
                   <Keyboard className="h-3 w-3" /> SHORTCUTS
                 </button>
                 {showShortcuts && (
-                  <div className="absolute right-0 top-7 z-20 w-64 space-y-1 rounded border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-[#0b0b12]/95 p-2.5 shadow-lg">
-                    <div className="text-[9px] font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">SHORTCUTS</div>
+                  <div className="absolute right-0 top-7 z-[100] w-64 space-y-1.5 rounded-xl border border-slate-200/80 dark:border-indigo-500/30 bg-white/75 dark:bg-[#0c0d18]/75 p-3 shadow-2xl backdrop-blur-6xl">
+                    <div className="text-[9px] font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 mb-1">SHORTCUTS</div>
                     {[
                       ["⌘/Ctrl + Z", "undo"],
                       ["⌘/Ctrl + Shift + Z", "redo"],
@@ -1515,7 +1575,7 @@ function CanvasInner({
               <button
                 type="button"
                 onClick={cycleTheme}
-                className="inline-flex items-center gap-1 rounded border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0b0b12]/95 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors shadow-sm cursor-pointer"
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0c0d18]/95 px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors shadow-sm cursor-pointer"
                 title={`Theme: ${canvasTheme} — click to cycle`}
               >
                 <Copy className="h-3 w-3" /> {canvasTheme?.toUpperCase() ?? "THEME"}
@@ -1523,7 +1583,7 @@ function CanvasInner({
               <button
                 type="button"
                 onClick={toggleFullScreen}
-                className="inline-flex items-center gap-1 rounded border border-indigo-400 bg-indigo-600 text-white px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider hover:bg-indigo-500 transition-colors shadow-sm cursor-pointer"
+                className="inline-flex items-center gap-1 rounded-lg border border-indigo-400 bg-indigo-600 text-white px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider hover:bg-indigo-500 transition-colors shadow-sm cursor-pointer"
                 title="Toggle full-screen (F11)"
               >
                 {isFullScreen ? <Minimize className="h-3 w-3" /> : <Maximize className="h-3 w-3" />}
@@ -1534,9 +1594,9 @@ function CanvasInner({
 
           {/* Streamlined segmented toolbar (edit mode) */}
           {!inTraceMode && !readOnly && (
-            <div className="absolute left-2 top-2 z-10 flex flex-wrap items-center gap-1.5 max-w-[calc(100%-15rem)]">
+            <div className="absolute left-2 top-2 z-10 flex flex-wrap items-center gap-1.5 max-w-[calc(100%-20rem)]">
               {/* History group */}
-              <div className="inline-flex items-center rounded border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0b0b12]/95 shadow-sm overflow-hidden">
+              <div className="inline-flex items-center rounded-lg border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0c0d18]/95 shadow-sm overflow-hidden backdrop-blur-md">
                 <button
                   type="button"
                   onClick={undo}
@@ -1559,7 +1619,7 @@ function CanvasInner({
               </div>
 
               {/* Layout & Selection group */}
-              <div className="inline-flex items-center rounded border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0b0b12]/95 shadow-sm overflow-hidden">
+              <div className="inline-flex items-center rounded-lg border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0c0d18]/95 shadow-sm overflow-hidden backdrop-blur-md">
                 <button
                   type="button"
                   onClick={handleAutoLayout}
@@ -1590,7 +1650,7 @@ function CanvasInner({
               </div>
 
               {/* Portability group */}
-              <div className="inline-flex items-center rounded border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0b0b12]/95 shadow-sm overflow-hidden">
+              <div className="inline-flex items-center rounded-lg border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0c0d18]/95 shadow-sm overflow-hidden backdrop-blur-md">
                 <button
                   type="button"
                   onClick={importGraph}
@@ -1620,7 +1680,7 @@ function CanvasInner({
               </div>
 
               {/* Tools group */}
-              <div className="inline-flex items-center rounded border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0b0b12]/95 shadow-sm overflow-hidden">
+              <div className="inline-flex items-center rounded-lg border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0c0d18]/95 shadow-sm overflow-hidden backdrop-blur-md">
                 <button
                   type="button"
                   onClick={() => setShowMacroLibrary((p) => !p)}
@@ -1659,11 +1719,10 @@ function CanvasInner({
               </div>
             </div>
           )}
-
           {/* Node search overlay */}
           {showNodeSearch && (
             <div className="absolute left-1/2 top-2 z-20 -translate-x-1/2 w-72">
-              <div className="rounded border border-indigo-300 dark:border-indigo-500/50 bg-white/95 dark:bg-[#0b0b12]/95 p-2 shadow-lg">
+              <div className="rounded-lg border border-indigo-300 dark:border-indigo-500/50 bg-white/95 dark:bg-[#0c0d18]/95 p-2 shadow-xl backdrop-blur-md">
                 <div className="flex items-center gap-2">
                   <Search className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
                   <input
@@ -1697,6 +1756,50 @@ function CanvasInner({
                 {nodeSearchQuery && filteredNodes.length === 0 && (
                   <p className="mt-2 text-[10px] text-slate-500 text-center">No nodes found</p>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Validation warnings (Floating at bottom-left of canvas window) */}
+          {!inTraceMode && !readOnly && issues.length > 0 && (
+            <div className="absolute bottom-3 left-14 z-20 font-mono">
+              <div className="relative">
+                {showValidationDetails && (
+                  <div className="absolute bottom-9 left-0 w-80 max-h-52 overflow-y-auto rounded-xl border border-amber-400/50 dark:border-amber-500/40 bg-white/95 dark:bg-[#0d0e1a]/95 backdrop-blur-md shadow-2xl p-3 space-y-1.5 z-30">
+                    <div className="flex items-center justify-between border-b border-amber-200 dark:border-amber-500/20 pb-1.5 mb-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                        Graph Issues ({issues.length})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowValidationDetails(false)}
+                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                    {issues.map((issue, i) => (
+                      <div key={i} className="flex items-start gap-1.5 text-[9px] leading-tight text-slate-800 dark:text-slate-200">
+                        <span className={clsx("shrink-0 font-bold", issue.severity === "error" ? "text-red-500" : "text-amber-500")}>
+                          [{issue.severity.toUpperCase()}]
+                        </span>
+                        <span>{issue.message}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setShowValidationDetails((p) => !p)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-amber-400/60 dark:border-amber-500/40 bg-amber-50/95 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/60 transition-all shadow-md backdrop-blur-md text-[10px] font-bold cursor-pointer"
+                >
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                  <span>
+                    {issues.filter((i) => i.severity === "error").length} Error(s) · {issues.filter((i) => i.severity === "warning").length} Warning(s)
+                  </span>
+                  {showValidationDetails ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+                </button>
               </div>
             </div>
           )}
@@ -1903,14 +2006,7 @@ function CanvasInner({
         />
       )}
 
-      {/* ─── Canvas Copilot (NL Graph Generator) ─── */}
-      {!inTraceMode && !readOnly && (
-        <CanvasCopilot
-          onGraphGenerated={handleCopilotGraphGenerated}
-          disabled={inTraceMode}
-          position={isFullScreen ? "bottom" : "top"}
-        />
-      )}
+
 
       {/* ─── Collaboration Overlay ─── */}
       <CollaborationOverlay

@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { SkillService } from "@/services/SkillService";
 
-import { SkillRepository } from "@/repositories/SkillRepository";
-import { AuditLogRepository } from "@/repositories/AuditLogRepository";
 import { getPackById, SKILL_PACKS } from "@/data/skillPacks";
 import { InstallPackInput, PackInstallationState } from "@/types/skillPacks";
 import { createSkillSchema } from "@/validators/skillSchema";

@@ -416,7 +416,7 @@ export function SkillsMarketplace() {
         // ── Smithery, Glama, MCP.SO, Awesome-MCP: search directory for a matching server ──
         try {
           const dirRes = await fetch(`/api/mcp/directory?q=${encodeURIComponent(cleanServerName)}&source=ALL`).then((r) => r.json());
-          const match = (dirRes.data || []).find((s: any) =>
+          const match = ((dirRes.data || []) as Array<{ name: string; id: string; endpointUrl?: string; command?: string }>).find((s) =>
             s.name.toLowerCase().includes(cleanServerName) ||
             cleanServerName.includes(s.name.toLowerCase().replace(/ mcp$/i, ""))
           );

@@ -40,14 +40,14 @@ export interface CanvasNodeData {
   httpHeaders?: Record<string, string>;
   httpBody?: Record<string, unknown>;
   httpResponseType?: "json" | "text" | "blob";
-  transformOp?: "map" | "filter" | "merge" | "flatten" | "sort" | "dedupe" | "pick" | "omit" | "template";
+  transformOp?: string;
   transformExpr?: string;
   delayMs?: number;
   delayTemplate?: string;
-  aggregateMode?: "concat" | "merge" | "count" | "first" | "all" | "custom";
+  aggregateMode?: string;
   aggregateExpr?: string;
   varName?: string;
-  varOp?: "get" | "set";
+  varOp?: string;
   varValue?: unknown;
   outputTemplate?: string;
   outputFields?: Record<string, string>;

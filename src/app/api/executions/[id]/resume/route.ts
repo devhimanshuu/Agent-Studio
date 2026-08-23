@@ -10,7 +10,7 @@ const resumeSchema = z.object({
   idempotencyKey: z.string().min(1, "Idempotency key is required"),
 });
 
-const { executionRepo, auditRepo, approvalRepo, approvalEngine, executionService } = apiServices();
+const { auditRepo, approvalRepo, approvalEngine, executionService } = apiServices();
 
 export async function POST(
   request: Request,

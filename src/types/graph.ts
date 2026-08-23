@@ -108,7 +108,7 @@ export interface GraphNodeData {
   httpTimeoutMs?: number;
   // transform
   /** Transform operation type. */
-  transformOp?: "map" | "filter" | "merge" | "flatten" | "sort" | "dedupe" | "pick" | "omit" | "template";
+  transformOp?: string;
   /** Transform expression or field path. */
   transformExpr?: string;
   // delay
@@ -118,14 +118,14 @@ export interface GraphNodeData {
   delayTemplate?: string;
   // aggregate
   /** How to combine results from incoming branches. */
-  aggregateMode?: "concat" | "merge" | "count" | "first" | "all" | "custom";
+  aggregateMode?: string;
   /** Custom aggregation expression (JS). */
   aggregateExpr?: string;
   // variable
   /** Variable name to get or set. */
   varName?: string;
   /** Operation: get or set. */
-  varOp?: "get" | "set";
+  varOp?: string;
   /** Value to set (JSON template). */
   varValue?: unknown;
   // output

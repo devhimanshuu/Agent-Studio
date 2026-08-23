@@ -3,7 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { unauthorized, serverError, notFound } from "@/lib/api/handlers";
 import { apiServices } from "@/lib/api/services";
 
-const { executionService, historyService } = apiServices();
+const { historyService } = apiServices();
 
 /** Full execution detail: trace data, structured logs, timeline, and approval events. */
 export async function GET(
