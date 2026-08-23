@@ -21,6 +21,20 @@ import {
   FileOutput,
   StickyNote,
   Frame,
+  Clock,
+  Radio,
+  Rss,
+  FileText,
+  Send,
+  Binary,
+  Search,
+  FileSpreadsheet,
+  FileCheck,
+  HardDrive,
+  Database,
+  BrainCircuit,
+  Mic,
+  Volume2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -28,6 +42,7 @@ export interface CanvasNodeTypeMeta {
   type: GraphNodeType;
   label: string;
   tag: string;
+  category?: "triggers" | "agent_core" | "actions_apis" | "data_ops" | "visuals";
   icon: LucideIcon;
   description: string;
   /** Tailwind classes for the node accent (border + text + glow). */
@@ -281,6 +296,223 @@ export const CANVAS_NODE_TYPES: CanvasNodeTypeMeta[] = [
     defaults: {
       outputTemplate: "{{ results }}",
       outputFields: {},
+    },
+  },
+  // ─── Triggers & Event Nodes ───
+  {
+    type: "schedule_trigger",
+    label: "SCHEDULE TRIGGER",
+    tag: "CRON·TIMER",
+    icon: Clock,
+    description: "Scheduled recurrent trigger (cron expression, interval, or timer).",
+    accent: "border-blue-500/70 text-blue-600 dark:text-blue-400",
+    badgeClass: "bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-500/40",
+    defaults: {
+      cronExpression: "0 9 * * *",
+      cronTimezone: "UTC",
+      scheduleInterval: "Every day at 9:00 AM UTC",
+    },
+  },
+  {
+    type: "webhook_trigger",
+    label: "WEBHOOK TRIGGER",
+    tag: "INBOUND·API",
+    icon: Radio,
+    description: "Inbound HTTP webhook listener endpoint for event-driven agent runs.",
+    accent: "border-purple-500/70 text-purple-600 dark:text-purple-400",
+    badgeClass: "bg-purple-50 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-500/40",
+    defaults: {
+      webhookPath: "/api/webhooks/incoming",
+      webhookMethod: "POST",
+    },
+  },
+  // ─── Public API, Ingestion & Web Nodes ───
+  {
+    type: "rss_feed",
+    label: "RSS / ATOM FEED",
+    tag: "FEED·INGEST",
+    icon: Rss,
+    description: "Poll and parse any RSS/Atom feed (Substack, Medium, YouTube, News).",
+    accent: "border-orange-500/70 text-orange-600 dark:text-orange-400",
+    badgeClass: "bg-orange-50 dark:bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-500/40",
+    defaults: {
+      rssUrl: "https://news.ycombinator.com/rss",
+      rssMaxItems: 10,
+    },
+  },
+  {
+    type: "web_reader",
+    label: "JINA WEB READER",
+    tag: "JINA·MARKDOWN",
+    icon: FileText,
+    description: "Convert any live website URL into clean LLM-ready markdown (r.jina.ai).",
+    accent: "border-emerald-500/70 text-emerald-600 dark:text-emerald-400",
+    badgeClass: "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/40",
+    defaults: {
+      readerUrl: "https://github.com/trending",
+      readerFormat: "markdown",
+    },
+  },
+  // ─── Actions & Integrations ───
+  {
+    type: "notification_dispatcher",
+    label: "WEBHOOK DISPATCHER",
+    tag: "DISCORD·SLACK",
+    icon: Send,
+    description: "One-click notification dispatch to Discord, Slack, Telegram, or Webhooks.",
+    accent: "border-sky-500/70 text-sky-600 dark:text-sky-400",
+    badgeClass: "bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-500/40",
+    defaults: {
+      dispatchDestination: "discord",
+      dispatchWebhookUrl: "",
+      dispatchMessage: "🚀 **Workflow Complete:**\n{{ results }}",
+    },
+  },
+  // ─── Data Formatter / Mapping ───
+  {
+    type: "data_mapper",
+    label: "DATA MAPPER",
+    tag: "JSONPATH·MAP",
+    icon: Binary,
+    description: "Visual data mapper & JSONPath extractor to shape payloads before LLM agents.",
+    accent: "border-pink-500/70 text-pink-600 dark:text-pink-400",
+    badgeClass: "bg-pink-50 dark:bg-pink-500/15 text-pink-700 dark:text-pink-400 border-pink-200 dark:border-pink-500/40",
+    defaults: {
+      mapperSchema: {
+        title: "item.title",
+        url: "item.url",
+        score: "item.score",
+      },
+    },
+  },
+  // ─── Open-Source Microservices & Local Tools ───
+  {
+    type: "searxng_search",
+    label: "SEARXNG SEARCH",
+    tag: "OPEN SEARCH",
+    icon: Search,
+    description: "Query free metasearch (Google/Bing/DDG/Reddit) via any public or self-hosted SearXNG instance.",
+    accent: "border-sky-500/70 text-sky-600 dark:text-sky-400",
+    badgeClass: "bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-500/40",
+    defaults: {
+      searxngHost: "https://searx.be",
+      searxngQuery: "autonomous AI agents",
+      searxngCategories: ["general"],
+      searxngLimit: 5,
+    },
+  },
+  {
+    type: "crawl4ai_scrape",
+    label: "CRAWL4AI SCRAPER",
+    tag: "AI CRAWLER",
+    icon: FileSpreadsheet,
+    description: "Crawl and extract LLM-tailored structured markdown with boilerplate stripping.",
+    accent: "border-emerald-500/70 text-emerald-600 dark:text-emerald-400",
+    badgeClass: "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/40",
+    defaults: {
+      crawl4aiUrl: "https://github.com/unclecode/crawl4ai",
+      crawl4aiWordCountThreshold: 10,
+    },
+  },
+  {
+    type: "docling_pdf_parser",
+    label: "DOCLING PARSER",
+    tag: "PDF & DOCX",
+    icon: FileCheck,
+    description: "Parse complex PDFs, research papers, and DOCX into structured tables and markdown (by IBM).",
+    accent: "border-cyan-500/70 text-cyan-600 dark:text-cyan-400",
+    badgeClass: "bg-cyan-50 dark:bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border-cyan-200 dark:border-cyan-500/40",
+    defaults: {
+      doclingDocumentUrl: "https://arxiv.org/pdf/1706.03762.pdf",
+      doclingOutputFormat: "markdown",
+      doclingOcr: true,
+    },
+  },
+  {
+    type: "gotenberg_pdf_exporter",
+    label: "GOTENBERG PDF",
+    tag: "PDF EXPORT",
+    icon: FileOutput,
+    description: "Convert HTML/Markdown into publication-ready PDF documents & reports.",
+    accent: "border-rose-500/70 text-rose-600 dark:text-rose-400",
+    badgeClass: "bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-500/40",
+    defaults: {
+      gotenbergHost: "http://localhost:3000",
+      gotenbergHtmlContent: "# Executive Report\n\n{{ results }}",
+      gotenbergPaperSize: "A4",
+      gotenbergLandscape: false,
+    },
+  },
+  {
+    type: "nocodb_record",
+    label: "NOCODB RECORD",
+    tag: "AIRTABLE·DB",
+    icon: Database,
+    description: "Read, create, or update records in open-source NocoDB tables.",
+    accent: "border-amber-500/70 text-amber-600 dark:text-amber-400",
+    badgeClass: "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/40",
+    defaults: {
+      nocodbHost: "http://localhost:8080",
+      nocodbOperation: "create",
+      nocodbTableId: "tbl_leads",
+      nocodbData: {},
+    },
+  },
+  {
+    type: "pocketbase_store",
+    label: "POCKETBASE STORE",
+    tag: "KV·STATE",
+    icon: HardDrive,
+    description: "Persist graph state, session logs, and key-value records in lightweight PocketBase.",
+    accent: "border-indigo-500/70 text-indigo-600 dark:text-indigo-400",
+    badgeClass: "bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-500/40",
+    defaults: {
+      pocketbaseHost: "http://127.0.0.1:8090",
+      pocketbaseCollection: "agent_state",
+      pocketbaseAction: "create",
+      pocketbaseData: {},
+    },
+  },
+  {
+    type: "qdrant_vector_memory",
+    label: "QDRANT MEMORY",
+    tag: "VECTOR RAG",
+    icon: BrainCircuit,
+    description: "Perform semantic search & recall from open-source Qdrant vector collections.",
+    accent: "border-purple-500/70 text-purple-600 dark:text-purple-400",
+    badgeClass: "bg-purple-50 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-500/40",
+    defaults: {
+      qdrantHost: "http://localhost:6333",
+      qdrantCollection: "knowledge_base",
+      qdrantAction: "search",
+      qdrantTopK: 3,
+      qdrantQuery: "{{ input.query }}",
+    },
+  },
+  {
+    type: "audio_transcriber",
+    label: "AUDIO TRANSCRIBER",
+    tag: "WHISPER·STT",
+    icon: Mic,
+    description: "Transcribe audio memos, recordings, and podcasts into text via Faster-Whisper.",
+    accent: "border-violet-500/70 text-violet-600 dark:text-violet-400",
+    badgeClass: "bg-violet-50 dark:bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-200 dark:border-violet-500/40",
+    defaults: {
+      audioSourceUrl: "{{ input.audioUrl }}",
+      audioLanguage: "auto",
+    },
+  },
+  {
+    type: "piper_tts",
+    label: "PIPER TTS",
+    tag: "VOICE·TTS",
+    icon: Volume2,
+    description: "Synthesize agent responses into realistic local speech audio via Piper.",
+    accent: "border-teal-500/70 text-teal-600 dark:text-teal-400",
+    badgeClass: "bg-teal-50 dark:bg-teal-500/15 text-teal-700 dark:text-teal-400 border-teal-200 dark:border-teal-500/40",
+    defaults: {
+      piperText: "{{ results }}",
+      piperVoice: "en_US-lessac-medium",
     },
   },
   // ─── Visual & Documentation Nodes ───

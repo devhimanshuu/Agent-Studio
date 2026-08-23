@@ -24,6 +24,20 @@ import {
   FileOutput,
   StickyNote,
   Frame,
+  Clock,
+  Radio,
+  Rss,
+  FileText,
+  Send,
+  Binary,
+  Search,
+  FileSpreadsheet,
+  FileCheck,
+  HardDrive,
+  Database,
+  BrainCircuit,
+  Mic,
+  Volume2,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { CANVAS_NODE_TYPE_MAP } from "./nodeTypes";
@@ -580,6 +594,327 @@ function OutputNode({ data, selected }: NodePropsShape) {
   );
 }
 
+function ScheduleTriggerNode({ data, selected }: NodePropsShape) {
+  const meta = CANVAS_NODE_TYPE_MAP.schedule_trigger;
+  return (
+    <BaseShell
+      data={data}
+      icon={<Clock className="h-3.5 w-3.5" />}
+      accentClass={meta.accent}
+      badgeClass={meta.badgeClass}
+      badge={meta.tag}
+      selected={selected}
+      showTarget={false}
+    >
+      <div className="text-[9px] text-blue-600 dark:text-blue-400 font-bold truncate">
+        {data.cronExpression ?? "0 9 * * *"}
+      </div>
+      <div className="text-[8px] text-slate-500 dark:text-slate-400 truncate">
+        {data.scheduleInterval ?? "Recurrent execution"}
+      </div>
+    </BaseShell>
+  );
+}
+
+function WebhookTriggerNode({ data, selected }: NodePropsShape) {
+  const meta = CANVAS_NODE_TYPE_MAP.webhook_trigger;
+  return (
+    <BaseShell
+      data={data}
+      icon={<Radio className="h-3.5 w-3.5" />}
+      accentClass={meta.accent}
+      badgeClass={meta.badgeClass}
+      badge={data.webhookMethod ?? "POST"}
+      selected={selected}
+      showTarget={false}
+    >
+      <div className="text-[9px] text-purple-600 dark:text-purple-400 font-bold truncate">
+        {data.webhookPath ?? "/api/webhooks/incoming"}
+      </div>
+      <div className="text-[8px] text-slate-500 dark:text-slate-400">
+        Inbound event listener
+      </div>
+    </BaseShell>
+  );
+}
+
+function RssFeedNode({ data, selected }: NodePropsShape) {
+  const meta = CANVAS_NODE_TYPE_MAP.rss_feed;
+  return (
+    <BaseShell
+      data={data}
+      icon={<Rss className="h-3.5 w-3.5" />}
+      accentClass={meta.accent}
+      badgeClass={meta.badgeClass}
+      badge={`${data.rssMaxItems ?? 10} ITEMS`}
+      selected={selected}
+    >
+      <div className="text-[9px] text-orange-600 dark:text-orange-400 font-semibold truncate">
+        {data.rssUrl ?? "RSS / Atom Stream"}
+      </div>
+      <div className="text-[8px] text-slate-500 dark:text-slate-400">
+        Autonomous feed ingestion
+      </div>
+    </BaseShell>
+  );
+}
+
+function WebReaderNode({ data, selected }: NodePropsShape) {
+  const meta = CANVAS_NODE_TYPE_MAP.web_reader;
+  return (
+    <BaseShell
+      data={data}
+      icon={<FileText className="h-3.5 w-3.5" />}
+      accentClass={meta.accent}
+      badgeClass={meta.badgeClass}
+      badge="MARKDOWN"
+      selected={selected}
+    >
+      <div className="text-[9px] text-emerald-600 dark:text-emerald-400 font-semibold truncate">
+        {data.readerUrl ?? "https://r.jina.ai/..."}
+      </div>
+      <div className="text-[8px] text-slate-500 dark:text-slate-400">
+        Jina Reader AI parser
+      </div>
+    </BaseShell>
+  );
+}
+
+function NotificationDispatcherNode({ data, selected }: NodePropsShape) {
+  const meta = CANVAS_NODE_TYPE_MAP.notification_dispatcher;
+  const dest = (data.dispatchDestination ?? "discord").toUpperCase();
+  return (
+    <BaseShell
+      data={data}
+      icon={<Send className="h-3.5 w-3.5" />}
+      accentClass={meta.accent}
+      badgeClass={meta.badgeClass}
+      badge={dest}
+      selected={selected}
+    >
+      <div className="text-[9px] text-sky-600 dark:text-sky-400 font-semibold truncate">
+        {data.dispatchWebhookUrl ? "Webhook Configured" : "Outgoing Dispatcher"}
+      </div>
+      <div className="text-[8px] text-slate-500 dark:text-slate-400 truncate">
+        {data.dispatchMessage?.slice(0, 32) || "Alert delivery"}
+      </div>
+    </BaseShell>
+  );
+}
+
+function DataMapperNode({ data, selected }: NodePropsShape) {
+  const meta = CANVAS_NODE_TYPE_MAP.data_mapper;
+  const keyCount = data.mapperSchema ? Object.keys(data.mapperSchema).length : 0;
+  return (
+    <BaseShell
+      data={data}
+      icon={<Binary className="h-3.5 w-3.5" />}
+      accentClass={meta.accent}
+      badgeClass={meta.badgeClass}
+      badge={`${keyCount} FIELDS`}
+      selected={selected}
+    >
+      <div className="text-[9px] text-pink-600 dark:text-pink-400 font-semibold truncate">
+        {keyCount > 0 ? Object.keys(data.mapperSchema ?? {}).slice(0, 3).join(", ") : "JSON Transform"}
+      </div>
+      <div className="text-[8px] text-slate-500 dark:text-slate-400">
+        Schema mapper
+      </div>
+    </BaseShell>
+  );
+}
+
+// ─── Open-Source Microservice & Tool Nodes ───
+
+function SearxngNode({ data, selected }: NodePropsShape) {
+  const meta = CANVAS_NODE_TYPE_MAP.searxng_search;
+  return (
+    <BaseShell
+      data={data}
+      icon={<Search className="h-3.5 w-3.5" />}
+      accentClass={meta.accent}
+      badgeClass={meta.badgeClass}
+      badge="OPEN SEARCH"
+      selected={selected}
+    >
+      <div className="text-[9px] text-sky-600 dark:text-sky-400 font-semibold truncate">
+        {data.searxngQuery || "Web Query"}
+      </div>
+      <div className="text-[8px] text-slate-500 dark:text-slate-400 truncate">
+        {data.searxngHost || "https://searx.be"}
+      </div>
+    </BaseShell>
+  );
+}
+
+function Crawl4AiNode({ data, selected }: NodePropsShape) {
+  const meta = CANVAS_NODE_TYPE_MAP.crawl4ai_scrape;
+  return (
+    <BaseShell
+      data={data}
+      icon={<FileSpreadsheet className="h-3.5 w-3.5" />}
+      accentClass={meta.accent}
+      badgeClass={meta.badgeClass}
+      badge="AI CRAWLER"
+      selected={selected}
+    >
+      <div className="text-[9px] text-emerald-600 dark:text-emerald-400 font-semibold truncate">
+        {data.crawl4aiUrl || "Target URL"}
+      </div>
+      <div className="text-[8px] text-slate-500 dark:text-slate-400">
+        Markdown Extractor
+      </div>
+    </BaseShell>
+  );
+}
+
+function DoclingNode({ data, selected }: NodePropsShape) {
+  const meta = CANVAS_NODE_TYPE_MAP.docling_pdf_parser;
+  return (
+    <BaseShell
+      data={data}
+      icon={<FileCheck className="h-3.5 w-3.5" />}
+      accentClass={meta.accent}
+      badgeClass={meta.badgeClass}
+      badge="DOCLING · IBM"
+      selected={selected}
+    >
+      <div className="text-[9px] text-cyan-600 dark:text-cyan-400 font-semibold truncate">
+        {data.doclingDocumentUrl ? data.doclingDocumentUrl.split("/").pop() : "Document / PDF"}
+      </div>
+      <div className="text-[8px] text-slate-500 dark:text-slate-400">
+        Table & Text Parser
+      </div>
+    </BaseShell>
+  );
+}
+
+function GotenbergNode({ data, selected }: NodePropsShape) {
+  const meta = CANVAS_NODE_TYPE_MAP.gotenberg_pdf_exporter;
+  return (
+    <BaseShell
+      data={data}
+      icon={<FileOutput className="h-3.5 w-3.5" />}
+      accentClass={meta.accent}
+      badgeClass={meta.badgeClass}
+      badge="PDF EXPORTER"
+      selected={selected}
+    >
+      <div className="text-[9px] text-rose-600 dark:text-rose-400 font-semibold truncate">
+        {data.gotenbergPaperSize || "A4"} · {data.gotenbergLandscape ? "Landscape" : "Portrait"}
+      </div>
+      <div className="text-[8px] text-slate-500 dark:text-slate-400">
+        Gotenberg PDF Engine
+      </div>
+    </BaseShell>
+  );
+}
+
+function NocodbNode({ data, selected }: NodePropsShape) {
+  const meta = CANVAS_NODE_TYPE_MAP.nocodb_record;
+  return (
+    <BaseShell
+      data={data}
+      icon={<Database className="h-3.5 w-3.5" />}
+      accentClass={meta.accent}
+      badgeClass={meta.badgeClass}
+      badge={(data.nocodbOperation || "CREATE").toUpperCase()}
+      selected={selected}
+    >
+      <div className="text-[9px] text-amber-600 dark:text-amber-400 font-semibold truncate">
+        {data.nocodbTableId || "Table ID"}
+      </div>
+      <div className="text-[8px] text-slate-500 dark:text-slate-400 truncate">
+        {data.nocodbHost || "NocoDB API"}
+      </div>
+    </BaseShell>
+  );
+}
+
+function PocketbaseNode({ data, selected }: NodePropsShape) {
+  const meta = CANVAS_NODE_TYPE_MAP.pocketbase_store;
+  return (
+    <BaseShell
+      data={data}
+      icon={<HardDrive className="h-3.5 w-3.5" />}
+      accentClass={meta.accent}
+      badgeClass={meta.badgeClass}
+      badge={(data.pocketbaseAction || "STORE").toUpperCase()}
+      selected={selected}
+    >
+      <div className="text-[9px] text-indigo-600 dark:text-indigo-400 font-semibold truncate">
+        {data.pocketbaseCollection || "Collection"}
+      </div>
+      <div className="text-[8px] text-slate-500 dark:text-slate-400">
+        State & KV Persistence
+      </div>
+    </BaseShell>
+  );
+}
+
+function QdrantNode({ data, selected }: NodePropsShape) {
+  const meta = CANVAS_NODE_TYPE_MAP.qdrant_vector_memory;
+  return (
+    <BaseShell
+      data={data}
+      icon={<BrainCircuit className="h-3.5 w-3.5" />}
+      accentClass={meta.accent}
+      badgeClass={meta.badgeClass}
+      badge="VECTOR RAG"
+      selected={selected}
+    >
+      <div className="text-[9px] text-purple-600 dark:text-purple-400 font-semibold truncate">
+        {data.qdrantCollection || "Collection"}
+      </div>
+      <div className="text-[8px] text-slate-500 dark:text-slate-400">
+        Top {data.qdrantTopK ?? 3} Recall
+      </div>
+    </BaseShell>
+  );
+}
+
+function AudioTranscriberNode({ data, selected }: NodePropsShape) {
+  const meta = CANVAS_NODE_TYPE_MAP.audio_transcriber;
+  return (
+    <BaseShell
+      data={data}
+      icon={<Mic className="h-3.5 w-3.5" />}
+      accentClass={meta.accent}
+      badgeClass={meta.badgeClass}
+      badge="WHISPER"
+      selected={selected}
+    >
+      <div className="text-[9px] text-violet-600 dark:text-violet-400 font-semibold truncate">
+        {data.audioSourceUrl ? "Audio Stream" : "Audio Input"}
+      </div>
+      <div className="text-[8px] text-slate-500 dark:text-slate-400">
+        Lang: {data.audioLanguage || "Auto"}
+      </div>
+    </BaseShell>
+  );
+}
+
+function PiperTtsNode({ data, selected }: NodePropsShape) {
+  const meta = CANVAS_NODE_TYPE_MAP.piper_tts;
+  return (
+    <BaseShell
+      data={data}
+      icon={<Volume2 className="h-3.5 w-3.5" />}
+      accentClass={meta.accent}
+      badgeClass={meta.badgeClass}
+      badge="PIPER TTS"
+      selected={selected}
+    >
+      <div className="text-[9px] text-teal-600 dark:text-teal-400 font-semibold truncate">
+        {data.piperVoice || "Default Voice"}
+      </div>
+      <div className="text-[8px] text-slate-500 dark:text-slate-400">
+        Local Speech Synthesis
+      </div>
+    </BaseShell>
+  );
+}
+
 // ─── Sticky Note (Markdown Documentation) ───
 
 const NOTE_COLORS: Record<string, string> = {
@@ -659,6 +994,21 @@ export const canvasNodeTypes = {
   aggregate: memo(AggregateNode),
   variable: memo(VariableNode),
   output: memo(OutputNode),
+  schedule_trigger: memo(ScheduleTriggerNode),
+  webhook_trigger: memo(WebhookTriggerNode),
+  rss_feed: memo(RssFeedNode),
+  web_reader: memo(WebReaderNode),
+  notification_dispatcher: memo(NotificationDispatcherNode),
+  data_mapper: memo(DataMapperNode),
+  searxng_search: memo(SearxngNode),
+  crawl4ai_scrape: memo(Crawl4AiNode),
+  docling_pdf_parser: memo(DoclingNode),
+  gotenberg_pdf_exporter: memo(GotenbergNode),
+  nocodb_record: memo(NocodbNode),
+  pocketbase_store: memo(PocketbaseNode),
+  qdrant_vector_memory: memo(QdrantNode),
+  audio_transcriber: memo(AudioTranscriberNode),
+  piper_tts: memo(PiperTtsNode),
   sticky_note: memo(StickyNoteNode),
   frame: memo(FrameNode),
 };

@@ -710,6 +710,175 @@ Prepares meeting briefs automatically: identifies upcoming meetings, gathers rel
     serverCount: 4,
     skillCount: 2,
   },
+
+  // ═══════════════════════════════════════════
+  //  OPEN-SOURCE AI & MICROSERVICES STACK
+  // ═══════════════════════════════════════════
+  {
+    id: "open-source-ai-stack",
+    name: "Open Source AI & Microservices Stack",
+    tagline: "SearXNG, Crawl4AI, Docling, Gotenberg & Qdrant — 100% free & self-hostable",
+    description:
+      "Full open-source AI power pack: SearXNG for privacy-first metasearch, Crawl4AI for clean markdown scraping, Docling (IBM) for complex document parsing, Gotenberg for PDF reports, and Qdrant for semantic vector recall.",
+    category: "ai_ml",
+    icon: "Brain",
+    color: "violet",
+    difficulty: "INTERMEDIATE",
+    estimatedSetupTime: "2 min",
+    popularity: 98,
+    isNew: true,
+    servers: [
+      {
+        name: "SearXNG",
+        searchQuery: "searxng",
+        directorySource: "glama",
+        description: "Open-source multi-engine metasearch (Google, Bing, DDG, Reddit)",
+        category: "AI",
+      },
+      {
+        name: "Crawl4AI",
+        searchQuery: "crawl4ai",
+        directorySource: "glama",
+        description: "AI-native web crawler & structured markdown extraction engine",
+        category: "AI",
+      },
+      {
+        name: "Docling",
+        searchQuery: "docling",
+        directorySource: "smithery",
+        description: "Document, PDF, and table structure parser (by IBM Research)",
+        category: "AI",
+      },
+      {
+        name: "Qdrant",
+        searchQuery: "qdrant",
+        directorySource: "smithery",
+        description: "Open-source vector database & semantic memory recall",
+        category: "DATABASE",
+      },
+      {
+        name: "Gotenberg",
+        searchQuery: "gotenberg",
+        directorySource: "glama",
+        description: "Stateless PDF and report generation microservice",
+        category: "INFRASTRUCTURE",
+      },
+    ],
+    skills: [
+      {
+        name: "Autonomous Deep Research & PDF Memo",
+        purpose: "Query SearXNG, scrape top pages with Crawl4AI, synthesize breakthroughs, and compile a PDF via Gotenberg",
+        instructions: `# Autonomous Deep Research & PDF Memo
+## Workflow
+1. **Search** — Query SearXNG for emerging research topics
+2. **Scrape** — Crawl relevant URLs with Crawl4AI
+3. **Analyze** — Research Agent structures takeaways and benchmarks
+4. **Compile** — Render executive PDF document via Gotenberg`,
+        allowedToolPatterns: ["searxng_*", "crawl4ai_*", "gotenberg_*"],
+        requiredServerIndices: [0, 1, 4],
+        steps: [
+          { order: 1, action: "searxng-search", description: "Search web", nodeType: "tool" },
+          { order: 2, action: "crawl-page", description: "Crawl with Crawl4AI", nodeType: "tool" },
+          { order: 3, action: "synthesize", description: "AI Research Agent", nodeType: "agent" },
+          { order: 4, action: "export-pdf", description: "Generate Gotenberg PDF", nodeType: "tool" },
+        ],
+      },
+      {
+        name: "Docling PDF Knowledge Extraction",
+        purpose: "Extract tables and structured markdown from research papers and index them into vector memory",
+        instructions: `# Docling PDF Knowledge Extraction
+## Workflow
+1. **Parse PDF** — Ingest PDF papers with Docling
+2. **Extract Tables** — Structure data into clean JSON
+3. **Index Vector** — Upsert embeddings to Qdrant collection`,
+        allowedToolPatterns: ["docling_*", "qdrant_*"],
+        requiredServerIndices: [2, 3],
+        steps: [
+          { order: 1, action: "parse-pdf", description: "Docling PDF Parsing", nodeType: "tool" },
+          { order: 2, action: "extract-insights", description: "Extract Insights", nodeType: "agent" },
+          { order: 3, action: "index-qdrant", description: "Upsert to Qdrant", nodeType: "tool" },
+        ],
+      },
+    ],
+    serverCount: 5,
+    skillCount: 2,
+  },
+
+  // ═══════════════════════════════════════════
+  //  SELF-HOSTED AUTOMATION & DATABASE STACK
+  // ═══════════════════════════════════════════
+  {
+    id: "self-hosted-automation-stack",
+    name: "Self-Hosted Automation & Database Stack",
+    tagline: "NocoDB, PocketBase, Activepieces & Windmill — open source data ops",
+    description:
+      "Enterprise self-hosted automation pack: NocoDB for relational Airtable-style databases, PocketBase for fast KV state storage, and Windmill/Activepieces for long-running workflows and background jobs.",
+    category: "data_analytics",
+    icon: "Database",
+    color: "emerald",
+    difficulty: "INTERMEDIATE",
+    estimatedSetupTime: "3 min",
+    popularity: 96,
+    isNew: true,
+    servers: [
+      {
+        name: "NocoDB",
+        searchQuery: "nocodb",
+        directorySource: "glama",
+        description: "Open-source Airtable alternative with instant REST APIs",
+        category: "DATABASE",
+      },
+      {
+        name: "PocketBase",
+        searchQuery: "pocketbase",
+        directorySource: "glama",
+        description: "Single-file backend with SQLite, Auth, and realtime subscriptions",
+        category: "DATABASE",
+      },
+      {
+        name: "Windmill",
+        searchQuery: "windmill",
+        directorySource: "smithery",
+        description: "Open-source developer platform for workflows and background jobs",
+        category: "INFRASTRUCTURE",
+      },
+    ],
+    skills: [
+      {
+        name: "NocoDB Lead & Research Logger",
+        purpose: "Enrich leads or findings with LLM agents and sync records directly to self-hosted NocoDB tables",
+        instructions: `# NocoDB Lead & Research Logger
+## Workflow
+1. **Ingest Lead** — Accept raw inquiry or scraped company data
+2. **Enrich Intel** — Agent scores ICP match and extracts company revenue
+3. **Sync Table** — Insert structured row into NocoDB table`,
+        allowedToolPatterns: ["nocodb_*", "http_*"],
+        requiredServerIndices: [0],
+        steps: [
+          { order: 1, action: "extract-info", description: "Extract lead data", nodeType: "agent" },
+          { order: 2, action: "insert-row", description: "Write to NocoDB", nodeType: "tool" },
+        ],
+      },
+      {
+        name: "PocketBase Stateful Graph Agent",
+        purpose: "Persist execution checkpoint logs, memory history, and KV state into PocketBase",
+        instructions: `# PocketBase Stateful Graph Agent
+## Workflow
+1. **Query State** — Fetch past session context from PocketBase
+2. **Execute Agent** — Reason over accumulated context
+3. **Save Session** — Persist updated state into PocketBase`,
+        allowedToolPatterns: ["pocketbase_*"],
+        requiredServerIndices: [1],
+        steps: [
+          { order: 1, action: "fetch-state", description: "Query PocketBase", nodeType: "tool" },
+          { order: 2, action: "reason", description: "Agent reasoning", nodeType: "agent" },
+          { order: 3, action: "save-state", description: "Save to PocketBase", nodeType: "tool" },
+        ],
+      },
+    ],
+    serverCount: 3,
+    skillCount: 2,
+  },
 ];
 
 // ────────────── Helpers ──────────────

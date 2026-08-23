@@ -38,6 +38,8 @@ const DIFY_CATEGORIES = [
 ];
 
 const POPULAR_PLUGIN_TAGS = [
+  "Zero-Key",
+  "Jina",
   "OpenAI",
   "DeepSeek",
   "Tavily",
@@ -45,8 +47,6 @@ const POPULAR_PLUGIN_TAGS = [
   "Qdrant",
   "Gemini",
   "Slack",
-  "Tongyi",
-  "Jina",
   "Groq",
 ];
 

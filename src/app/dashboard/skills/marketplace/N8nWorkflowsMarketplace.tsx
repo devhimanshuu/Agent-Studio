@@ -40,15 +40,17 @@ const N8N_CATEGORIES = [
 ];
 
 const POPULAR_TAGS = [
+  "Zero-Key",
+  "Free API",
   "RAG",
   "OpenAI",
   "Slack",
   "Supabase",
   "Google Sheets",
   "Discord",
-  "Zendesk",
   "Postgres",
   "Webhook",
+  "RSS",
 ];
 
 const PAGE_SIZE = 18;

@@ -922,6 +922,571 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
         </>
       )}
 
+      {/* ─── Schedule Trigger Inspector ─── */}
+      {type === "schedule_trigger" && (
+        <>
+          <Field label="Cron Expression" hint="Standard 5-field cron (min hour dom month dow)">
+            <input
+              value={node.data.cronExpression ?? "0 9 * * *"}
+              onChange={(e) => onUpdate({ cronExpression: e.target.value })}
+              placeholder="0 9 * * *"
+              className={inputClass}
+            />
+            <div className="flex flex-wrap gap-1 mt-1">
+              {[
+                { label: "Hourly", expr: "0 * * * *", desc: "Every hour" },
+                { label: "Daily 9AM", expr: "0 9 * * *", desc: "Every day at 9:00 AM" },
+                { label: "Weekdays", expr: "0 9 * * 1-5", desc: "Mon-Fri at 9:00 AM" },
+                { label: "Every 15m", expr: "*/15 * * * *", desc: "Every 15 minutes" },
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => onUpdate({ cronExpression: preset.expr, scheduleInterval: preset.desc })}
+                  className="px-1.5 py-0.5 rounded border border-blue-300 dark:border-blue-500/40 bg-blue-50 dark:bg-blue-950/40 text-[8px] font-mono text-blue-700 dark:text-blue-300 hover:bg-blue-100"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </Field>
+          <Field label="Timezone">
+            <input
+              value={node.data.cronTimezone ?? "UTC"}
+              onChange={(e) => onUpdate({ cronTimezone: e.target.value })}
+              placeholder="UTC, America/New_York, Asia/Kolkata"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Schedule Description">
+            <input
+              value={node.data.scheduleInterval ?? "Every day at 9:00 AM UTC"}
+              onChange={(e) => onUpdate({ scheduleInterval: e.target.value })}
+              placeholder="Human-readable schedule description"
+              className={inputClass}
+            />
+          </Field>
+        </>
+      )}
+
+      {/* ─── Webhook Trigger Inspector ─── */}
+      {type === "webhook_trigger" && (
+        <>
+          <Field label="Webhook Endpoint Path">
+            <input
+              value={node.data.webhookPath ?? "/api/webhooks/incoming"}
+              onChange={(e) => onUpdate({ webhookPath: e.target.value })}
+              placeholder="/api/webhooks/my-trigger"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="HTTP Method">
+            <select
+              value={node.data.webhookMethod ?? "POST"}
+              onChange={(e) => onUpdate({ webhookMethod: e.target.value as any })}
+              className={`${inputClass} cursor-pointer`}
+            >
+              <option value="POST">POST (Standard Event Body)</option>
+              <option value="GET">GET (Query Parameters)</option>
+              <option value="PUT">PUT (Payload Update)</option>
+            </select>
+          </Field>
+          <Field label="Secret Token (Optional)" hint="Validates Authorization: Bearer <secret> or X-Webhook-Secret">
+            <input
+              type="password"
+              value={node.data.webhookSecret ?? ""}
+              onChange={(e) => onUpdate({ webhookSecret: e.target.value })}
+              placeholder="whsec_..."
+              className={inputClass}
+            />
+          </Field>
+        </>
+      )}
+
+      {/* ─── RSS / Atom Feed Ingestion Inspector ─── */}
+      {type === "rss_feed" && (
+        <>
+          <Field label="Feed URL" hint="Supports any valid RSS 2.0 or Atom XML URL">
+            <input
+              value={node.data.rssUrl ?? ""}
+              onChange={(e) => onUpdate({ rssUrl: e.target.value })}
+              placeholder="https://news.ycombinator.com/rss"
+              className={inputClass}
+            />
+            <div className="flex flex-wrap gap-1 mt-1">
+              {[
+                { label: "Hacker News", url: "https://news.ycombinator.com/rss" },
+                { label: "TechCrunch", url: "https://techcrunch.com/feed/" },
+                { label: "ArXiv AI", url: "https://export.arxiv.org/rss/cs.AI" },
+                { label: "GitHub Releases", url: "https://github.com/facebook/react/releases.atom" },
+              ].map((feed) => (
+                <button
+                  key={feed.label}
+                  type="button"
+                  onClick={() => onUpdate({ rssUrl: feed.url })}
+                  className="px-1.5 py-0.5 rounded border border-orange-300 dark:border-orange-500/40 bg-orange-50 dark:bg-orange-950/40 text-[8px] font-mono text-orange-700 dark:text-orange-300 hover:bg-orange-100"
+                >
+                  {feed.label}
+                </button>
+              ))}
+            </div>
+          </Field>
+          <Field label="Max Items to Ingest">
+            <input
+              type="number"
+              min={1}
+              max={50}
+              value={node.data.rssMaxItems ?? 10}
+              onChange={(e) => onUpdate({ rssMaxItems: parseInt(e.target.value, 10) || 10 })}
+              className={inputClass}
+            />
+          </Field>
+        </>
+      )}
+
+      {/* ─── Jina Web Reader Inspector ─── */}
+      {type === "web_reader" && (
+        <>
+          <Field label="Target Web Page URL" hint="Converts any live website into clean LLM markdown via r.jina.ai">
+            <input
+              value={node.data.readerUrl ?? ""}
+              onChange={(e) => onUpdate({ readerUrl: e.target.value })}
+              placeholder="https://example.com or {{ input.url }}"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Reader Format Mode">
+            <select
+              value={node.data.readerFormat ?? "markdown"}
+              onChange={(e) => onUpdate({ readerFormat: e.target.value as any })}
+              className={`${inputClass} cursor-pointer`}
+            >
+              <option value="markdown">Clean Markdown (Recommended for LLMs)</option>
+              <option value="text">Plain Text</option>
+              <option value="html">Sanitized HTML</option>
+            </select>
+          </Field>
+          <Field label="CSS Selector Target (Optional)" hint="Extracts only specific article container or main body">
+            <input
+              value={node.data.readerTargetSelector ?? ""}
+              onChange={(e) => onUpdate({ readerTargetSelector: e.target.value })}
+              placeholder="article, main, .content"
+              className={inputClass}
+            />
+          </Field>
+        </>
+      )}
+
+      {/* ─── Notification Dispatcher Inspector ─── */}
+      {type === "notification_dispatcher" && (
+        <>
+          <Field label="Destination Platform">
+            <select
+              value={node.data.dispatchDestination ?? "discord"}
+              onChange={(e) => onUpdate({ dispatchDestination: e.target.value as any })}
+              className={`${inputClass} cursor-pointer`}
+            >
+              <option value="discord">Discord Webhook</option>
+              <option value="slack">Slack Incoming Webhook</option>
+              <option value="telegram">Telegram Bot</option>
+              <option value="webhook">Generic HTTP Webhook</option>
+            </select>
+          </Field>
+          {node.data.dispatchDestination === "telegram" ? (
+            <>
+              <Field label="Telegram Bot Token">
+                <input
+                  type="password"
+                  value={node.data.telegramBotToken ?? ""}
+                  onChange={(e) => onUpdate({ telegramBotToken: e.target.value })}
+                  placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Telegram Chat ID">
+                <input
+                  value={node.data.telegramChatId ?? ""}
+                  onChange={(e) => onUpdate({ telegramChatId: e.target.value })}
+                  placeholder="-1001234567890 or @channelname"
+                  className={inputClass}
+                />
+              </Field>
+            </>
+          ) : (
+            <Field label="Webhook URL" hint="Paste Discord/Slack webhook URL or custom endpoint">
+              <input
+                value={node.data.dispatchWebhookUrl ?? ""}
+                onChange={(e) => onUpdate({ dispatchWebhookUrl: e.target.value })}
+                placeholder="https://discord.com/api/webhooks/... or https://hooks.slack.com/..."
+                className={inputClass}
+              />
+            </Field>
+          )}
+          <Field label="Message Content Template">
+            <textarea
+              value={node.data.dispatchMessage ?? ""}
+              onChange={(e) => onUpdate({ dispatchMessage: e.target.value })}
+              rows={4}
+              spellCheck={false}
+              placeholder="🚀 **Alert Report:**\n{{ results.agent_1 }}"
+              className={`${inputClass} resize-y text-[9px] leading-relaxed`}
+            />
+            <p className="text-[8px] text-slate-500 leading-tight">
+              Supports markdown and template variables (e.g. {`{{ results.<nodeId> }}`})
+            </p>
+          </Field>
+        </>
+      )}
+
+      {/* ─── Data Mapper Inspector ─── */}
+      {type === "data_mapper" && (
+        <>
+          <Field label="Schema Mappings (JSON)" hint="Maps output fields to dot-paths or expressions">
+            <textarea
+              value={node.data.mapperSchema ? JSON.stringify(node.data.mapperSchema, null, 2) : ""}
+              onChange={(e) => {
+                try { onUpdate({ mapperSchema: e.target.value ? JSON.parse(e.target.value) : {} }); } catch {}
+              }}
+              rows={5}
+              spellCheck={false}
+              placeholder='{\n  "title": "item.title",\n  "url": "item.link",\n  "score": "item.score"\n}'
+              className={`${inputClass} resize-y text-[9px] leading-relaxed font-mono`}
+            />
+          </Field>
+          <Field label="Custom JSONPath / Transform Expression (Optional)">
+            <input
+              value={node.data.mapperExpression ?? ""}
+              onChange={(e) => onUpdate({ mapperExpression: e.target.value })}
+              placeholder="$.items[?(@.score > 100)]"
+              className={inputClass}
+            />
+          </Field>
+        </>
+      )}
+
+      {/* ─── SearXNG Metasearch Inspector ─── */}
+      {type === "searxng_search" && (
+        <>
+          <Field label="SearXNG Instance Endpoint" hint="Any public instance or self-hosted SearXNG (e.g. http://localhost:8080)">
+            <input
+              value={node.data.searxngHost ?? "https://searx.be"}
+              onChange={(e) => onUpdate({ searxngHost: e.target.value })}
+              placeholder="https://searx.be or http://localhost:8080"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Search Query Template" hint="Supports template strings like {{ input.query }} or {{ results.agent.topic }}">
+            <input
+              value={node.data.searxngQuery ?? ""}
+              onChange={(e) => onUpdate({ searxngQuery: e.target.value })}
+              placeholder="autonomous AI agents or {{ input.query }}"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Max Results Limit">
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={node.data.searxngLimit ?? 5}
+              onChange={(e) => onUpdate({ searxngLimit: parseInt(e.target.value, 10) || 5 })}
+              className={inputClass}
+            />
+          </Field>
+        </>
+      )}
+
+      {/* ─── Crawl4AI Scraper Inspector ─── */}
+      {type === "crawl4ai_scrape" && (
+        <>
+          <Field label="Target Page URL" hint="Supports template strings like {{ input.targetUrl }} or {{ results.searxng.url }}">
+            <input
+              value={node.data.crawl4aiUrl ?? ""}
+              onChange={(e) => onUpdate({ crawl4aiUrl: e.target.value })}
+              placeholder="https://news.ycombinator.com or {{ results.search.url }}"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Crawl4AI Service Host (Optional)" hint="Self-hosted Crawl4AI Docker endpoint (defaults to built-in cleaner)">
+            <input
+              value={node.data.crawl4aiHost ?? ""}
+              onChange={(e) => onUpdate({ crawl4aiHost: e.target.value })}
+              placeholder="http://localhost:11235"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="CSS Selector Extraction (Optional)" hint="Filter article body, table, or main container">
+            <input
+              value={node.data.crawl4aiSelector ?? ""}
+              onChange={(e) => onUpdate({ crawl4aiSelector: e.target.value })}
+              placeholder="main, article, .content-body"
+              className={inputClass}
+            />
+          </Field>
+        </>
+      )}
+
+      {/* ─── Docling PDF & Document Parser Inspector ─── */}
+      {type === "docling_pdf_parser" && (
+        <>
+          <Field label="Document / PDF URL" hint="Target PDF file, paper URL, or local path">
+            <input
+              value={node.data.doclingDocumentUrl ?? ""}
+              onChange={(e) => onUpdate({ doclingDocumentUrl: e.target.value })}
+              placeholder="https://arxiv.org/pdf/1706.03762.pdf or {{ input.pdfUrl }}"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Output Format">
+            <select
+              value={node.data.doclingOutputFormat ?? "markdown"}
+              onChange={(e) => onUpdate({ doclingOutputFormat: e.target.value as any })}
+              className={`${inputClass} cursor-pointer`}
+            >
+              <option value="markdown">Structured Markdown with Tables</option>
+              <option value="json">Structured JSON (Tokens + BBoxes)</option>
+              <option value="html">Semantic HTML</option>
+            </select>
+          </Field>
+          <Field label="Docling Service Host (Optional)" hint="Self-hosted Docling REST service (e.g. http://localhost:5001)">
+            <input
+              value={node.data.doclingHost ?? ""}
+              onChange={(e) => onUpdate({ doclingHost: e.target.value })}
+              placeholder="http://localhost:5001"
+              className={inputClass}
+            />
+          </Field>
+        </>
+      )}
+
+      {/* ─── Gotenberg PDF Exporter Inspector ─── */}
+      {type === "gotenberg_pdf_exporter" && (
+        <>
+          <Field label="Gotenberg Service Host" hint="Docker gotenberg/gotenberg endpoint">
+            <input
+              value={node.data.gotenbergHost ?? "http://localhost:3000"}
+              onChange={(e) => onUpdate({ gotenbergHost: e.target.value })}
+              placeholder="http://localhost:3000"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Paper Size & Layout">
+            <div className="grid grid-cols-2 gap-2">
+              <select
+                value={node.data.gotenbergPaperSize ?? "A4"}
+                onChange={(e) => onUpdate({ gotenbergPaperSize: e.target.value as any })}
+                className={`${inputClass} cursor-pointer`}
+              >
+                <option value="A4">A4 Standard</option>
+                <option value="Letter">US Letter</option>
+                <option value="Legal">Legal</option>
+              </select>
+              <label className="flex items-center gap-1.5 text-[9px] text-slate-700 dark:text-slate-300 font-mono">
+                <input
+                  type="checkbox"
+                  checked={node.data.gotenbergLandscape ?? false}
+                  onChange={(e) => onUpdate({ gotenbergLandscape: e.target.checked })}
+                  className="rounded border-slate-400"
+                />
+                Landscape
+              </label>
+            </div>
+          </Field>
+          <Field label="HTML / Markdown Report Template" hint="Content to render to PDF. Supports {{ results.<nodeId> }}">
+            <textarea
+              value={node.data.gotenbergHtmlContent ?? ""}
+              onChange={(e) => onUpdate({ gotenbergHtmlContent: e.target.value })}
+              rows={5}
+              spellCheck={false}
+              placeholder="<h1>Executive Summary</h1>\n<p>{{ results.agent }}</p>"
+              className={`${inputClass} resize-y text-[9px] leading-relaxed font-mono`}
+            />
+          </Field>
+        </>
+      )}
+
+      {/* ─── NocoDB Record Inspector ─── */}
+      {type === "nocodb_record" && (
+        <>
+          <Field label="NocoDB Host URL" hint="Self-hosted NocoDB instance (e.g. http://localhost:8080)">
+            <input
+              value={node.data.nocodbHost ?? "http://localhost:8080"}
+              onChange={(e) => onUpdate({ nocodbHost: e.target.value })}
+              placeholder="http://localhost:8080"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Table ID / Table Name">
+            <input
+              value={node.data.nocodbTableId ?? ""}
+              onChange={(e) => onUpdate({ nocodbTableId: e.target.value })}
+              placeholder="tbl_leads, tbl_articles"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Database Operation">
+            <select
+              value={node.data.nocodbOperation ?? "create"}
+              onChange={(e) => onUpdate({ nocodbOperation: e.target.value as any })}
+              className={`${inputClass} cursor-pointer`}
+            >
+              <option value="create">CREATE (Insert New Record)</option>
+              <option value="list">LIST (Query / Find Rows)</option>
+              <option value="find">FIND BY ID</option>
+              <option value="update">UPDATE (Patch Record)</option>
+            </select>
+          </Field>
+          <Field label="Record Payload / Query Data (JSON)" hint="Row values to insert or query filters">
+            <textarea
+              value={node.data.nocodbData ? JSON.stringify(node.data.nocodbData, null, 2) : "{}"}
+              onChange={(e) => {
+                try { onUpdate({ nocodbData: e.target.value ? JSON.parse(e.target.value) : {} }); } catch {}
+              }}
+              rows={4}
+              spellCheck={false}
+              placeholder='{\n  "title": "{{ results.agent.title }}",\n  "status": "APPROVED"\n}'
+              className={`${inputClass} resize-y text-[9px] leading-relaxed font-mono`}
+            />
+          </Field>
+        </>
+      )}
+
+      {/* ─── PocketBase Store Inspector ─── */}
+      {type === "pocketbase_store" && (
+        <>
+          <Field label="PocketBase Host URL" hint="Self-hosted PocketBase single binary (e.g. http://127.0.0.1:8090)">
+            <input
+              value={node.data.pocketbaseHost ?? "http://127.0.0.1:8090"}
+              onChange={(e) => onUpdate({ pocketbaseHost: e.target.value })}
+              placeholder="http://127.0.0.1:8090"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Collection Name">
+            <input
+              value={node.data.pocketbaseCollection ?? "agent_state"}
+              onChange={(e) => onUpdate({ pocketbaseCollection: e.target.value })}
+              placeholder="agent_state, session_logs"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Store Action">
+            <select
+              value={node.data.pocketbaseAction ?? "create"}
+              onChange={(e) => onUpdate({ pocketbaseAction: e.target.value as any })}
+              className={`${inputClass} cursor-pointer`}
+            >
+              <option value="create">CREATE (Insert Document)</option>
+              <option value="get">GET (Retrieve by ID)</option>
+              <option value="list">LIST (Query Collection)</option>
+              <option value="update">UPDATE (Patch Document)</option>
+            </select>
+          </Field>
+        </>
+      )}
+
+      {/* ─── Qdrant Vector Memory Inspector ─── */}
+      {type === "qdrant_vector_memory" && (
+        <>
+          <Field label="Qdrant Host URL" hint="Self-hosted Qdrant vector database (e.g. http://localhost:6333)">
+            <input
+              value={node.data.qdrantHost ?? "http://localhost:6333"}
+              onChange={(e) => onUpdate({ qdrantHost: e.target.value })}
+              placeholder="http://localhost:6333"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Vector Collection Name">
+            <input
+              value={node.data.qdrantCollection ?? "knowledge_base"}
+              onChange={(e) => onUpdate({ qdrantCollection: e.target.value })}
+              placeholder="knowledge_base, user_memories"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Semantic Search Query Template">
+            <input
+              value={node.data.qdrantQuery ?? ""}
+              onChange={(e) => onUpdate({ qdrantQuery: e.target.value })}
+              placeholder="{{ input.question }} or search text"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Top K Nearest Neighbors">
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={node.data.qdrantTopK ?? 3}
+              onChange={(e) => onUpdate({ qdrantTopK: parseInt(e.target.value, 10) || 3 })}
+              className={inputClass}
+            />
+          </Field>
+        </>
+      )}
+
+      {/* ─── Audio Transcriber (Faster-Whisper) Inspector ─── */}
+      {type === "audio_transcriber" && (
+        <>
+          <Field label="Audio Source URL / Base64" hint="Direct audio URL (.mp3, .wav) or template {{ input.audioUrl }}">
+            <input
+              value={node.data.audioSourceUrl ?? ""}
+              onChange={(e) => onUpdate({ audioSourceUrl: e.target.value })}
+              placeholder="https://example.com/recording.mp3 or {{ input.audioUrl }}"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Audio Language Code">
+            <input
+              value={node.data.audioLanguage ?? "auto"}
+              onChange={(e) => onUpdate({ audioLanguage: e.target.value })}
+              placeholder="auto, en, es, de, fr, hi"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Faster-Whisper Service Host (Optional)" hint="Self-hosted Faster-Whisper REST API">
+            <input
+              value={node.data.audioTranscriberHost ?? ""}
+              onChange={(e) => onUpdate({ audioTranscriberHost: e.target.value })}
+              placeholder="http://localhost:8000"
+              className={inputClass}
+            />
+          </Field>
+        </>
+      )}
+
+      {/* ─── Piper TTS Voice Synthesizer Inspector ─── */}
+      {type === "piper_tts" && (
+        <>
+          <Field label="Speech Voice Model">
+            <input
+              value={node.data.piperVoice ?? "en_US-lessac-medium"}
+              onChange={(e) => onUpdate({ piperVoice: e.target.value })}
+              placeholder="en_US-lessac-medium, en_GB-alan-medium"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Text Content to Speak Template" hint="Supports template strings like {{ results.agent }}">
+            <textarea
+              value={node.data.piperText ?? ""}
+              onChange={(e) => onUpdate({ piperText: e.target.value })}
+              rows={4}
+              spellCheck={false}
+              placeholder="{{ results.agent }} or Hello, how may I assist you today?"
+              className={`${inputClass} resize-y text-[9px] leading-relaxed`}
+            />
+          </Field>
+          <Field label="Piper Service Host (Optional)">
+            <input
+              value={node.data.piperHost ?? ""}
+              onChange={(e) => onUpdate({ piperHost: e.target.value })}
+              placeholder="http://localhost:5000"
+              className={inputClass}
+            />
+          </Field>
+        </>
+      )}
+
       {/* Sticky Note Inspector */}
       {type === "sticky_note" && (
         <>

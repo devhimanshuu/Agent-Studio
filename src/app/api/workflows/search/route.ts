@@ -16,72 +16,182 @@ const unifiedSearchCache = new Map<string, CacheEntry>();
 const CACHE_TTL_MS = 15 * 60 * 1000;
 
 // Studio Built-in Templates normalized
-function getStudioTemplates(q: string, category: string) {
+function mapUnifiedCategoryToN8n(cat: string): string {
+  const map: Record<string, string> = {
+    ai: "AI",
+    marketing: "Marketing",
+    sales: "Sales",
+    support: "Customer Support",
+    operations: "Operations",
+    it: "Development",
+    knowledge: "Langchain",
+    finance: "Finance & Accounting",
+  };
+  return map[cat.toLowerCase()] || "";
+}
+
+function mapUnifiedCategoryToDify(cat: string): string {
+  const map: Record<string, string> = {
+    ai: "ai",
+    marketing: "marketing",
+    sales: "sales",
+    support: "support",
+    operations: "operations",
+    it: "it",
+    knowledge: "knowledge",
+    finance: "finance",
+  };
+  return map[cat.toLowerCase()] || "";
+}
+
+// Studio Built-in Templates normalized
+function getStudioTemplates(q: string, category: string, tag: string = "") {
   const allStudio = [
-    ...CANVAS_TEMPLATES.map((t) => ({
-      id: `canvas-${t.id}`,
-      provider: "studio" as const,
-      providerName: "Agent Studio",
-      name: t.name,
-      description: t.description,
-      readme: `### Built-in Agent Studio Blueprint\n\n**Category:** ${t.category}\n**Badge:** ${t.badge}\n\n${t.description}\n\nClick **OPEN IN CANVAS** to customize and run.`,
-      author: "Agent Studio",
-      authorUrl: "/dashboard/canvas",
-      icon: "⚡",
-      iconBackground: "#4338CA",
-      categories: [t.category.toLowerCase(), "multi-agent", "orchestration"],
-      primaryCategory: t.category.toLowerCase(),
-      tags: ["multi-agent", "graph", "supervisor", "critic"],
-      pluginTags: ["Agent Graph", "Supervisor", "Critic"],
-      nodeCount: t.graph.nodes.length,
-      usageCount: 1420,
-      viewsCount: 5200,
-      version: "1.0.0",
-      badges: ["official", "blueprint"],
-      sourceUrl: `/dashboard/canvas/new?template=${t.id}`,
-      canvasUrl: `/dashboard/canvas/new?template=${t.id}`,
-      createdAt: new Date().toISOString(),
-    })),
-    ...WORKFLOW_TEMPLATES.map((t) => ({
-      id: `workflow-${t.id}`,
-      provider: "studio" as const,
-      providerName: "Agent Studio",
-      name: t.name,
-      description: t.purpose,
-      readme: `### Enterprise Workflow Starter\n\n**Instructions:**\n${t.instructions}\n\n**Steps:**\n${t.stepsSummary.join(" → ")}\n\n**Allowed Tools:**\n${t.allowedTools.join(", ")}`,
-      author: "Enterprise Blueprints",
-      authorUrl: "/dashboard/skills",
-      icon: "🛡️",
-      iconBackground: "#312E81",
-      categories: [t.category.toLowerCase(), "hitl", "enterprise"],
-      primaryCategory: t.category.toLowerCase(),
-      tags: t.allowedTools,
-      pluginTags: t.allowedTools,
-      nodeCount: t.stepsSummary.length,
-      usageCount: 890,
-      viewsCount: 3400,
-      version: "1.0.0",
-      badges: ["hitl", "enterprise"],
-      sourceUrl: `/dashboard/skills/new`,
-      canvasUrl: `/dashboard/canvas/new`,
-      createdAt: new Date().toISOString(),
-    })),
+    ...CANVAS_TEMPLATES.map((t) => {
+      const isZeroKey =
+        t.category.includes("ZERO-KEY") ||
+        t.badge.includes("ZERO-KEY") ||
+        t.id.includes("trending") ||
+        t.id.includes("arxiv") ||
+        t.id.includes("weather") ||
+        t.id.includes("subreddit") ||
+        t.id.includes("wiki") ||
+        t.id.includes("jina");
+
+      const isOpenSource =
+        t.category.includes("OPEN SOURCE") ||
+        t.category.includes("SELF-HOSTED") ||
+        t.badge.includes("OPEN SOURCE") ||
+        t.badge.includes("LOCAL AI") ||
+        t.badge.includes("SELF-HOSTED") ||
+        t.id.includes("deep_research") ||
+        t.id.includes("docling") ||
+        t.id.includes("whisper") ||
+        t.id.includes("qdrant") ||
+        t.id.includes("windmill");
+
+      const icon = isOpenSource
+        ? "⚡"
+        : isZeroKey
+        ? "🌐"
+        : t.category.includes("SECURITY")
+        ? "🛡️"
+        : t.category.includes("FINANCE")
+        ? "🪙"
+        : "⚡";
+
+      const categories = [
+        t.category.toLowerCase(),
+        "multi-agent",
+        "orchestration",
+        ...(isZeroKey ? ["zero-key", "free-api", "open-api", "no-auth"] : []),
+        ...(isOpenSource ? ["open-source", "self-hosted", "local-ai", "privacy", "free-api", "zero-key"] : []),
+        ...(t.category.includes("SECURITY") ? ["security", "devops", "cve"] : []),
+        ...(t.category.includes("FINANCE") ? ["finance", "fintech", "crypto"] : []),
+      ];
+
+      return {
+        id: `canvas-${t.id}`,
+        provider: "studio" as const,
+        providerName: "Agent Studio",
+        name: t.name,
+        description: t.description,
+        readme: `### Built-in Agent Studio Blueprint\n\n**Category:** ${t.category}\n**Badge:** ${t.badge}\n\n${t.description}\n\nClick **OPEN IN CANVAS** to customize and run.`,
+        author: "Agent Studio",
+        authorUrl: "/dashboard/canvas",
+        icon,
+        iconBackground: isOpenSource ? "#6366F1" : isZeroKey ? "#059669" : "#4338CA",
+        categories,
+        primaryCategory: isOpenSource ? "open-source" : isZeroKey ? "zero-key" : t.category.toLowerCase(),
+        tags: [
+          "multi-agent",
+          "graph",
+          ...(isOpenSource ? ["Open-Source", "Self-Hosted", "Local AI", "Privacy"] : []),
+          ...(isZeroKey ? ["Zero-Key", "Free API", "No Key Required"] : []),
+          ...t.graph.nodes.map((n) => n.type),
+        ],
+        pluginTags: [
+          ...(isOpenSource ? ["Open-Source", "Self-Hosted"] : isZeroKey ? ["Zero-Key", "Free Public API"] : ["Agent Graph"]),
+          t.badge,
+        ],
+        nodeCount: t.graph.nodes.length,
+        usageCount: isOpenSource ? 3200 : isZeroKey ? 2840 : 1420,
+        viewsCount: isOpenSource ? 9800 : isZeroKey ? 8900 : 5200,
+        version: "1.0.0",
+        badges: isOpenSource ? ["official", "blueprint", "open-source", "self-hosted"] : isZeroKey ? ["official", "blueprint", "zero-key", "no-key-required"] : ["official", "blueprint"],
+        sourceUrl: `/dashboard/canvas/new?template=${t.id}`,
+        canvasUrl: `/dashboard/canvas/new?template=${t.id}`,
+        createdAt: new Date().toISOString(),
+      };
+    }),
+    ...WORKFLOW_TEMPLATES.map((t) => {
+      const isZeroKey = t.category.includes("ZERO-KEY") || t.badge.includes("ZERO-KEY");
+      const isOpenSource = t.category.includes("OPEN SOURCE") || t.badge.includes("OPEN SOURCE") || t.badge.includes("LOCAL AI");
+      return {
+        id: `workflow-${t.id}`,
+        provider: "studio" as const,
+        providerName: "Agent Studio",
+        name: t.name,
+        description: t.purpose,
+        readme: `### Enterprise Workflow Starter\n\n**Instructions:**\n${t.instructions}\n\n**Steps:**\n${t.stepsSummary.join(" → ")}\n\n**Allowed Tools:**\n${t.allowedTools.join(", ")}`,
+        author: "Enterprise Blueprints",
+        authorUrl: "/dashboard/skills",
+        icon: isOpenSource ? "⚡" : isZeroKey ? "🌐" : "🛡️",
+        iconBackground: isOpenSource ? "#4F46E5" : isZeroKey ? "#0D9488" : "#312E81",
+        categories: [
+          t.category.toLowerCase(),
+          ...(isOpenSource ? ["open-source", "self-hosted", "local-ai", "zero-key"] : []),
+          ...(isZeroKey ? ["zero-key", "free-api", "open-api"] : ["hitl", "enterprise"]),
+        ],
+        primaryCategory: isOpenSource ? "open-source" : isZeroKey ? "zero-key" : t.category.toLowerCase(),
+        tags: [...t.allowedTools, ...(isOpenSource ? ["Open-Source", "Self-Hosted"] : []), ...(isZeroKey ? ["Zero-Key", "Free API"] : [])],
+        pluginTags: t.allowedTools,
+        nodeCount: t.stepsSummary.length,
+        usageCount: 980,
+        viewsCount: 3900,
+        version: "1.0.0",
+        badges: isOpenSource ? ["open-source", "self-hosted"] : isZeroKey ? ["zero-key", "free-api", "enterprise"] : ["hitl", "enterprise"],
+        sourceUrl: `/dashboard/skills/new`,
+        canvasUrl: `/dashboard/canvas/new`,
+        createdAt: new Date().toISOString(),
+      };
+    }),
   ];
 
   let filtered = allStudio;
-  if (q) {
-    const qLower = q.toLowerCase();
+  const qLower = (q || "").toLowerCase().trim();
+  const tagLower = (tag || "").toLowerCase().trim();
+
+  if (qLower) {
     filtered = filtered.filter(
       (s) =>
         s.name.toLowerCase().includes(qLower) ||
         s.description.toLowerCase().includes(qLower) ||
-        s.tags.some((tag) => tag.toLowerCase().includes(qLower))
+        s.tags.some((t) => t.toLowerCase().includes(qLower)) ||
+        s.pluginTags.some((t) => t.toLowerCase().includes(qLower)) ||
+        s.badges.some((b) => b.toLowerCase().includes(qLower)) ||
+        s.categories.some((c) => c.toLowerCase().includes(qLower))
+    );
+  }
+
+  if (tagLower) {
+    filtered = filtered.filter(
+      (s) =>
+        s.tags.some((t) => t.toLowerCase().includes(tagLower)) ||
+        s.pluginTags.some((t) => t.toLowerCase().includes(tagLower)) ||
+        s.name.toLowerCase().includes(tagLower) ||
+        s.description.toLowerCase().includes(tagLower) ||
+        s.badges.some((b) => b.toLowerCase().includes(tagLower))
     );
   }
 
   if (category && category !== "ALL") {
     const catLower = category.toLowerCase();
-    filtered = filtered.filter((s) => s.categories.some((c) => c.includes(catLower)));
+    filtered = filtered.filter(
+      (s) =>
+        s.categories.some((c) => c.toLowerCase().includes(catLower)) ||
+        s.primaryCategory.toLowerCase() === catLower
+    );
   }
 
   return filtered;
@@ -110,10 +220,11 @@ export async function GET(request: Request) {
   }
 
   const effectiveQuery = tag ? `${q} ${tag}`.trim() : q;
+  const totalStudioTemplates = CANVAS_TEMPLATES.length + WORKFLOW_TEMPLATES.length;
 
   try {
     if (provider === "studio") {
-      const studioItems = getStudioTemplates(effectiveQuery, category);
+      const studioItems = getStudioTemplates(q, category, tag);
       const total = studioItems.length;
       const offset = (page - 1) * perPage;
       const paginated = studioItems.slice(offset, offset + perPage);
@@ -122,10 +233,10 @@ export async function GET(request: Request) {
         provider: "studio",
         workflows: paginated,
         stats: {
-          total: 11950,
+          total: 11950 + totalStudioTemplates,
           n8n: 11620,
           dify: 292,
-          studio: studioItems.length,
+          studio: totalStudioTemplates,
         },
         pagination: {
           page,
@@ -144,8 +255,17 @@ export async function GET(request: Request) {
       targetUrl.searchParams.set("page", String(page));
       targetUrl.searchParams.set("rows", String(perPage));
       targetUrl.searchParams.set("perPage", String(perPage));
-      if (effectiveQuery) targetUrl.searchParams.set("search", effectiveQuery);
-      if (category && category !== "ALL") targetUrl.searchParams.set("categories", category);
+
+      const n8nCategory = mapUnifiedCategoryToN8n(category);
+      if (n8nCategory) {
+        targetUrl.searchParams.set("categories", n8nCategory);
+      }
+
+      if (category.toLowerCase() === "zero-key" && !effectiveQuery) {
+        targetUrl.searchParams.set("search", "API");
+      } else if (effectiveQuery) {
+        targetUrl.searchParams.set("search", effectiveQuery);
+      }
 
       const res = await fetchWithRetry(targetUrl.toString(), { timeoutMs: 12000, retries: 2 });
       if (!res.ok) throw new Error(`n8n API error ${res.status}`);
@@ -186,10 +306,10 @@ export async function GET(request: Request) {
         provider: "n8n",
         workflows: normalized,
         stats: {
-          total: 11950,
+          total: (total || 11620) + 292 + totalStudioTemplates,
           n8n: total || 11620,
           dify: 292,
-          studio: 15,
+          studio: totalStudioTemplates,
         },
         pagination: {
           page,
@@ -208,8 +328,17 @@ export async function GET(request: Request) {
       targetUrl.searchParams.set("page", String(page));
       targetUrl.searchParams.set("page_size", String(perPage));
       targetUrl.searchParams.set("limit", String(perPage));
-      if (effectiveQuery) targetUrl.searchParams.set("search", effectiveQuery);
-      if (category && category !== "ALL") targetUrl.searchParams.set("category", category.toLowerCase());
+
+      const difyCategory = mapUnifiedCategoryToDify(category);
+      if (difyCategory) {
+        targetUrl.searchParams.set("category", difyCategory);
+      }
+
+      if (category.toLowerCase() === "zero-key" && !effectiveQuery) {
+        targetUrl.searchParams.set("search", "api");
+      } else if (effectiveQuery) {
+        targetUrl.searchParams.set("search", effectiveQuery);
+      }
 
       const res = await fetchWithRetry(targetUrl.toString(), { timeoutMs: 12000, retries: 2 });
       if (!res.ok) throw new Error(`Dify API error ${res.status}`);
@@ -255,10 +384,10 @@ export async function GET(request: Request) {
         provider: "dify",
         workflows: normalized,
         stats: {
-          total: 11950,
+          total: 11620 + (total || 292) + totalStudioTemplates,
           n8n: 11620,
           dify: total || 292,
-          studio: 15,
+          studio: totalStudioTemplates,
         },
         pagination: {
           page,
@@ -273,6 +402,10 @@ export async function GET(request: Request) {
     }
 
     // Default: ALL PROVIDERS (Aggregated multi-source)
+    const isZeroKeyCategory = category.toLowerCase() === "zero-key";
+    const n8nCategory = mapUnifiedCategoryToN8n(category);
+    const difyCategory = mapUnifiedCategoryToDify(category);
+
     const [n8nRes, difyRes] = await Promise.allSettled([
       (async () => {
         const n8nUrl = new URL("https://api.n8n.io/templates/search");
@@ -280,7 +413,8 @@ export async function GET(request: Request) {
         n8nUrl.searchParams.set("rows", String(Math.ceil(perPage * 0.7))); // 12 items
         n8nUrl.searchParams.set("perPage", String(Math.ceil(perPage * 0.7)));
         if (effectiveQuery) n8nUrl.searchParams.set("search", effectiveQuery);
-        if (category && category !== "ALL") n8nUrl.searchParams.set("categories", category);
+        else if (isZeroKeyCategory) n8nUrl.searchParams.set("search", "API");
+        if (n8nCategory) n8nUrl.searchParams.set("categories", n8nCategory);
 
         const res = await fetchWithRetry(n8nUrl.toString(), { timeoutMs: 12000, retries: 1 });
         if (!res.ok) return { total: 11620, workflows: [] };
@@ -296,7 +430,8 @@ export async function GET(request: Request) {
         difyUrl.searchParams.set("page_size", String(Math.ceil(perPage * 0.3))); // 6 items
         difyUrl.searchParams.set("limit", String(Math.ceil(perPage * 0.3)));
         if (effectiveQuery) difyUrl.searchParams.set("search", effectiveQuery);
-        if (category && category !== "ALL") difyUrl.searchParams.set("category", category.toLowerCase());
+        else if (isZeroKeyCategory) difyUrl.searchParams.set("search", "api");
+        if (difyCategory) difyUrl.searchParams.set("category", difyCategory);
 
         const res = await fetchWithRetry(difyUrl.toString(), { timeoutMs: 12000, retries: 1 });
         if (!res.ok) return { total: 292, workflows: [] };
@@ -310,7 +445,12 @@ export async function GET(request: Request) {
 
     const n8nData = n8nRes.status === "fulfilled" ? n8nRes.value : { total: 11620, workflows: [] };
     const difyData = difyRes.status === "fulfilled" ? difyRes.value : { total: 292, workflows: [] };
-    const studioData = page === 1 ? getStudioTemplates(effectiveQuery, category).slice(0, 2) : [];
+    const studioAll = getStudioTemplates(q, category, tag);
+    const studioData = isZeroKeyCategory
+      ? studioAll.slice((page - 1) * perPage, page * perPage)
+      : page === 1
+      ? studioAll.slice(0, 4)
+      : [];
 
     const normalizedN8n = (n8nData.workflows || []).map((w: any) => ({
       id: w.id,
@@ -373,9 +513,17 @@ export async function GET(request: Request) {
       };
     });
 
-    // Interleave Dify, Studio, and n8n items for rich multi-provider presentation
+    // Interleave Studio, Dify, and n8n items for rich multi-provider presentation
     const combinedWorkflows = [];
     let i = 0, j = 0, k = 0;
+
+    // If zero-key category, put Studio zero-key templates first
+    if (isZeroKeyCategory) {
+      while (k < studioData.length) {
+        combinedWorkflows.push(studioData[k++]);
+      }
+    }
+
     while (
       (i < normalizedN8n.length || j < normalizedDify.length || k < studioData.length) &&
       combinedWorkflows.length < perPage
@@ -386,7 +534,8 @@ export async function GET(request: Request) {
       if (i < normalizedN8n.length && combinedWorkflows.length < perPage) combinedWorkflows.push(normalizedN8n[i++]);
     }
 
-    const totalWorkflows = (n8nData.total || 11620) + (difyData.total || 292) + 15;
+    const totalWorkflows =
+      (n8nData.total || 11620) + (difyData.total || 292) + (studioAll.length || totalStudioTemplates);
 
     const payload = {
       provider: "all",
@@ -395,13 +544,13 @@ export async function GET(request: Request) {
         total: totalWorkflows,
         n8n: n8nData.total || 11620,
         dify: difyData.total || 292,
-        studio: 15,
+        studio: totalStudioTemplates,
       },
       pagination: {
         page,
         perPage,
-        totalWorkflows,
-        totalPages: Math.max(1, Math.ceil(totalWorkflows / perPage)),
+        totalWorkflows: isZeroKeyCategory ? studioAll.length : totalWorkflows,
+        totalPages: Math.max(1, Math.ceil((isZeroKeyCategory ? studioAll.length : totalWorkflows) / perPage)),
       },
     };
 
@@ -414,7 +563,7 @@ export async function GET(request: Request) {
         success: false,
         error: error?.message || "Failed to search workflows",
         workflows: [],
-        stats: { total: 11950, n8n: 11620, dify: 292, studio: 15 },
+        stats: { total: 11950, n8n: 11620, dify: 292, studio: totalStudioTemplates },
         pagination: { page, perPage, totalWorkflows: 0, totalPages: 0 },
       },
       { status: 502 }

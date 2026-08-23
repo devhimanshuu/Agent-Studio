@@ -69,7 +69,7 @@ const PROVIDERS: Array<{
   {
     id: "studio",
     name: "STUDIO BLUEPRINTS",
-    count: "15+",
+    count: "24+",
     icon: Zap,
     colorClass: "text-indigo-400",
     activeClass: "bg-indigo-600 text-white border-indigo-500 shadow-sm shadow-indigo-500/30",
@@ -79,6 +79,7 @@ const PROVIDERS: Array<{
 
 const UNIFIED_CATEGORIES = [
   { id: "ALL", label: "ALL CATEGORIES" },
+  { id: "zero-key", label: "⚡ ZERO-KEY / FREE APIS" },
   { id: "ai", label: "AI & AGENTS" },
   { id: "marketing", label: "MARKETING" },
   { id: "sales", label: "SALES & CRM" },
@@ -90,20 +91,22 @@ const UNIFIED_CATEGORIES = [
 ];
 
 const POPULAR_INTEGRATION_TAGS = [
+  "Zero-Key",
+  "Free API",
+  "Jina Reader",
+  "Hacker News",
+  "ArXiv",
+  "Open-Meteo",
+  "CoinGecko",
+  "Reddit",
   "OpenAI",
   "Anthropic",
   "Google",
-  "DeepSeek",
   "Slack",
   "GitHub",
   "Notion",
   "PostgreSQL",
-  "Tavily",
-  "Qdrant",
-  "Supabase",
   "Discord",
-  "HubSpot",
-  "Stripe",
   "Webhook",
 ];
 
@@ -123,7 +126,7 @@ export function UnifiedWorkflowsMarketplace() {
   const [detailWorkflow, setDetailWorkflow] = useState<any | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [stats, setStats] = useState({ total: 11950, n8n: 11620, dify: 292, studio: 15 });
+  const [stats, setStats] = useState({ total: 11950, n8n: 11620, dify: 292, studio: 24 });
   const gridRef = useRef<HTMLDivElement>(null);
 
   // In-memory page cache for instant pagination & prefetching
@@ -521,6 +524,11 @@ export function UnifiedWorkflowsMarketplace() {
 
                         {/* Provider Brand Pill */}
                         <div className="flex items-center gap-1 shrink-0">
+                          {wf.badges?.includes("zero-key") && (
+                            <span className="px-1.5 py-0.5 rounded-full text-[7.5px] font-bold uppercase tracking-wider border border-emerald-500/40 bg-emerald-500/10 text-emerald-400">
+                              ⚡ NO API KEY
+                            </span>
+                          )}
                           <span
                             className={clsx(
                               "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border",
@@ -636,6 +644,11 @@ export function UnifiedWorkflowsMarketplace() {
                         <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
                           {wf.name}
                         </h3>
+                        {wf.badges?.includes("zero-key") && (
+                          <span className="px-1.5 py-0.2 rounded text-[7.5px] font-bold uppercase tracking-wider border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 shrink-0">
+                            ⚡ NO API KEY
+                          </span>
+                        )}
                         <span
                           className={clsx(
                             "px-1.5 py-0.2 rounded text-[8px] font-black uppercase tracking-wider border shrink-0",
