@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { unauthorized } from "@/lib/api/handlers";
-import { PublicMcpServer, McpDirectoryResponse, McpLanguage, McpScope } from "@/types/mcp-directory";
+import { PublicMcpServer, McpLanguage, McpScope } from "@/types/mcp-directory";
 import { fetchAwesomeMcpMarkdown, fetchSmitheryMultiQuery, fetchMcpSoSitemap, fetchGlamaSitemap, fetchComposioToolkits, fetchArcadeIntegrations, fetchAllComposioTools } from "@/lib/fetch-utils";
 
 // Cache directory response for 1 hour in Next.js ISR

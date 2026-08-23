@@ -104,14 +104,14 @@ export async function GET() {
     }
 
     const json = await res.json();
-    const toolkits = (json.items || []).map((tk: any) => ({
+    const toolkits = (json.items || []).map((tk: Record<string, unknown>) => ({
       slug: tk.slug,
       name: tk.name,
-      toolsCount: tk.meta?.tools_count || 0,
-      description: tk.meta?.description || "",
-      categories: (tk.meta?.categories || []).map((c: any) => c.name),
+      toolsCount: (tk.meta as Record<string, unknown>)?.tools_count || 0,
+      description: (tk.meta as Record<string, unknown>)?.description || "",
+      categories: (((tk.meta as Record<string, unknown>)?.categories || []) as Record<string, unknown>[]).map((c: Record<string, unknown>) => c.name),
       noAuth: tk.no_auth || false,
-      managedAuth: (tk.composio_managed_auth_schemes || []).length > 0,
+      managedAuth: ((tk.composio_managed_auth_schemes || []) as unknown[]).length > 0,
     }));
 
     return NextResponse.json({
@@ -119,7 +119,7 @@ export async function GET() {
       data: toolkits,
       total: toolkits.length,
     });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ success: true, data: [] });
   }
 }

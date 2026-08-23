@@ -11,7 +11,7 @@ import { unauthorized, forbidden, notFound, badRequest, serverError } from "@/li
 import { rateLimit } from "@/lib/api/rateLimit";
 
 const approvalRepo = new ApprovalRepository();
-const auditRepo = new AuditLogRepository();
+const _auditRepo = new AuditLogRepository();
 const historyRepo = new ApprovalHistoryRepository();
 const executionRepo = new ExecutionRepository();
 const approvalEngine = new ApprovalEngine(approvalRepo, historyRepo, executionRepo);
