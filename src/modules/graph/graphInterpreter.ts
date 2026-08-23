@@ -1549,7 +1549,25 @@ export class GraphInterpreter {
     delayMs = Math.min(delayMs, 30_000);
 
     ctx.results[node.id] = { delayMs, waited: true };
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    if (ctx.signal?.aborted) {
+      throw new ExecutionCancelledError("Execution cancelled");
+    }
+    await new Promise<void>((resolve, reject) => {
+      let timer: NodeJS.Timeout | null = null;
+      const onAbort = () => {
+        if (timer) clearTimeout(timer);
+        reject(new ExecutionCancelledError("Execution cancelled"));
+      };
+      if (ctx.signal) {
+        ctx.signal.addEventListener("abort", onAbort, { once: true });
+      }
+      timer = setTimeout(() => {
+        if (ctx.signal) {
+          ctx.signal.removeEventListener("abort", onAbort);
+        }
+        resolve();
+      }, delayMs);
+    });
     await this.persistStep(ctx, node, "SUCCESS", { delayMs });
     this.emitNodeEnd(ctx, node, "SUCCESS", `waited ${delayMs}ms`);
     return this.firstSuccessor(outgoing, node);

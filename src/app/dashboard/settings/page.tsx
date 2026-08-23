@@ -4,11 +4,12 @@ import React from "react";
 import { useTheme } from "next-themes";
 import { UserProfile } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
-import { Sliders, Sun, Moon, Cpu, ServerCog, Palette, Zap, Terminal, Sparkles } from "lucide-react";
+import { Sliders, Sun, Moon, Cpu, ServerCog, Palette, Zap, Terminal, Sparkles, Lock } from "lucide-react";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { Skeleton } from "@/components/feedback/Skeleton";
 import { ProviderStatus } from "@/types/settings";
 import { usePixelThemeTransition } from "@/components/effects/PixelThemeTransition";
+import { SecretVault } from "@/components/vault/SecretVault";
 
 async function fetchProviderStatus(): Promise<ProviderStatus> {
   const res = await fetch("/api/settings/providers");
@@ -361,6 +362,15 @@ export default function SettingsPage() {
             }}
           />
         </div>
+      </div>
+
+      {/* ───── Secret Vault Section ───── */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-sm font-mono font-bold text-slate-900 dark:text-slate-200">
+          <Lock className="h-4 w-4 text-indigo-500" />
+          ENVIRONMENT VAULT
+        </div>
+        <SecretVault />
       </div>
     </div>
   );

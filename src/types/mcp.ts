@@ -195,3 +195,44 @@ export interface McpServerMetrics {
   circuitState: "CLOSED" | "OPEN" | "HALF_OPEN";
 }
 
+// ─── Tool Update Discovery ───
+
+/** A single tool-level change detected between two rediscovery snapshots. */
+export type McpToolChangeKind = "added" | "removed" | "schema_changed" | "description_changed";
+
+export interface McpToolChange {
+  /** The tool name (common across old + new). */
+  toolName: string;
+  /** What changed. */
+  kind: McpToolChangeKind;
+  /** Previous definition (null when kind === "added"). */
+  oldDef?: McpToolDefinition | null;
+  /** New definition (null when kind === "removed"). */
+  newDef?: McpToolDefinition | null;
+  /** Human-readable summary of the schema diff (for the UI). */
+  summary: string;
+}
+
+/** A pending update package for one MCP server. */
+export interface McpToolUpdate {
+  id: string;
+  serverId: string;
+  serverName: string;
+  /** ISO timestamp of when this update was detected. */
+  detectedAt: string;
+  /** The list of tool-level changes. */
+  changes: McpToolChange[];
+  /** Skills whose allowedTools reference tools on this server. */
+  affectedSkillIds: string[];
+}
+
+/** Input for applying a tool update to a skill draft. */
+export interface ApplyToolUpdateInput {
+  /** The update id from the pending updates list. */
+  updateId: string;
+  /** Which changes to apply (tool names). Omit to apply all. */
+  toolNames?: string[];
+  /** Skill IDs to update. Omit to update all affected skills. */
+  skillIds?: string[];
+}
+

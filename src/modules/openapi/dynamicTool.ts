@@ -205,10 +205,16 @@ export async function executeOpenApiRequest(
     }
   }
 
+  const loggedHeaders: Record<string, string> = { ...headers };
+  if (loggedHeaders["Authorization"] || loggedHeaders["authorization"]) {
+    loggedHeaders["Authorization"] = "***REDACTED***";
+    delete loggedHeaders["authorization"];
+  }
+
   const requestDetails = {
     url: finalUrl,
     method: endpoint.method,
-    headers: { ...headers, Authorization: headers.Authorization ? "***REDACTED***" : undefined as unknown as string },
+    headers: loggedHeaders,
     body: requestBody ? tryParseJson(requestBody) : undefined,
   };
 

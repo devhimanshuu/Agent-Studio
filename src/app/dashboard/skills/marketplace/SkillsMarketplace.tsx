@@ -27,12 +27,14 @@ import {
   LayoutGrid,
   List,
   Trash2,
+  Play,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { useQueryClient } from "@tanstack/react-query";
 import { ItemIcon } from "@/components/common/ItemIcon";
 import { AgentSkill, SkillCategory } from "@/types/agent-studio-registry";
 import { toast } from "@/stores/toastStore";
+import { LiveSandbox } from "@/components/mcp/LiveSandbox";
 
 /** Persistent map of marketplace skill IDs → database Skill IDs */
 const INSTALLED_MAP_KEY = "skill-installed-map";
@@ -68,25 +70,30 @@ function buildInstructions(skill: AgentSkill): string {
     "",
     "## Workflow Steps",
   ];
+  const dummyTools = new Set(["smithery-cli", "execute_command", "connect", "composio_connect", "composio_auth"]);
   for (const step of skill.steps) {
-    lines.push(`${step.order}. ${step.description}${step.requiredTool ? ` (tool: ${step.requiredTool})` : ""}`);
+    const hasValidTool = step.requiredTool && !dummyTools.has(step.requiredTool.trim().toLowerCase());
+    lines.push(`${step.order}. ${step.description}${hasValidTool ? ` (tool: ${step.requiredTool})` : ""}`);
   }
   return lines.join("\n");
 }
 
 /**
  * Build the allowedTools list. We combine:
- *  - requiredTools from the marketplace skill metadata
+ *  - requiredTools from the marketplace skill metadata (excluding dummy placeholders)
  *  - mcp_<serverId>_* wildcard-style entries for each mounted server
  * The permission checker will match these at execution time.
  */
 function buildAllowedTools(skill: AgentSkill, mountedServerIds: string[]): string[] {
   const tools = new Set<string>();
+  const dummyTools = new Set(["smithery-cli", "execute_command", "connect", "composio_connect", "composio_auth"]);
 
   // Add explicitly required tools from the skill definition
   if (skill.requiredTools?.length) {
     for (const t of skill.requiredTools) {
-      if (t && t.trim()) tools.add(t.trim());
+      if (t && t.trim() && !dummyTools.has(t.trim().toLowerCase())) {
+        tools.add(t.trim());
+      }
     }
   }
 
@@ -99,10 +106,9 @@ function buildAllowedTools(skill: AgentSkill, mountedServerIds: string[]): strin
   // Also add wildcard "*" so skill runtime can invoke any mounted tool for this skill
   tools.add("*");
 
-  // Fallback: if we still have no tools, add a generic one from the skill name
+  // Fallback: if we still have no tools, add standard built-ins
   if (tools.size === 0) {
-    const safeName = skill.name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
-    tools.add(`mcp_${safeName}`);
+    tools.add("code_execution");
   }
 
   return Array.from(tools).slice(0, 20);
@@ -195,6 +201,7 @@ export function SkillsMarketplace() {
 
   // Map of marketplaceSkillId → databaseSkillId
   const [installedMap, setInstalledMap] = useState<Map<string, string>>(loadInstalledMap);
+  const [installedDbSkills, setInstalledDbSkills] = useState<any[]>([]);
 
   const PAGE_SIZE = 50;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
@@ -239,11 +246,71 @@ export function SkillsMarketplace() {
     return () => clearTimeout(timer);
   }, [search, source, category, difficulty]);
 
-  // Client-side installed filter
+  // Client-side installed filter with global database hydration
   const filteredSkills = useMemo(() => {
     if (!showInstalledOnly) return skills;
-    return skills.filter((s) => installedMap.has(s.id));
-  }, [skills, showInstalledOnly, installedMap]);
+
+    const installedList: AgentSkill[] = [];
+    const seenIds = new Set<string>();
+
+    for (const s of skills) {
+      if (installedMap.has(s.id) || installedMap.has(s.name.toLowerCase().trim())) {
+        installedList.push(s);
+        seenIds.add(s.id);
+        const dbId = installedMap.get(s.id);
+        if (dbId) seenIds.add(dbId);
+      }
+    }
+
+    for (const dbSkill of installedDbSkills) {
+      const draft = dbSkill.currentDraft || dbSkill.publishedVersion || {};
+      const notes = draft.notes || "";
+      const match = notes.match(/ID:\s*([^\s\n\r]+)/);
+      const marketplaceId = match ? match[1] : dbSkill.id;
+
+      if (seenIds.has(marketplaceId) || seenIds.has(dbSkill.id)) continue;
+      seenIds.add(marketplaceId);
+      seenIds.add(dbSkill.id);
+
+      const sourceMatch = notes.match(/Installed from ([^\s]+) marketplace/);
+      const source = (sourceMatch ? sourceMatch[1] : "community") as AgentSkill["source"];
+
+      installedList.push({
+        id: marketplaceId,
+        name: dbSkill.name,
+        description: dbSkill.purpose || draft.instructions?.slice(0, 150) || "Installed agent skill",
+        category: "PRODUCTIVITY",
+        author: "You",
+        source,
+        stars: 1,
+        installs: 1,
+        rating: 5.0,
+        difficulty: "BEGINNER",
+        estimatedTime: "2 min",
+        steps: [
+          { order: 1, action: "execute", description: dbSkill.purpose || "Execute skill workflow" },
+        ],
+        tags: ["installed", source],
+        requiredServers: [],
+        requiredTools: draft.allowedTools || ["*"],
+      });
+    }
+
+    return installedList.filter((s) => {
+      if (search.trim()) {
+        const q = search.toLowerCase().trim();
+        const matchesQuery =
+          s.name.toLowerCase().includes(q) ||
+          s.description.toLowerCase().includes(q) ||
+          s.tags?.some((t) => t.toLowerCase().includes(q));
+        if (!matchesQuery) return false;
+      }
+      if (source !== "ALL" && s.source !== source) return false;
+      if (category !== "ALL" && s.category !== category) return false;
+      if (difficulty !== "ALL" && s.difficulty !== difficulty) return false;
+      return true;
+    });
+  }, [skills, showInstalledOnly, installedMap, installedDbSkills, search, source, category, difficulty]);
 
   const [installing, setInstalling] = useState<string | null>(null);
 
@@ -382,29 +449,35 @@ export function SkillsMarketplace() {
   /**
    * Full install: mount MCP servers → create Skill in DB → update state.
    */
-  // Prune any stale installedMap entries against active DB skills on mount
-  useEffect(() => {
-    fetch("/api/skills")
-      .then((r) => r.json())
-      .then((res) => {
-        if (res.success && Array.isArray(res.data?.items)) {
-          const activeDbSkillIds = new Set(res.data.items.map((s: any) => s.id));
-          setInstalledMap((prev) => {
-            let changed = false;
-            const next = new Map(prev);
-            for (const [mId, dbId] of next.entries()) {
-              if (!activeDbSkillIds.has(dbId)) {
-                next.delete(mId);
-                changed = true;
-              }
-            }
-            if (changed) saveInstalledMap(next);
-            return changed ? next : prev;
-          });
+  const refreshInstalledSkills = useCallback(async () => {
+    try {
+      const res = await fetch("/api/skills");
+      if (!res.ok) return;
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data?.items)) {
+        const items = json.data.items;
+        setInstalledDbSkills(items);
+        const map = new Map<string, string>();
+        for (const item of items) {
+          const notes = item.currentDraft?.notes || item.publishedVersion?.notes || "";
+          const match = notes.match(/ID:\s*([^\s\n\r]+)/);
+          if (match) {
+            map.set(match[1], item.id);
+          }
+          if (item.name) {
+            map.set(item.name.toLowerCase().trim(), item.id);
+          }
         }
-      })
-      .catch(() => {});
+        setInstalledMap(map);
+        saveInstalledMap(map);
+      }
+    } catch {}
   }, []);
+
+  // Sync installedMap and installedDbSkills from DB on mount
+  useEffect(() => {
+    refreshInstalledSkills();
+  }, [refreshInstalledSkills]);
 
   const handleInstall = useCallback(async (skill: AgentSkill) => {
     const marketplaceId = skill.id;
@@ -459,8 +532,9 @@ export function SkillsMarketplace() {
         return next;
       });
 
-      // 4. Invalidate skills query so the Studio tab updates immediately
+      // 4. Invalidate skills query and re-sync installed skills
       queryClient.invalidateQueries({ queryKey: ["skills"] });
+      await refreshInstalledSkills();
 
       toast.success("Skill installed", `${validName} is now available in Skills Studio`);
     } catch (err) {
@@ -469,7 +543,7 @@ export function SkillsMarketplace() {
     } finally {
       setInstalling(null);
     }
-  }, [installedMap, mountRequiredServers, queryClient]);
+  }, [installedMap, mountRequiredServers, queryClient, refreshInstalledSkills]);
 
   /**
    * Uninstall: delete the Skill from DB and remove from installed map.
@@ -497,8 +571,9 @@ export function SkillsMarketplace() {
         return next;
       });
 
-      // Invalidate skills query so the Studio tab updates
+      // Invalidate skills query and re-sync installed skills
       queryClient.invalidateQueries({ queryKey: ["skills"] });
+      await refreshInstalledSkills();
 
       toast.success("Skill uninstalled", `${skill.name} has been removed`);
     } catch (err) {
@@ -507,7 +582,7 @@ export function SkillsMarketplace() {
     } finally {
       setInstalling(null);
     }
-  }, [installedMap, queryClient]);
+  }, [installedMap, queryClient, refreshInstalledSkills]);
 
   return (
     <div className="space-y-5">
@@ -922,7 +997,7 @@ export function SkillsMarketplace() {
           )}
 
           {/* Pagination */}
-          {totalPages > 1 && (
+          {totalPages > 1 && !showInstalledOnly && (
             <div className="flex items-center justify-center gap-1 pt-6 pb-2">
               {/* Previous */}
               <button
@@ -1041,6 +1116,7 @@ function SkillDetailModal({
 }) {
   const catColor = CATEGORY_COLORS[skill.category] || CATEGORY_COLORS.PRODUCTIVITY;
   const diffColor = DIFFICULTY_COLORS[skill.difficulty] || DIFFICULTY_COLORS.BEGINNER;
+  const [sandboxOpen, setSandboxOpen] = useState(false);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn" onClick={onClose}>
@@ -1169,6 +1245,13 @@ function SkillDetailModal({
         <div className="sticky bottom-0 flex items-center justify-end gap-2 px-5 py-3.5 border-t border-slate-200 dark:border-indigo-950 bg-slate-50/80 dark:bg-[#0a0a0a]/80 backdrop-blur-sm rounded-b-xl">
           <button
             type="button"
+            onClick={() => setSandboxOpen(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded border text-[10px] font-mono font-semibold uppercase tracking-wider transition-all cursor-pointer border-amber-400 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950/60"
+          >
+            <Play className="h-3 w-3" /> TEST RUN
+          </button>
+          <button
+            type="button"
             onClick={onClose}
             className="px-4 py-2 rounded border border-slate-300 dark:border-indigo-900/50 text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 hover:border-slate-400 transition-all cursor-pointer"
           >
@@ -1193,6 +1276,16 @@ function SkillDetailModal({
           )}
         </div>
       </div>
+
+      {/* Live Sandbox Drawer */}
+      <LiveSandbox
+        skillName={skill.name}
+        skillDescription={skill.description}
+        steps={skill.steps}
+        requiredServers={skill.requiredServers}
+        isOpen={sandboxOpen}
+        onClose={() => setSandboxOpen(false)}
+      />
     </div>
   );
 }

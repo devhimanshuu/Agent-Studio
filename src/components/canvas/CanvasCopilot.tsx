@@ -10,6 +10,8 @@ interface CanvasCopilotProps {
   onGraphGenerated: (graph: AgentGraphDefinition) => void;
   /** Whether the canvas is in trace mode (disables the copilot). */
   disabled?: boolean;
+  /** Position of the copilot bar: top (default) or bottom. */
+  position?: "top" | "bottom";
 }
 
 interface CopilotExample {
@@ -46,7 +48,7 @@ const EXAMPLES: CopilotExample[] = [
  * A prompt bar at the top of the canvas that takes a natural language description
  * and generates a full agent graph definition with nodes, prompts, and layouts.
  */
-export function CanvasCopilot({ onGraphGenerated, disabled = false }: CanvasCopilotProps) {
+export function CanvasCopilot({ onGraphGenerated, disabled = false, position = "top" }: CanvasCopilotProps) {
   const [prompt, setPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,7 +94,10 @@ export function CanvasCopilot({ onGraphGenerated, disabled = false }: CanvasCopi
   if (disabled) return null;
 
   return (
-    <div className="absolute left-1/2 top-2 z-30 -translate-x-1/2 w-[560px] max-w-[calc(100%-3rem)]">
+    <div className={clsx(
+      "absolute left-1/2 z-30 -translate-x-1/2 w-[560px] max-w-[calc(100%-3rem)]",
+      position === "bottom" ? "bottom-14" : "top-2"
+    )}>
       <div className="rounded-xl border border-indigo-500/40 bg-[#0a0a14]/95 backdrop-blur-md shadow-2xl shadow-indigo-500/10 font-mono overflow-hidden">
         {/* Main input row */}
         <div className="flex items-center gap-2 px-3 py-2">

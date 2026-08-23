@@ -216,7 +216,19 @@ const DEFAULT_CALL_TIMEOUT_MS = 15_000;  /**
     if (!command) {
       throw new Error(`STDIO MCP server "${this.server.name}" has no command configured`);
     }
-    return new StdioClientTransport({ command, args });
+    // On Windows, resolve standard CLI executables (e.g. npx -> npx.cmd) so child_process.spawn works
+    let resolvedCommand = command;
+    if (typeof process !== "undefined" && process.platform === "win32") {
+      const lower = command.toLowerCase();
+      if (
+        (lower === "npx" || lower === "npm" || lower === "pnpm" || lower === "yarn") &&
+        !lower.endsWith(".cmd") &&
+        !lower.endsWith(".exe")
+      ) {
+        resolvedCommand = `${command}.cmd`;
+      }
+    }
+    return new StdioClientTransport({ command: resolvedCommand, args });
   }
 
   private buildStreamableTransport(): StreamableHTTPClientTransport {

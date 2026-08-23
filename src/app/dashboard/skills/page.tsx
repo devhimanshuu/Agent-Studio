@@ -16,6 +16,8 @@ import {
   Workflow,
   Zap,
   Play,
+  Package,
+  Wand2,
 } from "lucide-react";
 import { skillsApi } from "@/lib/api/skills";
 import { SkillDTO, SkillStatus } from "@/types/skill";
@@ -29,6 +31,8 @@ import { toast } from "@/stores/toastStore";
 import { clsx } from "clsx";
 import { ItemIcon } from "@/components/common/ItemIcon";
 import { SkillsMarketplace } from "./marketplace/SkillsMarketplace";
+import { SkillPackMarketplace } from "./packs/SkillPackMarketplace";
+import { SkillSynthesizer } from "./synthesizer/SkillSynthesizer";
 
 const sortOptions = [
   { value: "updatedAt-desc", label: "UPDATED · NEWEST" },
@@ -45,7 +49,7 @@ export default function SkillsDashboardPage() {
   const [status, setStatus] = useState<SkillStatus | "">("");
   const [typeFilter, setTypeFilter] = useState<"ALL" | "WORKFLOWS" | "PROMPT">("ALL");
   const [sort, setSort] = useState("updatedAt-desc");
-  const [viewMode, setViewMode] = useState<"studio" | "marketplace">("studio");
+  const [viewMode, setViewMode] = useState<"studio" | "marketplace" | "packs" | "synthesize">("studio");
   const debounceTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -166,9 +170,32 @@ export default function SkillsDashboardPage() {
             >
               <Sparkles className="h-3.5 w-3.5 text-amber-400" />
               MARKETPLACE
-              <span className="ml-1 px-1.5 py-0.2 rounded-full text-[7px] bg-amber-400 text-black font-bold uppercase">
-                NEW
-              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("packs")}
+              className={clsx(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider transition-all cursor-pointer",
+                viewMode === "packs"
+                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/30"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-indigo-950/40"
+              )}
+            >
+              <Package className="h-3.5 w-3.5" />
+              1-CLICK PACKS
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("synthesize")}
+              className={clsx(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider transition-all cursor-pointer",
+                viewMode === "synthesize"
+                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/30"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-indigo-950/40"
+              )}
+            >
+              <Wand2 className="h-3.5 w-3.5" />
+              SYNTHESIZE
             </button>
           </div>
         </div>
@@ -182,7 +209,11 @@ export default function SkillsDashboardPage() {
       </div>
 
       {/* Marketplace View */}
-      {viewMode === "marketplace" ? (
+      {viewMode === "synthesize" ? (
+        <SkillSynthesizer />
+      ) : viewMode === "packs" ? (
+        <SkillPackMarketplace />
+      ) : viewMode === "marketplace" ? (
         <SkillsMarketplace />
       ) : (
         <>

@@ -54,7 +54,17 @@ export const plannerNode: GraphNode = async (state, config) => {
       return { executionStatus: "RUNNING", providerUsed: state.providerUsed };
     }
 
-    const plan = await runtime.planner.plan({ skill, version, userInput: input });
+    // Extract registered, enabled tools that are permitted by this skill version
+    const registryTools = runtime.toolRegistry.listTools().filter((t) => t.enabled);
+    const availableTools = registryTools
+      .filter((t) => runtime.permissionChecker.check(t.name, version.allowedTools, runtime.toolRegistry).ok)
+      .map((t) => ({
+        name: t.name,
+        description: t.description,
+        category: t.category,
+      }));
+
+    const plan = await runtime.planner.plan({ skill, version, userInput: input, availableTools });
     if (plan.steps.length > version.maxExecutionSteps) {
       throw new StepLimitExceededError(
         `Plan requires ${plan.steps.length} steps but the skill allows a maximum of ${version.maxExecutionSteps}`
@@ -88,7 +98,7 @@ export const permissionNode: GraphNode = async (state, config) => {
 
   const allowedTools = version?.allowedTools ?? [];
   for (const step of plan.steps) {
-    if (step.toolName === "none") continue;
+    if (!step.toolName || step.toolName === "none" || step.toolName === "null") continue;
     const verdict = runtime.permissionChecker.check(step.toolName, allowedTools, runtime.toolRegistry);
     if (!verdict.ok) {
       throw new UnauthorizedToolError(verdict.toolName, verdict.reason);
@@ -121,7 +131,7 @@ export const toolSelectionNode: GraphNode = async (state, config) => {
   }
 
   const step = plan.steps[nextIndex];
-  const tool = runtime.toolRegistry.getTool(step.toolName);
+  const tool = step.toolName && step.toolName !== "none" ? runtime.toolRegistry.getTool(step.toolName) : null;
   // Stamp the merged approval decision into state so the conditional edge can
   // route to the approval node WITHOUT needing registry access.
   let approvalPending = stepRequiresApproval(step, version, tool);
@@ -157,20 +167,29 @@ export const toolExecutionNode: GraphNode = async (state, config) => {
   const step = plan.steps[currentStep - 1];
   if (!step) throw new ExecutionError(`No step to execute at index ${currentStep - 1}`, "GRAPH_FAILURE");
 
-  const tool = runtime.toolRegistry.getTool(step.toolName);
+  const isNoneTool = !step.toolName || step.toolName === "none" || step.toolName === "null";
+  const tool = !isNoneTool ? runtime.toolRegistry.getTool(step.toolName) : null;
   const requiresApproval = stepRequiresApproval(step, version, tool);
+  const resolvedInput = resolveStepReferences(step.input, {
+    results: state.results,
+    userInput: state.input,
+  });
+
   const baseRecord: ToolCallRecord = {
     stepNumber: step.stepNumber,
-    toolName: step.toolName,
+    toolName: isNoneTool ? "none" : step.toolName,
     action: step.action,
-    input: step.input,
+    input: resolvedInput as Record<string, unknown>,
     status: "PENDING",
     requiresApproval,
   };
 
-  // Data pass-through step (no tool) — record input as the result.
-  if (step.toolName === "none") {
-    const record: ToolCallRecord = { ...baseRecord, status: "SUCCESS", output: { ...step.input } };
+  // Data pass-through step (no tool) — record resolved input as the result.
+  if (isNoneTool) {
+    const output = typeof resolvedInput === "object" && resolvedInput !== null
+      ? { ...(resolvedInput as Record<string, unknown>) }
+      : { result: resolvedInput };
+    const record: ToolCallRecord = { ...baseRecord, status: "SUCCESS", output };
     await persistToolCall(runtime, record, "SUCCESS");
     await persistNodeStep(runtime, "tool_execution", "SUCCESS", { tool: "none", status: "SUCCESS" });
     return { toolCalls: [record], results: { [`step_${step.stepNumber}`]: record.output } };

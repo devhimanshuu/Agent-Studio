@@ -301,7 +301,10 @@ export class ExecutionService implements IExecutionService {
       throw new Error("Execution is already running");
     }
 
-    await this.syncMcpTools(userId);
+    await Promise.all([
+      this.syncMcpTools(userId),
+      this.syncOpenApiTools(userId),
+    ]);
 
     // Mark status as RUNNING in database before launching graph run to prevent double-resumes
     await this.executionRepo.updateStatus(executionId, "RUNNING");
@@ -488,7 +491,10 @@ export class ExecutionService implements IExecutionService {
       throw new Error("Execution is already running");
     }
 
-    await this.syncMcpTools(userId);
+    await Promise.all([
+      this.syncMcpTools(userId),
+      this.syncOpenApiTools(userId),
+    ]);
 
     const version = await this.skillRepo.findVersionById(execution.skillVersionId);
     if (!version) throw new Error("Skill version not found");

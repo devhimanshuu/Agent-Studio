@@ -1173,15 +1173,17 @@ function CanvasInner({
             onSelect={handleQuickConnectSelect}
             onClose={() => setQuickConnect(null)}
           />
-        )}
-
-        {/* ─── Canvas Copilot (NL Graph Generator) ─── */}
+        )}        {/* ─── Canvas Copilot (NL Graph Generator) ─── */}
         {!inTraceMode && !readOnly && (
           <CanvasCopilot
             onGraphGenerated={handleCopilotGraphGenerated}
             disabled={inTraceMode}
+            position="top"
           />
         )}
+
+
+
 
         {/* ─── Alignment Bar ─── */}
         {selectedNodesForAlignment.length >= 2 && !inTraceMode && (
@@ -1848,6 +1850,7 @@ function CanvasInner({
         <CanvasCopilot
           onGraphGenerated={handleCopilotGraphGenerated}
           disabled={inTraceMode}
+          position={isFullScreen ? "bottom" : "top"}
         />
       )}
 

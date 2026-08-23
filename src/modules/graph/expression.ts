@@ -103,8 +103,15 @@ function tokenize(src: string): Token[] {
       i = j + 1;
       continue;
     }
-    // Numbers (integer or decimal).
-    if (/[0-9]/.test(ch) || (ch === "-" && /[0-9]/.test(src[i + 1] ?? ""))) {
+    // Numbers (integer or decimal, optional unary negative sign).
+    const lastToken = tokens[tokens.length - 1];
+    const isUnaryContext =
+      !lastToken ||
+      lastToken.type === "op" ||
+      lastToken.type === "lparen" ||
+      lastToken.type === "lbrk";
+
+    if (/[0-9]/.test(ch) || (ch === "-" && isUnaryContext && /[0-9]/.test(src[i + 1] ?? ""))) {
       let j = i;
       if (ch === "-") j += 1;
       while (j < n && /[0-9.]/.test(src[j])) j += 1;

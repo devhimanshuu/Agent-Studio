@@ -44,10 +44,13 @@ import {
   McpServerDTO,
   McpToolDefinition,
   McpToolTestResult,
+  McpToolUpdate,
 } from "@/types/mcp";
 import { PublicMcpServer } from "@/types/mcp-directory";
 import { MCP_PRESETS } from "@/modules/mcp/presets";
 import { McpDirectoryBrowser } from "./McpDirectoryBrowser";
+import { ToolUpdateDiffViewer } from "@/components/mcp/ToolUpdateDiffViewer";
+import { ArrowUpCircle } from "lucide-react";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -107,6 +110,8 @@ export function McpServerHub() {
   const [batchBusy, setBatchBusy] = useState<string | null>(null);
   const [health, setHealth] = useState<Record<string, McpHealth>>({});
   const [serverViewMode, setServerViewMode] = useState<"list" | "grid">("list");
+  const [pendingUpdates, setPendingUpdates] = useState<(McpToolUpdate & { affectedSkillNames: string[] })[]>([]);
+  const [diffViewerUpdate, setDiffViewerUpdate] = useState<(McpToolUpdate & { affectedSkillNames: string[] }) | null>(null);
 
   const handleMountFromDirectory = useCallback(async (server: PublicMcpServer) => {
     // ── Deep integration: Composio toolkit ──
@@ -195,6 +200,12 @@ export function McpServerHub() {
     api<McpPreset[]>("/api/mcp/presets")
       .then((list) => {
         if (Array.isArray(list) && list.length > 0) setPresets(list);
+      })
+      .catch(() => {});
+    // Fetch pending tool updates
+    api<(McpToolUpdate & { affectedSkillNames: string[] })[]>("/api/mcp/updates")
+      .then((updates) => {
+        if (Array.isArray(updates)) setPendingUpdates(updates);
       })
       .catch(() => {});
   }, [load]);
@@ -613,6 +624,7 @@ export function McpServerHub() {
                   server={server}
                   health={health[server.id]}
                   busy={busy === server.id}
+                  hasUpdate={pendingUpdates.some((u) => u.serverId === server.id)}
                   onConnect={() => refresh(server.id)}
                   onDisconnect={() => disconnect(server.id)}
                   onDelete={() => setDeleteTarget(server)}
@@ -623,19 +635,24 @@ export function McpServerHub() {
             </div>
           ) : (
           <div className="space-y-3">
-            {servers.map((server) => (
-              <ServerCard
-                key={server.id}
-                server={server}
-                health={health[server.id]}
-                busy={busy === server.id}
-                expanded={expanded === server.id}
+            {servers.map((server) => (                <ServerCard
+                  key={server.id}
+                  server={server}
+                  health={health[server.id]}
+                  busy={busy === server.id}
+                  expanded={expanded === server.id}
+                  hasUpdate={pendingUpdates.some((u) => u.serverId === server.id)}
+                  pendingUpdate={pendingUpdates.find((u) => u.serverId === server.id) || undefined}
                 onToggle={() => setExpanded((prev) => (prev === server.id ? null : server.id))}
                 onConnect={() => refresh(server.id)}
                 onDisconnect={() => disconnect(server.id)}
                 onRediscover={() => rediscover(server.id)}
                 onDelete={() => setDeleteTarget(server)}
                 onHealth={() => probe(server.id)}
+                onViewUpdate={() => {
+                  const update = pendingUpdates.find((u) => u.serverId === server.id);
+                  if (update) setDiffViewerUpdate(update);
+                }}
               />
             ))}
           </div>
@@ -674,6 +691,30 @@ export function McpServerHub() {
           onConfirm={confirmRemove}
         />
       )}
+
+      {diffViewerUpdate && (
+        <ToolUpdateDiffViewer
+          update={diffViewerUpdate}
+          affectedSkillNames={diffViewerUpdate.affectedSkillNames}
+          isOpen={true}
+          onClose={() => setDiffViewerUpdate(null)}
+          onApply={async (updateId, toolNames) => {
+            const result = await api<{ changesApplied: number; skillsUpdated: number; errors: string[] }>(
+              "/api/mcp/updates/apply",
+              {
+                method: "POST",
+                body: JSON.stringify({ updateId, toolNames }),
+              }
+            );
+            // Remove the applied update from state
+            setPendingUpdates((prev) => prev.filter((u) => u.id !== updateId));
+            setSuccessMessage(`Applied ${result.changesApplied} tool updates to ${result.skillsUpdated} skill(s)`);
+            setTimeout(() => setSuccessMessage(null), 4000);
+            // Refresh servers to reflect new tool cache
+            await load();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -682,6 +723,7 @@ function ServerGridCard(props: {
   server: McpServerDTO;
   health?: McpHealth;
   busy: boolean;
+  hasUpdate: boolean;
   onConnect: () => void;
   onDisconnect: () => void;
   onDelete: () => void;
@@ -728,6 +770,11 @@ function ServerGridCard(props: {
           <span className="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border border-slate-200 dark:border-indigo-900/50 bg-white dark:bg-[#0a0a0a]/60 text-slate-600 dark:text-slate-400">
             {server.cachedTools.length} TOOLS
           </span>
+          {props.hasUpdate && (
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 animate-pulse">
+              <ArrowUpCircle className="h-2.5 w-2.5" /> UPDATE
+            </span>
+          )}
           {health && (
             <span className={clsx(
               "px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border",
@@ -835,12 +882,15 @@ function ServerCard(props: {
   health?: McpHealth;
   busy: boolean;
   expanded: boolean;
+  hasUpdate: boolean;
+  pendingUpdate?: McpToolUpdate;
   onToggle: () => void;
   onConnect: () => void;
   onDisconnect: () => void;
   onRediscover: () => void;
   onDelete: () => void;
   onHealth: () => void;
+  onViewUpdate: () => void;
 }) {
   const { server, health, busy, expanded } = props;
   const theme = statusTheme[server.status] ?? statusTheme.DISCONNECTED;
@@ -871,6 +921,11 @@ function ServerCard(props: {
           <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border border-slate-200 dark:border-indigo-900/50 bg-white dark:bg-[#0a0a0a]/60 text-slate-600 dark:text-slate-400">
             <Braces className="h-2.5 w-2.5" /> {server.cachedTools.length} TOOLS
           </span>
+          {props.hasUpdate && (
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 animate-pulse">
+              <ArrowUpCircle className="h-2.5 w-2.5" /> UPDATE AVAILABLE
+            </span>
+          )}
           {health && (
             <span className={clsx(
               "px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border",
@@ -900,6 +955,15 @@ function ServerCard(props: {
               <ActionButton icon={PlugZap} label="Connect" onClick={props.onConnect} disabled={busy} tone="primary" />
             )}
             <ActionButton icon={RefreshCw} label="Rediscover" onClick={props.onRediscover} disabled={busy} tone="neutral" />
+            {props.hasUpdate && (
+              <button
+                type="button"
+                onClick={props.onViewUpdate}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded border border-amber-400 bg-amber-50 dark:bg-amber-950/40 text-[8px] font-mono uppercase tracking-wider font-bold text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950/60 transition-all cursor-pointer"
+              >
+                <ArrowUpCircle className="h-3 w-3" /> VIEW UPDATE
+              </button>
+            )}
             <ActionButton icon={Trash2} label="Delete" onClick={props.onDelete} disabled={busy} tone="danger" />
             <button
               type="button"
@@ -911,7 +975,7 @@ function ServerCard(props: {
             </button>
           </div>
 
-      {expanded && <ToolInspector server={server} />}
+      {expanded && <ToolInspector server={server} pendingUpdate={props.pendingUpdate} onViewUpdate={props.onViewUpdate} />}
     </div>
   );
 }
@@ -982,7 +1046,7 @@ const INSPECTOR_TABS: { id: InspectorTab; label: string; icon: typeof Braces; co
   { id: "progress", label: "PROGRESS", icon: Activity },
 ];
 
-function ToolInspector({ server }: { server: McpServerDTO }) {
+function ToolInspector({ server, pendingUpdate, onViewUpdate }: { server: McpServerDTO; pendingUpdate?: McpToolUpdate; onViewUpdate?: () => void }) {
   const [activeTab, setActiveTab] = useState<InspectorTab>("tools");
   const [activeTestTool, setActiveTestTool] = useState<string | null>(null);
   const [schemaOpen, setSchemaOpen] = useState<string | null>(null);
@@ -1022,7 +1086,7 @@ function ToolInspector({ server }: { server: McpServerDTO }) {
       {/* Tab content */}
       <div className="p-4">
         {activeTab === "tools" && (
-          <ToolsTab server={server} activeTestTool={activeTestTool} setActiveTestTool={setActiveTestTool} schemaOpen={schemaOpen} setSchemaOpen={setSchemaOpen} />
+          <ToolsTab server={server} activeTestTool={activeTestTool} setActiveTestTool={setActiveTestTool} schemaOpen={schemaOpen} setSchemaOpen={setSchemaOpen} pendingUpdate={pendingUpdate} onViewUpdate={onViewUpdate} />
         )}
         {activeTab === "resources" && <ResourcesTab server={server} />}
         {activeTab === "prompts" && <PromptsTab server={server} />}
@@ -1035,15 +1099,36 @@ function ToolInspector({ server }: { server: McpServerDTO }) {
 
 /* ────────────── Tools Tab ────────────── */
 
-function ToolsTab({ server, activeTestTool, setActiveTestTool, schemaOpen, setSchemaOpen }: {
+function ToolsTab({ server, activeTestTool, setActiveTestTool, schemaOpen, setSchemaOpen, pendingUpdate, onViewUpdate }: {
   server: McpServerDTO;
   activeTestTool: string | null;
   setActiveTestTool: React.Dispatch<React.SetStateAction<string | null>>;
   schemaOpen: string | null;
   setSchemaOpen: React.Dispatch<React.SetStateAction<string | null>>;
+  pendingUpdate?: McpToolUpdate;
+  onViewUpdate?: () => void;
 }) {
   return (
     <div className="space-y-3">
+      {pendingUpdate && (
+        <div className="flex items-center justify-between rounded border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 px-3 py-2">
+          <div className="flex items-center gap-2">
+            <ArrowUpCircle className="h-4 w-4 text-amber-500" />
+            <span className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-300 uppercase">
+              {pendingUpdate.changes.length} tool update(s) available
+            </span>
+          </div>
+          {onViewUpdate && (
+            <button
+              type="button"
+              onClick={onViewUpdate}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-amber-400 bg-amber-100 dark:bg-amber-900/40 text-[9px] font-mono font-bold text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/60 transition-colors cursor-pointer"
+            >
+              <ArrowUpCircle className="h-3 w-3" /> VIEW & UPGRADE
+            </button>
+          )}
+        </div>
+      )}
       <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400 font-semibold flex items-center justify-between">
         <span className="flex items-center gap-1.5">
           <Braces className="h-3.5 w-3.5" /> DISCOVERED TOOLS ({server.cachedTools.length})

@@ -9,6 +9,7 @@ export interface PlanInput {
   skill: SkillDTO;
   version: SkillVersionDTO;
   userInput: Record<string, unknown>;
+  availableTools?: Array<{ name: string; description?: string; category?: string }>;
 }
 
 export interface PlannerServiceOptions {
@@ -81,17 +82,26 @@ export class PlannerService {
   }
 }
 
-function buildPlannerMessages({ skill, version, userInput }: PlanInput): LLMChatMessage[] {
+function buildPlannerMessages({ skill, version, userInput, availableTools }: PlanInput): LLMChatMessage[] {
+  const toolList = availableTools && availableTools.length > 0
+    ? availableTools.map((t) => `${t.name}${t.description ? `: ${t.description}` : ""}`).join("\n- ")
+    : "No external execution tools registered. Use \"none\" for all steps.";
+
   const system: LLMChatMessage = {
     role: "system",
     content: [
       "You are the PLANNING module of a deterministic AI agent runtime.",
       "You produce an execution plan for a skill. The plan is later executed step-by-step by the runtime; you do NOT execute anything yourself.",
       "Constraints:",
-      "- Use ONLY tools from the allowedTools list.",
+      "- Tool Selection: If a step requires an external tool, its toolName MUST be chosen strictly from the registered availableTools list below.",
+      "- If a step is an AI reasoning, design, code generation, text writing, analysis, or general instruction step where no external tool is needed, set toolName to \"none\".",
+      "- NEVER invent, hallucinate, or use placeholder tool names (such as 'smithery-cli', 'execute_command', 'connect', 'anthropic_tool', etc.). If instructions or descriptions mention external tools that are not in availableTools, set toolName to \"none\" or map to an available tool.",
       "- Mark a step requiresApproval=true when its action is in actionsRequiringApproval.",
       "- Do not exceed maxExecutionSteps total steps.",
       "- steps must be ordered by stepNumber starting at 1.",
+      "",
+      "Registered availableTools:",
+      `- ${toolList}`,
     ].join("\n"),
   };
 
@@ -106,18 +116,19 @@ function buildPlannerMessages({ skill, version, userInput }: PlanInput): LLMChat
         outputSchema: version.outputSchema,
         examples: version.examples,
         allowedTools: version.allowedTools,
+        availableTools: availableTools ?? version.allowedTools,
         actionsRequiringApproval: version.actionsRequiringApproval,
         maxExecutionSteps: version.maxExecutionSteps,
         userInput,
         outputShape: {
           reasoning: "string — why this plan",
-          requiredTools: ["string[] — tools this plan needs"],
+          requiredTools: ["string[] — tools this plan needs, or empty array if all steps use \"none\""],
           steps: [
             {
               stepNumber: "number, from 1",
-              toolName: "string — one of allowedTools, or \"none\"",
+              toolName: "string — one of availableTools, or \"none\"",
               action: "string — the specific action to invoke",
-              input: "object — arguments for the tool",
+              input: "object — arguments or prompt context for the step",
               requiresApproval: "boolean",
             },
           ],

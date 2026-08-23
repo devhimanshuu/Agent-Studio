@@ -7,11 +7,14 @@ import {
   McpSamplingRequest,
   McpSamplingResult,
   McpServerDTO,
+  McpToolDefinition,
   McpToolTestResult,
+  McpToolUpdate,
   UpdateMcpServerInput,
 } from "@/types/mcp";
 import { McpConnection, CircuitBreaker, createMcpTool } from "@/modules/mcp";
 import { McpRpcClient } from "@/modules/mcp/toolAdapter";
+import { computeToolDiff } from "@/modules/mcp/toolDiff";
 import { Tool, ToolRegistry } from "@/modules/tools";
 import { logger } from "@/lib/logger";
 
@@ -29,6 +32,10 @@ import { logger } from "@/lib/logger";
 export class McpClientService implements IMcpClientService {
   private connections = new Map<string, McpConnection>();
   private breakers = new Map<string, CircuitBreaker>();
+  /** Previous tool snapshots for diff computation (serverId → tools at last discovery). */
+  private toolSnapshots = new Map<string, McpToolDefinition[]>();
+  /** Pending tool updates detected during rediscovery (serverId → update). */
+  private pendingUpdates = new Map<string, McpToolUpdate>();
 
   constructor(private mcpRepo: IMcpServerRepository) {}
 
@@ -77,6 +84,8 @@ export class McpClientService implements IMcpClientService {
     try {
       await connection.connect();
       const tools = await connection.discoverTools();
+      // Initialize the tool snapshot for diff tracking on next rediscovery
+      this.toolSnapshots.set(serverId, tools);
       const updated = await this.mcpRepo.updateCachedTools(serverId, tools);
       this.breakerFor(serverId).reset();
       logger.info(
@@ -117,14 +126,58 @@ export class McpClientService implements IMcpClientService {
     const connection = this.getConnection(server);
     try {
       if (!connection.isConnected) await connection.connect();
-      const tools = await connection.discoverTools();
-      return this.mcpRepo.updateCachedTools(serverId, tools);
+      const newTools = await connection.discoverTools();
+
+      // Compute diff against the previous snapshot
+      const oldTools = this.toolSnapshots.get(serverId) ?? server.cachedTools;
+      const changes = computeToolDiff(oldTools, newTools);
+
+      if (changes.length > 0) {
+        logger.info(
+          { serverId, added: changes.filter((c) => c.kind === "added").length, removed: changes.filter((c) => c.kind === "removed").length, changed: changes.filter((c) => c.kind === "schema_changed").length },
+          "MCP tool changes detected during rediscovery"
+        );
+
+        // Store the pending update
+        const update: McpToolUpdate = {
+          id: `upd-${serverId}-${Date.now()}`,
+          serverId,
+          serverName: server.name,
+          detectedAt: new Date().toISOString(),
+          changes,
+          affectedSkillIds: [], // Will be populated by the API layer
+        };
+        this.pendingUpdates.set(serverId, update);
+      } else {
+        // No changes — clear any pending update for this server
+        this.pendingUpdates.delete(serverId);
+      }
+
+      // Store the new snapshot for future diffs
+      this.toolSnapshots.set(serverId, newTools);
+
+      return this.mcpRepo.updateCachedTools(serverId, newTools);
     } catch (error) {
       const message = errorMessage(error);
       this.breakerFor(serverId).trip();
       await this.mcpRepo.updateStatus(serverId, "ERROR", message).catch(() => {});
       throw new Error(`Tool discovery failed for "${server.name}": ${message}`);
     }
+  }
+
+  /** Get the pending tool update for a server (if any). */
+  getPendingUpdate(serverId: string): McpToolUpdate | undefined {
+    return this.pendingUpdates.get(serverId);
+  }
+
+  /** Get all pending tool updates across all servers. */
+  getAllPendingUpdates(): McpToolUpdate[] {
+    return Array.from(this.pendingUpdates.values());
+  }
+
+  /** Clear a pending update after it has been applied. */
+  clearPendingUpdate(serverId: string): void {
+    this.pendingUpdates.delete(serverId);
   }
 
   async healthCheck(serverId: string, userId: string): Promise<McpHealth> {
