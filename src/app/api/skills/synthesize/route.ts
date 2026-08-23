@@ -1,19 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getLLMProvider } from "@/providers/llm";
-import { McpServerRepository } from "@/repositories/McpServerRepository";
-import { SkillRepository } from "@/repositories/SkillRepository";
-import { AuditLogRepository } from "@/repositories/AuditLogRepository";
 import { SkillService } from "@/services/SkillService";
 import { createSkillSchema } from "@/validators/skillSchema";
 import type { AgentGraphDefinition } from "@/types/graph";
 import { logger } from "@/lib/logger";
+import { apiServices } from "@/lib/api/services";
 
 export const dynamic = "force-dynamic";
 
-const mcpRepo = new McpServerRepository();
-const skillRepo = new SkillRepository();
-const auditRepo = new AuditLogRepository();
+const { skillRepo, auditRepo, mcpService } = apiServices();
 const skillService = new SkillService(skillRepo, auditRepo);
 
 // ────────────── LLM Prompt for Graph + Server Discovery ──────────────
@@ -300,7 +296,7 @@ export async function POST(request: NextRequest) {
     const mountedServerIds: string[] = [];
 
     if (autoMount) {
-      const existingRes = await mcpRepo.findByUserId(userId);
+      const existingRes = await mcpService.listServers(userId);
       const existingServers = existingRes;
 
       for (const server of matchedServers) {

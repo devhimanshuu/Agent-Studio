@@ -67,10 +67,17 @@ export class PlannerService {
 
     this.lastUsed = this.captureProviderUsed(this.llm);
     // `.default(false)` fills requiresApproval at parse time — normalize so the
-    // runtime sees a non-optional boolean on every step.
+    // runtime sees a non-optional boolean on every step. stepNumbers are
+    // RENUMBERED 1..n: the schema can't force an LLM to emit sequential
+    // numbers, and resume logic keys approvals/results off `step_N` assuming
+    // they are.
     return {
       ...plan,
-      steps: plan.steps.map((step) => ({ ...step, requiresApproval: step.requiresApproval ?? false })),
+      steps: plan.steps.map((step, index) => ({
+        ...step,
+        stepNumber: index + 1,
+        requiresApproval: step.requiresApproval ?? false,
+      })),
     };
   }
 

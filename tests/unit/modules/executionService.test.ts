@@ -26,7 +26,7 @@ describe("ExecutionService.cancelExecution", () => {
     );
     await repo.updateStatus(execution.id, "COMPLETED");
 
-    const result = await service.cancelExecution(execution.id);
+    const result = await service.cancelExecution(execution.id, "u1");
 
     expect(result.status).toBe("COMPLETED");
     expect(repo.statusUpdates).toHaveLength(1); // only the COMPLETED update, no CANCELLED flip
@@ -39,7 +39,7 @@ describe("ExecutionService.cancelExecution", () => {
       10
     );
 
-    const result = await service.cancelExecution(execution.id);
+    const result = await service.cancelExecution(execution.id, "u1");
 
     expect(result.status).toBe("CANCELLED");
     expect(repo.statusUpdates).toHaveLength(1);
@@ -48,7 +48,7 @@ describe("ExecutionService.cancelExecution", () => {
 
   it("throws for a missing execution", async () => {
     const { service } = makeService();
-    await expect(service.cancelExecution("nope")).rejects.toThrow("Execution not found");
+    await expect(service.cancelExecution("nope", "u1")).rejects.toThrow("Execution not found");
   });
 
   it("scopes cancellation to the owning user", async () => {

@@ -1,9 +1,9 @@
 import { auth } from "@clerk/nextjs/server";
-import { McpClientService } from "@/services/McpClientService";
-import { McpServerRepository } from "@/repositories/McpServerRepository";
+import { apiServices } from "@/lib/api/services";
+
 import { unauthorized, serverError } from "@/lib/api/handlers";
 
-const mcpService = new McpClientService(new McpServerRepository());
+const { mcpService } = apiServices();
 
 /**
  * GET /api/mcp/servers/export
@@ -18,12 +18,15 @@ export async function GET() {
     const exportBundle = {
       version: "1.0",
       exportedAt: new Date().toISOString(),
+      // SECURITY: headers carry upstream credentials — they are NEVER
+      // exported. The bundle stays re-importable; users re-enter secrets
+      // after import (header names are preserved as a convenience).
       servers: servers.map((s) => ({
         name: s.name,
         transport: s.transport,
         endpointUrl: s.endpointUrl,
         command: s.command,
-        headers: s.headers,
+        ...(s.headers ? { headerNames: Object.keys(s.headers) } : {}),
       })),
     };
 

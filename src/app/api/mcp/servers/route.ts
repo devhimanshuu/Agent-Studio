@@ -1,20 +1,23 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { McpClientService } from "@/services/McpClientService";
-import { McpServerRepository } from "@/repositories/McpServerRepository";
+import { apiServices } from "@/lib/api/services";
+
 import { createMcpServerSchema } from "@/validators/mcpSchema";
 import { unauthorized, badRequest, serverError } from "@/lib/api/handlers";
 
 import { ZodError } from "zod";
 
-const mcpService = new McpClientService(new McpServerRepository());
+const { mcpService } = apiServices();
 
-export async function GET() {
+export async function GET(request: Request) {
   const { userId } = await auth();
   if (!userId) return unauthorized();
 
   try {
-    const servers = await mcpService.listServers(userId);
+    // Optional ?limit= (1–200, default uncapped for the hub's own use).
+    const limitRaw = new URL(request.url).searchParams.get("limit");
+    const limit = limitRaw && /^\d+$/.test(limitRaw) ? Math.min(Number(limitRaw), 200) : undefined;
+    const servers = await mcpService.listServers(userId, limit);
     return NextResponse.json({ success: true, data: servers });
   } catch (error) {
     return serverError(error);

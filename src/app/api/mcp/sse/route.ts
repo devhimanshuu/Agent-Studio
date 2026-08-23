@@ -1,12 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { env } from "@/lib/config/env";
 import { AgentStudioMcpServer, isMcpRequestAuthorized } from "@/modules/mcp/server";
-import { ExecutionService } from "@/services/ExecutionService";
-import { ExecutionRepository } from "@/repositories/ExecutionRepository";
-import { SkillRepository } from "@/repositories/SkillRepository";
-import { AuditLogRepository } from "@/repositories/AuditLogRepository";
-import { McpClientService } from "@/services/McpClientService";
-import { McpServerRepository } from "@/repositories/McpServerRepository";
+import { apiServices } from "@/lib/api/services";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,15 +20,8 @@ export async function GET(request: Request) {
     return unauthorizedResponse();
   }
 
-  const mcpServer = new AgentStudioMcpServer({
-    executionService: new ExecutionService(
-      new ExecutionRepository(),
-      new SkillRepository(),
-      new AuditLogRepository(),
-      { mcpService: new McpClientService(new McpServerRepository()) }
-    ),
-    skillRepo: new SkillRepository(),
-  });
+  const { executionService, skillRepo } = apiServices();
+  const mcpServer = new AgentStudioMcpServer({ executionService, skillRepo });
 
   return mcpServer.handleSseRequest(request);
 }
@@ -44,15 +32,8 @@ export async function POST(request: Request) {
     return unauthorizedResponse();
   }
 
-  const mcpServer = new AgentStudioMcpServer({
-    executionService: new ExecutionService(
-      new ExecutionRepository(),
-      new SkillRepository(),
-      new AuditLogRepository(),
-      { mcpService: new McpClientService(new McpServerRepository()) }
-    ),
-    skillRepo: new SkillRepository(),
-  });
+  const { executionService, skillRepo } = apiServices();
+  const mcpServer = new AgentStudioMcpServer({ executionService, skillRepo });
 
   return mcpServer.handleMessageRequest(request);
 }

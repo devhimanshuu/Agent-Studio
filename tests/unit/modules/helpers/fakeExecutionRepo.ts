@@ -44,6 +44,13 @@ export class FakeExecutionRepo implements IExecutionRepository {
     return execution;
   }
 
+  async claimRun(id: string): Promise<boolean> {
+    const e = this.executions.get(id);
+    if (!e || e.status === "RUNNING") return false;
+    e.status = "RUNNING";
+    return true;
+  }
+
   async updateStatus(id: string, status: ExecutionDTO["status"], errorMessage?: string): Promise<ExecutionDTO> {
     this.statusUpdates.push({ id, status, error: errorMessage });
     const e = this.executions.get(id);

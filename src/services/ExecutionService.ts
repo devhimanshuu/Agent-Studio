@@ -111,6 +111,13 @@ export class ExecutionService implements IExecutionService {
         executionRepo: this.executionRepo,
         approvalRepo,
         logRepo: deps.logRepo ?? new ExecutionLogRepository(),
+        // Vault bridge for HTTP-node `${vault.KEY}` placeholders — secrets are
+        // resolved per-run from the owning user's vault, never stored on the
+        // graph or logged with the request.
+        resolveSecrets: async (userId, value) => {
+          const { resolveVaultPlaceholders } = await import("@/lib/secrets");
+          return resolveVaultPlaceholders(userId, value);
+        },
       });
   }
 
@@ -257,7 +264,7 @@ export class ExecutionService implements IExecutionService {
     };
   }
 
-  async cancelExecution(id: string, userId?: string): Promise<ExecutionDTO> {
+  async cancelExecution(id: string, userId: string): Promise<ExecutionDTO> {
     const execution = await this.executionRepo.findById(id);
     if (!execution) throw new Error("Execution not found");
 
@@ -272,9 +279,6 @@ export class ExecutionService implements IExecutionService {
     this.cancellations.cancel(id);
     const updated = await this.executionRepo.updateStatus(id, "CANCELLED", "User requested cancellation");
     await this.auditRepo.log({
-      // Record the actor — previously the audit row was written with a null
-      // userId, making cancellation the only mutation that couldn't be traced
-      // back to a user.
       userId,
       executionId: id,
       action: "EXECUTION_CANCELLED",
@@ -294,17 +298,39 @@ export class ExecutionService implements IExecutionService {
     const execution = await this.executionRepo.findByIdForUser(executionId, userId);
     if (!execution) throw new Error("Execution not found or you do not have access to it");
 
-    if (execution.status === "RUNNING") {
-      throw new Error("Execution is already running");
-    }
-
     await Promise.all([
       this.syncMcpTools(userId),
       this.syncOpenApiTools(userId),
     ]);
 
-    // Mark status as RUNNING in database before launching graph run to prevent double-resumes
-    await this.executionRepo.updateStatus(executionId, "RUNNING");
+    // Atomic CAS: exactly one concurrent resume/retry/cancel wins. The old
+    // read-then-write guard let two simultaneous resumes both pass the
+    // status check and double-invoke the graph.
+    const claimed = await this.executionRepo.claimRun(executionId);
+    if (!claimed) throw new Error("Execution is already running");
+
+    try {
+      return await this.runResume(execution, userId, { skipCompletedNodes: false });
+    } catch (error) {
+      // Release the claim so a corrected retry is possible.
+      await this.executionRepo
+        .updateStatus(executionId, "FAILED", error instanceof Error ? error.message : "Resume error occurred")
+        .catch(() => {});
+      throw error;
+    }
+  }
+
+  /**
+   * Shared resume/retry runner. AWAITS the graph/engine run instead of
+   * fire-and-forget: on serverless (Vercel) a floating promise after the HTTP
+   * response freezes with the lambda and the execution stayed RUNNING forever.
+   */
+  private async runResume(
+    execution: ExecutionDTO,
+    userId: string,
+    options: { skipCompletedNodes: boolean }
+  ): Promise<ExecutionDTO> {
+    const executionId = execution.id;
 
     // Load the skill and version that were used for this execution.
     const version = await this.skillRepo.findVersionById(execution.skillVersionId);
@@ -313,15 +339,11 @@ export class ExecutionService implements IExecutionService {
     const skill = await this.skillRepo.findByIdForUser(version.skillId, userId);
     if (!skill) throw new Error("Skill not found or you do not have access to it");
 
-    // Phase 6 contract: resume EXACTLY where the run paused — restore state
-    // from the database, do NOT restart the graph. Reusing the persisted plan
-    // means no second LLM call and no re-execution of already-done steps.
-
     // Visual graph runs persist a `{ graph: true, pausedAtNodeId, state }`
     // payload — resume the graph interpreter in place.
     const planner = execution.plannerOutput as Record<string, unknown> | null;
     if (planner?.graph === true && this.usesGraph(version)) {
-      return this.resumeGraphExecution(execution, skill, version, userId, planner);
+      return this.resumeGraphExecution(execution, skill, version, userId, planner, options.skipCompletedNodes);
     }
 
     const plan = planner as unknown as ExecutionPlan | null;
@@ -356,198 +378,11 @@ export class ExecutionService implements IExecutionService {
       });
     }
 
-    // Bind cancellation manager signal so user-requested cancellation can abort the resumed run
     const signal = this.cancellations.create(executionId);
 
-    // Continue the graph from the restored state, asynchronously — the caller
-    // polls the execution detail page for completion.
-    this.engine.run({
-      executionId,
-      skill,
-      version,
-      userInput: execution.inputData,
-      signal,
-      resume: {
-        plan,
-        currentStep,
-        results,
-        toolCalls,
-        providerUsed: execution.provider ?? null,
-        persistedStepCount: execution.stepCount,
-      },
-    })
-      .then(async (result) => {
-        if (result.status === "COMPLETED") {
-          await this.executionRepo.setFinalOutput(executionId, result.finalOutput ?? {});
-          await this.auditRepo.log({
-            userId,
-            executionId,
-            action: "EXECUTION_COMPLETED",
-            details: { resumed: true },
-          });
-        } else if (result.status === "PAUSED_FOR_APPROVAL") {
-          // The resumed run paused again at a later step — persist the pause.
-          await this.executionRepo.updateStatus(executionId, "PAUSED_FOR_APPROVAL");
-        }
-        logger.info({ executionId, status: result.status }, "Resumed execution finished");
-      })
-      .catch(async (err) => {
-        logger.error({ executionId, err }, "Resume execution failed catastrophically");
-        await this.executionRepo.updateStatus(
-          executionId,
-          "FAILED",
-          err instanceof Error ? err.message : "Resume error occurred"
-        ).catch(() => {});
-      })
-      .finally(() => {
-        this.cancellations.dispose(executionId);
-      });
-
-    return (await this.executionRepo.findById(executionId)) ?? execution;
-  }
-
-  /**
-   * Resume a visual-graph execution from the persisted pause position. The
-   * successor of the approved node is the continuation point; restored state
-   * (results, loop counters, tool calls) keeps the run exactly in place.
-   */
-  private async resumeGraphExecution(
-    execution: ExecutionDTO,
-    skill: SkillDTO,
-    version: SkillVersionDTO,
-    userId: string,
-    planner: Record<string, unknown>
-  ): Promise<ExecutionDTO> {
-    const executionId = execution.id;
-    const state = planner.state as GraphState | undefined;
-    const pausedAtNodeId = planner.pausedAtNodeId as string | undefined;
-    const graph = version.graphDefinition!;
-
-    if (!state) {
-      throw new Error("Incomplete graph resume state");
-    }
-
-    // Mark RUNNING before launching so the detail page reflects the retry
-    // (resumeExecution already did this; retryFailedExecution did not).
-    await this.executionRepo.updateStatus(executionId, "RUNNING");
-
-    // Approval resume: continue from the approved node's successor. Failed
-    // runs persist no pause position — restart from the START node, reusing
-    // the last persisted state so completed nodes aren't re-executed.
-    const nextNode = pausedAtNodeId
-      ? graph.edges.find((e) => e.source === pausedAtNodeId)?.target ?? pausedAtNodeId
-      : graph.nodes.find((n) => n.type === "start")?.id ?? graph.nodes[0]?.id;
-    if (!nextNode) {
-      throw new Error("Incomplete graph resume state");
-    }
-
-    const signal = this.cancellations.create(executionId);
-
-    this.graphInterpreter
-      .run({
-        executionId,
-        skill,
-        version,
-        graph,
-        userInput: execution.inputData,
-        signal,
-        resume: { state, fromNodeId: nextNode },
-      })
-      .then(async (result) => {
-        if (result.status === "COMPLETED") {
-          await this.executionRepo.setFinalOutput(executionId, result.finalOutput ?? {});
-          await this.auditRepo.log({
-            userId,
-            executionId,
-            action: "EXECUTION_COMPLETED",
-            details: { resumed: true, graph: true },
-          });
-        } else if (result.status === "PAUSED_FOR_APPROVAL") {
-          await this.executionRepo.updateStatus(executionId, "PAUSED_FOR_APPROVAL");
-        }
-        logger.info({ executionId, status: result.status }, "Resumed graph execution finished");
-      })
-      .catch(async (err) => {
-        logger.error({ executionId, err }, "Resumed graph execution failed");
-        await this.executionRepo
-          .updateStatus(executionId, "FAILED", err instanceof Error ? err.message : "Resume error occurred")
-          .catch(() => {});
-      })
-      .finally(() => {
-        this.cancellations.dispose(executionId);
-      });
-
-    return (await this.executionRepo.findById(executionId)) ?? execution;
-  }
-
-  async retryFailedExecution(executionId: string, userId: string): Promise<ExecutionDTO> {
-    const execution = await this.executionRepo.findByIdForUser(executionId, userId);
-    if (!execution) throw new Error("Execution not found or you do not have access to it");
-
-    if (execution.status === "RUNNING") {
-      throw new Error("Execution is already running");
-    }
-
-    await Promise.all([
-      this.syncMcpTools(userId),
-      this.syncOpenApiTools(userId),
-    ]);
-
-    const version = await this.skillRepo.findVersionById(execution.skillVersionId);
-    if (!version) throw new Error("Skill version not found");
-
-    const skill = await this.skillRepo.findByIdForUser(version.skillId, userId);
-    if (!skill) throw new Error("Skill not found or you do not have access to it");
-
-    const planner = execution.plannerOutput as Record<string, unknown> | null;
-
-    // Failed graph executions resume through the graph interpreter from the
-    // last persisted position.
-    if (planner?.graph === true && this.usesGraph(version)) {
-      return this.resumeGraphExecution(execution, skill, version, userId, planner);
-    }
-
-    const plan = planner as unknown as ExecutionPlan | null;
-    if (!plan) {
-      throw new Error("No plan available to recover this execution");
-    }
-
-    // Mark status as RUNNING
-    await this.executionRepo.updateStatus(executionId, "RUNNING");
-
-    await this.auditRepo.log({
-      userId,
-      executionId,
-      action: "EXECUTION_RECOVERY_STARTED",
-      details: { recoveredFromStatus: execution.status, skillName: skill.name },
-    });
-
-    const executedCalls = (execution.toolCalls ?? []).filter((c) => c.status === "SUCCESS");
-    const currentStep = executedCalls.length;
-
-    const results: Record<string, unknown> = {};
-    const toolCalls: ToolCallRecord[] = [];
-    for (let i = 0; i < executedCalls.length; i += 1) {
-      const call = executedCalls[i];
-      const step = plan.steps[i];
-      const output = call.outputResult ?? call.inputArgs;
-      results[`step_${step?.stepNumber ?? i + 1}`] = output;
-      toolCalls.push({
-        stepNumber: step?.stepNumber ?? i + 1,
-        toolName: call.toolName,
-        action: call.action,
-        input: call.inputArgs,
-        output,
-        status: "SUCCESS",
-        requiresApproval: false,
-        durationMs: call.durationMs ?? undefined,
-      });
-    }
-
-    const signal = this.cancellations.create(executionId);
-
-    this.engine
-      .run({
+    let result: EngineRunResult;
+    try {
+      result = await this.engine.run({
         executionId,
         skill,
         version,
@@ -561,36 +396,137 @@ export class ExecutionService implements IExecutionService {
           providerUsed: execution.provider ?? null,
           persistedStepCount: execution.stepCount,
         },
-      })
-      .then(async (result) => {
-        if (result.status === "COMPLETED") {
-          await this.executionRepo.setFinalOutput(executionId, result.finalOutput ?? {});
-          await this.auditRepo.log({
-            userId,
-            executionId,
-            action: "EXECUTION_COMPLETED",
-            details: { recovered: true, skippedSafeSteps: currentStep },
-          });
-        } else if (result.status === "PAUSED_FOR_APPROVAL") {
-          await this.executionRepo.updateStatus(executionId, "PAUSED_FOR_APPROVAL");
-        }
-        logger.info({ executionId, status: result.status, skippedSafeSteps: currentStep }, "Recovered execution finished");
-      })
-      .catch(async (err) => {
-        logger.error({ executionId, err }, "Recovery execution failed");
-        await this.executionRepo
-          .updateStatus(
-            executionId,
-            "FAILED",
-            err instanceof Error ? err.message : "Recovery error occurred"
-          )
-          .catch(() => {});
-      })
-      .finally(() => {
-        this.cancellations.dispose(executionId);
       });
+    } finally {
+      this.cancellations.dispose(executionId);
+    }
 
-    return (await this.executionRepo.findById(executionId)) ?? execution;
+    return this.persistTerminal(executionId, userId, result, { resumed: true });
+  }
+
+  /** Persist the outcome of an awaited run and return the fresh row. */
+  private async persistTerminal(
+    executionId: string,
+    userId: string,
+    result: EngineRunResult,
+    auditDetails: Record<string, unknown>
+  ): Promise<ExecutionDTO> {
+    if (result.status === "COMPLETED") {
+      await this.executionRepo.setFinalOutput(executionId, result.finalOutput ?? {});
+      await this.auditRepo.log({
+        userId,
+        executionId,
+        action: "EXECUTION_COMPLETED",
+        details: auditDetails,
+      });
+    } else if (result.status === "PAUSED_FOR_APPROVAL") {
+      await this.executionRepo.updateStatus(executionId, "PAUSED_FOR_APPROVAL");
+    } else if (result.error) {
+      await this.executionRepo.updateStatus(executionId, result.status, result.error);
+    }
+    logger.info({ executionId, status: result.status }, "Resumed execution finished");
+    return (await this.executionRepo.findById(executionId)) ?? ({} as ExecutionDTO);
+  }
+
+  /**
+   * Resume a visual-graph execution from the persisted pause position. The
+   * successor of the approved node is the continuation point; restored state
+   * (results, loop counters, tool calls) keeps the run exactly in place.
+   * With `skipCompletedNodes` (failure retry) nodes whose outputs are already
+   * persisted are replayed from state instead of re-executed — previously a
+   * retry re-ran every agent/tool/HTTP node, duplicating LLM spend and any
+   * non-idempotent side effects.
+   */
+  private async resumeGraphExecution(
+    execution: ExecutionDTO,
+    skill: SkillDTO,
+    version: SkillVersionDTO,
+    userId: string,
+    planner: Record<string, unknown>,
+    skipCompletedNodes: boolean
+  ): Promise<ExecutionDTO> {
+    const executionId = execution.id;
+    const state = planner.state as GraphState | undefined;
+    const pausedAtNodeId = planner.pausedAtNodeId as string | undefined;
+    const graph = version.graphDefinition!;
+
+    if (!state) {
+      throw new Error("Incomplete graph resume state");
+    }
+
+    // Approval resume: continue from the approved node's successor. Failure
+    // retries restart from START with skip-completed replay semantics.
+    const nextNode =
+      pausedAtNodeId
+        ? graph.edges.find((e) => e.source === pausedAtNodeId)?.target ?? pausedAtNodeId
+        : graph.nodes.find((n) => n.type === "start")?.id ?? graph.nodes[0]?.id;
+    if (!nextNode) {
+      throw new Error("Incomplete graph resume state");
+    }
+
+    const signal = this.cancellations.create(executionId);
+
+    let result: GraphRunResult;
+    try {
+      result = await this.graphInterpreter.run({
+        executionId,
+        skill,
+        version,
+        graph,
+        userInput: execution.inputData,
+        signal,
+        resume: { state, fromNodeId: nextNode, ...(skipCompletedNodes ? { skipCompletedNodes: true } : {}) },
+      });
+    } catch (error) {
+      this.cancellations.dispose(executionId);
+      await this.executionRepo
+        .updateStatus(executionId, "FAILED", error instanceof Error ? error.message : "Resume error occurred")
+        .catch(() => {});
+      throw error;
+    }
+    this.cancellations.dispose(executionId);
+
+    const normalized: EngineRunResult = this.toEngineResult(result);
+    if (result.status !== "COMPLETED" && result.status !== "PAUSED_FOR_APPROVAL" && !normalized.error) {
+      normalized.error = result.error;
+    }
+    return this.persistTerminal(executionId, userId, normalized, {
+      resumed: true,
+      graph: true,
+      ...(skipCompletedNodes ? { skippedCompletedNodes: true } : {}),
+    });
+  }
+
+  async retryFailedExecution(executionId: string, userId: string): Promise<ExecutionDTO> {
+    const execution = await this.executionRepo.findByIdForUser(executionId, userId);
+    if (!execution) throw new Error("Execution not found or you do not have access to it");
+
+    await Promise.all([
+      this.syncMcpTools(userId),
+      this.syncOpenApiTools(userId),
+    ]);
+
+    // Same atomic claim as resume — concurrent retries cannot double-run.
+    const claimed = await this.executionRepo.claimRun(executionId);
+    if (!claimed) throw new Error("Execution is already running");
+
+    await this.auditRepo.log({
+      userId,
+      executionId,
+      action: "EXECUTION_RECOVERY_STARTED",
+      details: { recoveredFromStatus: execution.status },
+    });
+
+    try {
+      // Retry replays completed work from the persisted trace instead of
+      // re-executing it (see resumeGraphExecution docstring).
+      return await this.runResume(execution, userId, { skipCompletedNodes: true });
+    } catch (error) {
+      await this.executionRepo
+        .updateStatus(executionId, "FAILED", error instanceof Error ? error.message : "Recovery error occurred")
+        .catch(() => {});
+      throw error;
+    }
   }
 }
 

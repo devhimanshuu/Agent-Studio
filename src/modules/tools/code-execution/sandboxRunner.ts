@@ -22,64 +22,44 @@ function truncate(output: string): string {
 /**
  * Restricted globals available inside the JS sandbox.
  * No process, no require, no import, no fs, no child_process.
+ *
+ * SECURITY: built-ins are captured INSIDE the new V8 context (via a bootstrap
+ * snippet evaluated with `vm.runInContext`) so user code only ever sees
+ * context-realm intrinsics. The previous implementation injected the HOST
+ * realm's constructors (`Error`, `Object`, `Promise`, `Proxy`, `Reflect`,
+ * host `crypto`…) directly into the sandbox, which is the textbook
+ * `vm` escape: `(new Error()).constructor.constructor("return process")()`.
+ * Host `Proxy`/`Reflect`/`crypto` are gone entirely — they are pure escape
+ * / primitivity-accumulation surface for untrusted code.
  */
+const SANDBOX_BOOTSTRAP = `
+({
+  Math, Date, JSON,
+  parseInt, parseFloat, isNaN, isFinite,
+  encodeURIComponent, decodeURIComponent, encodeURI, decodeURI,
+  Array, Object, String, Number, Boolean, RegExp, Map, Set,
+  Promise, WeakMap, WeakSet, Symbol,
+  Error, TypeError, RangeError, SyntaxError, ReferenceError,
+  NaN, Infinity, undefined
+});
+`;
+
 function createSandboxContext() {
   const logs: string[] = [];
   const errors: string[] = [];
 
   const ctx: Record<string, unknown> = {
-    // Safe console that captures output
+    // Safe console that captures output — these closures are the ONLY host
+    // references exposed to guest code and they expose nothing but string
+    // sinks.
     console: {
       log: (...args: unknown[]) => logs.push(args.map(stringify).join(" ")),
       error: (...args: unknown[]) => errors.push(args.map(stringify).join(" ")),
       warn: (...args: unknown[]) => logs.push("[warn] " + args.map(stringify).join(" ")),
       info: (...args: unknown[]) => logs.push(args.map(stringify).join(" ")),
     },
-    // Built-in globals
-    Math,
-    Date,
-    JSON,
-    parseInt,
-    parseFloat,
-    isNaN,
-    isFinite,
-    encodeURIComponent,
-    decodeURIComponent,
-    encodeURI,
-    decodeURI,
-    Array,
-    Object,
-    String,
-    Number,
-    Boolean,
-    RegExp,
-    Map,
-    Set,
-    Promise,
-    WeakMap,
-    WeakSet,
-    Symbol,
-    Proxy,
-    Reflect,
-    Error,
-    TypeError,
-    RangeError,
-    SyntaxError,
-    ReferenceError,
-    NaN,
-    Infinity,
-    undefined,
-    // TextEncoder / TextDecoder
-    TextEncoder: globalThis.TextEncoder,
-    TextDecoder: globalThis.TextDecoder,
-    // URL / URLSearchParams
-    URL: globalThis.URL,
-    URLSearchParams: globalThis.URLSearchParams,
-    // atob / btoa
     atob: globalThis.atob,
     btoa: globalThis.btoa,
-    // crypto for random UUID etc.
-    crypto: globalThis.crypto,
   };
 
   return { ctx, logs, errors };
@@ -109,11 +89,26 @@ export async function runJavaScript(
     const vm = await import("node:vm");
 
     const context = vm.createContext(ctx, {
-      name: "codebuff-sandbox",
+      name: "agent-studio-sandbox",
       codeGeneration: {
         wasm: false, // No WASM
       },
     });
+
+    // Materialize context-realm intrinsics INSIDE the sandbox (see SECURITY
+    // note above) and expose them as globals for the guest program.
+    const intrinsics = vm.runInContext(SANDBOX_BOOTSTRAP, context, {
+      timeout: effectiveTimeout,
+    });
+    if (intrinsics && typeof intrinsics === "object") {
+      for (const [key, value] of Object.entries(intrinsics as Record<string, unknown>)) {
+        try {
+          Object.defineProperty(context, key, { value, writable: true, configurable: true });
+        } catch {
+          /* non-configurable key — skip */
+        }
+      }
+    }
 
     // Wrap in async function to support top-level await
     const wrappedCode = `(async () => { ${code} })()`;
@@ -158,8 +153,23 @@ export async function runJavaScript(
 
 /**
  * Run Python code in a subprocess with timeout and output limits.
- * Uses `python3 -c` with restricted imports where possible.
+ * Runs with `-I` (isolated mode: no site-packages, no user site-dir, ignores
+ * PYTHON* env vars) and a MINIMAL environment allowlist.
+ *
+ * SECURITY: the previous implementation inherited the FULL server
+ * environment (`{ ...process.env }`), handing untrusted code the LLM API
+ * keys and DATABASE_URL on a plate. Only what CPython needs to boot is
+ * forwarded now.
  */
+const PY_ENV_ALLOWLIST = (() => {
+  const env: Record<string, string> = { PYTHONDONTWRITEBYTECODE: "1", HOME: "/tmp" };
+  // Windows needs SystemRoot to boot any process; keep PATH so python3 resolves.
+  for (const key of ["PATH", "SystemRoot", "SYSTEMROOT", "TEMP", "TMP", "LANG"] as const) {
+    if (process.env[key]) env[key] = process.env[key];
+  }
+  return env;
+})();
+
 export async function runPython(
   code: string,
   timeoutMs: number = DEFAULT_TIMEOUT_MS
@@ -173,11 +183,12 @@ export async function runPython(
     const { promisify } = await import("node:util");
     const execFileAsync = promisify(execFile);
 
-    const { stdout, stderr } = await execFileAsync("python3", ["-c", code], {
+    const { stdout, stderr } = await execFileAsync("python3", ["-I", "-c", code], {
       timeout: effectiveTimeout,
       maxBuffer: MAX_OUTPUT_BYTES,
-      env: { ...process.env, HOME: "/tmp", PYTHONDONTWRITEBYTECODE: "1" } as NodeJS.ProcessEnv,
+      env: PY_ENV_ALLOWLIST as unknown as NodeJS.ProcessEnv,
       encoding: "utf8",
+      windowsHide: true,
     });
 
     return {

@@ -9,6 +9,10 @@ import {
 } from "@/types/mcp";
 
 class MockMcpRepo implements IMcpServerRepository {
+  async getRawHeadersForUser(id: string, userId: string): Promise<Record<string, string> | null> {
+    const row = this.rows.find((r) => r.id === id && r.userId === userId);
+    return row?.headers ?? null;
+  }
   public rows: McpServerDTO[] = [];
 
   async findById(id: string) {

@@ -48,9 +48,9 @@ function serverToSkill(server: AwesomeMcpServer): AgentSkill {
     requiredServers: [server.name],
     requiredTools: [],
     tags: Array.from(new Set([server.source, ...(server.tags || [])])).slice(0, 5),
-    stars: server.isVerified ? 180 : 45,
-    installs: server.isVerified ? 2100 : 380,
-    rating: server.isVerified ? 4.9 : 4.6,
+    // Real metrics only — fabricated stars/installs/ratings were previously
+    // hardcoded per "verified" flag, which misinformed purchase decisions.
+    ...(typeof server.stars === "number" ? { stars: server.stars } : {}),
     difficulty: server.requiresAuthToken ? "INTERMEDIATE" : "BEGINNER",
     estimatedTime: "3 min",
     steps: [
@@ -88,9 +88,6 @@ function composioToolkitToSkill(tk: ComposioToolkit): AgentSkill {
     requiredServers: [`${tk.name} (Composio)`],
     requiredTools: [],
     tags: [...tk.categories.map((c) => c.name.toLowerCase()), "composio", "managed-auth", tk.slug].slice(0, 5),
-    stars: tk.toolsCount,
-    installs: tk.toolsCount * 10,
-    rating: tk.managedAuth.length > 0 ? 4.9 : 4.5,
     difficulty: tk.noAuth ? "BEGINNER" : "INTERMEDIATE",
     estimatedTime: "2 min",
     steps: [
@@ -118,9 +115,6 @@ function composioToolToSkill(tool: ComposioTool): AgentSkill {
     requiredServers: [`${tool.toolkitName} (Composio)`],
     requiredTools: [tool.slug],
     tags: ["composio", tool.toolkitSlug, tool.toolkitName.toLowerCase(), ...inputProps.slice(0, 2)].slice(0, 5),
-    stars: 0,
-    installs: 0,
-    rating: 4.7,
     difficulty: inputProps.length > 4 ? "ADVANCED" : inputProps.length > 2 ? "INTERMEDIATE" : "BEGINNER",
     estimatedTime: "1 min",
     steps: [
@@ -162,9 +156,13 @@ function smitheryItemToSkill(s: Record<string, unknown>): AgentSkill {
     requiredServers: servers,
     requiredTools: [],
     tags: ["smithery", ...categories, ...servers].slice(0, 5),
-    stars: typeof s.externalStars === "number" ? s.externalStars : 0,
-    installs: typeof s.totalActivations === "number" ? s.totalActivations : 0,
-    rating: Math.min(5, Math.max(1, Math.round(qualityScore * 5))),
+    // Real Smithery metrics when present; undefined (not zero/fabricated)
+    // otherwise so the UI hides the badge entirely.
+    ...(typeof s.externalStars === "number" && s.externalStars > 0 ? { stars: s.externalStars } : {}),
+    ...(typeof s.totalActivations === "number" && s.totalActivations > 0 ? { installs: s.totalActivations } : {}),
+    ...(typeof s.qualityScore === "number"
+      ? { rating: Math.min(5, Math.max(1, Math.round(s.qualityScore * 5))) }
+      : {}),
     difficulty: (qualityScore > 0.9 ? "ADVANCED" : qualityScore > 0.7 ? "INTERMEDIATE" : "BEGINNER") as AgentSkill["difficulty"],
     estimatedTime: "5 min",
     steps: [

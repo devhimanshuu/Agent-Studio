@@ -113,6 +113,26 @@ export class ApprovalRepository implements IApprovalRepository {
     });
   }
 
+  /**
+   * Expire PENDING approvals older than `olderThanMs` for one user.
+   *
+   * The graph runtime's escalateAfterMin timer is in-process only — a deploy
+   * or serverless freeze loses it and the request sits in the queue forever.
+   * Calling this opportunistically when the review queue loads makes expiry
+   * eventually-consistent without needing a cron.
+   */
+  async expireStaleForUser(userId: string, olderThanMs = 24 * 60 * 60_000): Promise<number> {
+    const result = await prisma.approvalRequest.updateMany({
+      where: {
+        userId,
+        status: "PENDING",
+        requestedAt: { lt: new Date(Date.now() - olderThanMs) },
+      },
+      data: { status: "EXPIRED", rejectionReason: "Expired — no response within the review window" },
+    });
+    return result.count;
+  }
+
   private mapApproval(a: Prisma.ApprovalRequestGetPayload<{}>): ApprovalRequestDTO {
     return {
       id: a.id,

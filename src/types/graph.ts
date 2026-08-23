@@ -104,6 +104,8 @@ export interface GraphNodeData {
   httpBody?: Record<string, unknown>;
   /** Expected response type. */
   httpResponseType?: "json" | "text" | "blob";
+  /** Per-request wall-clock budget in ms. Default 30s, capped by the run timeout. */
+  httpTimeoutMs?: number;
   // transform
   /** Transform operation type. */
   transformOp?: "map" | "filter" | "merge" | "flatten" | "sort" | "dedupe" | "pick" | "omit" | "template";

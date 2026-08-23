@@ -27,4 +27,6 @@ export interface IApprovalRepository {
    * leaves the review queue. No-op when the request was already responded to.
    */
   expireByIdempotencyKey(key: string): Promise<void>;
+  /** Expire PENDING approvals older than the window (eventually-consistent escalation sweep). */
+  expireStaleForUser(userId: string, olderThanMs?: number): Promise<number>;
 }

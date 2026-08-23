@@ -65,28 +65,43 @@ export class ToolRegistry {
     }
   }
 
+  /**
+   * Namespace-scoped replacement for DYNAMIC tools (`mcp_*`, `openapi_*`).
+   *
+   * Replaces every registered tool whose name starts with one of the given
+   * prefixes with exactly the provided set. This is how per-user sync MUST
+   * work on a shared registry: tools belonging to OTHER users (or to a user
+   * who disconnected/deleted a server since the last run) are scrubbed
+   * instead of accumulating forever — previously they lingered and became
+   * reachable cross-user through the permission checker's fallback matching.
+   * Built-in tools are never touched.
+   */
+  syncDynamicTools(prefixes: string[], tools: Tool[]): void {
+    const keep = new Set<string>();
+    for (const tool of tools) {
+      if (!tool?.name || tool.id !== tool.name) continue;
+      if (!isToolCategory(tool.category)) continue;
+      this.tools.set(tool.name, tool);
+      keep.add(tool.name);
+    }
+    for (const name of [...this.tools.keys()]) {
+      if (!prefixes.some((p) => name.startsWith(p))) continue;
+      if (!keep.has(name)) this.tools.delete(name);
+    }
+  }
+
   /** Remove a registered tool by name (used to scrub MCP tools on disconnect). */
   unregisterTool(name: string): void {
     this.tools.delete(name);
   }
 
   getTool(name: string): Tool | null {
-    if (this.tools.has(name)) return this.tools.get(name)!;
-
-    // Fallback: match by base tool name if unambiguous
-    // e.g. "read_file" or "search" matching "mcp_<serverId>_read_file" or "openapi_<id>_search"
-    const candidates = [...this.tools.values()].filter(
-      (t) =>
-        t.name === name ||
-        t.name.endsWith(`_${name}`) ||
-        t.name.replace(/^mcp_[^_]+_/, "") === name ||
-        t.name.replace(/^openapi_[^_]+_/, "") === name
-    );
-    if (candidates.length === 1) {
-      return candidates[0];
-    }
-
-    return null;
+    // EXACT match only. The previous suffix/base-name fallback
+    // ("read_file" → "mcp_<serverId>_read_file") let a skill resolve another
+    // tenant's dynamically-registered tool by its bare name — a cross-user
+    // execution bypass once registries became shared. Callers that want a
+    // dynamic tool must reference its full registry name.
+    return this.tools.get(name) ?? null;
   }
 
   hasTool(name: string): boolean {

@@ -9,6 +9,7 @@ function createMockRepo(): IOpenApiRepository {
 
   return {
     findById: vi.fn(async (id: string) => store.get(id) ?? null),
+    getRawAuthConfigForUser: vi.fn(async () => null),
     findByIdForUser: vi.fn(async (id: string, userId: string) => {
       const item = store.get(id);
       return item && item.userId === userId ? item : null;

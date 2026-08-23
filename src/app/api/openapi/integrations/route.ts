@@ -1,19 +1,22 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { OpenApiService } from "@/services/OpenApiService";
-import { OpenApiRepository } from "@/repositories/OpenApiRepository";
+import { apiServices } from "@/lib/api/services";
+
 import { createOpenApiIntegrationSchema } from "@/validators/openApiSchema";
 import { unauthorized, badRequest, serverError } from "@/lib/api/handlers";
 import { ZodError } from "zod";
 
-const openApiService = new OpenApiService(new OpenApiRepository());
+const { openApiService } = apiServices();
 
-export async function GET() {
+export async function GET(request: Request) {
   const { userId } = await auth();
   if (!userId) return unauthorized();
 
   try {
-    const integrations = await openApiService.listIntegrations(userId);
+    // Optional ?limit= (1–200, default uncapped for the hub's own use).
+    const limitRaw = new URL(request.url).searchParams.get("limit");
+    const limit = limitRaw && /^\d+$/.test(limitRaw) ? Math.min(Number(limitRaw), 200) : undefined;
+    const integrations = await openApiService.listIntegrations(userId, limit);
     return NextResponse.json({ success: true, data: integrations });
   } catch (error) {
     return serverError(error);

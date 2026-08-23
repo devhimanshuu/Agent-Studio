@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { McpClientService } from "@/services/McpClientService";
-import { McpServerRepository } from "@/repositories/McpServerRepository";
+import { apiServices } from "@/lib/api/services";
+
 import { unauthorized, notFound, forbidden, serverError, badRequest } from "@/lib/api/handlers";
 
-const mcpService = new McpClientService(new McpServerRepository());
+const { mcpService } = apiServices();
 
 /**
  * GET /api/mcp/servers/:id/prompts

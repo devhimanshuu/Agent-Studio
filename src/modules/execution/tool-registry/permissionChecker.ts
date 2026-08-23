@@ -20,37 +20,24 @@ export type ToolPermissionVerdict =
  */
 /**
  * Helper to check if a toolName satisfies the allowedTools rules.
- * Supports:
+ * Supports ONLY patterns scoped by an explicit prefix the skill author wrote:
  *  - Exact match: 'calculator' === 'calculator'
  *  - Wildcard all: '*'
- *  - Prefix / glob matching: 'mcp_server123_*' matches 'mcp_server123_run_query'
- *  - Suffix matching: '*_search' matches 'custom_search'
- *  - Base name matching: 'run_query' matches 'mcp_server123_run_query' or 'openapi_intg_run_query'
+ *  - Trailing glob: 'mcp_server123_*' matches 'mcp_server123_run_query'
+ *
+ * Deliberately NOT supported anymore:
+ *  - Leading globs ('*_search') — matched any tenant's namespaced tool.
+ *  - Base-name matching ('run_query' → 'mcp_<serverId>_run_query') — let a
+ *    skill invoke another user's MCP/OpenAPI tool that happened to be loaded
+ *    into the shared registry. Dynamic tools must be allowed by their FULL
+ *    registry name or a server-scoped prefix.
  */
 function isToolAllowed(toolName: string, allowedTools: string[] | undefined): boolean {
   if (!allowedTools || allowedTools.length === 0) return false;
 
   for (const pattern of allowedTools) {
     if (pattern === "*" || pattern === toolName) return true;
-
-    // Prefix wildcard: "mcp_serverId_*" or "mcp_*"
     if (pattern.endsWith("*") && toolName.startsWith(pattern.slice(0, -1))) {
-      return true;
-    }
-
-    // Suffix wildcard: "*_search"
-    if (pattern.startsWith("*") && toolName.endsWith(pattern.slice(1))) {
-      return true;
-    }
-
-    // Base name matching: "run_query" matches "mcp_<serverId>_run_query" or "openapi_<id>_run_query"
-    const mcpMatch = toolName.match(/^mcp_[^_]+_(.+)$/);
-    if (mcpMatch && (mcpMatch[1] === pattern || `mcp_${mcpMatch[1]}` === pattern)) {
-      return true;
-    }
-
-    const openApiMatch = toolName.match(/^openapi_[^_]+_(.+)$/);
-    if (openApiMatch && (openApiMatch[1] === pattern || `openapi_${openApiMatch[1]}` === pattern)) {
       return true;
     }
   }

@@ -2,25 +2,21 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { respondApprovalSchema } from "@/validators/approvalSchema";
-import { ApprovalRepository } from "@/repositories/ApprovalRepository";
-import { ApprovalHistoryRepository } from "@/repositories/ApprovalHistoryRepository";
-import { AuditLogRepository } from "@/repositories/AuditLogRepository";
-import { ExecutionRepository } from "@/repositories/ExecutionRepository";
-import { ApprovalEngine } from "@/modules/approval";
 import { unauthorized, forbidden, notFound, badRequest, serverError } from "@/lib/api/handlers";
 import { rateLimit } from "@/lib/api/rateLimit";
+import { apiServices } from "@/lib/api/services";
 
-const approvalRepo = new ApprovalRepository();
-const _auditRepo = new AuditLogRepository();
-const historyRepo = new ApprovalHistoryRepository();
-const executionRepo = new ExecutionRepository();
-const approvalEngine = new ApprovalEngine(approvalRepo, historyRepo, executionRepo);
+const { approvalRepo, approvalEngine } = apiServices();
 
 export async function GET(_request: Request) {
   const { userId } = await auth();
   if (!userId) return unauthorized();
 
   try {
+    // Eventually-consistent escalation sweep: expire stale PENDING requests
+    // whose in-process escalateAfterMin timer was lost to a deploy/freeze.
+    await approvalRepo.expireStaleForUser(userId).catch(() => 0);
+
     // Return ALL approvals for the user (not just pending) — the review UI needs
     // both the pending queue and history. Single query, ownership-scoped.
     const requests = await approvalRepo.findByUserId(userId);

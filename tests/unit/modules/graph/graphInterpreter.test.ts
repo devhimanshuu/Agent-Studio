@@ -56,6 +56,9 @@ function makeInterpreter() {
   const approvalRepo = new FakeApprovalRepo();
   const logRepo = new FakeLogRepo();
   const llm = new StubLLM({});
+  // Stub MCP status probe — mcp_server nodes now reflect REAL persisted
+  // server status (ownership-scoped); tests inject connected servers here.
+  const mcpServers = new Map<string, { status: string; name: string; transport: string; cachedToolCount: number }>();
   const interpreter = new GraphInterpreter({
     llm,
     toolRegistry: createToolRegistry(),
@@ -63,8 +66,9 @@ function makeInterpreter() {
     executionRepo,
     approvalRepo,
     logRepo,
+    getMcpServerStatus: async (serverId) => mcpServers.get(serverId) ?? null,
   });
-  return { interpreter, executionRepo, approvalRepo, logRepo, llm };
+  return { interpreter, executionRepo, approvalRepo, logRepo, llm, mcpServers };
 }
 
 function linearGraph(): AgentGraphDefinition {
@@ -971,8 +975,11 @@ describe("GraphInterpreter", () => {
     expect(typeof output).toBe("object");
   });
 
-  it("passes through mcp_server node without errors", async () => {
-    const { interpreter } = makeInterpreter();
+  it("reflects real server status on mcp_server node; fails when disconnected", async () => {
+    const { interpreter, mcpServers } = makeInterpreter();
+    // Seed a CONNECTED owned server — the node must reflect reality, not
+    // fabricate "connected" like the old pass-through stub.
+    mcpServers.set("github", { status: "CONNECTED", name: "GitHub", transport: "SSE", cachedToolCount: 3 });
     const graph: AgentGraphDefinition = {
       version: 1,
       nodes: [
@@ -1001,7 +1008,19 @@ describe("GraphInterpreter", () => {
 
     expect(result.status).toBe("COMPLETED");
     const results = result.finalOutput?.results as Record<string, unknown>;
-    expect(results.mcp).toMatchObject({ serverId: "github", transport: "SSE", status: "connected" });
+    expect(results.mcp).toMatchObject({ serverId: "github", transport: "SSE", status: "CONNECTED", toolCount: 3 });
+
+    // A DISCONNECTED server now fails the run honestly.
+    mcpServers.set("github", { status: "DISCONNECTED", name: "GitHub", transport: "SSE", cachedToolCount: 0 });
+    const failed = await interpreter.run({
+      executionId: "g-exec-26",
+      skill: makeSkill(),
+      version: makeVersion(),
+      graph,
+      userInput: {},
+    });
+    expect(failed.status).toBe("FAILED");
+    expect(failed.error).toContain("DISCONNECTED");
   });
 
   it("passes through sticky_note and frame nodes without errors", async () => {

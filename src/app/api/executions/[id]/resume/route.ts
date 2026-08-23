@@ -1,40 +1,16 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
-import { ExecutionService } from "@/services/ExecutionService";
-import { ExecutionRepository } from "@/repositories/ExecutionRepository";
-import { SkillRepository } from "@/repositories/SkillRepository";
-import { AuditLogRepository } from "@/repositories/AuditLogRepository";
-import { ApprovalRepository } from "@/repositories/ApprovalRepository";
-import { ApprovalHistoryRepository } from "@/repositories/ApprovalHistoryRepository";
-import { ApprovalEngine } from "@/modules/approval";
 import { unauthorized, forbidden, badRequest, serverError, notFound } from "@/lib/api/handlers";
 import { rateLimit } from "@/lib/api/rateLimit";
+import { apiServices } from "@/lib/api/services";
 
 const resumeSchema = z.object({
   approvalId: z.string().min(1, "Approval ID is required"),
   idempotencyKey: z.string().min(1, "Idempotency key is required"),
 });
 
-import { McpClientService } from "@/services/McpClientService";
-import { McpServerRepository } from "@/repositories/McpServerRepository";
-import { OpenApiService } from "@/services/OpenApiService";
-import { OpenApiRepository } from "@/repositories/OpenApiRepository";
-
-const executionRepo = new ExecutionRepository();
-const skillRepo = new SkillRepository();
-const auditRepo = new AuditLogRepository();
-const approvalRepo = new ApprovalRepository();
-const historyRepo = new ApprovalHistoryRepository();
-const mcpService = new McpClientService(new McpServerRepository());
-const openApiService = new OpenApiService(new OpenApiRepository());
-
-const approvalEngine = new ApprovalEngine(approvalRepo, historyRepo, executionRepo);
-const executionService = new ExecutionService(executionRepo, skillRepo, auditRepo, {
-  mcpService,
-  openApiService,
-  approvalRepo,
-});
+const { executionRepo, auditRepo, approvalRepo, approvalEngine, executionService } = apiServices();
 
 export async function POST(
   request: Request,

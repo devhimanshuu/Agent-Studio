@@ -252,6 +252,8 @@ export function parseAwesomeMcpServers(markdown: string): AwesomeMcpServer[] {
 }
 
 export interface AwesomeMcpServer {
+  /** Real GitHub star count when the upstream source provides one. */
+  stars?: number;
   id: string;
   source: "glama" | "mcp.so";
   name: string;

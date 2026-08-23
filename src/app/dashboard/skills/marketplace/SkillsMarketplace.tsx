@@ -314,6 +314,9 @@ export function SkillsMarketplace() {
   }, [skills, showInstalledOnly, installedMap, installedDbSkills, search, source, category, difficulty]);
 
   const [installing, setInstalling] = useState<string | null>(null);
+  // Set when an install mounted a STDIO server that requires explicit
+  // connect (never auto-executes marketplace commands).
+  const needsManualConnect = useRef(false);
 
   /**
    * Mount required MCP servers and return the IDs of servers that were
@@ -321,6 +324,7 @@ export function SkillsMarketplace() {
    */
   const mountRequiredServers = useCallback(async (skill: AgentSkill): Promise<string[]> => {
     const mountedServerIds: string[] = [];
+    needsManualConnect.current = false;
     if (!skill.requiredServers || skill.requiredServers.length === 0) return mountedServerIds;
 
     // Fetch existing servers once
@@ -412,7 +416,7 @@ export function SkillsMarketplace() {
         // ── Smithery, Glama, MCP.SO, Awesome-MCP: search directory for a matching server ──
         try {
           const dirRes = await fetch(`/api/mcp/directory?q=${encodeURIComponent(cleanServerName)}&source=ALL`).then((r) => r.json());
-          const match = (dirRes.data || []).find((s: { name: string; endpointUrl?: string }) =>
+          const match = (dirRes.data || []).find((s: any) =>
             s.name.toLowerCase().includes(cleanServerName) ||
             cleanServerName.includes(s.name.toLowerCase().replace(/ mcp$/i, ""))
           );
@@ -423,7 +427,12 @@ export function SkillsMarketplace() {
             const body: Record<string, unknown> = {
               name: match.name,
               transport,
-              connectOnCreate: true,
+              // SECURITY: a STDIO server means Agent Studio will SPAWN the
+              // configured command. Auto-running `npx -y <package>` from
+              // marketplace metadata executed unreviewed third-party code at
+              // install time. Remote (SSE) servers still auto-connect; STDIO
+              // entries are created disconnected for explicit user consent.
+              connectOnCreate: transport === "SSE",
             };
             if (transport === "SSE" && match.endpointUrl) body.endpointUrl = match.endpointUrl;
             if (transport === "STDIO" && command) body.command = command;
@@ -436,6 +445,9 @@ export function SkillsMarketplace() {
 
             if (serverRes.success && serverRes.data?.id) {
               mountedServerIds.push(serverRes.data.id);
+              if (transport === "STDIO") {
+                needsManualConnect.current = true;
+              }
             }
           }
         } catch (err) {
@@ -509,7 +521,13 @@ export function SkillsMarketplace() {
           instructions: safeInstructions,
           allowedTools,
           maxExecutionSteps: Math.max(10, (skill.steps?.length || 1) * 3),
-          notes: `Installed from ${skill.source} marketplace. ID: ${marketplaceId}`,
+          // Structured linkage: marketplaceId drives installed-state
+          // reconciliation; MountedServers lets uninstall clean up the MCP
+          // servers auto-mounted for this skill (previously orphaned rows +
+          // live connections were left behind).
+          notes: `Installed from ${skill.source} marketplace. ID: ${marketplaceId}${
+            mountedServerIds.length > 0 ? `. MountedServers: ${mountedServerIds.join(",")}` : ""
+          }`,
         }),
       });
 
@@ -537,7 +555,14 @@ export function SkillsMarketplace() {
       queryClient.invalidateQueries({ queryKey: ["skills"] });
       await refreshInstalledSkills();
 
-      toast.success("Skill installed", `${validName} is now available in Skills Studio`);
+      if (needsManualConnect.current) {
+        toast.info(
+          "Action needed: connect local server",
+          "A local (STDIO) MCP server was added but NOT started — review its command in the MCP Hub and click Connect."
+        );
+      } else {
+        toast.success("Skill installed", `${validName} is now available in Skills Studio`);
+      }
     } catch (err) {
       console.error("[Marketplace] Install failed:", err);
       toast.error("Install failed", err instanceof Error ? err.message : "Unknown error");
@@ -547,7 +572,8 @@ export function SkillsMarketplace() {
   }, [installedMap, mountRequiredServers, queryClient, refreshInstalledSkills]);
 
   /**
-   * Uninstall: delete the Skill from DB and remove from installed map.
+   * Uninstall: delete the Skill from DB, clean up the MCP servers that were
+   * auto-mounted for it, and remove from installed map.
    */
   const handleUninstall = useCallback(async (skill: AgentSkill) => {
     const marketplaceId = skill.id;
@@ -557,7 +583,19 @@ export function SkillsMarketplace() {
     try {
       setInstalling(marketplaceId);
 
-      // Delete the skill from the database (allow 404 if already removed elsewhere)
+      // Resolve the DB skill row so we can read its notes (mounted server ids)
+      // even if the localStorage map is stale.
+      const skillRes = await fetch(`/api/skills/${dbSkillId}`).then((r) => (r.ok ? r.json() : null));
+      const notes: string = skillRes?.data?.currentDraft?.notes || skillRes?.data?.publishedVersion?.notes || "";
+      const mountedMatch = notes.match(/MountedServers:\s*([^\s\n\r]+)/);
+      const mountedIds = mountedMatch ? mountedMatch[1].split(",").filter(Boolean) : [];
+
+      // 1. Clean up auto-mounted MCP servers (404-tolerant — may be gone).
+      for (const serverId of mountedIds) {
+        await fetch(`/api/mcp/servers/${serverId}`, { method: "DELETE" }).catch(() => {});
+      }
+
+      // 2. Delete the skill from the database (allow 404 if already removed elsewhere)
       const delRes = await fetch(`/api/skills/${dbSkillId}`, { method: "DELETE" });
       if (!delRes.ok && delRes.status !== 404) {
         const errBody = await delRes.json().catch(() => ({}));
@@ -576,7 +614,10 @@ export function SkillsMarketplace() {
       queryClient.invalidateQueries({ queryKey: ["skills"] });
       await refreshInstalledSkills();
 
-      toast.success("Skill uninstalled", `${skill.name} has been removed`);
+      toast.success(
+        "Skill uninstalled",
+        `${skill.name} has been removed${mountedIds.length > 0 ? ` along with ${mountedIds.length} mounted server(s)` : ""}`
+      );
     } catch (err) {
       console.error("[Marketplace] Uninstall failed:", err);
       toast.error("Uninstall failed", err instanceof Error ? err.message : "Unknown error");
@@ -831,10 +872,10 @@ export function SkillsMarketplace() {
                     <div className="flex items-center justify-between text-[9px] font-mono text-slate-500 pt-2 border-t border-slate-100 dark:border-indigo-950/60">
                       <div className="flex items-center gap-2">
                         <span className="flex items-center gap-0.5 text-amber-500 font-semibold">
-                          <Star className="h-3 w-3 fill-amber-400" /> {skill.rating}
+                          {typeof skill.rating === "number" && (<><Star className="h-3 w-3 fill-amber-400" /> {skill.rating}</>)}
                         </span>
                         <span className="flex items-center gap-0.5">
-                          <Download className="h-3 w-3" /> {skill.installs.toLocaleString()}
+                          {typeof skill.installs === "number" && (<><Download className="h-3 w-3" /> {skill.installs.toLocaleString()}</>)}
                         </span>
                         <span className="flex items-center gap-0.5">
                           <Clock className="h-3 w-3" /> {skill.estimatedTime}
@@ -947,10 +988,10 @@ export function SkillsMarketplace() {
                     <div className="flex items-center justify-between md:justify-end gap-3.5 w-full md:w-auto shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-indigo-950/60">
                       <div className="flex items-center gap-3 text-[9px] font-mono text-slate-500">
                         <span className="flex items-center gap-0.5 text-amber-500 font-semibold">
-                          <Star className="h-3 w-3 fill-amber-400" /> {skill.rating}
+                          {typeof skill.rating === "number" && (<><Star className="h-3 w-3 fill-amber-400" /> {skill.rating}</>)}
                         </span>
                         <span className="flex items-center gap-0.5">
-                          <Download className="h-3 w-3" /> {skill.installs.toLocaleString()}
+                          {typeof skill.installs === "number" && (<><Download className="h-3 w-3" /> {skill.installs.toLocaleString()}</>)}
                         </span>
                         <span className="flex items-center gap-0.5">
                           <Clock className="h-3 w-3" /> {skill.estimatedTime}
@@ -1175,10 +1216,10 @@ function SkillDetailModal({
               {skill.difficulty}
             </span>
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-mono font-semibold border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300">
-              <Star className="h-3 w-3 fill-amber-400" /> {skill.rating}
+              {typeof skill.rating === "number" && (<><Star className="h-3 w-3 fill-amber-400" /> {skill.rating}</>)}
             </span>
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-mono font-semibold border border-slate-200 dark:border-indigo-900/50 bg-slate-50 dark:bg-black/40 text-slate-600 dark:text-slate-400">
-              <Download className="h-3 w-3" /> {skill.installs.toLocaleString()} installs
+              {typeof skill.installs === "number" && (<><Download className="h-3 w-3" /> {skill.installs.toLocaleString()} installs</>)}
             </span>
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-mono font-semibold border border-slate-200 dark:border-indigo-900/50 bg-slate-50 dark:bg-black/40 text-slate-600 dark:text-slate-400">
               <Clock className="h-3 w-3" /> {skill.estimatedTime}

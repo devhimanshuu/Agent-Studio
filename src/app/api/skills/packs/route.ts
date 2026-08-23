@@ -1,22 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { SkillService } from "@/services/SkillService";
-import { McpServerRepository } from "@/repositories/McpServerRepository";
+
 import { SkillRepository } from "@/repositories/SkillRepository";
 import { AuditLogRepository } from "@/repositories/AuditLogRepository";
 import { getPackById, SKILL_PACKS } from "@/data/skillPacks";
 import { InstallPackInput, PackInstallationState } from "@/types/skillPacks";
 import { createSkillSchema } from "@/validators/skillSchema";
-import { McpClientService } from "@/services/McpClientService";
+import { apiServices } from "@/lib/api/services";
 import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
-const skillRepo = new SkillRepository();
-const mcpRepo = new McpServerRepository();
-const auditRepo = new AuditLogRepository();
+const { skillRepo, auditRepo, mcpService } = apiServices();
 const skillService = new SkillService(skillRepo, auditRepo);
-const mcpService = new McpClientService(mcpRepo);
 
 /**
  * GET /api/skills/packs — List all available skill packs
@@ -29,7 +26,7 @@ export async function GET() {
 
   try {
     // Get existing servers to check which are already connected
-    const existingServers = await mcpRepo.findByUserId(userId);
+    const existingServers = await mcpService.listServers(userId);
     const serverNames = new Set(existingServers.map((s) => s.name.toLowerCase()));
 
     // Enrich packs with installation status
@@ -90,7 +87,7 @@ export async function POST(request: NextRequest) {
     };
 
     // ── Phase 1: Mount MCP Servers ──
-    const existingServers = await mcpRepo.findByUserId(userId);
+    const existingServers = await mcpService.listServers(userId);
     const serverIdMap = new Map<number, string>(); // pack server index → DB server ID
 
     const serverIndices = body.serverIndices ?? pack.servers.map((_, i) => i);

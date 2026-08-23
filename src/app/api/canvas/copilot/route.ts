@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { getLLMProvider } from "@/providers/llm";
 import type { AgentGraphDefinition } from "@/types/graph";
+import { unauthorized, serverError } from "@/lib/api/handlers";
+import { rateLimit } from "@/lib/api/rateLimit";
 
 const COPILOT_SYSTEM_PROMPT = `You are a graph architect for Agent Studio. Given a natural language description of a multi-agent system, generate a complete AgentGraphDefinition JSON.
 
@@ -55,6 +58,12 @@ Make sure:
 5. Return ONLY valid JSON, no markdown fences, no explanation`;
 
 export async function POST(request: NextRequest) {
+  const { userId } = await auth();
+  if (!userId) return unauthorized();
+
+  const limited = rateLimit(`canvas:copilot:${userId}`);
+  if (limited) return limited;
+
   try {
     const body = await request.json();
     const { prompt } = body;
@@ -123,13 +132,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, graph });
   } catch (error) {
-    console.error("[Canvas Copilot]", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Graph generation failed",
-      },
-      { status: 500 }
-    );
+    return serverError(error);
   }
 }

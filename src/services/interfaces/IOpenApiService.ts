@@ -11,7 +11,7 @@ import { CreateOpenApiToolOptions } from "@/modules/openapi/dynamicTool";
 
 export interface IOpenApiService {
   parseSpec(input: { specUrl?: string; rawSpec?: string | Record<string, unknown> }): Promise<OpenApiParsedSpecDTO>;
-  listIntegrations(userId: string): Promise<OpenApiIntegrationDTO[]>;
+  listIntegrations(userId: string, limit?: number): Promise<OpenApiIntegrationDTO[]>;
   getIntegration(id: string, userId: string): Promise<OpenApiIntegrationDTO | null>;
   createIntegration(input: CreateOpenApiIntegrationInput): Promise<OpenApiIntegrationDTO>;
   updateIntegration(id: string, userId: string, input: UpdateOpenApiIntegrationInput): Promise<OpenApiIntegrationDTO>;

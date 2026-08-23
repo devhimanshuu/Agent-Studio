@@ -123,7 +123,24 @@ export function jsonSchemaToZod(schema: Record<string, unknown>): z.ZodType {
     let base: z.ZodString = z.string();
     if (typeof rawSchema.minLength === "number") base = base.min(rawSchema.minLength);
     if (typeof rawSchema.maxLength === "number") base = base.max(rawSchema.maxLength);
-    if (typeof rawSchema.pattern === "string") base = base.regex(new RegExp(rawSchema.pattern));
+    if (typeof rawSchema.pattern === "string") {
+      // MCP servers are third-party code-adjacent input: a hostile pattern
+      // (catastrophic backtracking) previously compiled verbatim and ran on
+      // EVERY validation call. Cap size, refuse compile failures, and keep
+      // going with an unconstrained string rather than bricking the tool.
+      const pattern = rawSchema.pattern;
+      const safe =
+        pattern.length <= 256 &&
+        (() => {
+          try {
+            new RegExp(pattern);
+            return true;
+          } catch {
+            return false;
+          }
+        })();
+      if (safe) base = base.regex(new RegExp(pattern));
+    }
     result = base;
   } else if (type === "number" || type === "integer") {
     let base: z.ZodNumber = z.number();

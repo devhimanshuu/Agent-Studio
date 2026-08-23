@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
-import { McpClientService } from "@/services/McpClientService";
-import { McpServerRepository } from "@/repositories/McpServerRepository";
+import { apiServices } from "@/lib/api/services";
+
 import { unauthorized, badRequest, serverError } from "@/lib/api/handlers";
 
-const mcpService = new McpClientService(new McpServerRepository());
+const { mcpService } = apiServices();
 
 const importSchema = z.object({
   version: z.string().optional(),
@@ -45,7 +45,10 @@ export async function POST(request: Request) {
           endpointUrl: serverInput.endpointUrl ?? undefined,
           command: serverInput.command ?? undefined,
           headers: serverInput.headers ?? undefined,
-          connectOnCreate: serverInput.connectOnCreate ?? false,
+          // Imported bundles NEVER auto-connect: a STDIO entry would mean
+          // executing an arbitrary command from a JSON file the moment it is
+          // imported. The user must explicitly hit Connect.
+          connectOnCreate: false,
         });
         imported.push(created);
       } catch (err) {

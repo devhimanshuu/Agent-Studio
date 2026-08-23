@@ -8,12 +8,20 @@ const IV_LENGTH = 16;
 
 /**
  * Derive an encryption key from the vault master key.
- * In production, VAULT_MASTER_KEY should be a 64-char hex string set via env.
- * Falls back to a dev key for local development (NOT secure for production).
+ * `VAULT_MASTER_KEY` MUST be a 64-char hex string in production — booting
+ * without it refuses to encrypt/decrypt rather than silently using the public
+ * repo constant (which would make every "encrypted" secret world-readable).
+ * The fallback exists ONLY for local development.
  */
 function getEncryptionKey(): Buffer {
-  const masterKey = process.env.VAULT_MASTER_KEY || "dev-vault-key-change-in-production-00000000000000000000000000";
-  return crypto.createHash("sha256").update(masterKey).digest();
+  const masterKey = process.env.VAULT_MASTER_KEY;
+  if (masterKey) return crypto.createHash("sha256").update(masterKey).digest();
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "VAULT_MASTER_KEY is required in production — refusing to derive vault keys from the development fallback."
+    );
+  }
+  return crypto.createHash("sha256").update("dev-vault-key-change-in-production-00000000000000000000000000").digest();
 }
 
 // ────────────── Encryption / Decryption ──────────────

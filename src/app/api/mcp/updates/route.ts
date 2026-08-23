@@ -1,20 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { McpClientService } from "@/services/McpClientService";
+import { apiServices } from "@/lib/api/services";
 import { SkillService } from "@/services/SkillService";
-import { McpServerRepository } from "@/repositories/McpServerRepository";
-import { SkillRepository } from "@/repositories/SkillRepository";
-import { AuditLogRepository } from "@/repositories/AuditLogRepository";
+
 import { ApplyToolUpdateInput, McpToolUpdate } from "@/types/mcp";
 import { applyToolUpdates } from "@/modules/mcp/toolDiff";
 import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
-const mcpRepo = new McpServerRepository();
-const mcpService = new McpClientService(mcpRepo);
-const skillRepo = new SkillRepository();
-const auditRepo = new AuditLogRepository();
+const { mcpService, skillRepo, auditRepo } = apiServices();
 const skillService = new SkillService(skillRepo, auditRepo);
 
 /**
@@ -30,7 +25,7 @@ export async function GET(_request: Request) {
     const updates = mcpService.getAllPendingUpdates();
 
     // Filter to only updates for servers owned by this user
-    const servers = await mcpRepo.findByUserId(userId);
+    const servers = await mcpService.listServers(userId);
     const serverIds = new Set(servers.map((s) => s.id));
     const userUpdates = updates.filter((u) => serverIds.has(u.serverId));
 
@@ -86,7 +81,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify ownership
-    const server = await mcpRepo.findByIdForUser(update.serverId, userId);
+    const server = await mcpService.getServer(update.serverId, userId);
     if (!server) {
       return NextResponse.json({ error: "Server not found or access denied" }, { status: 403 });
     }
