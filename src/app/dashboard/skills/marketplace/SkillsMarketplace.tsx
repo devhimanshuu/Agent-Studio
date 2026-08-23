@@ -19,8 +19,6 @@ import {
   BarChart3,
   Plus,
   Check,
-  ChevronLeft,
-  ChevronRight,
   ExternalLink,
   Shield,
   Sparkles,
@@ -32,6 +30,7 @@ import {
 import { clsx } from "clsx";
 import { useQueryClient } from "@tanstack/react-query";
 import { ItemIcon } from "@/components/common/ItemIcon";
+import { Pagination } from "@/components/common/Pagination";
 import { AgentSkill, SkillCategory } from "@/types/agent-studio-registry";
 import { SkillDTO } from "@/types/skill";
 import { toast } from "@/stores/toastStore";
@@ -247,6 +246,31 @@ export function SkillsMarketplace() {
     return () => clearTimeout(timer);
   }, [fetchPage]);
 
+  // Check if a skill is installed across ID, name, notes, and DB records
+  const isSkillInstalled = useCallback(
+    (skill: AgentSkill) => {
+      const cleanId = skill.id ? skill.id.replace(/[.,;:]$/, "") : "";
+      const cleanName = skill.name?.toLowerCase().trim() || "";
+      if (
+        installedMap.has(skill.id) ||
+        (cleanId && installedMap.has(cleanId)) ||
+        (cleanName && installedMap.has(cleanName))
+      ) {
+        return true;
+      }
+      return installedDbSkills.some(
+        (db) =>
+          db.status !== "ARCHIVED" &&
+          (db.id === skill.id ||
+            db.id === cleanId ||
+            (cleanName && db.name.toLowerCase().trim() === cleanName) ||
+            (cleanId && (db.currentDraft?.notes || db.publishedVersion?.notes || "").includes(`ID: ${cleanId}`)) ||
+            (skill.id && (db.currentDraft?.notes || db.publishedVersion?.notes || "").includes(`ID: ${skill.id}`)))
+      );
+    },
+    [installedMap, installedDbSkills]
+  );
+
   // Client-side installed filter with global database hydration
   const filteredSkills = useMemo(() => {
     if (!showInstalledOnly) return skills;
@@ -255,23 +279,37 @@ export function SkillsMarketplace() {
     const seenIds = new Set<string>();
 
     for (const s of skills) {
-      if (installedMap.has(s.id) || installedMap.has(s.name.toLowerCase().trim())) {
+      if (isSkillInstalled(s)) {
         installedList.push(s);
         seenIds.add(s.id);
-        const dbId = installedMap.get(s.id);
+        if (s.name) seenIds.add(s.name.toLowerCase().trim());
+        const dbId =
+          installedMap.get(s.id) ||
+          (s.id ? installedMap.get(s.id.replace(/[.,;:]$/, "")) : undefined) ||
+          (s.name ? installedMap.get(s.name.toLowerCase().trim()) : undefined);
         if (dbId) seenIds.add(dbId);
       }
     }
 
     for (const dbSkill of installedDbSkills) {
+      if (dbSkill.status === "ARCHIVED") continue;
       const draft = dbSkill.currentDraft || dbSkill.publishedVersion;
       const notes = draft?.notes || "";
       const match = notes.match(/ID:\s*([^\s\n\r]+)/);
-      const marketplaceId = match ? match[1] : dbSkill.id;
+      const rawMarketplaceId = match ? match[1].replace(/[.,;:]$/, "") : dbSkill.id;
+      const marketplaceId = rawMarketplaceId || dbSkill.id;
+      const cleanDbName = dbSkill.name ? dbSkill.name.toLowerCase().trim() : "";
 
-      if (seenIds.has(marketplaceId) || seenIds.has(dbSkill.id)) continue;
+      if (
+        seenIds.has(marketplaceId) ||
+        seenIds.has(dbSkill.id) ||
+        (cleanDbName && seenIds.has(cleanDbName))
+      ) {
+        continue;
+      }
       seenIds.add(marketplaceId);
       seenIds.add(dbSkill.id);
+      if (cleanDbName) seenIds.add(cleanDbName);
 
       const sourceMatch = notes.match(/Installed from ([^\s]+) marketplace/);
       const source = (sourceMatch ? sourceMatch[1] : "community") as AgentSkill["source"];
@@ -311,7 +349,7 @@ export function SkillsMarketplace() {
       if (difficulty !== "ALL" && s.difficulty !== difficulty) return false;
       return true;
     });
-  }, [skills, showInstalledOnly, installedMap, installedDbSkills, search, source, category, difficulty]);
+  }, [skills, showInstalledOnly, isSkillInstalled, installedMap, installedDbSkills, search, source, category, difficulty]);
 
   const [installing, setInstalling] = useState<string | null>(null);
   // Set when an install mounted a STDIO server that requires explicit
@@ -468,18 +506,22 @@ export function SkillsMarketplace() {
       if (!res.ok) return;
       const json = await res.json();
       if (json.success && Array.isArray(json.data?.items)) {
-        const items = json.data.items;
+        const items = (json.data.items as SkillDTO[]).filter((item) => item.status !== "ARCHIVED");
         setInstalledDbSkills(items);
         const map = new Map<string, string>();
         for (const item of items) {
           const notes = item.currentDraft?.notes || item.publishedVersion?.notes || "";
           const match = notes.match(/ID:\s*([^\s\n\r]+)/);
           if (match) {
-            map.set(match[1], item.id);
+            const rawId = match[1];
+            const cleanId = rawId.replace(/[.,;:]$/, "");
+            map.set(rawId, item.id);
+            map.set(cleanId, item.id);
           }
           if (item.name) {
             map.set(item.name.toLowerCase().trim(), item.id);
           }
+          map.set(item.id, item.id);
         }
         setInstalledMap(map);
         saveInstalledMap(map);
@@ -572,51 +614,83 @@ export function SkillsMarketplace() {
   }, [installedMap, mountRequiredServers, queryClient, refreshInstalledSkills]);
 
   /**
-   * Uninstall: delete the Skill from DB, clean up the MCP servers that were
+   * Uninstall: delete/archive the Skill from DB, clean up the MCP servers that were
    * auto-mounted for it, and remove from installed map.
    */
   const handleUninstall = useCallback(async (skill: AgentSkill) => {
     const marketplaceId = skill.id;
-    const dbSkillId = installedMap.get(marketplaceId);
-    if (!dbSkillId) return;
+    const cleanId = marketplaceId ? marketplaceId.replace(/[.,;:]$/, "") : "";
+    const cleanName = skill.name?.toLowerCase().trim() || "";
+
+    // 1. Resolve the database skill ID
+    let dbSkillId =
+      installedMap.get(marketplaceId) ||
+      (cleanId ? installedMap.get(cleanId) : undefined) ||
+      (cleanName ? installedMap.get(cleanName) : undefined);
+
+    if (!dbSkillId) {
+      const match = installedDbSkills.find(
+        (s) =>
+          s.id === marketplaceId ||
+          s.id === cleanId ||
+          (cleanName && s.name.toLowerCase().trim() === cleanName) ||
+          (cleanId && (s.currentDraft?.notes || s.publishedVersion?.notes || "").includes(`ID: ${cleanId}`)) ||
+          (marketplaceId && (s.currentDraft?.notes || s.publishedVersion?.notes || "").includes(`ID: ${marketplaceId}`))
+      );
+      if (match) {
+        dbSkillId = match.id;
+      }
+    }
 
     try {
       setInstalling(marketplaceId);
 
-      // Resolve the DB skill row so we can read its notes (mounted server ids)
-      // even if the localStorage map is stale.
-      const skillRes = await fetch(`/api/skills/${dbSkillId}`).then((r) => (r.ok ? r.json() : null));
-      const notes: string = skillRes?.data?.currentDraft?.notes || skillRes?.data?.publishedVersion?.notes || "";
-      const mountedMatch = notes.match(/MountedServers:\s*([^\s\n\r]+)/);
-      const mountedIds = mountedMatch ? mountedMatch[1].split(",").filter(Boolean) : [];
+      if (dbSkillId) {
+        // Resolve the DB skill row to find mounted server IDs
+        const skillRes = await fetch(`/api/skills/${dbSkillId}`).then((r) => (r.ok ? r.json() : null));
+        const notes: string = skillRes?.data?.currentDraft?.notes || skillRes?.data?.publishedVersion?.notes || "";
+        const mountedMatch = notes.match(/MountedServers:\s*([^\s\n\r]+)/);
+        const mountedIds = mountedMatch
+          ? mountedMatch[1]
+              .split(",")
+              .map((s) => s.trim().replace(/[.,;:]$/, ""))
+              .filter(Boolean)
+          : [];
 
-      // 1. Clean up auto-mounted MCP servers (404-tolerant — may be gone).
-      for (const serverId of mountedIds) {
-        await fetch(`/api/mcp/servers/${serverId}`, { method: "DELETE" }).catch(() => {});
+        // 1. Clean up auto-mounted MCP servers (404-tolerant)
+        for (const serverId of mountedIds) {
+          await fetch(`/api/mcp/servers/${serverId}`, { method: "DELETE" }).catch(() => {});
+        }
+
+        // 2. Delete the skill from the database; if published or restricted, archive it
+        const delRes = await fetch(`/api/skills/${dbSkillId}`, { method: "DELETE" });
+        if (!delRes.ok && delRes.status !== 404) {
+          const archiveRes = await fetch(`/api/skills/${dbSkillId}/archive`, { method: "POST" });
+          if (!archiveRes.ok && archiveRes.status !== 404) {
+            const errBody = await delRes.json().catch(() => ({}));
+            throw new Error(errBody.error || `Failed to uninstall skill (HTTP ${delRes.status})`);
+          }
+        }
       }
 
-      // 2. Delete the skill from the database (allow 404 if already removed elsewhere)
-      const delRes = await fetch(`/api/skills/${dbSkillId}`, { method: "DELETE" });
-      if (!delRes.ok && delRes.status !== 404) {
-        const errBody = await delRes.json().catch(() => ({}));
-        throw new Error(errBody.error || `Failed to delete skill (HTTP ${delRes.status})`);
-      }
-
-      // Remove from the installed map
+      // 3. Remove from installedMap and localStorage
       setInstalledMap((prev) => {
         const next = new Map(prev);
         next.delete(marketplaceId);
+        if (cleanId) next.delete(cleanId);
+        if (cleanName) next.delete(cleanName);
+        if (dbSkillId) next.delete(dbSkillId);
         saveInstalledMap(next);
         return next;
       });
 
-      // Invalidate skills query and re-sync installed skills
+      // 4. Invalidate skills queries & refresh installed skills list
       queryClient.invalidateQueries({ queryKey: ["skills"] });
       await refreshInstalledSkills();
 
       toast.success(
         "Skill uninstalled",
-        `${skill.name} has been removed${mountedIds.length > 0 ? ` along with ${mountedIds.length} mounted server(s)` : ""}`
+        `${skill.name} has been removed from your workspace`
       );
     } catch (err) {
       console.error("[Marketplace] Uninstall failed:", err);
@@ -624,7 +698,7 @@ export function SkillsMarketplace() {
     } finally {
       setInstalling(null);
     }
-  }, [installedMap, queryClient, refreshInstalledSkills]);
+  }, [installedMap, installedDbSkills, queryClient, refreshInstalledSkills]);
 
   return (
     <div className="space-y-5">
@@ -806,7 +880,7 @@ export function SkillsMarketplace() {
             /* ────────────── Grid / Card View ────────────── */
             <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredSkills.map((skill) => {
-                const isInstalled = installedMap.has(skill.id);
+                const isInstalled = isSkillInstalled(skill);
                 const catColor = CATEGORY_COLORS[skill.category] || CATEGORY_COLORS.PRODUCTIVITY;
                 const diffColor = DIFFICULTY_COLORS[skill.difficulty] || DIFFICULTY_COLORS.BEGINNER;
                 const srcColor = SOURCE_COLORS[skill.source] || SOURCE_COLORS.glama;
@@ -926,7 +1000,7 @@ export function SkillsMarketplace() {
             /* ────────────── Row / List View ────────────── */
             <div ref={gridRef} className="space-y-2.5">
               {filteredSkills.map((skill) => {
-                const isInstalled = installedMap.has(skill.id);
+                const isInstalled = isSkillInstalled(skill);
                 const catColor = CATEGORY_COLORS[skill.category] || CATEGORY_COLORS.PRODUCTIVITY;
                 const diffColor = DIFFICULTY_COLORS[skill.difficulty] || DIFFICULTY_COLORS.BEGINNER;
                 const srcColor = SOURCE_COLORS[skill.source] || SOURCE_COLORS.glama;
@@ -1039,82 +1113,16 @@ export function SkillsMarketplace() {
           )}
 
           {/* Pagination */}
-          {totalPages > 1 && !showInstalledOnly && (
-            <div className="flex items-center justify-center gap-1 pt-6 pb-2">
-              {/* Previous */}
-              <button
-                type="button"
-                onClick={() => {
-                  setCurrentPage(currentPage - 1);
-                  fetchPage(currentPage - 1);
-                }}
-                disabled={currentPage === 1 || loading}
-                className="inline-flex items-center justify-center h-8 w-8 rounded border border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/80 text-slate-600 dark:text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-              </button>
-
-              {/* Page Numbers */}
-              {(() => {
-                const maxVisible = 7;
-                let pages: (number | "...")[];
-                if (totalPages <= maxVisible) {
-                  pages = Array.from({ length: totalPages }, (_, i) => i + 1);
-                } else {
-                  pages = [];
-                  const left = Math.max(2, currentPage - 1);
-                  const right = Math.min(totalPages - 1, currentPage + 1);
-                  pages.push(1);
-                  if (left > 2) pages.push("...");
-                  for (let i = left; i <= right; i++) pages.push(i);
-                  if (right < totalPages - 1) pages.push("...");
-                  pages.push(totalPages);
-                }
-                return pages.map((p, i) =>
-                  p === "..." ? (
-                    <span key={`e${i}`} className="px-1.5 text-[10px] font-mono text-slate-400 dark:text-slate-600 select-none">
-                      ...
-                    </span>
-                  ) : (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => {
-                        setCurrentPage(p);
-                        fetchPage(p);
-                      }}
-                      disabled={loading}
-                      className={clsx(
-                        "inline-flex items-center justify-center h-8 min-w-[32px] px-2 rounded text-[10px] font-mono font-bold uppercase tracking-wider border transition-all cursor-pointer disabled:opacity-50",
-                        currentPage === p
-                          ? "border-indigo-500 bg-indigo-600 text-white shadow-sm shadow-indigo-500/30"
-                          : "border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/80 text-slate-600 dark:text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300"
-                      )}
-                    >
-                      {p}
-                    </button>
-                  )
-                );
-              })()}
-
-              {/* Next */}
-              <button
-                type="button"
-                onClick={() => {
-                  setCurrentPage(currentPage + 1);
-                  fetchPage(currentPage + 1);
-                }}
-                disabled={currentPage === totalPages || loading}
-                className="inline-flex items-center justify-center h-8 w-8 rounded border border-slate-200 dark:border-indigo-900/50 bg-white/80 dark:bg-[#0a0a0a]/80 text-slate-600 dark:text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-
-              {/* Page Info */}
-              <span className="ml-3 text-[10px] font-mono text-slate-500">
-                {currentPage} / {totalPages}
-              </span>
-            </div>
+          {!showInstalledOnly && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={(p) => {
+                setCurrentPage(p);
+                fetchPage(p);
+              }}
+              loading={loading}
+            />
           )}
         </>
       )}
@@ -1134,8 +1142,8 @@ export function SkillsMarketplace() {
       {detailSkill && (
         <SkillDetailModal
           skill={detailSkill}
-          isInstalled={installedMap.has(detailSkill.id)}
-          onInstall={() => installedMap.has(detailSkill.id) ? handleUninstall(detailSkill) : handleInstall(detailSkill)}
+          isInstalled={isSkillInstalled(detailSkill)}
+          onInstall={() => isSkillInstalled(detailSkill) ? handleUninstall(detailSkill) : handleInstall(detailSkill)}
           onClose={() => setDetailSkill(null)}
         />
       )}

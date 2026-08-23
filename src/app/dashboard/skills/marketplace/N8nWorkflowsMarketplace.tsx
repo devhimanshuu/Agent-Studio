@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -20,16 +20,14 @@ import {
   Check,
   Zap,
   Globe,
-  Share2,
   Workflow,
   ShieldCheck,
-  ChevronLeft,
-  ChevronRight,
   DownloadCloud,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { toast } from "@/stores/toastStore";
 import { skillsApi } from "@/lib/api/skills";
+import { Pagination } from "@/components/common/Pagination";
 
 const N8N_CATEGORIES = [
   { id: "ALL", label: "ALL WORKFLOWS", icon: Layers },
@@ -53,6 +51,8 @@ const POPULAR_TAGS = [
   "Webhook",
 ];
 
+const PAGE_SIZE = 18;
+
 export function N8nWorkflowsMarketplace() {
   const router = useRouter();
   const [workflows, setWorkflows] = useState<any[]>([]);
@@ -70,41 +70,109 @@ export function N8nWorkflowsMarketplace() {
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
-  const fetchWorkflows = async (page: number) => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      params.set("page", String(page));
-      params.set("perPage", "24");
+  // In-memory page cache for instant pagination & prefetching
+  const pageCacheRef = useRef<Map<number, { workflows: any[]; totalWorkflows: number; totalPages: number }>>(new Map());
 
-      const queryTerm = activeTag || search.trim();
-      if (queryTerm) params.set("q", queryTerm);
-      if (activeCategory !== "ALL") params.set("category", activeCategory);
+  const prefetchNextPage = useCallback(
+    async (nextPage: number, maxPages: number) => {
+      if (nextPage > maxPages || pageCacheRef.current.has(nextPage)) return;
+      try {
+        const params = new URLSearchParams();
+        params.set("page", String(nextPage));
+        params.set("perPage", String(PAGE_SIZE));
 
-      const res = await fetch(`/api/workflows/n8n/search?${params.toString()}`);
-      const json = await res.json();
+        const queryTerm = activeTag || search.trim();
+        if (queryTerm) params.set("q", queryTerm);
+        if (activeCategory !== "ALL") params.set("category", activeCategory);
 
-      if (json.success) {
-        setWorkflows(json.workflows || []);
-        setTotalWorkflows(json.pagination?.totalWorkflows || 0);
-        setTotalPages(json.pagination?.totalPages || 1);
-        setCurrentPage(page);
-      } else {
-        toast.error("Failed to load n8n workflows", json.error);
+        const res = await fetch(`/api/workflows/n8n/search?${params.toString()}`);
+        const json = await res.json();
+
+        if (json.success) {
+          pageCacheRef.current.set(nextPage, {
+            workflows: json.workflows || [],
+            totalWorkflows: json.pagination?.totalWorkflows || 0,
+            totalPages: json.pagination?.totalPages || 1,
+          });
+        }
+      } catch {
+        // Non-blocking background prefetch error ignored
       }
-    } catch (err: any) {
-      toast.error("Error fetching workflows", err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    [activeTag, search, activeCategory]
+  );
+
+  const fetchWorkflows = useCallback(
+    async (page: number) => {
+      // Check client-side cache for instant display
+      const cached = pageCacheRef.current.get(page);
+      if (cached) {
+        setWorkflows(cached.workflows);
+        setTotalWorkflows(cached.totalWorkflows);
+        setTotalPages(cached.totalPages);
+        setCurrentPage(page);
+        setLoading(false);
+
+        // Pre-fetch the subsequent page
+        if (page < cached.totalPages) {
+          prefetchNextPage(page + 1, cached.totalPages);
+        }
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const params = new URLSearchParams();
+        params.set("page", String(page));
+        params.set("perPage", String(PAGE_SIZE));
+
+        const queryTerm = activeTag || search.trim();
+        if (queryTerm) params.set("q", queryTerm);
+        if (activeCategory !== "ALL") params.set("category", activeCategory);
+
+        const res = await fetch(`/api/workflows/n8n/search?${params.toString()}`);
+        const json = await res.json();
+
+        if (json.success) {
+          const fetchedWorkflows = json.workflows || [];
+          const fetchedTotal = json.pagination?.totalWorkflows || 0;
+          const fetchedPages = json.pagination?.totalPages || 1;
+
+          setWorkflows(fetchedWorkflows);
+          setTotalWorkflows(fetchedTotal);
+          setTotalPages(fetchedPages);
+          setCurrentPage(page);
+
+          // Cache current page
+          pageCacheRef.current.set(page, {
+            workflows: fetchedWorkflows,
+            totalWorkflows: fetchedTotal,
+            totalPages: fetchedPages,
+          });
+
+          // Prefetch next page into cache
+          if (page < fetchedPages) {
+            prefetchNextPage(page + 1, fetchedPages);
+          }
+        } else {
+          toast.error("Failed to load n8n workflows", json.error);
+        }
+      } catch (err: any) {
+        toast.error("Error fetching workflows", err.message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [activeTag, search, activeCategory, prefetchNextPage]
+  );
 
   useEffect(() => {
+    pageCacheRef.current.clear();
     const timer = setTimeout(() => {
       fetchWorkflows(1);
     }, 280);
     return () => clearTimeout(timer);
-  }, [search, activeCategory, activeTag]);
+  }, [search, activeCategory, activeTag, fetchWorkflows]);
 
   const loadWorkflowDetails = async (id: number) => {
     setDetailLoading(true);
@@ -487,33 +555,16 @@ export function N8nWorkflowsMarketplace() {
           )}
 
           {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-indigo-950/60 text-xs">
-              <span className="text-slate-500 text-[11px]">
-                Showing page {currentPage} of {totalPages} ({totalWorkflows.toLocaleString()} total)
-              </span>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  disabled={currentPage <= 1 || loading}
-                  onClick={() => fetchWorkflows(currentPage - 1)}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded border border-slate-300 dark:border-slate-800 bg-white/70 dark:bg-black/50 text-slate-300 disabled:opacity-40 cursor-pointer"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" /> Previous
-                </button>
-
-                <button
-                  type="button"
-                  disabled={currentPage >= totalPages || loading}
-                  onClick={() => fetchWorkflows(currentPage + 1)}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded border border-slate-300 dark:border-slate-800 bg-white/70 dark:bg-black/50 text-slate-300 disabled:opacity-40 cursor-pointer"
-                >
-                  Next <ChevronRight className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </div>
-          )}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={(p) => {
+              fetchWorkflows(p);
+              gridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+            loading={loading}
+            totalCount={totalWorkflows}
+          />
         </div>
       )}
 
@@ -538,6 +589,11 @@ export function N8nWorkflowsMarketplace() {
                     <Eye className="h-3 w-3 text-slate-500" />
                     {Number(detailWorkflow.views || detailWorkflow.totalViews || 0).toLocaleString()} views
                   </span>
+                  {detailLoading && (
+                    <span className="text-[10px] text-indigo-400 flex items-center gap-1">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Loading details...
+                    </span>
+                  )}
                 </div>
                 <h2 className="text-base sm:text-lg font-bold text-slate-100 leading-snug">
                   {detailWorkflow.name}

@@ -11,7 +11,6 @@ import {
   Trash2,
   Sparkles,
   GitCompare,
-  GitBranch,
   ArrowRight,
   Workflow,
   Zap,
@@ -31,7 +30,9 @@ import { toast } from "@/stores/toastStore";
 import { clsx } from "clsx";
 import { ItemIcon } from "@/components/common/ItemIcon";
 import { SkillsMarketplace } from "./marketplace/SkillsMarketplace";
+import { UnifiedWorkflowsMarketplace } from "./marketplace/UnifiedWorkflowsMarketplace";
 import { N8nWorkflowsMarketplace } from "./marketplace/N8nWorkflowsMarketplace";
+import { DifyWorkflowsMarketplace } from "./marketplace/DifyWorkflowsMarketplace";
 import { SkillPackMarketplace } from "./packs/SkillPackMarketplace";
 import { SkillSynthesizer } from "./synthesizer/SkillSynthesizer";
 
@@ -50,7 +51,7 @@ export default function SkillsDashboardPage() {
   const [status, setStatus] = useState<SkillStatus | "">("");
   const [typeFilter, setTypeFilter] = useState<"ALL" | "WORKFLOWS" | "PROMPT">("ALL");
   const [sort, setSort] = useState("updatedAt-desc");
-  const [viewMode, setViewMode] = useState<"studio" | "marketplace" | "n8n" | "packs" | "synthesize">("studio");
+  const [viewMode, setViewMode] = useState<"studio" | "workflows" | "marketplace" | "n8n" | "dify" | "packs" | "synthesize">("studio");
   const debounceTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -174,18 +175,18 @@ export default function SkillsDashboardPage() {
             </button>
             <button
               type="button"
-              onClick={() => setViewMode("n8n")}
+              onClick={() => setViewMode("workflows")}
               className={clsx(
                 "inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider transition-all cursor-pointer relative",
-                viewMode === "n8n"
-                  ? "bg-rose-600 text-white shadow-sm shadow-rose-500/30"
+                viewMode === "workflows"
+                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/30"
                   : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-indigo-950/40"
               )}
             >
-              <GitBranch className="h-3.5 w-3.5 text-rose-400" />
-              N8N WORKFLOWS
-              <span className="ml-1 px-1.5 py-0.2 rounded-full text-[7px] bg-rose-400 text-black font-bold uppercase">
-                11.6K+
+              <Workflow className="h-3.5 w-3.5 text-indigo-400" />
+              WORKFLOWS MARKETPLACE
+              <span className="ml-1 px-1.5 py-0.2 rounded-full text-[7px] bg-gradient-to-r from-rose-500 via-blue-500 to-indigo-500 text-white font-extrabold uppercase shadow-xs">
+                11.9K+
               </span>
             </button>
             <button
@@ -232,8 +233,12 @@ export default function SkillsDashboardPage() {
         <SkillPackMarketplace />
       ) : viewMode === "marketplace" ? (
         <SkillsMarketplace />
+      ) : viewMode === "workflows" ? (
+        <UnifiedWorkflowsMarketplace />
       ) : viewMode === "n8n" ? (
         <N8nWorkflowsMarketplace />
+      ) : viewMode === "dify" ? (
+        <DifyWorkflowsMarketplace />
       ) : (
         <>
           {/* ENTERPRISE BLUEPRINTS & TEMPLATES */}

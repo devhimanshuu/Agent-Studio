@@ -15,12 +15,15 @@ function NewCanvasForm() {
   const searchParams = useSearchParams();
   const templateId = searchParams.get("template");
   const n8nId = searchParams.get("n8nId");
+  const difyId = searchParams.get("difyId");
   const template = CANVAS_TEMPLATES.find((t) => t.id === templateId) ?? null;
 
   const [name, setName] = useState(template ? `${template.name}` : "");
   const [purpose, setPurpose] = useState(template ? template.description : "");
   const [n8nGraph, setN8nGraph] = useState<AgentGraphDefinition | null>(null);
+  const [difyGraph, setDifyGraph] = useState<AgentGraphDefinition | null>(null);
   const [n8nLoading, setN8nLoading] = useState(Boolean(n8nId));
+  const [difyLoading, setDifyLoading] = useState(Boolean(difyId));
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -51,7 +54,35 @@ function NewCanvasForm() {
       });
   }, [n8nId]);
 
-  const activeGraph = n8nGraph || template?.graph || createEmptyGraph();
+  useEffect(() => {
+    if (!difyId) return;
+    setDifyLoading(true);
+    fetch(`/api/workflows/dify/${difyId}`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && json.data) {
+          const wf = json.data;
+          setName(wf.name || `Dify Workflow`);
+          setPurpose(
+            (wf.description || `Imported Dify workflow template`).replace(/#+\s*/g, "").slice(0, 280)
+          );
+          if (wf.convertedGraph) {
+            setDifyGraph(wf.convertedGraph);
+          }
+          toast.success("Loaded Dify template!", `${wf.name} ready to open on Canvas`);
+        } else {
+          toast.error("Failed to load Dify template", json.error);
+        }
+      })
+      .catch((err) => {
+        toast.error("Error loading Dify template", err.message);
+      })
+      .finally(() => {
+        setDifyLoading(false);
+      });
+  }, [difyId]);
+
+  const activeGraph = difyGraph || n8nGraph || template?.graph || createEmptyGraph();
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -114,6 +145,10 @@ function NewCanvasForm() {
         <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 font-mono">
           {n8nLoading
             ? "Fetching n8n workflow architecture..."
+            : difyLoading
+            ? "Fetching Dify template architecture and DSL..."
+            : difyGraph
+            ? `Imported from Dify: ${name}`
             : n8nGraph
             ? `Imported from n8n: ${name}`
             : template
@@ -131,7 +166,32 @@ function NewCanvasForm() {
         </div>
       )}
 
-      {n8nGraph && !n8nLoading && (
+      {difyLoading && (
+        <div className="rounded border border-blue-500/30 bg-blue-500/10 p-4 space-y-2 font-mono flex items-center gap-3">
+          <Loader2 className="h-4 w-4 animate-spin text-blue-400" />
+          <span className="text-xs text-blue-300">
+            Translating Dify workflow DSL nodes, models, and tools into Agent Studio canvas...
+          </span>
+        </div>
+      )}
+
+      {difyGraph && !difyLoading && (
+        <div className="rounded border border-blue-400/40 dark:border-blue-500/40 bg-blue-50/70 dark:bg-blue-950/20 p-4 space-y-2 font-mono">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-widest flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-blue-400" /> DIFY TEMPLATE PRELOADED
+            </span>
+            <span className="text-[9px] text-slate-500">
+              {difyGraph.nodes.length} nodes · {difyGraph.edges.length} connections
+            </span>
+          </div>
+          <p className="text-[11px] text-blue-900/80 dark:text-blue-200/80 leading-relaxed font-sans">
+            {purpose}
+          </p>
+        </div>
+      )}
+
+      {n8nGraph && !n8nLoading && !difyGraph && (
         <div className="rounded border border-rose-400/40 dark:border-rose-500/40 bg-rose-50/70 dark:bg-rose-950/20 p-4 space-y-2 font-mono">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold text-rose-700 dark:text-rose-300 uppercase tracking-widest flex items-center gap-1.5">
@@ -147,7 +207,7 @@ function NewCanvasForm() {
         </div>
       )}
 
-      {template && !n8nGraph && (
+      {template && !n8nGraph && !difyGraph && (
         <div className="rounded border border-violet-300 dark:border-violet-500/40 bg-violet-50/70 dark:bg-violet-950/20 p-4 space-y-2 font-mono">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold text-violet-700 dark:text-violet-300 uppercase tracking-widest flex items-center gap-1.5">

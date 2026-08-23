@@ -75,17 +75,17 @@ const NODE_ICONS: Partial<Record<GraphNodeType, React.ComponentType<{ className?
 };
 
 const NODE_COLORS: Partial<Record<GraphNodeType, string>> = {
-  start: "border-emerald-500 bg-emerald-50 text-emerald-700",
-  end: "border-rose-500 bg-rose-50 text-rose-700",
-  agent: "border-indigo-500 bg-indigo-50 text-indigo-700",
-  supervisor: "border-violet-500 bg-violet-50 text-violet-700",
-  tool: "border-cyan-500 bg-cyan-50 text-cyan-700",
-  router: "border-amber-500 bg-amber-50 text-amber-700",
-  approval: "border-orange-500 bg-orange-50 text-orange-700",
-  mcp_tool: "border-fuchsia-500 bg-fuchsia-50 text-fuchsia-700",
-  mcp_server: "border-violet-500 bg-violet-50 text-violet-700",
-  loop: "border-fuchsia-500 bg-fuchsia-50 text-fuchsia-700",
-  parallel: "border-teal-500 bg-teal-50 text-teal-700",
+  start: "border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300",
+  end: "border-rose-300 dark:border-rose-500/40 bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300",
+  agent: "border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300",
+  supervisor: "border-violet-300 dark:border-violet-500/40 bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-300",
+  tool: "border-cyan-300 dark:border-cyan-500/40 bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-300",
+  router: "border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300",
+  approval: "border-orange-300 dark:border-orange-500/40 bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300",
+  mcp_tool: "border-fuchsia-300 dark:border-fuchsia-500/40 bg-fuchsia-50 dark:bg-fuchsia-950/30 text-fuchsia-700 dark:text-fuchsia-300",
+  mcp_server: "border-violet-300 dark:border-violet-500/40 bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-300",
+  loop: "border-fuchsia-300 dark:border-fuchsia-500/40 bg-fuchsia-50 dark:bg-fuchsia-950/30 text-fuchsia-700 dark:text-fuchsia-300",
+  parallel: "border-teal-300 dark:border-teal-500/40 bg-teal-50 dark:bg-teal-950/30 text-teal-700 dark:text-teal-300",
 };
 
 const EXAMPLE_PROMPTS = [
@@ -378,7 +378,7 @@ export function SkillSynthesizer() {
                 </button>
               )}
               {installed && (
-                <div className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-emerald-300 bg-emerald-50 text-[10px] font-mono font-bold text-emerald-700 shrink-0">
+                <div className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-300 shrink-0">
                   <Check className="h-3 w-3" /> INSTALLED
                 </div>
               )}
@@ -497,7 +497,7 @@ export function SkillSynthesizer() {
                 {result.graph.nodes.map((node) => {
                   const isExpanded = expandedNodes.has(node.id);
                   const Icon = NODE_ICONS[node.type] || Bot;
-                  const colorClass = NODE_COLORS[node.type] || "border-slate-300 bg-slate-50 text-slate-700";
+                  const colorClass = NODE_COLORS[node.type] || "border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 text-slate-700 dark:text-slate-300";
 
                   return (
                     <div
@@ -510,7 +510,7 @@ export function SkillSynthesizer() {
                       <button
                         type="button"
                         onClick={() => toggleNode(node.id)}
-                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-black/5 transition-colors cursor-pointer"
+                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           {isExpanded ? (
@@ -527,7 +527,7 @@ export function SkillSynthesizer() {
                           </span>
                         </div>
                         {node.type === "approval" && (
-                          <span className="px-1.5 py-0.5 rounded text-[7px] font-mono font-bold bg-orange-100 text-orange-700 border border-orange-300 shrink-0">
+                          <span className="px-1.5 py-0.5 rounded text-[7px] font-mono font-bold bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border border-orange-300 dark:border-orange-700/50 shrink-0">
                             HITL
                           </span>
                         )}
@@ -610,7 +610,7 @@ export function SkillSynthesizer() {
               {result.skillId && (
                 <a
                   href={`/dashboard/skills/${result.skillId}`}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded text-[9px] font-mono font-bold text-indigo-600 hover:text-indigo-800 border border-indigo-200 hover:border-indigo-400 transition-all"
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded text-[9px] font-mono font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 border border-indigo-200 dark:border-indigo-800/40 hover:border-indigo-400 dark:hover:border-indigo-600 transition-all"
                 >
                   OPEN <ArrowRight className="h-2.5 w-2.5" />
                 </a>
