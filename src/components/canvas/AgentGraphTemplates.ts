@@ -12,7 +12,7 @@ export interface CanvasTemplate {
 const GRID_Y = 240;
 const NODE_X = 260;
 
-function positions(count: number): { x: number; y: number }[] {
+function _positions(count: number): { x: number; y: number }[] {
   const ys = Array.from({ length: count }, (_, i) => {
     const offset = count === 1 ? 0 : i - (count - 1) / 2;
     return GRID_Y + offset * 150;

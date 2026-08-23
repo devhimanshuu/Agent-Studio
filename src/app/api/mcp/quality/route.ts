@@ -67,7 +67,7 @@ function scoreSchemaQuality(tools: { inputSchema?: Record<string, unknown> }[]):
   };
 }
 
-async function scoreLatency(endpointUrl?: string): Promise<{ score: number; grade: QualityGrade; avgMs: number }> {
+async function _scoreLatency(endpointUrl?: string): Promise<{ score: number; grade: QualityGrade; avgMs: number }> {
   if (!endpointUrl) {
     return { score: 70, grade: "B", avgMs: 0 };
   }

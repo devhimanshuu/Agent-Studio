@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { McpClientService } from "@/services/McpClientService";
 import { McpServerRepository } from "@/repositories/McpServerRepository";

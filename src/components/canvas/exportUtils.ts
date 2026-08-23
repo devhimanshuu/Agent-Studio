@@ -1,8 +1,16 @@
-import type { CanvasNode } from "./graphUtils";
-import type { Edge } from "@xyflow/react";
 import type { AgentGraphDefinition } from "@/types/graph";
 
 // ─── Visual Export (PNG / SVG / PDF) ───
+
+/**
+ * Helper to trigger a browser download for a data URL.
+ */
+function downloadDataUrl(dataUrl: string, filename: string): void {
+  const link = document.createElement("a");
+  link.download = filename;
+  link.href = dataUrl;
+  link.click();
+}
 
 /**
  * Export the canvas viewport as a high-resolution PNG using html-to-image.
@@ -139,7 +147,7 @@ export function graphToMermaid(graph: AgentGraphDefinition): string {
  */
 export function graphToLangGraphPython(graph: AgentGraphDefinition): string {
   const SKIP = new Set(["start", "end", "sticky_note", "frame"]);
-  const Q = '"'; // Python double-quote character
+  const _Q = '"'; // Python double-quote character
   const lines: string[] = [];
 
   // File header
@@ -719,12 +727,3 @@ export const EXPORT_FORMATS: ExportFormat[] = [
   { id: "langgraph-ts", label: "LangGraph TypeScript", description: "TypeScript StateGraph code", category: "code", icon: "📘", extension: ".ts" },
   { id: "json", label: "JSON Schema", description: "Graph definition (import/export)", category: "data", icon: "📋", extension: ".json" },
 ];
-
-// ─── Helpers ───
-
-function downloadDataUrl(dataUrl: string, filename: string) {
-  const link = document.createElement("a");
-  link.download = filename;
-  link.href = dataUrl;
-  link.click();
-}

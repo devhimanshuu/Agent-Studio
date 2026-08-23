@@ -3,16 +3,14 @@
 import React, { useCallback, useState } from "react";
 import {
   Package,
-  Plus,
   Trash2,
   GripVertical,
   Copy,
   Star,
   FolderOpen,
 } from "lucide-react";
-import { clsx } from "clsx";
-import type { AgentGraphDefinition } from "@/types/graph";
-import type { CanvasNode, CanvasNodeData } from "./graphUtils";
+import type { AgentGraphDefinition, GraphNodeType } from "@/types/graph";
+import type { CanvasNode } from "./graphUtils";
 
 const STORAGE_KEY = "agent-studio-component-library";
 
@@ -62,8 +60,8 @@ export function MacroLibrary({
   edges,
   selectedNodeIds,
   onAddMacro,
-  isOpen,
-  onToggle,
+  isOpen: _isOpen,
+  onToggle: _onToggle,
 }: MacroLibraryProps) {
   const [components, setComponents] = useState<MacroComponent[]>(loadLibrary);
   const [savingName, setSavingName] = useState("");
@@ -82,9 +80,9 @@ export function MacroLibrary({
       version: 1,
       nodes: selectedNodes.map((n) => ({
         id: n.id,
-        type: (n.type ?? "agent") as any,
+        type: (n.type ?? "agent") as GraphNodeType,
         position: { ...n.position },
-        data: { ...n.data } as any,
+        data: { ...n.data },
       })),
       edges: selectedEdges.map((e) => ({
         id: e.id,

@@ -1,4 +1,4 @@
-import { PrismaClient, Role, SkillStatus, ToolType, ExecutionStatus, McpTransport, McpServerStatus, Prisma } from "@prisma/client";
+import { PrismaClient, Role, SkillStatus, ToolType, McpTransport, McpServerStatus, Prisma } from "@prisma/client";
 
 const prisma = new PrismaClient();
 

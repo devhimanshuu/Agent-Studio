@@ -10,7 +10,7 @@ const SMITHERY_API = "https://registry.smithery.ai";
 /**
  * Fetch a single page of Smithery items (servers or skills)
  */
-async function smitheryPage<T>(
+async function _smitheryPage<T>(
   endpoint: string,
   page: number,
   pageSize: number
@@ -66,7 +66,7 @@ export async function GET(req: Request) {
     if (fetchAll) {
       const { items, totalCount } = await fetchAllSmithery(
         fetchType as "servers" | "skills",
-        (item: any) => item
+        (item: unknown) => item
       );
       return NextResponse.json({
         success: true,
@@ -83,7 +83,7 @@ export async function GET(req: Request) {
     // Paginated request with auto-caching and next-page prefetch
     const page = parseInt(searchParams.get("page") || "1", 10) || 1;
     const pageSize = parseInt(searchParams.get("pageSize") || "50", 10) || 50;
-    const result = await fetchSmitheryPaginated<any>({
+    const result = await fetchSmitheryPaginated<Record<string, unknown>>({
       endpoint: fetchType as "servers" | "skills",
       page,
       pageSize,

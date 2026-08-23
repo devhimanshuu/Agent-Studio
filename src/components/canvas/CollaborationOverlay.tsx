@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Users, MousePointer2, Eye, Lock } from "lucide-react";
-import { clsx } from "clsx";
+import React, { useEffect, useRef, useState } from "react";
+import { Users, Lock } from "lucide-react";
 
 const CURSOR_COLORS = [
   "#818cf8", // indigo

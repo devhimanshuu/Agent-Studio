@@ -7,30 +7,20 @@ import {
   Download,
   Loader2,
   ExternalLink,
-  Sparkles,
-  Layers,
-  CheckCircle2,
   ArrowRight,
-  RefreshCw,
   X,
   FileCode,
-  ShieldCheck,
-  Tag,
   Mail,
-  Link as LinkIcon,
   Play,
   Copy,
   Check,
-  Plus,
-  Code,
-  Server,
   BookOpen,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { ItemIcon } from "@/components/common/ItemIcon";
-import { OpenApiParsedSpecDTO, OpenApiEndpointDefinition } from "@/types/openapi";
+import { OpenApiParsedSpecDTO } from "@/types/openapi";
 
 interface DirectoryApiItem {
   id: string;
@@ -105,7 +95,7 @@ export function OpenApiDirectoryBrowser({ onSelectSpecUrl }: OpenApiDirectoryBro
   // Container Ref for scrolling to top when page changes
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const toggleInstalled = useCallback((specUrl: string) => {
+  const _toggleInstalled = useCallback((specUrl: string) => {
     setInstalledSpecUrls((prev) => {
       const next = new Set(prev);
       if (next.has(specUrl)) {

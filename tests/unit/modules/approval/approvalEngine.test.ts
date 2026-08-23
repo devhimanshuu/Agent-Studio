@@ -45,9 +45,21 @@ function makeExecution(overrides: Record<string, unknown> = {}) {
 }
 
 describe("ApprovalEngine", () => {
-  let approvalRepo: any;
-  let historyRepo: any;
-  let executionRepo: any;
+  let approvalRepo: {
+    findById: ReturnType<typeof vi.fn>;
+    respond: ReturnType<typeof vi.fn>;
+    findByExecutionId: ReturnType<typeof vi.fn>;
+  };
+  let historyRepo: {
+    log: ReturnType<typeof vi.fn>;
+    findByApprovalId: ReturnType<typeof vi.fn>;
+    findByExecutionId: ReturnType<typeof vi.fn>;
+  };
+  let executionRepo: {
+    findById: ReturnType<typeof vi.fn>;
+    updateStatus: ReturnType<typeof vi.fn>;
+    findByUserId: ReturnType<typeof vi.fn>;
+  };
   let engine: ApprovalEngine;
 
   beforeEach(() => {
@@ -66,7 +78,11 @@ describe("ApprovalEngine", () => {
       updateStatus: vi.fn(),
       findByUserId: vi.fn().mockResolvedValue([]),
     };
-    engine = new ApprovalEngine(approvalRepo, historyRepo, executionRepo);
+    engine = new ApprovalEngine(
+      approvalRepo as unknown as ConstructorParameters<typeof ApprovalEngine>[0],
+      historyRepo as unknown as ConstructorParameters<typeof ApprovalEngine>[1],
+      executionRepo as unknown as ConstructorParameters<typeof ApprovalEngine>[2]
+    );
   });
 
   describe("approve", () => {

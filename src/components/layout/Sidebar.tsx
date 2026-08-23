@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   Workflow,
   Play,
-  GitBranch,
   GitCompare,
   Shield,
   Wrench,
@@ -48,7 +47,7 @@ export function Sidebar() {
   // Close mobile sidebar on route change
   useEffect(() => {
     closeMobile();
-  }, [pathname]);
+  }, [pathname, closeMobile]);
 
   // Determine if this is an active workspace app route
   const isAppRoute =

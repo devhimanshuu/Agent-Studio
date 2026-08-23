@@ -11,11 +11,10 @@ import {
   ChevronDown,
   ChevronRight,
   Check,
-  AlertTriangle,
   Zap,
 } from "lucide-react";
 import { clsx } from "clsx";
-import { McpToolUpdate, McpToolChange, McpToolDefinition } from "@/types/mcp";
+import { McpToolUpdate, McpToolDefinition } from "@/types/mcp";
 
 interface ToolUpdateDiffViewerProps {
   update: McpToolUpdate;

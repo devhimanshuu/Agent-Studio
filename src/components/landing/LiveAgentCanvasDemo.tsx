@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   Play,
   RefreshCw,
@@ -15,19 +15,11 @@ import {
   Radio,
   Plus,
   Minus,
-  Maximize2,
-  Sparkles,
   MousePointerClick,
-  SlidersHorizontal,
   Layers,
-  Bot,
   Zap,
-  Activity,
-  ChevronRight,
-  Shield,
   Clock,
   Cpu,
-  Check,
   RotateCcw,
 } from "lucide-react";
 import { clsx } from "clsx";
@@ -493,7 +485,7 @@ export function LiveAgentCanvasDemo() {
   };
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) ?? nodes[0];
-  const activeStep = currentStepIndex >= 0 ? TRACE_STEPS[currentStepIndex] : null;
+  const _activeStep = currentStepIndex >= 0 ? TRACE_STEPS[currentStepIndex] : null;
 
   return (
     <div className="w-full rounded-lg border border-slate-200 dark:border-indigo-900/50 bg-white/95 dark:bg-[#07070d] font-mono shadow-xl dark:shadow-2xl shadow-indigo-500/10 dark:shadow-indigo-950/50 overflow-hidden transition-all duration-200">

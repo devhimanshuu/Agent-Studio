@@ -90,7 +90,7 @@ function BaseShell({
   children,
   selected,
   showTarget = true,
-  showSource = true,
+  showSource: _showSource = true,
   sourceCount = 1,
 }: {
   data: CanvasNodeData;

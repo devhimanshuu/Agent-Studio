@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
-import { Sparkles, Loader2, X, Wand2, ChevronDown, ChevronUp } from "lucide-react";
+import { Sparkles, Loader2, Wand2, ChevronDown, ChevronUp } from "lucide-react";
 import { clsx } from "clsx";
 import type { AgentGraphDefinition } from "@/types/graph";
 

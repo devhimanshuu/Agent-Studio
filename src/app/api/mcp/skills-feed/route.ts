@@ -147,12 +147,12 @@ function mapComposioSkillCategory(cat: string): SkillCategory {
   return "PRODUCTIVITY";
 }
 
-function smitheryItemToSkill(s: any): AgentSkill {
+function smitheryItemToSkill(s: Record<string, unknown>): AgentSkill {
   return {
-    id: `smithery-${s.id}`,
-    name: s.displayName || s.slug || "Smithery Skill",
-    description: s.description || "",
-    category: mapSkillCategory(s.categories?.[0] || ""),
+    id: `smithery-${s.id as string}`,
+    name: (s.displayName as string) || (s.slug as string) || "Smithery Skill",
+    description: (s.description as string) || "",
+    category: mapSkillCategory(((s.categories as string[])?.[0]) || ""),
     author: s.namespace || "smithery",
     source: "smithery" as const,
     sourceUrl: s.gitUrl,

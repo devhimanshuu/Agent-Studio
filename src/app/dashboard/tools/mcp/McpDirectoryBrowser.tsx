@@ -14,7 +14,6 @@ import {
   ShieldCheck,
   Zap,
   Terminal,
-  Server,
   Tag,
   Check,
   Copy,
@@ -34,8 +33,6 @@ import {
   Activity,
   Clock,
   FileText,
-  ArrowUpDown,
-  Filter,
   ChevronLeft,
   ChevronRight,
   LayoutGrid,
@@ -172,7 +169,7 @@ export function McpDirectoryBrowser({ onMount, mountedServerIds = [] }: McpDirec
   const [currentPage, setCurrentPage] = useState(1);
   const [detailServer, setDetailServer] = useState<PublicMcpServer | null>(null);
   const [qualityScores, setQualityScores] = useState<Map<string, ServerQualityScore>>(new Map());
-  const [qualityLoading, setQualityLoading] = useState(false);
+  const [_qualityLoading, setQualityLoading] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
   const [dirViewMode, setDirViewMode] = useState<"grid" | "row">("grid");
 
@@ -198,7 +195,7 @@ export function McpDirectoryBrowser({ onMount, mountedServerIds = [] }: McpDirec
     [mountedSet]
   );
 
-  const fetchDirectory = async () => {
+  const fetchDirectory = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -230,14 +227,14 @@ export function McpDirectoryBrowser({ onMount, mountedServerIds = [] }: McpDirec
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, source, category, transport, language]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       void fetchDirectory();
     }, 250);
     return () => clearTimeout(timer);
-  }, [search, source, category, transport, language]);
+  }, [fetchDirectory]);
 
   // Fetch quality scores for visible servers
   useEffect(() => {
@@ -302,7 +299,7 @@ export function McpDirectoryBrowser({ onMount, mountedServerIds = [] }: McpDirec
     // "default" keeps API order (verified first, then stars)
 
     return list;
-  }, [servers, sortBy, showFavoritesOnly, favorites]);
+  }, [servers, sortBy, showFavoritesOnly, favorites, mountedSet, showInstalledOnly]);
 
   const totalPages = Math.max(1, Math.ceil(processedServers.length / PAGE_SIZE));
 

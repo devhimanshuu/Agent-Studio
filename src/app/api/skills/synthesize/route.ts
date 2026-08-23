@@ -233,7 +233,7 @@ export async function POST(request: NextRequest) {
     const llmServers = result.analysis?.servers || [];
 
     // Merge: LLM-detected servers + keyword-matched servers
-    const allServerNames = new Set([
+    const _allServerNames = new Set([
       ...llmServers.map((s) => s.searchQuery.toLowerCase()),
       ...keywordMatches,
     ]);

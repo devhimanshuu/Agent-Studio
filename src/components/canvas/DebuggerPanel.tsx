@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import React, { useState } from "react";
 import {
   Bug,
   Circle,
@@ -13,8 +13,6 @@ import {
   ChevronDown,
   RotateCcw,
 } from "lucide-react";
-import { clsx } from "clsx";
-import type { CanvasNode, CanvasNodeData } from "./graphUtils";
 
 interface DebuggerPanelProps {
   /** Current trace node statuses. */
@@ -49,7 +47,7 @@ export function DebuggerPanel({
   nodeStatuses,
   nodeDetails,
   isRunning,
-  onToggleBreakpoint,
+  onToggleBreakpoint: _onToggleBreakpoint,
   onStepNext,
   onContinue,
   onPause,

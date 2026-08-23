@@ -1,5 +1,3 @@
-import { PublicMcpServer } from "./mcp-directory";
-
 // ────────────── Skills Marketplace ──────────────
 
 export type SkillCategory = "RESEARCH" | "CODING" | "ANALYSIS" | "CREATIVE" | "PRODUCTIVITY" | "DATA" | "COMMUNICATION" | "AUTOMATION" | "KNOWLEDGE";

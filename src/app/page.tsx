@@ -4,7 +4,6 @@ import {
   Check,
   CheckSquare,
   GitCompare,
-  ArrowRight,
   Lock,
   Wrench,
   Shield,
@@ -37,22 +36,14 @@ import {
   Wallet,
   MousePointerClick,
   LayoutTemplate,
-  Keyboard,
   Palette,
   Link2,
   TriangleAlert,
-  BarChart3,
-  Sparkles,
   Network,
   Webhook,
   Camera,
   Globe,
-  Download,
-  Star,
-  TrendingUp,
-  Puzzle,
   Package,
-  ServerCog,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Reveal } from "@/components/Reveal";
@@ -61,7 +52,6 @@ import { Reveal } from "@/components/Reveal";
 // server too, so `ssr: false` is both unnecessary and rejected by Next 15 in
 // Server Components (the page module). Lazy-loading without it keeps the
 // route split while staying build-safe.
-const LiveExecutionTerminal = dynamic(() => import("@/components/landing/LiveExecutionTerminal").then((m) => m.LiveExecutionTerminal));
 const LiveAgentCanvasDemo = dynamic(() => import("@/components/landing/LiveAgentCanvasDemo").then((m) => m.LiveAgentCanvasDemo));
 const PixelGridWave = dynamic(() => import("@/components/landing/PixelGridWave").then((m) => m.PixelGridWave));
 const NeuralPatterns = dynamic(() => import("@/components/landing/NeuralPatterns").then((m) => m.NeuralPatterns));
@@ -941,6 +931,7 @@ export default function LandingPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="h-9 w-9 rounded-lg bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center p-1 shadow-sm shrink-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src="https://composio.dev/logos/composio-black.svg" alt="Composio" className="h-6 w-6" data-logo-invert />
                     </div>
                     <div>
@@ -983,6 +974,7 @@ export default function LandingPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="h-9 w-9 rounded-lg bg-rose-500/10 dark:bg-rose-500/15 border border-rose-500/30 flex items-center justify-center p-1 shadow-sm shrink-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src="https://www.arcade.dev/favicon.svg" alt="Arcade" className="h-6 w-6" />
                     </div>
                     <div>

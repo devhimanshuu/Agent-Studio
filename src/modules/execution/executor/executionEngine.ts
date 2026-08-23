@@ -12,10 +12,8 @@ import { PlannerService } from "../planner/plannerService";
 import { ExecutionRuntime } from "./runtime";
 import {
   ExecutionCancelledError,
-  ExecutionError,
   ExecutionTimeoutError,
   StepLimitExceededError,
-  UnauthorizedToolError,
   errorMessage,
 } from "./errors";
 

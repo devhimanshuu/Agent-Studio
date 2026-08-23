@@ -49,7 +49,7 @@ export default function SkillDetailPage() {
   const [runInput, setRunInput] = useState("{\n  \n}");
   const [runInputError, setRunInputError] = useState<string | null>(null);
 
-  const { data: skill, isLoading, isError, refetch } = useQuery({
+  const { data: skill, isLoading, isError } = useQuery({
     queryKey: ["skill", id],
     queryFn: () => skillsApi.get(id),
   });

@@ -315,7 +315,7 @@ export async function fetchAwesomeMcpPaginated<T>(options: {
     pageSize = 50,
     query = "",
     category = "ALL",
-    mapItem = (x: any) => x as T,
+    mapItem = (x: unknown) => x as T,
   } = options;
 
   const allServers = await getCachedAwesomeMcpServers();
@@ -367,7 +367,7 @@ const SMITHERY_DEFAULT_PAGE_SIZE = 100;
 const SMITHERY_HEADERS = { "User-Agent": "Agent-Studio/1.0" };
 
 interface SmitheryCacheEntry {
-  data: any[];
+  data: unknown[];
   totalCount: number;
   fetchedAt: number;
 }
@@ -383,7 +383,7 @@ function buildCacheKey(endpoint: string, page: number, pageSize: number, query =
 /**
  * Fetch a single page from Smithery registry with retry.
  */
-export async function smitheryFetchPage<T = any>(
+export async function smitheryFetchPage<T = unknown>(
   endpoint: "servers" | "skills",
   page: number,
   pageSize = SMITHERY_DEFAULT_PAGE_SIZE,
@@ -462,14 +462,14 @@ export async function fetchSmitheryPaginated<T>(options: {
   page?: number;
   pageSize?: number;
   query?: string;
-  mapItem?: (item: any) => T;
+  mapItem?: (item: unknown) => T;
 }): Promise<SmitheryPaginatedResult<T>> {
   const {
     endpoint,
     page = 1,
     pageSize = SMITHERY_DEFAULT_PAGE_SIZE,
     query = "",
-    mapItem = (x: any) => x as T,
+    mapItem = (x: unknown) => x as T,
   } = options;
 
   const cacheKey = buildCacheKey(endpoint, page, pageSize, query);
@@ -496,7 +496,7 @@ export async function fetchSmitheryPaginated<T>(options: {
   }
 
   // Fetch current page from Smithery
-  const result = await smitheryFetchPage<any>(endpoint, page, pageSize, query);
+  const result = await smitheryFetchPage<Record<string, unknown>>(endpoint, page, pageSize, query);
   const totalCount = result.totalCount || result.data.length;
   const totalPages = Math.ceil(totalCount / pageSize) || 1;
   const hasMore = page < totalPages && result.data.length > 0;
@@ -530,7 +530,7 @@ export async function fetchSmitheryPaginated<T>(options: {
  */
 export async function fetchAllSmithery<T>(
   endpoint: "servers" | "skills",
-  mapItem: (item: any) => T,
+  mapItem: (item: unknown) => T,
   maxPages = 100
 ): Promise<{ items: T[]; totalCount: number }> {
   const cacheKey = `all:${endpoint}:max${maxPages}`;
@@ -542,7 +542,7 @@ export async function fetchAllSmithery<T>(
     };
   }
 
-  const first = await smitheryFetchPage<any>(endpoint, 1, SMITHERY_DEFAULT_PAGE_SIZE);
+  const first = await smitheryFetchPage<Record<string, unknown>>(endpoint, 1, SMITHERY_DEFAULT_PAGE_SIZE);
   const totalCount = first.totalCount || first.data.length;
   const totalPages = Math.min(Math.ceil(totalCount / SMITHERY_DEFAULT_PAGE_SIZE), maxPages);
 
@@ -555,7 +555,7 @@ export async function fetchAllSmithery<T>(
     return { items: first.data.map(mapItem), totalCount };
   }
 
-  const allRaw: any[] = [...first.data];
+  const allRaw: Record<string, unknown>[] = [...first.data];
 
   // Fetch remaining pages in batches of 5 for parallelism
   const BATCH_SIZE = 5;
@@ -564,7 +564,7 @@ export async function fetchAllSmithery<T>(
     const batch = [];
     for (let page = batchStart; page <= batchEnd; page++) {
       batch.push(
-        smitheryFetchPage<any>(endpoint, page, SMITHERY_DEFAULT_PAGE_SIZE)
+        smitheryFetchPage<Record<string, unknown>>(endpoint, page, SMITHERY_DEFAULT_PAGE_SIZE)
           .then((res) => ({ page, data: res.data || [] }))
       );
     }
@@ -612,7 +612,7 @@ const SMITHERY_SEARCH_QUERIES = [
   "weather", "maps", "excel", "csv", "json",
 ];
 
-let multiQueryCache: { data: any[]; totalCount: number; fetchedAt: number } | null = null;
+let multiQueryCache: { data: Record<string, unknown>[]; totalCount: number; fetchedAt: number } | null = null;
 const MULTI_QUERY_CACHE_TTL = 1800_000; // 30 mins
 
 /**
@@ -621,13 +621,13 @@ const MULTI_QUERY_CACHE_TTL = 1800_000; // 30 mins
  */
 export async function fetchSmitheryMultiQuery(
   maxQueries = 60
-): Promise<{ data: any[]; totalCount: number }> {
+): Promise<{ data: Record<string, unknown>[]; totalCount: number }> {
   if (multiQueryCache && Date.now() - multiQueryCache.fetchedAt < MULTI_QUERY_CACHE_TTL) {
     return { data: multiQueryCache.data, totalCount: multiQueryCache.totalCount };
   }
 
   const seenIds = new Set<string>();
-  const allRaw: any[] = [];
+  const allRaw: Record<string, unknown>[] = [];
   const queries = SMITHERY_SEARCH_QUERIES.slice(0, maxQueries);
 
   // Process queries in batches of 5 for parallelism
@@ -639,11 +639,11 @@ export async function fetchSmitheryMultiQuery(
         try {
           // Fetch all 5 pages per query for maximum coverage
           const pages = await Promise.all([
-            smitheryFetchPage<any>("servers", 1, 100, q),
-            smitheryFetchPage<any>("servers", 2, 100, q),
-            smitheryFetchPage<any>("servers", 3, 100, q),
-            smitheryFetchPage<any>("servers", 4, 100, q),
-            smitheryFetchPage<any>("servers", 5, 100, q),
+            smitheryFetchPage<Record<string, unknown>>("servers", 1, 100, q),
+            smitheryFetchPage<Record<string, unknown>>("servers", 2, 100, q),
+            smitheryFetchPage<Record<string, unknown>>("servers", 3, 100, q),
+            smitheryFetchPage<Record<string, unknown>>("servers", 4, 100, q),
+            smitheryFetchPage<Record<string, unknown>>("servers", 5, 100, q),
           ]);
           return pages.flatMap((p) => p.data || []);
         } catch {
@@ -654,7 +654,7 @@ export async function fetchSmitheryMultiQuery(
 
     for (const servers of results) {
       for (const s of servers) {
-        if (s.id && !seenIds.has(s.id)) {
+        if (typeof s.id === "string" && !seenIds.has(s.id)) {
           seenIds.add(s.id);
           allRaw.push(s);
         }
@@ -937,7 +937,7 @@ export async function fetchComposioToolkits(): Promise<ComposioToolkit[]> {
           description: item.meta?.description || "",
           logo: item.meta?.logo || "",
           appUrl: item.meta?.app_url || "",
-          categories: (item.meta?.categories || []).map((c: any) => ({
+          categories: (item.meta?.categories || []).map((c: { id?: string; name?: string }) => ({
             id: c.id,
             name: c.name,
           })),
@@ -1017,18 +1017,22 @@ export async function fetchComposioToolsPage(
     if (!res.ok) return { tools: [], nextCursor: null, totalItems: 0 };
     const json = await res.json();
 
-    const tools: ComposioTool[] = (json.items || []).map((t: any) => ({
-      slug: t.slug,
-      name: t.name,
-      description: t.description || "",
-      toolkitSlug: t.toolkit?.slug || "unknown",
-      toolkitName: t.toolkit?.name || "Unknown",
-      toolkitLogo: t.toolkit?.logo || "",
-      inputSchema: t.input_parameters || {},
-      outputSchema: t.output_parameters || {},
-      category: t.toolkit?.categories?.[0]?.name || "other",
-      authType: t.auth_type || "unknown",
-    }));
+    const tools: ComposioTool[] = (json.items || []).map((t: Record<string, unknown>) => {
+      const toolkit = (t.toolkit as Record<string, unknown>) || {};
+      const categories = (toolkit.categories as Record<string, unknown>[]) || [];
+      return {
+        slug: (t.slug as string) || "",
+        name: (t.name as string) || "",
+        description: (t.description as string) || "",
+        toolkitSlug: (toolkit.slug as string) || "unknown",
+        toolkitName: (toolkit.name as string) || "Unknown",
+        toolkitLogo: (toolkit.logo as string) || "",
+        inputSchema: (t.input_parameters as Record<string, unknown>) || {},
+        outputSchema: (t.output_parameters as Record<string, unknown>) || {},
+        category: (categories[0]?.name as string) || "other",
+        authType: (t.auth_type as string) || "unknown",
+      };
+    });
 
     return {
       tools,

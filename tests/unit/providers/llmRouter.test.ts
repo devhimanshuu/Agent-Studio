@@ -2,8 +2,6 @@ import { describe, it, expect, vi } from "vitest";
 import { LLMRouter } from "@/providers/llm/LLMRouter";
 import {
   LLMProvider,
-  LLMChatMessage,
-  LLMCompletionOptions,
   LLMCompletionResult,
   LLMError,
 } from "@/providers/llm/LLMProvider";

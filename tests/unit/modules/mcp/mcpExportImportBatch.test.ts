@@ -57,7 +57,7 @@ class MockMcpRepo implements IMcpServerRepository {
     row.lastError = error ?? null;
     return row;
   }
-  async updateCachedTools(id: string, tools: any[]): Promise<McpServerDTO> {
+  async updateCachedTools(id: string, tools: McpServerDTO["cachedTools"]): Promise<McpServerDTO> {
     const row = this.rows.find((r) => r.id === id);
     if (!row) throw new Error("not found");
     row.cachedTools = tools;

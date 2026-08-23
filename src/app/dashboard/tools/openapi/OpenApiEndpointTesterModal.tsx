@@ -5,12 +5,8 @@ import {
   X,
   Play,
   Loader2,
-  CheckCircle2,
   AlertCircle,
   Clock,
-  Code2,
-  ShieldAlert,
-  Send,
   Sparkles,
 } from "lucide-react";
 import {

@@ -1,6 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
 
 // MCP server routes that handle their own auth (Clerk session OR bearer token).
 // These must bypass Clerk middleware entirely so external clients can connect

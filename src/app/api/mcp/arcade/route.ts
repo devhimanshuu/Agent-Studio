@@ -60,7 +60,7 @@ export async function POST(request: Request) {
         verified: testRes.ok,
       },
     });
-  } catch (_error) {
+  } catch {
     // Return the endpoint anyway — let Agent Studio handle connection
     return NextResponse.json({
       success: true,

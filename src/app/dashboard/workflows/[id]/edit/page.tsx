@@ -1,10 +1,9 @@
 "use client";
 
 import React, { use } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Play, Sparkles, CheckCircle2, Loader2, Workflow } from "lucide-react";
+import { ArrowLeft, Play, CheckCircle2, Loader2 } from "lucide-react";
 import { skillsApi } from "@/lib/api/skills";
 import { WorkflowForm } from "@/components/workflows/WorkflowForm";
 import { StatusBadge } from "@/components/skills/StatusBadge";
@@ -16,10 +15,9 @@ export default function EditWorkflowPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const router = useRouter();
   const queryClient = useQueryClient();
 
-  const { data: workflow, isLoading, isError, error } = useQuery({
+  const { data: workflow, isLoading, isError } = useQuery({
     queryKey: ["workflow", id],
     queryFn: () => skillsApi.get(id),
   });

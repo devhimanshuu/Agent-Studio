@@ -5,19 +5,13 @@ import {
   X,
   Globe,
   FileCode,
-  Sparkles,
   ArrowRight,
   ArrowLeft,
   Check,
   Search,
-  Filter,
-  ShieldCheck,
   ShieldAlert,
   Loader2,
   Lock,
-  KeyRound,
-  Layers,
-  Server,
   Play,
 } from "lucide-react";
 import { clsx } from "clsx";
@@ -75,7 +69,7 @@ export function OpenApiImportModal({ isOpen, initialSpecUrl, onClose, onSuccess 
   const [baseUrl, setBaseUrl] = useState("");
   const [endpoints, setEndpoints] = useState<OpenApiEndpointDefinition[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTag, setSelectedTag] = useState<string>("ALL");
+  const [selectedTag, _setSelectedTag] = useState<string>("ALL");
   const [selectedMethod, setSelectedMethod] = useState<string>("ALL");
 
   // Step 3: Auth
@@ -85,10 +79,10 @@ export function OpenApiImportModal({ isOpen, initialSpecUrl, onClose, onSuccess 
   const [apiKeyValue, setApiKeyValue] = useState("");
   const [apiKeyQueryParam, setApiKeyQueryParam] = useState("api_key");
   const [apiKeyLocation, setApiKeyLocation] = useState<"HEADER" | "QUERY">("HEADER");
-  const [basicUsername, setBasicUsername] = useState("");
-  const [basicPassword, setBasicPassword] = useState("");
-  const [customHeaderKey, setCustomHeaderKey] = useState("");
-  const [customHeaderVal, setCustomHeaderVal] = useState("");
+  const [_basicUsername, _setBasicUsername] = useState("");
+  const [_basicPassword, _setBasicPassword] = useState("");
+  const [_customHeaderKey, _setCustomHeaderKey] = useState("");
+  const [_customHeaderVal, _setCustomHeaderVal] = useState("");
 
   // Testing & Saving
   const [isSaving, setIsSaving] = useState(false);
@@ -193,7 +187,7 @@ export function OpenApiImportModal({ isOpen, initialSpecUrl, onClose, onSuccess 
     }
   };
 
-  const allTags = Array.from(new Set(endpoints.flatMap((e) => e.tags)));
+  const _allTags = Array.from(new Set(endpoints.flatMap((e) => e.tags)));
   const filteredEndpoints = endpoints.filter((ep) => {
     const matchesSearch =
       ep.summary.toLowerCase().includes(searchQuery.toLowerCase()) ||

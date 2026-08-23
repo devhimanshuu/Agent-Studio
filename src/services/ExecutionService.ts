@@ -3,7 +3,6 @@ import { IExecutionRepository } from "@/repositories/interfaces/IExecutionReposi
 import { ISkillRepository } from "@/repositories/interfaces/ISkillRepository";
 import { IAuditLogRepository } from "@/repositories/interfaces/IAuditLogRepository";
 import { IApprovalRepository } from "@/repositories/interfaces/IApprovalRepository";
-import { IApprovalHistoryRepository } from "@/repositories/interfaces/IApprovalHistoryRepository";
 import { IExecutionLogRepository } from "@/repositories/interfaces/IExecutionLogRepository";
 import { ApprovalRepository } from "@/repositories/ApprovalRepository";
 import { ApprovalHistoryRepository } from "@/repositories/ApprovalHistoryRepository";
@@ -20,8 +19,6 @@ import { PermissionChecker } from "@/modules/execution/tool-registry/permissionC
 import { PlannerService } from "@/modules/execution/planner/plannerService";
 import { McpClientService } from "./McpClientService";
 import { IOpenApiService } from "./interfaces/IOpenApiService";
-import { OpenApiService } from "./OpenApiService";
-import { OpenApiRepository } from "@/repositories/OpenApiRepository";
 import {
   validateSkillForExecution,
   validateVersionForExecution,

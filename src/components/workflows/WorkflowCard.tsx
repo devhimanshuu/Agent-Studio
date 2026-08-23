@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Play, Edit3, Copy, Trash2, GitCompare, Workflow, ShieldAlert } from "lucide-react";
+import { Play, Edit3, Copy, Trash2, Workflow } from "lucide-react";
 import { SkillDTO } from "@/types/skill";
 import { StatusBadge } from "@/components/skills/StatusBadge";
 import { WorkflowStepChain } from "./WorkflowStepChain";

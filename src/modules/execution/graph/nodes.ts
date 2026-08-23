@@ -1,6 +1,6 @@
 import { SkillVersionDTO } from "@/types/skill";
 import { AgentState, ToolCallRecord } from "../state/agentState";
-import { ExecutionRuntime, requireRuntime, persistNodeStep, persistToolCall } from "../executor/runtime";
+import { requireRuntime, persistNodeStep, persistToolCall } from "../executor/runtime";
 import { errorMessage, ExecutionCancelledError, ExecutionError, StepLimitExceededError, UnauthorizedToolError, ToolExecutionError } from "../executor/errors";
 import { ToolValidationError, ToolTimeoutError } from "@/modules/tools";
 import { withRetries } from "../executor/retry";

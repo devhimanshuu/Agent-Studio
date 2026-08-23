@@ -119,7 +119,7 @@ export async function GET() {
       data: toolkits,
       total: toolkits.length,
     });
-  } catch (_error) {
+  } catch {
     return NextResponse.json({ success: true, data: [] });
   }
 }

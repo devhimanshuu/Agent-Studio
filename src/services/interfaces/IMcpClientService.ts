@@ -21,11 +21,11 @@ export interface IMcpClientService {
   rediscoverTools(serverId: string, userId: string): Promise<McpServerDTO>;
   healthCheck(serverId: string, userId: string): Promise<McpHealth>;
   testTool(serverId: string, userId: string, toolName: string, args: Record<string, unknown>): Promise<McpToolTestResult>;
-  listResources(serverId: string, userId: string): Promise<any[]>;
-  readResource(serverId: string, userId: string, uri: string): Promise<any>;
-  listPrompts(serverId: string, userId: string): Promise<any[]>;
-  getPrompt(serverId: string, userId: string, promptName: string, args?: Record<string, string>): Promise<any>;
-  getMetrics(serverId: string, userId: string): Promise<any>;
+  listResources(serverId: string, userId: string): Promise<unknown[]>;
+  readResource(serverId: string, userId: string, uri: string): Promise<unknown>;
+  listPrompts(serverId: string, userId: string): Promise<unknown[]>;
+  getPrompt(serverId: string, userId: string, promptName: string, args?: Record<string, string>): Promise<unknown>;
+  getMetrics(serverId: string, userId: string): Promise<Record<string, unknown>>;
   /** Subscribe to progress events from a connected MCP server. */
   onProgress(serverId: string, userId: string, listener: (event: McpProgressEvent) => void): () => void;
   /** Handle a sampling/createMessage request from a connected MCP server. */

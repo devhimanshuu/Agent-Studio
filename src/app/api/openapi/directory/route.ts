@@ -53,7 +53,7 @@ async function fetchFullDirectory(): Promise<DirectoryCache> {
     throw new Error(`Failed to fetch APIs.guru directory (${listRes.status})`);
   }
 
-  const rawList = (await listRes.json()) as Record<string, any>;
+  const rawList = (await listRes.json()) as Record<string, unknown>;
   const rawMetrics = metricsRes && metricsRes.ok ? await metricsRes.json().catch(() => null) : null;
 
   const items: ApiDirectoryEntry[] = [];

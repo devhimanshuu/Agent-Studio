@@ -167,7 +167,7 @@ describe("VersionComparisonService.compare", () => {
   }
 
   it("reports modified, added, and unchanged fields", async () => {
-    const { repo, v1, v2 } = makeComparisonEnv();
+    const { repo, v1: _v1, v2: _v2 } = makeComparisonEnv();
     const service = new VersionComparisonService(repo);
 
     const diff = await service.compare("v1", "v2", "u1");

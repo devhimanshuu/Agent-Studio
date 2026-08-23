@@ -180,7 +180,7 @@ export function McpServerHub() {
       command: server.command,
       description: server.description,
       requiresAuthToken: Boolean(server.requiresAuthToken || (server.envVarsRequired && server.envVarsRequired.length > 0)),
-      category: (server.category as any) || "UTILITY",
+      category: (server.category as McpPreset["category"]) || "UTILITY",
     };
     setConnectPreset(mappedPreset);
     setConnectOpen(true);
@@ -1008,10 +1008,18 @@ function ActionButton(props: {
   );
 }
 
+interface PropertySchema {
+  default?: unknown;
+  enum?: unknown[];
+  type?: string;
+  example?: unknown;
+  description?: string;
+}
+
 function generateSamplePayload(schema: Record<string, unknown> | undefined): string {
   if (!schema || typeof schema !== "object") return "{}";
-  const properties = (schema.properties as Record<string, any>) || {};
-  const sample: Record<string, any> = {};
+  const properties = (schema.properties as Record<string, PropertySchema>) || {};
+  const sample: Record<string, unknown> = {};
 
   for (const [key, prop] of Object.entries(properties)) {
     if (prop.default !== undefined) {
@@ -1292,7 +1300,7 @@ function ToolTestConsole({
     }
   };
 
-  const properties = (tool.inputSchema?.properties as Record<string, any>) || {};
+  const properties = (tool.inputSchema?.properties as Record<string, PropertySchema>) || {};
   const propKeys = Object.keys(properties);
 
   return (
@@ -1416,12 +1424,25 @@ function ToolTestConsole({
 
 /* ────────────── Resources Tab ────────────── */
 
+interface McpResourceItem {
+  uri: string;
+  name?: string;
+  mimeType?: string;
+  description?: string;
+}
+
+interface McpResourceContent {
+  text?: string;
+  error?: string;
+  [key: string]: unknown;
+}
+
 function ResourcesTab({ server }: { server: McpServerDTO }) {
-  const [resources, setResources] = useState<any[] | null>(null);
+  const [resources, setResources] = useState<McpResourceItem[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedUri, setSelectedUri] = useState<string | null>(null);
-  const [resourceContent, setResourceContent] = useState<any>(null);
+  const [resourceContent, setResourceContent] = useState<McpResourceContent | string | null>(null);
   const [readingUri, setReadingUri] = useState<string | null>(null);
 
   const loadResources = useCallback(async () => {
@@ -1429,7 +1450,7 @@ function ResourcesTab({ server }: { server: McpServerDTO }) {
     setLoading(true);
     setError(null);
     try {
-      const data = await api<any[]>(`/api/mcp/servers/${server.id}/resources`);
+      const data = await api<McpResourceItem[]>(`/api/mcp/servers/${server.id}/resources`);
       setResources(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to list resources");
@@ -1446,7 +1467,7 @@ function ResourcesTab({ server }: { server: McpServerDTO }) {
     setReadingUri(uri);
     setSelectedUri(uri);
     try {
-      const data = await api<any>(`/api/mcp/servers/${server.id}/resources/read`, {
+      const data = await api<McpResourceContent>(`/api/mcp/servers/${server.id}/resources/read`, {
         method: "POST",
         body: JSON.stringify({ uri }),
       });
@@ -1494,7 +1515,7 @@ function ResourcesTab({ server }: { server: McpServerDTO }) {
       ) : (
         <div className="space-y-2">
           <div className="text-[9px] font-mono text-slate-500">{resources.length} resource(s) available — click to read content</div>
-          {resources.map((res: any) => (
+          {resources.map((res) => (
             <div key={res.uri} className="rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 p-3 space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
@@ -1523,7 +1544,7 @@ function ResourcesTab({ server }: { server: McpServerDTO }) {
                   <pre className="rounded border border-slate-200 dark:border-indigo-900/40 bg-black text-slate-100 p-3 text-[10px] font-mono overflow-x-auto max-h-72 overflow-y-auto whitespace-pre shadow-inner">
                     {typeof resourceContent === "string"
                       ? resourceContent
-                      : resourceContent.text ?? JSON.stringify(resourceContent, null, 2)}
+                      : (resourceContent.text as string) ?? JSON.stringify(resourceContent, null, 2)}
                   </pre>
                 </div>
               )}
@@ -1537,12 +1558,34 @@ function ResourcesTab({ server }: { server: McpServerDTO }) {
 
 /* ────────────── Prompts Tab ────────────── */
 
+interface McpPromptArg {
+  name: string;
+  required?: boolean;
+  description?: string;
+}
+
+interface McpPromptItem {
+  name: string;
+  description?: string;
+  arguments?: McpPromptArg[];
+}
+
+interface McpPromptMessage {
+  role: string;
+  content: { type?: string; text?: string } | string;
+}
+
+interface McpPromptResult {
+  messages?: McpPromptMessage[];
+  error?: string;
+}
+
 function PromptsTab({ server }: { server: McpServerDTO }) {
-  const [prompts, setPrompts] = useState<any[] | null>(null);
+  const [prompts, setPrompts] = useState<McpPromptItem[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedPrompt, setSelectedPrompt] = useState<string | null>(null);
-  const [promptResult, setPromptResult] = useState<any>(null);
+  const [promptResult, setPromptResult] = useState<McpPromptResult | null>(null);
   const [promptArgs, setPromptArgs] = useState<Record<string, string>>({});
   const [fetchingPrompt, setFetchingPrompt] = useState(false);
 
@@ -1551,7 +1594,7 @@ function PromptsTab({ server }: { server: McpServerDTO }) {
     setLoading(true);
     setError(null);
     try {
-      const data = await api<any[]>(`/api/mcp/servers/${server.id}/prompts`);
+      const data = await api<McpPromptItem[]>(`/api/mcp/servers/${server.id}/prompts`);
       setPrompts(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to list prompts");
@@ -1568,7 +1611,7 @@ function PromptsTab({ server }: { server: McpServerDTO }) {
     setFetchingPrompt(true);
     setSelectedPrompt(name);
     try {
-      const data = await api<any>(`/api/mcp/servers/${server.id}/prompts`, {
+      const data = await api<McpPromptResult>(`/api/mcp/servers/${server.id}/prompts`, {
         method: "POST",
         body: JSON.stringify({ name, arguments: promptArgs }),
       });
@@ -1616,7 +1659,7 @@ function PromptsTab({ server }: { server: McpServerDTO }) {
       ) : (
         <div className="space-y-2">
           <div className="text-[9px] font-mono text-slate-500">{prompts.length} prompt template(s) available</div>
-          {prompts.map((prompt: any) => (
+          {prompts.map((prompt) => (
             <div key={prompt.name} className="rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 p-3 space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
@@ -1638,7 +1681,7 @@ function PromptsTab({ server }: { server: McpServerDTO }) {
                 <div className="space-y-1.5">
                   <div className="text-[9px] font-mono uppercase tracking-widest text-slate-500 font-semibold">ARGUMENTS</div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                    {prompt.arguments.map((arg: any) => (
+                    {prompt.arguments.map((arg) => (
                       <div key={arg.name} className="flex items-center gap-2">
                         <label className="text-[9px] font-mono text-slate-600 dark:text-slate-400 shrink-0">
                           {arg.name}{arg.required && <span className="text-red-500 ml-0.5">*</span>}:
@@ -1662,7 +1705,7 @@ function PromptsTab({ server }: { server: McpServerDTO }) {
                   <div className="text-[9px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400 font-semibold mb-2">PROMPT RESULT</div>
                   {promptResult.messages ? (
                     <div className="space-y-2">
-                      {promptResult.messages.map((msg: any, i: number) => (
+                      {promptResult.messages.map((msg, i: number) => (
                         <div key={i} className="rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 p-2">
                           <span className={clsx(
                             "text-[8px] font-mono uppercase font-bold px-1.5 py-0.5 rounded mr-2",
@@ -1670,14 +1713,14 @@ function PromptsTab({ server }: { server: McpServerDTO }) {
                               ? "bg-sky-100 dark:bg-sky-900/40 text-sky-800 dark:text-sky-300"
                               : "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300"
                           )}>{msg.role}</span>
-                          <span className="text-[10px] font-mono text-slate-700 dark:text-slate-300">
-                            {msg.content?.text ?? JSON.stringify(msg.content)}
+                          <span className="text-[10px] font-mono text-slate-800 dark:text-slate-200">
+                            {typeof msg.content === "string" ? msg.content : msg.content?.text ?? JSON.stringify(msg.content)}
                           </span>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <pre className="rounded border border-slate-200 dark:border-indigo-900/40 bg-black text-slate-100 p-3 text-[10px] font-mono overflow-x-auto max-h-60 overflow-y-auto whitespace-pre shadow-inner">
+                    <pre className="rounded border border-slate-200 dark:border-indigo-900/40 bg-black text-slate-100 p-3 text-[10px] font-mono overflow-x-auto whitespace-pre shadow-inner">
                       {JSON.stringify(promptResult, null, 2)}
                     </pre>
                   )}
@@ -1693,6 +1736,13 @@ function PromptsTab({ server }: { server: McpServerDTO }) {
 
 /* ────────────── Sampling Tab ────────────── */
 
+interface SamplingResult {
+  model?: string;
+  stopReason?: string;
+  content?: { text?: string };
+  [key: string]: unknown;
+}
+
 function SamplingTab({ server }: { server: McpServerDTO }) {
   const [messages, setMessages] = useState(
     JSON.stringify(
@@ -1705,7 +1755,7 @@ function SamplingTab({ server }: { server: McpServerDTO }) {
   const [maxTokens, setMaxTokens] = useState("4096");
   const [temperature, setTemperature] = useState("0.7");
   const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<SamplingResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   if (server.status !== "CONNECTED") {
@@ -1722,19 +1772,19 @@ function SamplingTab({ server }: { server: McpServerDTO }) {
     setError(null);
     setResult(null);
     try {
-      let parsedMessages: any[];
+      let parsedMessages: unknown[];
       try {
         parsedMessages = JSON.parse(messages);
       } catch {
         setError("Messages must be valid JSON array");
         return;
       }
-      const res = await api<any>(`/api/mcp/servers/${server.id}/sampling`, {
+      const res = await api<SamplingResult>(`/api/mcp/servers/${server.id}/sampling`, {
         method: "POST",
         body: JSON.stringify({
           messages: parsedMessages,
           systemPrompt: systemPrompt || undefined,
-          maxTokens: parseInt(maxTokens) || 4096,
+          maxTokens: parseInt(maxTokens, 10) || 4096,
           temperature: parseFloat(temperature) || 0.7,
         }),
       });
@@ -1837,7 +1887,7 @@ function SamplingTab({ server }: { server: McpServerDTO }) {
 /* ────────────── Progress Tab ────────────── */
 
 function ProgressTab({ server }: { server: McpServerDTO }) {
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<Record<string, unknown>[]>([]);
   const [connected, setConnected] = useState(false);
   const [listening, setListening] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);

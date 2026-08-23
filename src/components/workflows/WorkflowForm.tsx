@@ -11,18 +11,8 @@ import {
   CheckSquare,
   Wrench,
   Sparkles,
-  Shield,
   Layers,
-  Search,
-  Cpu,
-  SlidersHorizontal,
-  GitBranch,
-  FileText,
-  Calculator,
-  Database,
-  ArrowRight,
   Loader2,
-  Info,
 } from "lucide-react";
 import { createSkillSchema } from "@/validators/skillSchema";
 import { BUILT_IN_TOOL_CATALOG } from "@/modules/tools";

@@ -39,7 +39,7 @@ function makeVersion(overrides: Partial<SkillVersionDTO> = {}): SkillVersionDTO 
   };
 }
 
-function makeEngine(plan: unknown, version: SkillVersionDTO) {
+function makeEngine(plan: unknown, _version: SkillVersionDTO) {
   const repo = new FakeExecutionRepo();
   const approvalRepo = new FakeApprovalRepo();
   const engine = new ExecutionEngine({

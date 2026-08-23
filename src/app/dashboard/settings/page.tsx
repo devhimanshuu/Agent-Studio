@@ -4,7 +4,7 @@ import React from "react";
 import { useTheme } from "next-themes";
 import { UserProfile } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
-import { Sliders, Sun, Moon, Cpu, ServerCog, Palette, Zap, Terminal, Sparkles, Lock } from "lucide-react";
+import { Sliders, Sun, Moon, Cpu, ServerCog, Palette, Lock } from "lucide-react";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { Skeleton } from "@/components/feedback/Skeleton";
 import { ProviderStatus } from "@/types/settings";

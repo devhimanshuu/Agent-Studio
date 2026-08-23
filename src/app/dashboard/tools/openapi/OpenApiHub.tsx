@@ -11,7 +11,6 @@ import {
   ChevronDown,
   ChevronRight,
   Loader2,
-  Activity,
   CircleAlert,
   Sparkles,
   Download,
@@ -24,7 +23,6 @@ import {
   ShoppingBag,
   Github,
   Zap,
-  Server,
   X,
   Check,
 } from "lucide-react";

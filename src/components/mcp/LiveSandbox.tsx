@@ -95,7 +95,7 @@ export function LiveSandbox({
   const [nodeStates, setNodeStates] = useState<Map<string, { status: string; label: string; type: string; durationMs?: number }>>(new Map());
   const [expandedEvents, setExpandedEvents] = useState<Set<number>>(new Set());
   const [inputData, setInputData] = useState("{}");
-  const [previewId, setPreviewId] = useState<string | null>(null);
+  const [_previewId, setPreviewId] = useState<string | null>(null);
   const [skillId, setSkillId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [totalDuration, setTotalDuration] = useState<number | null>(null);

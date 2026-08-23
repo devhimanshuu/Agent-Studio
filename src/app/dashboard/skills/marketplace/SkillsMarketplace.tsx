@@ -33,6 +33,7 @@ import { clsx } from "clsx";
 import { useQueryClient } from "@tanstack/react-query";
 import { ItemIcon } from "@/components/common/ItemIcon";
 import { AgentSkill, SkillCategory } from "@/types/agent-studio-registry";
+import { SkillDTO } from "@/types/skill";
 import { toast } from "@/stores/toastStore";
 import { LiveSandbox } from "@/components/mcp/LiveSandbox";
 
@@ -172,6 +173,7 @@ const SOURCE_COLORS: Record<string, string> = {
 export function SkillsMarketplace() {
   const queryClient = useQueryClient();
   const [skills, setSkills] = useState<AgentSkill[]>([]);
+  const [installedDbSkills, setInstalledDbSkills] = useState<SkillDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -201,7 +203,6 @@ export function SkillsMarketplace() {
 
   // Map of marketplaceSkillId → databaseSkillId
   const [installedMap, setInstalledMap] = useState<Map<string, string>>(loadInstalledMap);
-  const [installedDbSkills, setInstalledDbSkills] = useState<any[]>([]);
 
   const PAGE_SIZE = 50;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
@@ -211,7 +212,7 @@ export function SkillsMarketplace() {
     gridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [currentPage]);
 
-  const fetchPage = async (targetPage: number) => {
+  const fetchPage = useCallback(async (targetPage: number) => {
     setLoading(true);
     setError(null);
     try {
@@ -238,13 +239,13 @@ export function SkillsMarketplace() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [category, difficulty, search, source]);
 
   // Fetch page 1 on filter changes
   useEffect(() => {
     const timer = setTimeout(() => fetchPage(1), 300);
     return () => clearTimeout(timer);
-  }, [search, source, category, difficulty]);
+  }, [fetchPage]);
 
   // Client-side installed filter with global database hydration
   const filteredSkills = useMemo(() => {
@@ -263,8 +264,8 @@ export function SkillsMarketplace() {
     }
 
     for (const dbSkill of installedDbSkills) {
-      const draft = dbSkill.currentDraft || dbSkill.publishedVersion || {};
-      const notes = draft.notes || "";
+      const draft = dbSkill.currentDraft || dbSkill.publishedVersion;
+      const notes = draft?.notes || "";
       const match = notes.match(/ID:\s*([^\s\n\r]+)/);
       const marketplaceId = match ? match[1] : dbSkill.id;
 
@@ -278,7 +279,7 @@ export function SkillsMarketplace() {
       installedList.push({
         id: marketplaceId,
         name: dbSkill.name,
-        description: dbSkill.purpose || draft.instructions?.slice(0, 150) || "Installed agent skill",
+        description: dbSkill.purpose || draft?.instructions?.slice(0, 150) || "Installed agent skill",
         category: "PRODUCTIVITY",
         author: "You",
         source,
@@ -292,7 +293,7 @@ export function SkillsMarketplace() {
         ],
         tags: ["installed", source],
         requiredServers: [],
-        requiredTools: draft.allowedTools || ["*"],
+        requiredTools: draft?.allowedTools || ["*"],
       });
     }
 
@@ -337,7 +338,7 @@ export function SkillsMarketplace() {
     for (const serverName of serverNamesToMount) {
       // Check if a matching server is already connected
       const cleanServerName = serverName.toLowerCase().replace(/ \((composio|arcade)\)/gi, "");
-      const alreadyConnected = existingServers.find((s: any) =>
+      const alreadyConnected = existingServers.find((s: { name: string; status: string; id: string }) =>
         s.name.toLowerCase().includes(cleanServerName) &&
         (s.status === "CONNECTED" || s.status === "READY")
       );
@@ -411,7 +412,7 @@ export function SkillsMarketplace() {
         // ── Smithery, Glama, MCP.SO, Awesome-MCP: search directory for a matching server ──
         try {
           const dirRes = await fetch(`/api/mcp/directory?q=${encodeURIComponent(cleanServerName)}&source=ALL`).then((r) => r.json());
-          const match = (dirRes.data || []).find((s: any) =>
+          const match = (dirRes.data || []).find((s: { name: string; endpointUrl?: string }) =>
             s.name.toLowerCase().includes(cleanServerName) ||
             cleanServerName.includes(s.name.toLowerCase().replace(/ mcp$/i, ""))
           );

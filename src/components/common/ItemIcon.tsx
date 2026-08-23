@@ -6,7 +6,6 @@ import {
   Database,
   Code,
   Terminal,
-  Server,
   Zap,
   Brain,
   BookOpen,
@@ -20,9 +19,7 @@ import {
   CloudSun,
   BadgeDollarSign,
   Search,
-  FileText,
   Boxes,
-  Compass,
   ShoppingBag,
   Github,
   Bot,
@@ -94,6 +91,7 @@ export function ItemIcon({
           className
         )}
       >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={resolvedImgUrl}
           alt={name}

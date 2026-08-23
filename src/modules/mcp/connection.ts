@@ -88,28 +88,28 @@ const DEFAULT_CALL_TIMEOUT_MS = 15_000;  /**
   }
 
   /** Query resources/list exposed by the remote MCP server. */
-  async listResources(): Promise<any[]> {
+  async listResources(): Promise<unknown[]> {
     this.assertConnected();
     const result = await this.callWithTimeout(() => this.client!.listResources(), "listResources");
-    return (result as { resources?: any[] })?.resources ?? [];
+    return (result as { resources?: unknown[] })?.resources ?? [];
   }
 
   /** Read a specific resource by URI. */
-  async readResource(uri: string): Promise<any> {
+  async readResource(uri: string): Promise<unknown> {
     this.assertConnected();
     const result = await this.callWithTimeout(() => this.client!.readResource({ uri }), `readResource(${uri})`);
     return result;
   }
 
   /** Query prompts/list exposed by the remote MCP server. */
-  async listPrompts(): Promise<any[]> {
+  async listPrompts(): Promise<unknown[]> {
     this.assertConnected();
     const result = await this.callWithTimeout(() => this.client!.listPrompts(), "listPrompts");
-    return (result as { prompts?: any[] })?.prompts ?? [];
+    return (result as { prompts?: unknown[] })?.prompts ?? [];
   }
 
   /** Fetch a prompt template by name with arguments. */
-  async getPrompt(name: string, args?: Record<string, string>): Promise<any> {
+  async getPrompt(name: string, args?: Record<string, string>): Promise<unknown> {
     this.assertConnected();
     const result = await this.callWithTimeout(
       () => this.client!.getPrompt({ name, arguments: args }),
@@ -181,7 +181,7 @@ const DEFAULT_CALL_TIMEOUT_MS = 15_000;  /**
           "Received sampling/createMessage request from MCP server"
         );
         const result = await handler(request.params as unknown as Record<string, unknown>);
-        return result as any;
+        return CreateMessageResultSchema.parse(result);
       });
     }
 

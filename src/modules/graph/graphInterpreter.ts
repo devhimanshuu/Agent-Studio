@@ -1087,7 +1087,7 @@ export class GraphInterpreter {
     return completion.content;
   }
 
-  private firstSuccessor(outgoing: GraphEdgeDefinition[], node: GraphNodeDefinition): string | "ended" {
+  private firstSuccessor(outgoing: GraphEdgeDefinition[], _node: GraphNodeDefinition): string | "ended" {
     if (outgoing.length === 0) return "ended";
     return outgoing[0].target;
   }

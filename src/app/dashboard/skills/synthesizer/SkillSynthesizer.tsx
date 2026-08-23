@@ -17,7 +17,6 @@ import {
   Shield,
   Bot,
   Wrench,
-  X,
   RefreshCw,
 } from "lucide-react";
 import { clsx } from "clsx";

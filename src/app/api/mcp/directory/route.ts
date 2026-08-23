@@ -551,11 +551,11 @@ export async function GET(req: Request) {
   let smitheryServers: PublicMcpServer[] = [];
   if (smitheryResult.status === "fulfilled") {
     const rawServers = smitheryResult.value.data;
-    smitheryServers = rawServers.map((s: any) => {
+    smitheryServers = rawServers.map((s: Record<string, unknown>) => {
       const isRemote = Boolean(s.remote);
-      const namespace = s.namespace || s.owner || "smithery";
-      const name = s.displayName || s.qualifiedName || "Unknown";
-      const description = s.description || "";
+      const namespace = (s.namespace as string) || (s.owner as string) || "smithery";
+      const name = (s.displayName as string) || (s.qualifiedName as string) || "Unknown";
+      const description = (s.description as string) || "";
 
       // Determine transport
       const transport: PublicMcpServer["transport"] = isRemote ? "SSE" : "STDIO";

@@ -190,7 +190,7 @@ export function AgentStudioPreloader({
         "0x1A4C_7E09", "0x4D20_FF1B", "0x6E82_00AA", "0xA3B9_5C44"
       ];
       setHexOffset(hexes[Math.floor(Math.random() * hexes.length)]);
-      setActivePackets(prev => Math.floor(135 + Math.random() * 35));
+      setActivePackets(Math.floor(135 + Math.random() * 35));
       setSystemLatency(`${(0.32 + Math.random() * 0.22).toFixed(2)}ms`);
     }, 280);
 

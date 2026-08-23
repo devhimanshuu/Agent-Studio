@@ -53,7 +53,7 @@ function makeRegistry() {
   return registry;
 }
 
-function makeEngine(plan: unknown, version: SkillVersionDTO) {
+function makeEngine(plan: unknown, _version: SkillVersionDTO) {
   const repo = new FakeExecutionRepo();
   const approvalRepo = new FakeApprovalRepo();
   const engine = new ExecutionEngine({
@@ -447,7 +447,8 @@ describe("ExecutionEngine (graph-first runtime)", () => {
     });
 
     expect(result.status).toBe("COMPLETED");
-    expect(result.finalOutput?.results?.step_2).toEqual({
+    const results = result.finalOutput?.results as Record<string, unknown> | undefined;
+    expect(results?.step_2).toEqual({
       summary: "Total is 30",
     });
   });

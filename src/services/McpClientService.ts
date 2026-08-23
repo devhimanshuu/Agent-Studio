@@ -256,35 +256,35 @@ export class McpClientService implements IMcpClientService {
     }
   }
 
-  async listResources(serverId: string, userId: string): Promise<any[]> {
+  async listResources(serverId: string, userId: string): Promise<unknown[]> {
     const server = await this.requireServer(serverId, userId);
     const connection = this.getConnection(server);
     if (!connection.isConnected) await connection.connect();
     return connection.listResources();
   }
 
-  async readResource(serverId: string, userId: string, uri: string): Promise<any> {
+  async readResource(serverId: string, userId: string, uri: string): Promise<unknown> {
     const server = await this.requireServer(serverId, userId);
     const connection = this.getConnection(server);
     if (!connection.isConnected) await connection.connect();
     return connection.readResource(uri);
   }
 
-  async listPrompts(serverId: string, userId: string): Promise<any[]> {
+  async listPrompts(serverId: string, userId: string): Promise<unknown[]> {
     const server = await this.requireServer(serverId, userId);
     const connection = this.getConnection(server);
     if (!connection.isConnected) await connection.connect();
     return connection.listPrompts();
   }
 
-  async getPrompt(serverId: string, userId: string, promptName: string, args?: Record<string, string>): Promise<any> {
+  async getPrompt(serverId: string, userId: string, promptName: string, args?: Record<string, string>): Promise<unknown> {
     const server = await this.requireServer(serverId, userId);
     const connection = this.getConnection(server);
     if (!connection.isConnected) await connection.connect();
     return connection.getPrompt(promptName, args);
   }
 
-  async getMetrics(serverId: string, userId: string): Promise<any> {
+  async getMetrics(serverId: string, userId: string): Promise<Record<string, unknown>> {
     const server = await this.requireServer(serverId, userId);
     const breaker = this.breakerFor(serverId);
     return {

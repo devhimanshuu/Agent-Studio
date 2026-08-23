@@ -2,7 +2,6 @@
 
 import React, { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -33,7 +32,6 @@ import { clsx } from "clsx";
 
 export default function CanvasEditorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const router = useRouter();
   const queryClient = useQueryClient();
 
   const { data: skill, isLoading, isError } = useQuery({

@@ -11,7 +11,6 @@ import {
   Trash2,
   Sparkles,
   GitCompare,
-  ArrowUpRight,
   ArrowRight,
   Workflow,
   Zap,

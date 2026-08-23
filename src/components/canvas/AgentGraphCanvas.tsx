@@ -13,7 +13,6 @@ import {
   addEdge,
   Connection,
   Edge,
-  Node,
   NodeChange,
   EdgeChange,
   applyNodeChanges,
@@ -33,7 +32,7 @@ import { computeLayout } from "./autoLayout";
 import { validateGraph } from "./graphValidation";
 import { collapseSelection } from "./subgraphUtils";
 import { clsx } from "clsx";
-import { Workflow, Play, Save, Link2, X, Pause, Radio, Flame, LayoutTemplate, AlertTriangle, GitBranch, Keyboard, Copy, Boxes, CornerUpLeft, Maximize, Minimize, Undo2, Redo2, Search, Download, Upload, ClipboardPaste, Command, Package, Bug, Sparkles } from "lucide-react";
+import { Workflow, Play, Link2, X, Pause, Radio, Flame, LayoutTemplate, AlertTriangle, GitBranch, Keyboard, Copy, Boxes, CornerUpLeft, Maximize, Minimize, Undo2, Redo2, Search, Download, Upload, ClipboardPaste, Package, Bug } from "lucide-react";
 import { QuickConnectSearch } from "./quickConnectSearch";
 import { AlignmentBar } from "./AlignmentBar";
 import { CanvasCopilot } from "./CanvasCopilot";
@@ -101,8 +100,6 @@ function CanvasInner({
   const [isFullScreen, setIsFullScreen] = useState(false);
   // Quick-Connect Radial Search state
   const [quickConnect, setQuickConnect] = useState<{ position: { x: number; y: number }; sourceNodeId?: string; sourceHandleId?: string } | null>(null);
-  // Alignment bar state
-  const [alignmentBarVisible, setAlignmentBarVisible] = useState(false);
   // Export dialog state
   const [showExportDialog, setShowExportDialog] = useState(false);
   // Macro library state
@@ -308,14 +305,13 @@ function CanvasInner({
   );
 
   const handleAlignment = useCallback((updatedNodes: CanvasNode[]) => {
-    const selectedIds = new Set(selectedNodesForAlignment.map((n) => n.id));
     const nextNodes = nodes.map((n) => {
       const updated = updatedNodes.find((u) => u.id === n.id);
       return updated ? { ...n, position: updated.position } : n;
     });
     setNodes(nextNodes);
     notifyChange(nextNodes, edges);
-  }, [nodes, edges, selectedNodesForAlignment, setNodes, notifyChange]);
+  }, [nodes, edges, setNodes, notifyChange]);
 
   // ─── Breakpoint Toggle ───
   const handleToggleBreakpoint = useCallback((nodeId: string) => {
@@ -927,27 +923,26 @@ function CanvasInner({
               onNodesDelete={onNodesDelete}
               onEdgesDelete={onEdgesDelete}
               onConnect={onConnect}
-              onConnectStart={(params: any) => {
+              onConnectStart={(_event, params) => {
                 // Track connection start for Quick-Connect Radial Search
                 if (params?.nodeId) {
-                  (window as any).__connectSourceId = params.nodeId;
+                  (window as unknown as { __connectSourceId?: string | null }).__connectSourceId = params.nodeId;
                 }
               }}
-              onConnectEnd={(event: any) => {
+              onConnectEnd={(event) => {
                 if (inTraceMode) return;
                 // If user released on the canvas pane (not a handle), show Quick-Connect search
-                const sourceId = (window as any).__connectSourceId;
+                const sourceId = (window as unknown as { __connectSourceId?: string | null }).__connectSourceId;
                 if (sourceId && wrapperRef.current) {
-                  const rect = wrapperRef.current.getBoundingClientRect();
-                  const clientX = event.clientX ?? event.touches?.[0]?.clientX ?? 0;
-                  const clientY = event.clientY ?? event.touches?.[0]?.clientY ?? 0;
-                  const x = clientX - rect.left;
-                  const y = clientY - rect.top;
+                  const mouseEv = event as MouseEvent;
+                  const touchEv = event as TouchEvent;
+                  const clientX = mouseEv.clientX ?? touchEv.touches?.[0]?.clientX ?? 0;
+                  const clientY = mouseEv.clientY ?? touchEv.touches?.[0]?.clientY ?? 0;
                   setQuickConnect({
                     position: { x: clientX, y: clientY },
                     sourceNodeId: sourceId,
                   });
-                  (window as any).__connectSourceId = null;
+                  (window as unknown as { __connectSourceId?: string | null }).__connectSourceId = null;
                 }
               }}
               onViewportChange={(vp) => setViewport(vp)}
@@ -1189,7 +1184,7 @@ function CanvasInner({
         {selectedNodesForAlignment.length >= 2 && !inTraceMode && (
           <AlignmentBar
             selectedNodes={selectedNodesForAlignment}
-            edges={edges as any}
+            edges={edges}
             onAlign={handleAlignment}
             onDismiss={() => {
               nodes.forEach((n) => {
@@ -1226,7 +1221,7 @@ function CanvasInner({
           )}>
             <MacroLibrary
               nodes={nodes}
-              edges={edges as any}
+              edges={edges}
               selectedNodeIds={new Set(nodes.filter((n) => n.selected).map((n) => n.id))}
               onAddMacro={handleAddMacro}
               isOpen={showMacroLibrary}
@@ -1343,22 +1338,24 @@ function CanvasInner({
             onNodesDelete={onNodesDelete}
             onEdgesDelete={onEdgesDelete}
             onConnect={onConnect}
-            onConnectStart={(params: any) => {
+            onConnectStart={(_event, params) => {
               if (params?.nodeId) {
-                (window as any).__connectSourceId = params.nodeId;
+                (window as unknown as { __connectSourceId?: string | null }).__connectSourceId = params.nodeId;
               }
             }}
-            onConnectEnd={(event: any) => {
+            onConnectEnd={(event) => {
               if (inTraceMode) return;
-              const sourceId = (window as any).__connectSourceId;
+              const sourceId = (window as unknown as { __connectSourceId?: string | null }).__connectSourceId;
               if (sourceId && wrapperRef.current) {
-                const clientX = event.clientX ?? event.touches?.[0]?.clientX ?? 0;
-                const clientY = event.clientY ?? event.touches?.[0]?.clientY ?? 0;
+                const mouseEv = event as MouseEvent;
+                const touchEv = event as TouchEvent;
+                const clientX = mouseEv.clientX ?? touchEv.touches?.[0]?.clientX ?? 0;
+                const clientY = mouseEv.clientY ?? touchEv.touches?.[0]?.clientY ?? 0;
                 setQuickConnect({
                   position: { x: clientX, y: clientY },
                   sourceNodeId: sourceId,
                 });
-                (window as any).__connectSourceId = null;
+                (window as unknown as { __connectSourceId?: string | null }).__connectSourceId = null;
               }
             }}
             onViewportChange={(vp) => setViewport(vp)}
@@ -1833,7 +1830,7 @@ function CanvasInner({
       {selectedNodesForAlignment.length >= 2 && !inTraceMode && (
         <AlignmentBar
           selectedNodes={selectedNodesForAlignment}
-          edges={edges as any}
+          edges={edges}
           onAlign={handleAlignment}
           onDismiss={() => {
             nodes.forEach((n) => {
@@ -1873,7 +1870,7 @@ function CanvasInner({
         <div className="absolute left-2 top-16 z-20 w-64 max-h-[70vh] overflow-y-auto rounded-lg border border-slate-700/60 bg-[#0a0a14]/95 backdrop-blur-md p-3 shadow-2xl font-mono">
           <MacroLibrary
             nodes={nodes}
-            edges={edges as any}
+            edges={edges}
             selectedNodeIds={new Set(nodes.filter((n) => n.selected).map((n) => n.id))}
             onAddMacro={handleAddMacro}
             isOpen={showMacroLibrary}

@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Trash2, GitBranch, Braces, Boxes, CornerUpRight, RefreshCw, Sparkles, Circle, Bug } from "lucide-react";
+import { Trash2, GitBranch, Braces, Boxes, CornerUpRight, RefreshCw, Sparkles, Circle } from "lucide-react";
 import { clsx } from "clsx";
 import { BUILT_IN_TOOL_CATALOG } from "@/modules/tools";
 import type { CanvasNode, CanvasNodeData } from "./graphUtils";
@@ -724,7 +723,7 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
           <Field label="Method">
             <select
               value={node.data.httpMethod ?? "GET"}
-              onChange={(e) => onUpdate({ httpMethod: e.target.value as any })}
+              onChange={(e) => onUpdate({ httpMethod: e.target.value as CanvasNodeData["httpMethod"] })}
               className={`${inputClass} cursor-pointer`}
             >
               <option value="GET">GET</option>
@@ -769,7 +768,7 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
           <Field label="Response Type">
             <select
               value={node.data.httpResponseType ?? "json"}
-              onChange={(e) => onUpdate({ httpResponseType: e.target.value as any })}
+              onChange={(e) => onUpdate({ httpResponseType: e.target.value as CanvasNodeData["httpResponseType"] })}
               className={`${inputClass} cursor-pointer`}
             >
               <option value="json">JSON</option>
@@ -785,7 +784,7 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
           <Field label="Operation">
             <select
               value={node.data.transformOp ?? "map"}
-              onChange={(e) => onUpdate({ transformOp: e.target.value as any })}
+              onChange={(e) => onUpdate({ transformOp: e.target.value as CanvasNodeData["transformOp"] })}
               className={`${inputClass} cursor-pointer`}
             >
               <option value="map">MAP (transform each item)</option>
@@ -799,41 +798,28 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
               <option value="template">TEMPLATE (string interpolation)</option>
             </select>
           </Field>
-          <Field label="Expression">
-            <input
+          <Field label="Expression (JavaScript)">
+            <textarea
               value={node.data.transformExpr ?? ""}
               onChange={(e) => onUpdate({ transformExpr: e.target.value })}
-              placeholder="e.g. item.name, item.price > 100, {{ results.agent_1 }}"
-              className={inputClass}
+              rows={3}
+              spellCheck={false}
+              placeholder="(item) => ({ ...item, processed: true })"
+              className={`${inputClass} resize-y text-[9px] leading-relaxed font-mono`}
             />
-            <p className="text-[8px] text-slate-500 leading-tight">Field path or expression to evaluate</p>
           </Field>
         </>
       )}
 
       {type === "delay" && (
-        <>
-          <Field label="Delay (ms)">
-            <input
-              type="number"
-              min={100}
-              max={300000}
-              value={node.data.delayMs ?? 1000}
-              onChange={(e) => onUpdate({ delayMs: Math.max(100, Number(e.target.value) || 1000) })}
-              className={inputClass}
-            />
-            <p className="text-[8px] text-slate-500 leading-tight">100ms — 5min (300,000ms)</p>
-          </Field>
-          <Field label="Or Template">
-            <input
-              value={node.data.delayTemplate ?? ""}
-              onChange={(e) => onUpdate({ delayTemplate: e.target.value })}
-              placeholder="{{ input.delayMs }}"
-              className={inputClass}
-            />
-            <p className="text-[8px] text-slate-500 leading-tight">Override with a dynamic value from state</p>
-          </Field>
-        </>
+        <Field label="Delay (milliseconds)">
+          <input
+            type="number"
+            value={node.data.delayMs ?? 1000}
+            onChange={(e) => onUpdate({ delayMs: parseInt(e.target.value, 10) || 0 })}
+            className={inputClass}
+          />
+        </Field>
       )}
 
       {type === "aggregate" && (
@@ -841,7 +827,7 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
           <Field label="Mode">
             <select
               value={node.data.aggregateMode ?? "concat"}
-              onChange={(e) => onUpdate({ aggregateMode: e.target.value as any })}
+              onChange={(e) => onUpdate({ aggregateMode: e.target.value as CanvasNodeData["aggregateMode"] })}
               className={`${inputClass} cursor-pointer`}
             >
               <option value="concat">CONCAT (combine arrays)</option>
@@ -883,7 +869,7 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
           <Field label="Operation">
             <select
               value={node.data.varOp ?? "get"}
-              onChange={(e) => onUpdate({ varOp: e.target.value as any })}
+              onChange={(e) => onUpdate({ varOp: e.target.value as CanvasNodeData["varOp"] })}
               className={`${inputClass} cursor-pointer`}
             >
               <option value="get">GET (read variable)</option>
