@@ -81,8 +81,8 @@ export function NodePalette({ onDragStart, disabled = false }: NodePaletteProps)
   }, [search, activeCategory]);
 
   return (
-    <div className="space-y-2.5 font-mono">
-      <div className="px-1 space-y-1.5">
+    <div className="h-full flex flex-col font-mono select-none">
+      <div className="px-1 pb-2 space-y-1.5 shrink-0">
         <div className="flex items-center justify-between">
           <div className="text-[10px] uppercase tracking-widest text-indigo-700 dark:text-indigo-400 font-bold">
             NODE PALETTE
@@ -118,7 +118,7 @@ export function NodePalette({ onDragStart, disabled = false }: NodePaletteProps)
             <button
               key={cat.id}
               onClick={() => setActiveCategory(cat.id)}
-              className={`px-1.5 py-0.5 text-[8px] font-bold rounded transition-all ${
+              className={`px-1.5 py-0.5 text-[8px] font-bold rounded transition-all cursor-pointer ${
                 activeCategory === cat.id
                   ? "bg-indigo-600 text-white shadow-xs"
                   : "bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
@@ -130,7 +130,8 @@ export function NodePalette({ onDragStart, disabled = false }: NodePaletteProps)
         </div>
       </div>
 
-      <div className="space-y-1.5 max-h-[calc(100vh-280px)] overflow-y-auto pr-0.5 scrollbar-thin">
+      {/* Single Unified Scrollable Node List */}
+      <div className="flex-1 min-h-0 space-y-1.5 overflow-y-auto pr-1 scrollbar-thin">
         {filteredNodes.map((meta) => {
           const Icon = meta.icon;
           return (

@@ -14,7 +14,7 @@ const DEFAULT_TIMEOUT_MS = 120_000;
 export class OpenRouterProvider implements LLMProvider {
   readonly name = "openrouter";
 
-  constructor(readonly model: string, private apiKey?: string) {}
+  constructor(readonly model: string = "openrouter/free", private apiKey?: string) {}
 
   isConfigured(): boolean {
     return Boolean(this.apiKey || env.OPENROUTER_API_KEY);

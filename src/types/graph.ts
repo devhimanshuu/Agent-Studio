@@ -56,6 +56,8 @@ export interface GraphNodeData {
   // agent / supervisor
   /** System prompt for the LLM agent node. */
   prompt?: string;
+  /** Explicit model override (e.g. `cohere/north-mini-code:free`, `google/gemma-4-26b-a4b-it:free`). */
+  model?: string;
   /** Tool names the agent may invoke (resolved to registry tools at runtime). */
   allowedTools?: string[];
   // tool

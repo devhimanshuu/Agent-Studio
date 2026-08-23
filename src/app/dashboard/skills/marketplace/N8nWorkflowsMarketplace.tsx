@@ -28,6 +28,7 @@ import { clsx } from "clsx";
 import { toast } from "@/stores/toastStore";
 import { skillsApi } from "@/lib/api/skills";
 import { Pagination } from "@/components/common/Pagination";
+import { N8nOfficialLogo } from "@/components/common/BrandLogos";
 
 const N8N_CATEGORIES = [
   { id: "ALL", label: "ALL WORKFLOWS", icon: Layers },
@@ -251,12 +252,15 @@ export function N8nWorkflowsMarketplace() {
         <div className="relative flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full border border-rose-500/30 bg-rose-500/10 text-rose-300 text-[10px] font-bold tracking-wider">
-              <Sparkles className="h-3 w-3 text-rose-400" />
+              <N8nOfficialLogo className="h-3.5 w-3.5" />
               N8N COMMUNITY WORKFLOW REPOSITORY · 11,600+ WORKFLOWS
             </div>
-            <h2 className="text-xl sm:text-2xl font-pixel text-slate-100 tracking-wide">
-              N8N WORKFLOWS MARKETPLACE
-            </h2>
+            <div className="flex items-center gap-3">
+              <N8nOfficialLogo className="h-7 w-7" />
+              <h2 className="text-xl sm:text-2xl font-pixel text-slate-100 tracking-wide">
+                N8N WORKFLOWS MARKETPLACE
+              </h2>
+            </div>
             <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
               Browse, inspect, and 1-click import production automations and AI agent architectures
               from the global n8n community directly into Agent Studio Canvas and Workflow Studio.

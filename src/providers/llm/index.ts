@@ -10,7 +10,14 @@ export { LLMError } from "./LLMProvider";
 export { GroqProvider } from "./GroqProvider";
 export { OpenRouterProvider } from "./OpenRouterProvider";
 export { LLMRouter, type LLMRouterOptions } from "./LLMRouter";
-export { GROQ_FREE_MODELS, OPENROUTER_FREE_MODELS, ALL_FALLBACK_MODELS, type ModelEntry } from "./modelLists";
+export {
+  GROQ_FREE_MODELS,
+  OPENROUTER_FREE_MODELS,
+  ALL_FALLBACK_MODELS,
+  findModelEntry,
+  getFreeModelsByCategory,
+  type ModelEntry,
+} from "./modelLists";
 
 /**
  * Builds the failover router from every model that has an API key configured.

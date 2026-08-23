@@ -7,6 +7,7 @@ import { BUILT_IN_TOOL_CATALOG } from "@/modules/tools";
 import type { CanvasNode, CanvasNodeData } from "./graphUtils";
 import { GraphNodeType } from "@/types/graph";
 import type { McpServerDTO } from "@/types/mcp";
+import { GROQ_FREE_MODELS, OPENROUTER_FREE_MODELS } from "@/providers/llm";
 
 interface NodeInspectorProps {
   node: CanvasNode;
@@ -31,6 +32,41 @@ function Field({ label, children, hint }: { label: string; children: React.React
       {children}
       {hint && <p className="text-[8px] text-slate-500 leading-tight">{hint}</p>}
     </div>
+  );
+}
+
+function ModelSelectField({
+  value,
+  onChange,
+}: {
+  value?: string;
+  onChange: (model: string) => void;
+}) {
+  return (
+    <Field label="LLM Model (Free Tier)" hint="Select an OpenRouter / Groq free model or use OpenRouter Auto-Router">
+      <select
+        value={value ?? "openrouter/free"}
+        onChange={(e) => onChange(e.target.value)}
+        className={`${inputClass} cursor-pointer`}
+      >
+        <option value="openrouter/free">⚡ OpenRouter: Free Models Auto-Router (openrouter/free · Recommended)</option>
+        <option value="">⚡ Multi-Provider Failover Router (Groq + OpenRouter)</option>
+        <optgroup label="OpenRouter Free Models">
+          {OPENROUTER_FREE_MODELS.filter((m) => m.model !== "openrouter/free").map((m) => (
+            <option key={m.model} value={m.model}>
+              {m.label} {m.contextLength ? `· ${(m.contextLength / 1000).toFixed(0)}k ctx` : ""} {m.throughput ? `· ${m.throughput}` : ""} · $0
+            </option>
+          ))}
+        </optgroup>
+        <optgroup label="Groq Free Models (Ultra Fast)">
+          {GROQ_FREE_MODELS.map((m) => (
+            <option key={m.model} value={m.model}>
+              {m.label} ({m.throughput || "fast"}) · $0
+            </option>
+          ))}
+        </optgroup>
+      </select>
+    </Field>
   );
 }
 
@@ -280,6 +316,10 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
 
       {type === "agent" && (
         <>
+          <ModelSelectField
+            value={node.data.model}
+            onChange={(m) => onUpdate({ model: m || undefined })}
+          />
           <PromptField
             label="Agent Prompt"
             hint="System prompt for this specialist agent. Receives the accumulated workflow context."
@@ -320,6 +360,10 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
 
       {type === "supervisor" && (
         <>
+          <ModelSelectField
+            value={node.data.model}
+            onChange={(m) => onUpdate({ model: m || undefined })}
+          />
           <PromptField
             label="Supervisor Prompt"
             hint="The model picks the next node among the outgoing edge labels."

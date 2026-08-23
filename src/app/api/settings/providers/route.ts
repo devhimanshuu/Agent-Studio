@@ -25,7 +25,16 @@ export async function GET() {
   const hasOpenRouter = Boolean(env.OPENROUTER_API_KEY);
 
   const formatModels = (entries: ModelEntry[]) =>
-    entries.map((e) => ({ label: e.label, model: e.model }));
+    entries.map((e) => ({
+      label: e.label,
+      model: e.model,
+      category: e.category || "general",
+      contextLength: e.contextLength,
+      latency: e.latency,
+      throughput: e.throughput,
+      inputPrice: e.inputPrice ?? 0,
+      outputPrice: e.outputPrice ?? 0,
+    }));
 
   const status: ProviderStatus = {
     groqConfigured: hasGroq,

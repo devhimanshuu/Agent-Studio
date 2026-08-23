@@ -968,7 +968,7 @@ function CanvasInner({
                 </button>
               </div>
               {fsLeftOpen && (
-                <div className="overflow-y-auto p-2" style={{ height: "calc(100% - 36px)" }}>
+                <div className="p-2 flex-1 min-h-0 overflow-hidden" style={{ height: "calc(100% - 36px)" }}>
                   <NodePalette onDragStart={onDragStart} disabled={inTraceMode} />
                 </div>
               )}
@@ -1378,10 +1378,10 @@ function CanvasInner({
       {/* Left palette (collapsible) */}
       {!readOnly && (
         <div className={clsx(
-          "shrink-0 transition-all duration-200 overflow-hidden rounded border border-slate-200 dark:border-indigo-900/40 bg-white/90 dark:bg-[#0a0a0a]/70 shadow-sm flex flex-col",
+          "shrink-0 transition-all duration-200 overflow-hidden rounded border border-slate-200 dark:border-indigo-900/40 bg-white/90 dark:bg-[#0a0a0a]/70 shadow-sm flex flex-col h-[640px] max-h-[calc(100vh-200px)]",
           normLeftOpen ? "w-52" : "w-10"
         )}>
-          <div className="flex items-center justify-between px-2.5 py-2 border-b border-slate-200 dark:border-indigo-900/40 bg-slate-50/50 dark:bg-indigo-950/20">
+          <div className="flex items-center justify-between px-2.5 py-2 border-b border-slate-200 dark:border-indigo-900/40 bg-slate-50/50 dark:bg-indigo-950/20 shrink-0">
             {normLeftOpen && <span className="text-[9px] font-bold uppercase tracking-widest text-indigo-700 dark:text-indigo-400">NODES</span>}
             <button
               type="button"
@@ -1393,7 +1393,7 @@ function CanvasInner({
             </button>
           </div>
           {normLeftOpen && (
-            <div className="overflow-y-auto p-3 flex-1">
+            <div className="p-2 flex-1 min-h-0 overflow-hidden">
               <NodePalette onDragStart={onDragStart} disabled={inTraceMode} />
             </div>
           )}

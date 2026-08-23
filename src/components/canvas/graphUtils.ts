@@ -7,6 +7,7 @@ export interface CanvasNodeData {
   label: string;
   description?: string;
   prompt?: string;
+  model?: string;
   allowedTools?: string[];
   toolName?: string;
   action?: string;
@@ -135,6 +136,7 @@ function nodeDataToGraphData(data: CanvasNodeData): GraphNodeDefinition["data"] 
     label: data.label ?? "UNNAMED",
     description: data.description,
     prompt: data.prompt,
+    model: data.model,
     allowedTools: data.allowedTools,
     toolName: data.toolName,
     action: data.action,

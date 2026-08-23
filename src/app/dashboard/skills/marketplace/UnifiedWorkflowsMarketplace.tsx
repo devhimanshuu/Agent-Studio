@@ -27,6 +27,7 @@ import {
 import { clsx } from "clsx";
 import { toast } from "@/stores/toastStore";
 import { Pagination } from "@/components/common/Pagination";
+import { N8nOfficialLogo, DifyOfficialLogo } from "@/components/common/BrandLogos";
 
 export type WorkflowProvider = "all" | "n8n" | "dify" | "studio";
 
@@ -52,7 +53,7 @@ const PROVIDERS: Array<{
     id: "n8n",
     name: "N8N WORKFLOWS",
     count: "11.6K+",
-    icon: GitBranch,
+    icon: N8nOfficialLogo,
     colorClass: "text-rose-400",
     activeClass: "bg-rose-600 text-white border-rose-500 shadow-sm shadow-rose-500/30",
     pillClass: "border-rose-500/40 bg-rose-500/10 text-rose-300",
@@ -61,7 +62,7 @@ const PROVIDERS: Array<{
     id: "dify",
     name: "DIFY.AI WORKFLOWS",
     count: "290+",
-    icon: Sparkles,
+    icon: DifyOfficialLogo,
     colorClass: "text-blue-400",
     activeClass: "bg-blue-600 text-white border-blue-500 shadow-sm shadow-blue-500/30",
     pillClass: "border-blue-500/40 bg-blue-500/10 text-blue-300",
@@ -531,7 +532,7 @@ export function UnifiedWorkflowsMarketplace() {
                           )}
                           <span
                             className={clsx(
-                              "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border",
+                              "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border inline-flex items-center gap-1",
                               isN8n
                                 ? "border-rose-500/40 bg-rose-500/10 text-rose-400"
                                 : isDify
@@ -539,6 +540,8 @@ export function UnifiedWorkflowsMarketplace() {
                                 : "border-indigo-500/40 bg-indigo-500/10 text-indigo-400"
                             )}
                           >
+                            {isN8n && <N8nOfficialLogo className="h-2.5 w-2.5 shrink-0" />}
+                            {isDify && <DifyOfficialLogo className="h-2.5 w-2.5 shrink-0" />}
                             {wf.providerName}
                           </span>
                         </div>

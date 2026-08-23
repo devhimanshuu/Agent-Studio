@@ -24,6 +24,7 @@ import {
 import { clsx } from "clsx";
 import { toast } from "@/stores/toastStore";
 import { Pagination } from "@/components/common/Pagination";
+import { DifyOfficialLogo } from "@/components/common/BrandLogos";
 
 const DIFY_CATEGORIES = [
   { id: "ALL", label: "ALL CATEGORIES" },
@@ -208,18 +209,21 @@ export function DifyWorkflowsMarketplace() {
         <div className="absolute top-0 right-0 -mt-10 -mr-10 h-48 w-48 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 relative z-10">
           <div className="space-y-1.5 max-w-2xl">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-blue-500/20 text-blue-300 border border-blue-500/40">
-                <Sparkles className="h-3 w-3 text-blue-400" />
-                DIFY.AI MARKETPLACE
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-blue-500/40 bg-blue-500/10 text-blue-300 text-[10px] font-mono font-bold tracking-wide">
+                <DifyOfficialLogo className="h-3.5 w-3.5" />
+                DIFY.AI WORKFLOW TEMPLATE REGISTRY
               </span>
               <span className="text-[10px] font-mono text-slate-400 flex items-center gap-1">
                 <Globe className="h-3 w-3" /> marketplace.dify.ai
               </span>
             </div>
-            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              Dify AI Workflow Templates
-            </h2>
+            <div className="flex items-center gap-3">
+              <DifyOfficialLogo className="h-7 w-7" />
+              <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                Dify AI Workflow Templates
+              </h2>
+            </div>
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
               Explore 290+ production-grade AI workflows, RAG agents, chatflows, and multi-model pipelines created by the Dify community. Import and run directly on Agent Studio Canvas with zero friction.
             </p>
