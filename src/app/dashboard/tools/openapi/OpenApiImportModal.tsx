@@ -79,10 +79,10 @@ export function OpenApiImportModal({ isOpen, initialSpecUrl, onClose, onSuccess 
   const [apiKeyValue, setApiKeyValue] = useState("");
   const [apiKeyQueryParam, setApiKeyQueryParam] = useState("api_key");
   const [apiKeyLocation, setApiKeyLocation] = useState<"HEADER" | "QUERY">("HEADER");
-  const [_basicUsername, _setBasicUsername] = useState("");
-  const [_basicPassword, _setBasicPassword] = useState("");
-  const [_customHeaderKey, _setCustomHeaderKey] = useState("");
-  const [_customHeaderVal, _setCustomHeaderVal] = useState("");
+  const [basicUsername, setBasicUsername] = useState("");
+  const [basicPassword, setBasicPassword] = useState("");
+  const [customHeaderKey, setCustomHeaderKey] = useState("");
+  const [customHeaderVal, setCustomHeaderVal] = useState("");
 
   // Testing & Saving
   const [isSaving, setIsSaving] = useState(false);
@@ -574,6 +574,57 @@ export function OpenApiImportModal({ isOpen, initialSpecUrl, onClose, onSuccess 
                           type="password"
                           value={apiKeyValue}
                           onChange={(e) => setApiKeyValue(e.target.value)}
+                          className="w-full px-2.5 py-1 text-xs bg-white dark:bg-[#09090e] border border-slate-300 dark:border-indigo-950 rounded text-slate-800 dark:text-slate-200 font-mono"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {authType === "BASIC" && (
+                  <div className="p-3 bg-slate-50 dark:bg-[#06060a] border border-slate-200 dark:border-indigo-950 rounded space-y-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[9px] font-semibold uppercase text-slate-500">Username</label>
+                        <input
+                          type="text"
+                          value={basicUsername}
+                          onChange={(e) => setBasicUsername(e.target.value)}
+                          className="w-full px-2.5 py-1 text-xs bg-white dark:bg-[#09090e] border border-slate-300 dark:border-indigo-950 rounded text-slate-800 dark:text-slate-200 font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-semibold uppercase text-slate-500">Password</label>
+                        <input
+                          type="password"
+                          value={basicPassword}
+                          onChange={(e) => setBasicPassword(e.target.value)}
+                          className="w-full px-2.5 py-1 text-xs bg-white dark:bg-[#09090e] border border-slate-300 dark:border-indigo-950 rounded text-slate-800 dark:text-slate-200 font-mono"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {authType === "CUSTOM_HEADER" && (
+                  <div className="p-3 bg-slate-50 dark:bg-[#06060a] border border-slate-200 dark:border-indigo-950 rounded space-y-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[9px] font-semibold uppercase text-slate-500">Header Name</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. X-Custom-Auth"
+                          value={customHeaderKey}
+                          onChange={(e) => setCustomHeaderKey(e.target.value)}
+                          className="w-full px-2.5 py-1 text-xs bg-white dark:bg-[#09090e] border border-slate-300 dark:border-indigo-950 rounded text-slate-800 dark:text-slate-200 font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-semibold uppercase text-slate-500">Header Value</label>
+                        <input
+                          type="password"
+                          value={customHeaderVal}
+                          onChange={(e) => setCustomHeaderVal(e.target.value)}
                           className="w-full px-2.5 py-1 text-xs bg-white dark:bg-[#09090e] border border-slate-300 dark:border-indigo-950 rounded text-slate-800 dark:text-slate-200 font-mono"
                         />
                       </div>

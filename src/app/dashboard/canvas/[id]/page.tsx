@@ -253,23 +253,23 @@ export default function CanvasEditorPage({ params }: { params: Promise<{ id: str
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 text-xs font-mono w-full lg:w-auto">
+        <div className="flex flex-wrap items-center gap-1.5 text-xs font-mono w-full lg:w-auto justify-start lg:justify-end">
           <Link
             href={`/dashboard/skills/${skill.id}/edit`}
-            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded border border-slate-300 dark:border-indigo-900/50 bg-slate-50 dark:bg-indigo-950/30 text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-700 transition-all font-semibold"
+            className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded border border-slate-300 dark:border-indigo-900/50 bg-slate-50 dark:bg-indigo-950/30 text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-700 transition-all text-[11px] font-semibold"
             title="Open the classic form editor for this skill"
           >
-            <Pencil className="h-3.5 w-3.5" /> [ FORM EDITOR ]
+            <Pencil className="h-3 w-3" /> Form Editor
           </Link>
 
           <button
             type="button"
             onClick={() => saveMutation.mutate()}
             disabled={saveMutation.isPending || !hasGraph || Boolean(activeExecutionId) || editingSubgraph}
-            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded border border-cyan-400 bg-cyan-600 text-white font-semibold hover:bg-cyan-500 transition-all cursor-pointer disabled:opacity-40 shadow-sm"
+            className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded border border-cyan-400 bg-cyan-600 text-white text-[11px] font-bold hover:bg-cyan-500 transition-all cursor-pointer disabled:opacity-40 shadow-sm"
           >
-            {saveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-            [ SAVE GRAPH ]
+            {saveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+            Save Graph
           </button>
 
           {lastExecution && !tracing && (
@@ -277,11 +277,11 @@ export default function CanvasEditorPage({ params }: { params: Promise<{ id: str
               type="button"
               onClick={() => replayMutation.mutate(lastExecution.id)}
               disabled={replayMutation.isPending || !hasGraph || editingSubgraph}
-              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded border border-emerald-400 bg-emerald-600 text-white font-semibold hover:bg-emerald-500 shadow-sm transition-all cursor-pointer disabled:opacity-40"
-              title="Re-run the last execution deterministically — recorded LLM outputs are replayed instead of re-invoked"
+              className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded border border-emerald-400 bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-500 shadow-sm transition-all cursor-pointer disabled:opacity-40"
+              title="Re-run the last execution deterministically"
             >
-              {replayMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <History className="h-3.5 w-3.5" />}
-              [ REPLAY LAST RUN ]
+              {replayMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <History className="h-3 w-3" />}
+              Replay
             </button>
           )}
 
@@ -289,21 +289,21 @@ export default function CanvasEditorPage({ params }: { params: Promise<{ id: str
             type="button"
             onClick={handlePreview}
             disabled={previewMutation.isPending || !hasGraph || tracing || editingSubgraph}
-            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded border border-violet-400 bg-violet-600 text-white font-semibold hover:bg-violet-500 shadow-sm transition-all cursor-pointer disabled:opacity-40"
-            title="Dry-run the graph without persisting anything — approvals auto-pass"
+            className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded border border-violet-400 bg-violet-600 text-white text-[11px] font-semibold hover:bg-violet-500 shadow-sm transition-all cursor-pointer disabled:opacity-40"
+            title="Dry-run the graph without persisting anything"
           >
-            {previewMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Ghost className="h-3.5 w-3.5" />}
-            [ GHOST PREVIEW ]
+            {previewMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Ghost className="h-3 w-3" />}
+            Ghost Preview
           </button>
 
           {publishedGraph && graphDiff && !tracing && (
             <button
               type="button"
               onClick={() => setShowDiff(true)}
-              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded border border-slate-300 dark:border-indigo-900/50 bg-slate-50 dark:bg-indigo-950/30 text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-700 transition-all font-semibold cursor-pointer"
+              className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded border border-slate-300 dark:border-indigo-900/50 bg-slate-50 dark:bg-indigo-950/30 text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-700 transition-all text-[11px] font-semibold cursor-pointer"
               title="Visual diff against the published version"
             >
-              <GitBranch className="h-3.5 w-3.5" /> [ DIFF VS PUBLISHED ]
+              <GitBranch className="h-3 w-3" /> Diff
             </button>
           )}
 
@@ -311,28 +311,28 @@ export default function CanvasEditorPage({ params }: { params: Promise<{ id: str
             type="button"
             onClick={shareSnapshot}
             disabled={!hasGraph || tracing}
-            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded border border-slate-300 dark:border-indigo-900/50 bg-slate-50 dark:bg-indigo-950/30 text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-700 transition-all font-semibold cursor-pointer disabled:opacity-40"
-            title="Copy a read-only snapshot link (graph + last run trace)"
+            className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded border border-slate-300 dark:border-indigo-900/50 bg-slate-50 dark:bg-indigo-950/30 text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-700 transition-all text-[11px] font-semibold cursor-pointer disabled:opacity-40"
+            title="Copy a read-only snapshot link"
           >
-            <Share2 className="h-3.5 w-3.5" /> [ SNAPSHOT LINK ]
+            <Share2 className="h-3 w-3" /> Snapshot
           </button>
 
           <button
             type="button"
             onClick={handleRun}
             disabled={runMutation.isPending || !hasGraph || tracing || editingSubgraph}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded border border-indigo-400 bg-indigo-600 text-white font-semibold hover:bg-indigo-500 shadow-md shadow-indigo-500/30 transition-all cursor-pointer disabled:opacity-40"
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded border border-indigo-400 bg-indigo-600 text-white text-[11px] font-bold hover:bg-indigo-500 shadow-md shadow-indigo-500/30 transition-all cursor-pointer disabled:opacity-40"
           >
-            {runMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-            [ RUN GRAPH ]
+            {runMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+            Run Graph
           </button>
 
           {activeExecutionId && (
             <Link
               href={`/dashboard/executions/${activeExecutionId}`}
-              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded border border-emerald-400 bg-emerald-600 text-white font-semibold hover:bg-emerald-500 transition-all shadow-sm"
+              className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded border border-emerald-400 bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-500 transition-all shadow-sm"
             >
-              <ExternalLink className="h-3.5 w-3.5" /> [ FULL TRACE ]
+              <ExternalLink className="h-3 w-3" /> Full Trace
             </Link>
           )}
         </div>

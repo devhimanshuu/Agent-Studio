@@ -41,6 +41,7 @@ import { ItemIcon } from "@/components/common/ItemIcon";
 import {
   McpHealth,
   McpPreset,
+  McpProgressEvent,
   McpServerDTO,
   McpToolDefinition,
   McpToolTestResult,
@@ -1887,7 +1888,7 @@ function SamplingTab({ server }: { server: McpServerDTO }) {
 /* ────────────── Progress Tab ────────────── */
 
 function ProgressTab({ server }: { server: McpServerDTO }) {
-  const [events, setEvents] = useState<Record<string, unknown>[]>([]);
+  const [events, setEvents] = useState<McpProgressEvent[]>([]);
   const [connected, setConnected] = useState(false);
   const [listening, setListening] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);

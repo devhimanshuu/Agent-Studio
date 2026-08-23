@@ -457,19 +457,19 @@ export interface SmitheryPaginatedResult<T> {
  * Fetch a specific page of items (default 50) from Smithery,
  * caching the page and asynchronously prefetching the NEXT 50 items into cache.
  */
-export async function fetchSmitheryPaginated<T>(options: {
+export async function fetchSmitheryPaginated<T = Record<string, unknown>>(options: {
   endpoint: "servers" | "skills";
   page?: number;
   pageSize?: number;
   query?: string;
-  mapItem?: (item: unknown) => T;
+  mapItem?: (item: Record<string, unknown>) => T;
 }): Promise<SmitheryPaginatedResult<T>> {
   const {
     endpoint,
     page = 1,
     pageSize = SMITHERY_DEFAULT_PAGE_SIZE,
     query = "",
-    mapItem = (x: unknown) => x as T,
+    mapItem = (x: Record<string, unknown>) => x as unknown as T,
   } = options;
 
   const cacheKey = buildCacheKey(endpoint, page, pageSize, query);
@@ -485,7 +485,7 @@ export async function fetchSmitheryPaginated<T>(options: {
     }
 
     return {
-      items: cached.data.map(mapItem),
+      items: (cached.data as Record<string, unknown>[]).map(mapItem),
       page,
       pageSize,
       totalCount: cached.totalCount,
@@ -528,16 +528,16 @@ export async function fetchSmitheryPaginated<T>(options: {
  * Fetch items from Smithery with parallel pagination and caching (capped).
  * Kept for backwards-compatibility with directory routes.
  */
-export async function fetchAllSmithery<T>(
+export async function fetchAllSmithery<T = Record<string, unknown>>(
   endpoint: "servers" | "skills",
-  mapItem: (item: unknown) => T,
+  mapItem: (item: Record<string, unknown>) => T = (x: Record<string, unknown>) => x as unknown as T,
   maxPages = 100
 ): Promise<{ items: T[]; totalCount: number }> {
   const cacheKey = `all:${endpoint}:max${maxPages}`;
   const cached = smitheryPageCache.get(cacheKey);
   if (cached && Date.now() - cached.fetchedAt < SMITHERY_CACHE_TTL) {
     return {
-      items: cached.data.map(mapItem),
+      items: (cached.data as Record<string, unknown>[]).map(mapItem),
       totalCount: cached.totalCount,
     };
   }

@@ -137,20 +137,20 @@ export function QuickConnectSearch({
       style={{ left: position.x, top: position.y, transform: "translate(-50%, -100%) translateY(-12px)" }}
     >
       <div
-        className="rounded-xl border border-indigo-500/50 bg-[#0a0a14]/98 backdrop-blur-md p-2.5 shadow-2xl shadow-indigo-500/10 w-72 font-mono"
+        className="rounded-xl border border-slate-200 dark:border-indigo-500/50 bg-white/98 dark:bg-[#0a0a14]/98 backdrop-blur-md p-2.5 shadow-2xl shadow-indigo-500/10 w-72 font-mono"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
             <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[9px] font-bold uppercase tracking-widest text-indigo-400">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
               Quick Connect
             </span>
           </div>
           <button
             onClick={onClose}
-            className="p-0.5 rounded hover:bg-white/10 text-slate-500 hover:text-white transition-colors cursor-pointer"
+            className="p-0.5 rounded hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-white transition-colors cursor-pointer"
           >
             <X className="h-3 w-3" />
           </button>
@@ -159,20 +159,20 @@ export function QuickConnectSearch({
         {/* Source hint */}
         {sourceNodeId && (
           <div className="text-[8px] text-slate-500 mb-1.5 truncate">
-            from: <span className="text-indigo-400 font-semibold">{sourceNodeId}</span> →
+            from: <span className="text-indigo-600 dark:text-indigo-400 font-semibold">{sourceNodeId}</span> →
           </div>
         )}
 
         {/* Search input */}
-        <div className="flex items-center gap-2 rounded-lg border border-slate-700/60 bg-black/40 px-2.5 py-1.5 mb-2">
-          <Search className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+        <div className="flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-700/60 bg-slate-50 dark:bg-black/40 px-2.5 py-1.5 mb-2">
+          <Search className="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400 shrink-0" />
           <input
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Search nodes… (↑↓ navigate, Enter select)"
-            className="flex-1 bg-transparent text-[11px] text-white placeholder:text-slate-600 focus:outline-none"
+            className="flex-1 bg-transparent text-[11px] text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none"
           />
         </div>
 
@@ -188,8 +188,8 @@ export function QuickConnectSearch({
                 className={clsx(
                   "w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-all cursor-pointer",
                   i === selectedIndex
-                    ? "bg-indigo-500/20 border border-indigo-500/30"
-                    : "border border-transparent hover:bg-white/5"
+                    ? "bg-indigo-50 dark:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-500/30"
+                    : "border border-transparent hover:bg-slate-50 dark:hover:bg-white/5"
                 )}
               >
                 <Icon
@@ -200,7 +200,7 @@ export function QuickConnectSearch({
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-white tracking-wider">
+                    <span className="text-[10px] font-bold text-slate-900 dark:text-white tracking-wider">
                       {meta.label}
                     </span>
                     <span

@@ -31,8 +31,8 @@ import { useExecutionStream, replayEvents } from "./useExecutionStream";
 import { computeLayout } from "./autoLayout";
 import { validateGraph } from "./graphValidation";
 import { collapseSelection } from "./subgraphUtils";
-import { clsx } from "clsx";
-import { Workflow, Play, Link2, X, Pause, Radio, Flame, LayoutTemplate, AlertTriangle, GitBranch, Keyboard, Copy, Boxes, CornerUpLeft, Maximize, Minimize, Undo2, Redo2, Search, Download, Upload, ClipboardPaste, Package, Bug } from "lucide-react";
+import { Workflow, Play, Link2, X, Pause, Radio, Flame, LayoutTemplate, AlertTriangle, GitBranch, Keyboard, Copy, Boxes, CornerUpLeft, Maximize, Minimize, Undo2, Redo2, Search, Download, Upload, ClipboardPaste, Package, Bug, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight } from "lucide-react";
+import { toast } from "@/stores/toastStore";
 import { QuickConnectSearch } from "./quickConnectSearch";
 import { AlignmentBar } from "./AlignmentBar";
 import { CanvasCopilot } from "./CanvasCopilot";
@@ -40,6 +40,7 @@ import { ExportDialog } from "./ExportDialog";
 import { MacroLibrary } from "./MacroLibrary";
 import { DebuggerPanel } from "./DebuggerPanel";
 import { CollaborationOverlay } from "./CollaborationOverlay";
+import { clsx } from "clsx";
 
 const labelClass = "text-[9px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400/80 font-semibold";
 
@@ -100,6 +101,7 @@ function CanvasInner({
   const [isFullScreen, setIsFullScreen] = useState(false);
   // Quick-Connect Radial Search state
   const [quickConnect, setQuickConnect] = useState<{ position: { x: number; y: number }; sourceNodeId?: string; sourceHandleId?: string } | null>(null);
+  const connectSourceIdRef = useRef<string | null>(null);
   // Export dialog state
   const [showExportDialog, setShowExportDialog] = useState(false);
   // Macro library state
@@ -119,6 +121,17 @@ function CanvasInner({
   const duplicateNodeRef = useRef<((node: CanvasNode) => void) | null>(null);
   const [fsLeftOpen, setFsLeftOpen] = useState(true);
   const [fsRightOpen, setFsRightOpen] = useState(true);
+  const [normLeftOpen, setNormLeftOpen] = useState(true);
+  const [normRightOpen, setNormRightOpen] = useState(true);
+
+  // Responsive sidebar collapse on smaller desktop / tablet screens
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (window.innerWidth < 1024) setNormLeftOpen(false);
+      if (window.innerWidth < 1280) setNormRightOpen(false);
+    }
+  }, []);
+
   const previewEndpoint = useCallback((id: string) => `/api/canvas/preview/${id}/stream`, []);
   const trace = useExecutionStream(executionId ?? null, mode === "preview" ? { endpoint: previewEndpoint } : undefined);
 
@@ -143,16 +156,25 @@ function CanvasInner({
     setHistoryIndex(historyIndexRef.current);
   }, []);
 
-  // Emits the current graph back to the parent (page state) — skipped in trace mode.
-  const notifyChange = useCallback(
+  // Emits the current graph back to the parent without recording history (used by undo/redo).
+  const emitGraphChange = useCallback(
     (nextNodes: CanvasNode[], nextEdges: Edge[]) => {
       if (inTraceMode) return;
       const nextGraph = flowToGraph(nextNodes, nextEdges);
       lastEmittedRef.current = nextGraph;
       onChange(nextGraph);
+    },
+    [inTraceMode, onChange]
+  );
+
+  // Emits graph to parent AND records in history (used by all user modifications).
+  const notifyChange = useCallback(
+    (nextNodes: CanvasNode[], nextEdges: Edge[]) => {
+      if (inTraceMode) return;
+      emitGraphChange(nextNodes, nextEdges);
       pushHistory(nextNodes, nextEdges);
     },
-    [inTraceMode, onChange, pushHistory]
+    [inTraceMode, emitGraphChange, pushHistory]
   );
 
   const undo = useCallback(() => {
@@ -162,8 +184,8 @@ function CanvasInner({
     setNodes(entry.nodes);
     setEdges(entry.edges);
     setHistoryIndex(historyIndexRef.current);
-    notifyChange(entry.nodes, entry.edges);
-  }, [setNodes, setEdges, notifyChange]);
+    emitGraphChange(entry.nodes, entry.edges);
+  }, [setNodes, setEdges, emitGraphChange]);
 
   const redo = useCallback(() => {
     if (historyIndexRef.current >= historyRef.current.length - 1) return;
@@ -172,8 +194,8 @@ function CanvasInner({
     setNodes(entry.nodes);
     setEdges(entry.edges);
     setHistoryIndex(historyIndexRef.current);
-    notifyChange(entry.nodes, entry.edges);
-  }, [setNodes, setEdges, notifyChange]);
+    emitGraphChange(entry.nodes, entry.edges);
+  }, [setNodes, setEdges, emitGraphChange]);
 
   // Sync external graph changes (e.g. initial fetch or reset) to local React Flow state.
   // Without this, the canvas never updates after the first render.
@@ -202,6 +224,7 @@ function CanvasInner({
     const copiedNodes = nodes.filter((n) => selectedIds.has(n.id));
     const copiedEdges = edges.filter((e) => selectedIds.has(e.source) && selectedIds.has(e.target));
     setClipboard({ nodes: copiedNodes, edges: copiedEdges });
+    toast.success("Copied to clipboard", `${copiedNodes.length} node(s) copied.`);
   }, [nodes, edges, selectedNodeId]);
 
   const pasteClipboard = useCallback(() => {
@@ -218,19 +241,24 @@ function CanvasInner({
         data: { ...n.data, traceStatus: undefined, traceDetail: undefined },
       };
     });
-    const newEdges = clipboard.edges.map((e) => ({
-      ...e,
-      id: nextEdgeId([...edges, ...clipboard.edges]),
-      source: idMap.get(e.source) ?? e.source,
-      target: idMap.get(e.target) ?? e.target,
-    }));
+    const currentEdgeList = [...edges];
+    const newEdges = clipboard.edges.map((e) => {
+      const edgeId = nextEdgeId(currentEdgeList);
+      const edgeObj: Edge = {
+        ...e,
+        id: edgeId,
+        source: idMap.get(e.source) ?? e.source,
+        target: idMap.get(e.target) ?? e.target,
+      };
+      currentEdgeList.push(edgeObj);
+      return edgeObj;
+    });
     const allNodes = [...nodes, ...newNodes];
     const allEdges = [...edges, ...newEdges];
     setNodes(allNodes);
     setEdges(allEdges);
-    pushHistory(allNodes, allEdges);
     notifyChange(allNodes, allEdges);
-  }, [clipboard, nodes, edges, inTraceMode, setNodes, setEdges, notifyChange, pushHistory]);
+  }, [clipboard, nodes, edges, inTraceMode, setNodes, setEdges, notifyChange]);
 
   // ─── Export / Import Graph ───
   const exportGraph = useCallback(() => {
@@ -242,6 +270,7 @@ function CanvasInner({
     a.download = `agent-graph-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
+    toast.success("Graph exported", "JSON file downloaded.");
   }, [nodes, edges]);
 
   const importGraph = useCallback(() => {
@@ -255,19 +284,23 @@ function CanvasInner({
       reader.onload = (ev) => {
         try {
           const data = JSON.parse(ev.target?.result as string);
-          if (data.nodes && data.edges) {
+          if (data.nodes && Array.isArray(data.nodes) && data.nodes.length > 0) {
             const flow = graphToFlow(data);
             setNodes(flow.nodes);
             setEdges(flow.edges);
-            pushHistory(flow.nodes, flow.edges);
             notifyChange(flow.nodes, flow.edges);
+            toast.success("Graph imported", `Imported ${flow.nodes.length} nodes and ${flow.edges.length} edges.`);
+          } else {
+            toast.error("Import failed", "File is missing a valid nodes array.");
           }
-        } catch {}
+        } catch {
+          toast.error("Import failed", "Invalid JSON format in selected file.");
+        }
       };
       reader.readAsText(file);
     };
     input.click();
-  }, [setNodes, setEdges, notifyChange, pushHistory]);
+  }, [setNodes, setEdges, notifyChange]);
 
   // ─── Quick-Connect Radial Search ───
   const handleQuickConnectSelect = useCallback((type: GraphNodeType) => {
@@ -339,17 +372,24 @@ function CanvasInner({
     }));
     const idMap = new Map<string, string>();
     flow.nodes.forEach((orig, i) => idMap.set(orig.id, newNodes[i].id));
-    const newEdges = flow.edges.map((e) => ({
-      ...e,
-      id: nextEdgeId([...edges, ...flow.edges]),
-      source: idMap.get(e.source) ?? e.source,
-      target: idMap.get(e.target) ?? e.target,
-    }));
+    const currentEdgeList = [...edges];
+    const newEdges = flow.edges.map((e) => {
+      const edgeId = nextEdgeId(currentEdgeList);
+      const edgeObj: Edge = {
+        ...e,
+        id: edgeId,
+        source: idMap.get(e.source) ?? e.source,
+        target: idMap.get(e.target) ?? e.target,
+      };
+      currentEdgeList.push(edgeObj);
+      return edgeObj;
+    });
     const allNodes = [...nodes, ...newNodes];
     const allEdges = [...edges, ...newEdges];
     setNodes(allNodes);
     setEdges(allEdges);
     notifyChange(allNodes, allEdges);
+    toast.success("Macro added", `Inserted ${newNodes.length} nodes onto the canvas.`);
   }, [nodes, edges, setNodes, setEdges, notifyChange]);
 
   // ─── Canvas Copilot: Generate graph from NL prompt ───
@@ -357,9 +397,9 @@ function CanvasInner({
     const flow = graphToFlow(generatedGraph);
     setNodes(flow.nodes);
     setEdges(flow.edges);
-    pushHistory(flow.nodes, flow.edges);
     notifyChange(flow.nodes, flow.edges);
-  }, [setNodes, setEdges, pushHistory, notifyChange]);
+    toast.success("Graph generated", `Created architecture with ${flow.nodes.length} nodes.`);
+  }, [setNodes, setEdges, notifyChange]);
 
   // ─── Node Search ───
   const filteredNodes = useMemo(() => {
@@ -608,6 +648,7 @@ function CanvasInner({
   const onConnect: OnConnect = useCallback(
     (connection: Connection) => {
       if (inTraceMode) return;
+      connectSourceIdRef.current = null;
       setEdges((eds) => {
         const next = addEdge(
           {
@@ -785,11 +826,9 @@ function CanvasInner({
         {/* ─── Top Toolbar ─── */}
         <div className={clsx("h-11 shrink-0 flex items-center justify-between px-3 border-b", canvasTheme === "paper" ? "border-slate-200 bg-white" : canvasTheme === "graphite" ? "border-slate-600 bg-[#1a1d27]" : "border-indigo-900/60 bg-[#0a0a14]")}>
           <div className="flex items-center gap-2">
-            <button onClick={toggleFullScreen} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[9px] font-bold uppercase tracking-wider text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer" title="Exit full-screen (F11)">
-              <Minimize className="h-3.5 w-3.5" /> EXIT
-            </button>
-            <div className="w-px h-5 bg-indigo-900/50 mx-1" />
-            <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">CANVAS EDITOR</span>
+            <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-1.5">
+              <Workflow className="h-4 w-4" /> CANVAS EDITOR
+            </span>
             <span className="text-[9px] text-slate-600">·</span>
             <span className="text-[9px] text-slate-500">{nodes.length} nodes · {edges.length} edges</span>
           </div>
@@ -926,23 +965,27 @@ function CanvasInner({
               onConnectStart={(_event, params) => {
                 // Track connection start for Quick-Connect Radial Search
                 if (params?.nodeId) {
-                  (window as unknown as { __connectSourceId?: string | null }).__connectSourceId = params.nodeId;
+                  connectSourceIdRef.current = params.nodeId;
                 }
               }}
               onConnectEnd={(event) => {
                 if (inTraceMode) return;
-                // If user released on the canvas pane (not a handle), show Quick-Connect search
-                const sourceId = (window as unknown as { __connectSourceId?: string | null }).__connectSourceId;
-                if (sourceId && wrapperRef.current) {
-                  const mouseEv = event as MouseEvent;
-                  const touchEv = event as TouchEvent;
-                  const clientX = mouseEv.clientX ?? touchEv.touches?.[0]?.clientX ?? 0;
-                  const clientY = mouseEv.clientY ?? touchEv.touches?.[0]?.clientY ?? 0;
+                const sourceId = connectSourceIdRef.current;
+                connectSourceIdRef.current = null;
+                if (!sourceId || !wrapperRef.current) return;
+                const targetEl = event.target as HTMLElement | null;
+                const isHandle = targetEl?.classList?.contains("react-flow__handle") || targetEl?.closest?.(".react-flow__handle");
+                if (isHandle) return;
+
+                const mouseEv = event as MouseEvent;
+                const touchEv = event as TouchEvent;
+                const clientX = mouseEv.clientX ?? touchEv.touches?.[0]?.clientX ?? (touchEv.changedTouches?.[0]?.clientX ?? 0);
+                const clientY = mouseEv.clientY ?? touchEv.touches?.[0]?.clientY ?? (touchEv.changedTouches?.[0]?.clientY ?? 0);
+                if (clientX > 0 && clientY > 0) {
                   setQuickConnect({
                     position: { x: clientX, y: clientY },
                     sourceNodeId: sourceId,
                   });
-                  (window as unknown as { __connectSourceId?: string | null }).__connectSourceId = null;
                 }
               }}
               onViewportChange={(vp) => setViewport(vp)}
@@ -1256,10 +1299,28 @@ function CanvasInner({
   // ══════════════════════════════════════════════════════════════════════
   return (
     <div className="flex h-full gap-3 font-mono">
-      {/* Left palette */}
+      {/* Left palette (collapsible) */}
       {!readOnly && (
-        <div className="w-52 shrink-0 overflow-y-auto rounded border border-slate-200 dark:border-indigo-900/40 bg-white/90 dark:bg-[#0a0a0a]/70 p-3 shadow-sm dark:shadow-none">
-          <NodePalette onDragStart={onDragStart} disabled={inTraceMode} />
+        <div className={clsx(
+          "shrink-0 transition-all duration-200 overflow-hidden rounded border border-slate-200 dark:border-indigo-900/40 bg-white/90 dark:bg-[#0a0a0a]/70 shadow-sm flex flex-col",
+          normLeftOpen ? "w-52" : "w-10"
+        )}>
+          <div className="flex items-center justify-between px-2.5 py-2 border-b border-slate-200 dark:border-indigo-900/40 bg-slate-50/50 dark:bg-indigo-950/20">
+            {normLeftOpen && <span className="text-[9px] font-bold uppercase tracking-widest text-indigo-700 dark:text-indigo-400">NODES</span>}
+            <button
+              type="button"
+              onClick={() => setNormLeftOpen((p) => !p)}
+              className="p-1 rounded hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors cursor-pointer"
+              title={normLeftOpen ? "Collapse palette" : "Expand palette"}
+            >
+              {normLeftOpen ? <PanelLeftClose className="h-3.5 w-3.5" /> : <PanelLeft className="h-3.5 w-3.5" />}
+            </button>
+          </div>
+          {normLeftOpen && (
+            <div className="overflow-y-auto p-3 flex-1">
+              <NodePalette onDragStart={onDragStart} disabled={inTraceMode} />
+            </div>
+          )}
         </div>
       )}
 
@@ -1340,22 +1401,27 @@ function CanvasInner({
             onConnect={onConnect}
             onConnectStart={(_event, params) => {
               if (params?.nodeId) {
-                (window as unknown as { __connectSourceId?: string | null }).__connectSourceId = params.nodeId;
+                connectSourceIdRef.current = params.nodeId;
               }
             }}
             onConnectEnd={(event) => {
               if (inTraceMode) return;
-              const sourceId = (window as unknown as { __connectSourceId?: string | null }).__connectSourceId;
-              if (sourceId && wrapperRef.current) {
-                const mouseEv = event as MouseEvent;
-                const touchEv = event as TouchEvent;
-                const clientX = mouseEv.clientX ?? touchEv.touches?.[0]?.clientX ?? 0;
-                const clientY = mouseEv.clientY ?? touchEv.touches?.[0]?.clientY ?? 0;
+              const sourceId = connectSourceIdRef.current;
+              connectSourceIdRef.current = null;
+              if (!sourceId || !wrapperRef.current) return;
+              const targetEl = event.target as HTMLElement | null;
+              const isHandle = targetEl?.classList?.contains("react-flow__handle") || targetEl?.closest?.(".react-flow__handle");
+              if (isHandle) return;
+
+              const mouseEv = event as MouseEvent;
+              const touchEv = event as TouchEvent;
+              const clientX = mouseEv.clientX ?? touchEv.touches?.[0]?.clientX ?? (touchEv.changedTouches?.[0]?.clientX ?? 0);
+              const clientY = mouseEv.clientY ?? touchEv.touches?.[0]?.clientY ?? (touchEv.changedTouches?.[0]?.clientY ?? 0);
+              if (clientX > 0 && clientY > 0) {
                 setQuickConnect({
                   position: { x: clientX, y: clientY },
                   sourceNodeId: sourceId,
                 });
-                (window as unknown as { __connectSourceId?: string | null }).__connectSourceId = null;
               }
             }}
             onViewportChange={(vp) => setViewport(vp)}
@@ -1366,6 +1432,7 @@ function CanvasInner({
               }
               setSelectedNodeId(node.id);
               setSelectedEdgeId(null);
+              if (!normRightOpen) setNormRightOpen(true);
             }}
             onEdgeClick={onEdgeClick}
             onPaneClick={() => {
@@ -1407,7 +1474,7 @@ function CanvasInner({
             />
           </ReactFlow>
 
-          {/* Shortcut hints + theme (edit mode) */}
+          {/* Shortcut hints + theme + fullscreen (edit mode) */}
           {!inTraceMode && !readOnly && (
             <div className="absolute right-2 top-2 z-10 flex items-center gap-1.5">
               <div className="relative">
@@ -1456,7 +1523,7 @@ function CanvasInner({
               <button
                 type="button"
                 onClick={toggleFullScreen}
-                className="inline-flex items-center gap-1 rounded border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0b0b12]/95 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors shadow-sm cursor-pointer"
+                className="inline-flex items-center gap-1 rounded border border-indigo-400 bg-indigo-600 text-white px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider hover:bg-indigo-500 transition-colors shadow-sm cursor-pointer"
                 title="Toggle full-screen (F11)"
               >
                 {isFullScreen ? <Minimize className="h-3 w-3" /> : <Maximize className="h-3 w-3" />}
@@ -1465,107 +1532,131 @@ function CanvasInner({
             </div>
           )}
 
-          {/* Auto-layout + collapse + coverage + undo/redo/search/export + fullscreen buttons (edit mode) */}
+          {/* Streamlined segmented toolbar (edit mode) */}
           {!inTraceMode && !readOnly && (
-            <div className="absolute left-2 top-2 z-10 flex flex-wrap items-center gap-1.5">
-              <button
-                type="button"
-                onClick={handleAutoLayout}
-                className="inline-flex items-center gap-1 rounded border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0b0b12]/95 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors shadow-sm cursor-pointer"
-                title="Arrange nodes in layered columns"
-              >
-                <LayoutTemplate className="h-3 w-3" /> AUTO LAYOUT
-              </button>
-              <button
-                type="button"
-                onClick={undo}
-                disabled={historyIndex <= 0}
-                className="inline-flex items-center gap-1 rounded border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0b0b12]/95 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors shadow-sm cursor-pointer disabled:opacity-40"
-                title="Undo (⌘+Z)"
-              >
-                <Undo2 className="h-3 w-3" />
-              </button>
-              <button
-                type="button"
-                onClick={redo}
-                disabled={historyIndex >= history.length - 1}
-                className="inline-flex items-center gap-1 rounded border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0b0b12]/95 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors shadow-sm cursor-pointer disabled:opacity-40"
-                title="Redo (⌘+Shift+Z)"
-              >
-                <Redo2 className="h-3 w-3" />
-              </button>
-              <button
-                type="button"
-                onClick={handleCollapse}
-                disabled={!nodes.some((n) => n.selected || n.id === selectedNodeId)}
-                className="inline-flex items-center gap-1 rounded border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0b0b12]/95 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors shadow-sm cursor-pointer disabled:opacity-40"
-                title="Collapse the selection into a reusable subgraph (macro) node"
-              >
-                <Boxes className="h-3 w-3" /> MACRO
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowNodeSearch((s) => !s)}
-                className="inline-flex items-center gap-1 rounded border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0b0b12]/95 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors shadow-sm cursor-pointer"
-                title="Find node (⌘+F)"
-              >
-                <Search className="h-3 w-3" /> FIND
-              </button>
-              <button
-                type="button"
-                onClick={exportGraph}
-                className="inline-flex items-center gap-1 rounded border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0b0b12]/95 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors shadow-sm cursor-pointer"
-                title="Export graph as JSON (⌘+E)"
-              >
-                <Download className="h-3 w-3" /> EXPORT
-              </button>
-              <button
-                type="button"
-                onClick={importGraph}
-                className="inline-flex items-center gap-1 rounded border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0b0b12]/95 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors shadow-sm cursor-pointer"
-                title="Import graph from JSON"
-              >
-                <Upload className="h-3 w-3" /> IMPORT
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowExportDialog(true)}
-                className="inline-flex items-center gap-1 rounded border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0b0b12]/95 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors shadow-sm cursor-pointer"
-                title="Export graph (PNG/SVG/PDF/Mermaid/LangGraph)"
-              >
-                <Download className="h-3 w-3" /> EXPORT…
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowMacroLibrary((p) => !p)}
-                className="inline-flex items-center gap-1 rounded border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0b0b12]/95 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors shadow-sm cursor-pointer"
-                title="Toggle My Components library"
-              >
-                <Package className="h-3 w-3" /> COMPONENTS
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowDebugger((p) => !p)}
-                className="inline-flex items-center gap-1 rounded border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0b0b12]/95 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors shadow-sm cursor-pointer"
-                title="Toggle debugger panel"
-              >
-                <Bug className="h-3 w-3" /> DEBUG
-              </button>
-              {coverage && coverage.length > 0 && (
+            <div className="absolute left-2 top-2 z-10 flex flex-wrap items-center gap-1.5 max-w-[calc(100%-15rem)]">
+              {/* History group */}
+              <div className="inline-flex items-center rounded border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0b0b12]/95 shadow-sm overflow-hidden">
                 <button
                   type="button"
-                  onClick={() => setCoverageMode((c) => !c)}
-                  className={clsx(
-                    "inline-flex items-center gap-1 rounded border px-2 py-1 text-[9px] font-bold uppercase tracking-wider transition-colors shadow-sm cursor-pointer",
-                    coverageMode
-                      ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300"
-                      : "border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0b0b12]/95 text-slate-700 dark:text-slate-300 hover:border-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-300"
-                  )}
-                  title="Green = traversed in a past run, dashed amber = never traversed"
+                  onClick={undo}
+                  disabled={historyIndex <= 0}
+                  className="p-1.5 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-30 cursor-pointer"
+                  title="Undo (⌘+Z)"
                 >
-                  <GitBranch className="h-3 w-3" /> {coverageMode ? "COVERAGE: ON" : "BRANCH COVERAGE"}
+                  <Undo2 className="h-3.5 w-3.5" />
                 </button>
-              )}
+                <div className="w-px h-3.5 bg-slate-200 dark:bg-slate-700" />
+                <button
+                  type="button"
+                  onClick={redo}
+                  disabled={historyIndex >= history.length - 1}
+                  className="p-1.5 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-30 cursor-pointer"
+                  title="Redo (⌘+Shift+Z)"
+                >
+                  <Redo2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              {/* Layout & Selection group */}
+              <div className="inline-flex items-center rounded border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0b0b12]/95 shadow-sm overflow-hidden">
+                <button
+                  type="button"
+                  onClick={handleAutoLayout}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors cursor-pointer"
+                  title="Arrange nodes in layered columns"
+                >
+                  <LayoutTemplate className="h-3 w-3" /> AUTO LAYOUT
+                </button>
+                <div className="w-px h-3.5 bg-slate-200 dark:bg-slate-700" />
+                <button
+                  type="button"
+                  onClick={handleCollapse}
+                  disabled={!nodes.some((n) => n.selected || n.id === selectedNodeId)}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors cursor-pointer disabled:opacity-30"
+                  title="Collapse selection into macro"
+                >
+                  <Boxes className="h-3 w-3" /> MACRO
+                </button>
+                <div className="w-px h-3.5 bg-slate-200 dark:bg-slate-700" />
+                <button
+                  type="button"
+                  onClick={() => setShowNodeSearch((s) => !s)}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors cursor-pointer"
+                  title="Find node (⌘+F)"
+                >
+                  <Search className="h-3 w-3" /> FIND
+                </button>
+              </div>
+
+              {/* Portability group */}
+              <div className="inline-flex items-center rounded border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0b0b12]/95 shadow-sm overflow-hidden">
+                <button
+                  type="button"
+                  onClick={importGraph}
+                  className="p-1.5 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  title="Import graph JSON"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                </button>
+                <div className="w-px h-3.5 bg-slate-200 dark:bg-slate-700" />
+                <button
+                  type="button"
+                  onClick={exportGraph}
+                  className="p-1.5 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  title="Quick export JSON"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                </button>
+                <div className="w-px h-3.5 bg-slate-200 dark:bg-slate-700" />
+                <button
+                  type="button"
+                  onClick={() => setShowExportDialog(true)}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors cursor-pointer"
+                  title="Export graph (PNG/SVG/PDF/Mermaid/LangGraph)"
+                >
+                  EXPORT…
+                </button>
+              </div>
+
+              {/* Tools group */}
+              <div className="inline-flex items-center rounded border border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-[#0b0b12]/95 shadow-sm overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowMacroLibrary((p) => !p)}
+                  className={clsx("inline-flex items-center gap-1 px-2 py-1 text-[9px] font-bold uppercase tracking-wider transition-colors cursor-pointer", showMacroLibrary ? "text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50" : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800")}
+                  title="Toggle My Components library"
+                >
+                  <Package className="h-3 w-3" /> COMPONENTS
+                </button>
+                <div className="w-px h-3.5 bg-slate-200 dark:bg-slate-700" />
+                <button
+                  type="button"
+                  onClick={() => setShowDebugger((p) => !p)}
+                  className={clsx("inline-flex items-center gap-1 px-2 py-1 text-[9px] font-bold uppercase tracking-wider transition-colors cursor-pointer", showDebugger ? "text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50" : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800")}
+                  title="Toggle debugger panel"
+                >
+                  <Bug className="h-3 w-3" /> DEBUG
+                </button>
+                {coverage && coverage.length > 0 && (
+                  <>
+                    <div className="w-px h-3.5 bg-slate-200 dark:bg-slate-700" />
+                    <button
+                      type="button"
+                      onClick={() => setCoverageMode((c) => !c)}
+                      className={clsx(
+                        "inline-flex items-center gap-1 px-2 py-1 text-[9px] font-bold uppercase tracking-wider transition-colors cursor-pointer",
+                        coverageMode
+                          ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300"
+                          : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      )}
+                      title="Branch coverage highlights"
+                    >
+                      <GitBranch className="h-3 w-3" /> {coverageMode ? "COVERAGE ON" : "COVERAGE"}
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           )}
 
@@ -1609,50 +1700,32 @@ function CanvasInner({
               </div>
             </div>
           )}
-
-          {/* Empty-state hint */}
-          {nodes.length <= 2 && !inTraceMode && (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <div className="text-center space-y-2 font-mono">
-                <Workflow className="h-8 w-8 mx-auto text-indigo-500/60 dark:text-indigo-500/50" />
-                <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">Drag agent, tool & router nodes from the palette</p>
-                <p className="text-[10px] text-slate-500 dark:text-slate-500">Connect them to design your multi-agent architecture</p>
-              </div>
-            </div>
-          )}
-
-          {/* Terminal banner */}
-          {terminal && (
-            <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded border border-emerald-400 dark:border-emerald-500/40 bg-emerald-50/95 dark:bg-emerald-950/80 px-4 py-1.5 text-[10px] font-bold tracking-widest text-emerald-800 dark:text-emerald-300 shadow-md">
-              ✓ {isPreview ? "PREVIEW" : "EXECUTION"} {effExecutionStatus}
-            </div>
-          )}
         </div>
 
-        {/* Time-scrubber */}
+        {/* Trace time-travel scrubber */}
         {inTraceMode && trace.events.length > 1 && (
-          <div className="mt-2 flex items-center gap-2 rounded border border-slate-200 dark:border-slate-700/60 bg-white/90 dark:bg-black/60 px-2.5 py-1.5">
+          <div className="mt-2 flex items-center gap-2 rounded border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/70 dark:bg-[#0a0a14] px-3 py-1.5 text-[9px] font-mono">
             <button
               type="button"
               onClick={toggleScrubPlay}
-              className="inline-flex h-6 w-6 items-center justify-center rounded border border-indigo-300 dark:border-indigo-500/50 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition-colors cursor-pointer"
-              title={scrubPlaying ? "Pause replay" : "Replay trace"}
+              className="shrink-0 p-1 rounded hover:bg-indigo-100 dark:hover:bg-white/10 text-indigo-700 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-white transition-colors cursor-pointer"
+              title={scrubPlaying ? "Pause replay" : "Play replay"}
             >
-              {scrubPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+              {scrubPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
             </button>
             <input
               type="range"
               min={0}
-              max={totalEvents}
-              value={clampedScrubIndex}
+              max={trace.events.length - 1}
+              value={scrubIndex ?? trace.events.length - 1}
               onChange={(e) => {
                 setScrubIndex(Number(e.target.value));
                 setScrubPlaying(false);
               }}
-              className="flex-1 accent-indigo-500 cursor-pointer"
+              className="flex-1 accent-indigo-600 dark:accent-indigo-400 h-1 bg-slate-300 dark:bg-slate-700 rounded-lg cursor-pointer"
             />
-            <span className="shrink-0 text-[9px] text-slate-600 dark:text-slate-400 tabular-nums">
-              {clampedScrubIndex}/{totalEvents}
+            <span className="text-slate-600 dark:text-slate-400 shrink-0 font-mono text-[9px]">
+              {(scrubIndex ?? trace.events.length - 1) + 1}/{trace.events.length}
             </span>
             <select
               value={scrubSpeed}
@@ -1665,153 +1738,141 @@ function CanvasInner({
               <option value={4}>4×</option>
               <option value={8}>8×</option>
             </select>
-            {scrubIndex !== null && (
-              <button
-                type="button"
-                onClick={() => {
-                  setScrubIndex(null);
-                  setScrubPlaying(false);
-                }}
-                className="shrink-0 inline-flex items-center gap-1 rounded border border-emerald-300 dark:border-emerald-500/50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition-colors cursor-pointer"
-              >
-                <Radio className="h-2.5 w-2.5" /> LIVE
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Live event console */}
-        {inTraceMode && trace.events.length > 0 && (
-          <div className="mt-2 max-h-40 overflow-y-auto rounded border border-slate-200 dark:border-slate-700/60 bg-slate-100/90 dark:bg-black/70 p-2 space-y-0.5 font-mono text-[9px]">
-            {trace.events.slice(-40).map((ev, i) => {
-              const nodeId = "nodeId" in ev ? ev.nodeId : undefined;
-              const detail = "detail" in ev ? ev.detail : undefined;
-              return (
-                <div key={i} className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                  <span className="text-slate-500 dark:text-slate-600 shrink-0">{new Date(ev.at).toLocaleTimeString()}</span>
-                  <span className="text-indigo-600 dark:text-indigo-400 font-semibold shrink-0">{ev.type}</span>
-                  {nodeId && <span className="text-slate-800 dark:text-slate-300 truncate">{nodeId}</span>}
-                  {detail && <span className="text-slate-500 dark:text-slate-500 truncate">{detail}</span>}
-                </div>
-              );
-            })}
           </div>
         )}
       </div>
 
-      {/* Right inspector */}
-      <div className="w-72 shrink-0 overflow-y-auto rounded border border-slate-200 dark:border-indigo-900/40 bg-white/90 dark:bg-[#0a0a0a]/70 p-3 shadow-sm dark:shadow-none">
-        {inTraceMode ? (
-          <div className="space-y-2">
-            <div className="text-[10px] uppercase tracking-widest text-indigo-700 dark:text-indigo-400/80 font-bold">
-              {isPreview ? "GHOST PREVIEW" : "LIVE TRACE"}
-            </div>
-            <p className="text-[9px] text-slate-600 dark:text-slate-400 leading-relaxed">
-              {isPreview
-                ? "Dry-run against your current input — nothing is persisted and approval gates auto-pass. Predicts the exact path before you commit to a real run."
-                : "Canvas is locked while the agent traverses the graph. Nodes pulse while running, glow green on success, amber while awaiting human approval, and red on failure."}
-            </p>
-            <div className="space-y-1 text-[9px] text-slate-700 dark:text-slate-400">
-              <div className="flex items-center gap-1.5"><span className="inline-block h-2 w-2 rounded-full bg-indigo-500 dark:bg-indigo-400 animate-pulse" /> RUNNING</div>
-              <div className="flex items-center gap-1.5"><span className="inline-block h-2 w-2 rounded-full bg-emerald-500 dark:bg-emerald-400" /> SUCCESS</div>
-              <div className="flex items-center gap-1.5"><span className="inline-block h-2 w-2 rounded-full bg-amber-500 dark:bg-amber-400" /> AWAITING APPROVAL</div>
-              <div className="flex items-center gap-1.5"><span className="inline-block h-2 w-2 rounded-full bg-red-500 dark:bg-red-400" /> FAILED</div>
-            </div>
-
-            {/* Heatmap toggle */}
-            <div className="border-t border-slate-200 dark:border-slate-700/60 pt-2">
-              <button
-                type="button"
-                onClick={() => setHeatmap((h) => !h)}
-                className={clsx(
-                  "inline-flex w-full items-center justify-center gap-1.5 rounded border px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider transition-colors cursor-pointer",
-                  heatmap
-                    ? "border-orange-400 bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300"
-                    : "border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-orange-400 hover:text-orange-600 dark:hover:text-orange-300"
-                )}
-              >
-                <Flame className="h-3 w-3" /> {heatmap ? "HEATMAP: LATENCY ON" : "SHOW LATENCY HEATMAP"}
-              </button>
-              {heatmap && maxLatency > 0 && (
-                <p className="mt-1 text-[8px] text-slate-500 dark:text-slate-500">
-                  Slowest node avg {maxLatency >= 1000 ? `${(maxLatency / 1000).toFixed(1)}s` : `${Math.round(maxLatency)}ms`} · cool = fast, hot = slow
+      {/* Right inspector (collapsible) */}
+      <div className={clsx(
+        "shrink-0 transition-all duration-200 overflow-hidden rounded border border-slate-200 dark:border-indigo-900/40 bg-white/90 dark:bg-[#0a0a0a]/70 shadow-sm flex flex-col",
+        normRightOpen ? "w-72" : "w-10"
+      )}>
+        <div className="flex items-center justify-between px-2.5 py-2 border-b border-slate-200 dark:border-indigo-900/40 bg-slate-50/50 dark:bg-indigo-950/20">
+          {normRightOpen && <span className="text-[9px] font-bold uppercase tracking-widest text-indigo-700 dark:text-indigo-400">INSPECTOR</span>}
+          <button
+            type="button"
+            onClick={() => setNormRightOpen((p) => !p)}
+            className="p-1 rounded hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors cursor-pointer"
+            title={normRightOpen ? "Collapse inspector" : "Expand inspector"}
+          >
+            {normRightOpen ? <PanelRightClose className="h-3.5 w-3.5" /> : <PanelRight className="h-3.5 w-3.5" />}
+          </button>
+        </div>
+        {normRightOpen && (
+          <div className="flex-1 overflow-y-auto p-3">
+            {inTraceMode ? (
+              <div className="space-y-2">
+                <div className="text-[10px] uppercase tracking-widest text-indigo-700 dark:text-indigo-400/80 font-bold">
+                  {isPreview ? "GHOST PREVIEW" : "LIVE TRACE"}
+                </div>
+                <p className="text-[9px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                  {isPreview
+                    ? "Dry-run against your current input — nothing is persisted and approval gates auto-pass. Predicts the exact path before you commit to a real run."
+                    : "Canvas is locked while the agent traverses the graph. Nodes pulse while running, glow green on success, amber while awaiting human approval, and red on failure."}
                 </p>
-              )}
-            </div>
+                <div className="space-y-1 text-[9px] text-slate-700 dark:text-slate-400">
+                  <div className="flex items-center gap-1.5"><span className="inline-block h-2 w-2 rounded-full bg-indigo-500 dark:bg-indigo-400 animate-pulse" /> RUNNING</div>
+                  <div className="flex items-center gap-1.5"><span className="inline-block h-2 w-2 rounded-full bg-emerald-500 dark:bg-emerald-400" /> SUCCESS</div>
+                  <div className="flex items-center gap-1.5"><span className="inline-block h-2 w-2 rounded-full bg-amber-500 dark:bg-amber-400" /> AWAITING APPROVAL</div>
+                  <div className="flex items-center gap-1.5"><span className="inline-block h-2 w-2 rounded-full bg-red-500 dark:bg-red-400" /> FAILED</div>
+                </div>
 
-            <div className="border-t border-slate-200 dark:border-slate-700/60 pt-2 space-y-1.5">
-              <div className="text-[9px] uppercase tracking-wider text-slate-500 font-bold">STATS</div>
-              <div className="flex justify-between text-[9px] text-slate-600 dark:text-slate-400"><span>Events received</span><span className="text-indigo-600 dark:text-indigo-300 font-bold">{trace.events.length}</span></div>
-              <div className="flex justify-between text-[9px] text-slate-600 dark:text-slate-400"><span>Nodes touched</span><span className="text-indigo-600 dark:text-indigo-300 font-bold">{Object.keys(effStatuses).length}</span></div>
-              <div className="flex justify-between text-[9px] text-slate-600 dark:text-slate-400"><span>Status</span><span className="text-emerald-600 dark:text-emerald-300 font-bold">{effExecutionStatus ?? "—"}</span></div>
-            </div>
-          </div>
-        ) : selectedEdge ? (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="text-[10px] uppercase tracking-widest text-indigo-700 dark:text-indigo-400/80 font-bold flex items-center gap-1.5">
-                <Link2 className="h-3.5 w-3.5" /> EDGE
+                {/* Heatmap toggle */}
+                <div className="border-t border-slate-200 dark:border-slate-700/60 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setHeatmap((h) => !h)}
+                    className={clsx(
+                      "inline-flex w-full items-center justify-center gap-1.5 rounded border px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider transition-colors cursor-pointer",
+                      heatmap
+                        ? "border-orange-400 bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300"
+                        : "border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-orange-400 hover:text-orange-600 dark:hover:text-orange-300"
+                    )}
+                  >
+                    <Flame className="h-3 w-3" /> {heatmap ? "HEATMAP: LATENCY ON" : "SHOW LATENCY HEATMAP"}
+                  </button>
+                  {heatmap && maxLatency > 0 && (
+                    <p className="mt-1 text-[8px] text-slate-500 dark:text-slate-500">
+                      Slowest node avg {maxLatency >= 1000 ? `${(maxLatency / 1000).toFixed(1)}s` : `${Math.round(maxLatency)}ms`} · cool = fast, hot = slow
+                    </p>
+                  )}
+                </div>
+
+                <div className="border-t border-slate-200 dark:border-slate-700/60 pt-2 space-y-1.5">
+                  <div className="text-[9px] uppercase tracking-wider text-slate-500 font-bold">STATS</div>
+                  <div className="flex justify-between text-[9px] text-slate-600 dark:text-slate-400"><span>Events received</span><span className="text-indigo-600 dark:text-indigo-300 font-bold">{trace.events.length}</span></div>
+                  <div className="flex justify-between text-[9px] text-slate-600 dark:text-slate-400"><span>Nodes touched</span><span className="text-indigo-600 dark:text-indigo-300 font-bold">{Object.keys(effStatuses).length}</span></div>
+                  <div className="flex justify-between text-[9px] text-slate-600 dark:text-slate-400"><span>Status</span><span className="text-emerald-600 dark:text-emerald-300 font-bold">{effExecutionStatus ?? "—"}</span></div>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={deleteSelected}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded border border-red-300 dark:border-red-400/50 text-[9px] font-mono text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
-              >
-                <X className="h-3 w-3" /> REMOVE
-              </button>
-            </div>
-            <div className="space-y-1">
-              <label className={labelClass}>Branch Label</label>
-              <input
-                value={typeof selectedEdge.label === "string" ? selectedEdge.label : ""}
-                onChange={(e) => updateEdgeLabel(selectedEdge.id, e.target.value)}
-                placeholder="e.g. true / false / high / worker / join"
-                className="w-full rounded border border-slate-300 dark:border-indigo-900/50 bg-white dark:bg-[#0a0a0a] px-2.5 py-1.5 text-[10px] text-slate-900 dark:text-slate-100 font-mono placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none transition-colors shadow-sm"
+            ) : selectedEdge ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-[10px] uppercase tracking-widest text-indigo-700 dark:text-indigo-400/80 font-bold flex items-center gap-1.5">
+                    <Link2 className="h-3.5 w-3.5" /> EDGE
+                  </div>
+                  <button
+                    type="button"
+                    onClick={deleteSelected}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded border border-red-300 dark:border-red-400/50 text-[9px] font-mono text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
+                  >
+                    <X className="h-3 w-3" /> REMOVE
+                  </button>
+                </div>
+                <div className="space-y-1">
+                  <label className={labelClass}>Branch Label</label>
+                  <input
+                    value={typeof selectedEdge.label === "string" ? selectedEdge.label : ""}
+                    onChange={(e) => updateEdgeLabel(selectedEdge.id, e.target.value)}
+                    placeholder="e.g. true / false / high / worker / join"
+                    className="w-full rounded border border-slate-300 dark:border-indigo-900/50 bg-white dark:bg-[#0a0a0a] px-2.5 py-1.5 text-[10px] text-slate-900 dark:text-slate-100 font-mono placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none transition-colors shadow-sm"
+                  />
+                  <p className="text-[8px] text-slate-500 dark:text-slate-400 leading-tight">
+                    Router & supervisor nodes pick the outgoing edge whose label matches their decision. Parallel nodes use{" "}
+                    <code className="text-teal-600 dark:text-teal-400">worker</code>/<code className="text-teal-600 dark:text-teal-400">join</code> and loop nodes use{" "}
+                    <code className="text-fuchsia-600 dark:text-fuchsia-400">body</code>/<code className="text-fuchsia-600 dark:text-fuchsia-400">exit</code> labels.
+                  </p>
+                </div>
+                <div className="border-t border-slate-200 dark:border-slate-700/60 pt-2 text-[9px] text-slate-600 dark:text-slate-400 font-mono">
+                  {selectedEdge.source} → {selectedEdge.target}
+                </div>
+              </div>
+            ) : readOnly ? (
+              <div className="space-y-2">
+                <div className="text-[10px] uppercase tracking-widest text-indigo-700 dark:text-indigo-400/80 font-bold">SNAPSHOT</div>
+                <p className="text-[9px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                  Read-only view of the graph and its most recent execution trace.
+                </p>
+                <div className="border-t border-slate-200 dark:border-slate-700/60 pt-2 space-y-1.5">
+                  <div className="text-[9px] uppercase tracking-wider text-slate-500 font-bold">GRAPH STATS</div>
+                  <div className="flex justify-between text-[9px] text-slate-600 dark:text-slate-400"><span>Nodes</span><span className="text-indigo-600 dark:text-indigo-300 font-bold">{nodes.length}</span></div>
+                  <div className="flex justify-between text-[9px] text-slate-600 dark:text-slate-400"><span>Edges</span><span className="text-indigo-600 dark:text-indigo-300 font-bold">{edges.length}</span></div>
+                  <div className="flex justify-between text-[9px] text-slate-600 dark:text-slate-400"><span>Branches</span><span className="text-indigo-600 dark:text-indigo-300 font-bold">{edges.filter((e) => e.label).length}</span></div>
+                </div>
+              </div>
+            ) : selectedNode ? (
+              <NodeInspector
+                node={selectedNode}
+                onUpdate={(patch) => updateNodeData(selectedNode.id, patch)}
+                onDelete={deleteSelected}
+                allNodeIds={nodes.map((n) => n.id)}
+                onOpenSubgraph={openSubgraph}
               />
-              <p className="text-[8px] text-slate-500 dark:text-slate-400 leading-tight">
-                Router & supervisor nodes pick the outgoing edge whose label matches their decision. Parallel nodes use{" "}
-                <code className="text-teal-600 dark:text-teal-400">worker</code>/<code className="text-teal-600 dark:text-teal-400">join</code> and loop nodes use{" "}
-                <code className="text-fuchsia-600 dark:text-fuchsia-400">body</code>/<code className="text-fuchsia-600 dark:text-fuchsia-400">exit</code> labels.
-              </p>
-            </div>
-            <div className="border-t border-slate-200 dark:border-slate-700/60 pt-2 text-[9px] text-slate-600 dark:text-slate-400 font-mono">
-              {selectedEdge.source} → {selectedEdge.target}
-            </div>
-          </div>
-        ) : readOnly ? (
-          <div className="space-y-2">
-            <div className="text-[10px] uppercase tracking-widest text-indigo-700 dark:text-indigo-400/80 font-bold">SNAPSHOT</div>
-            <p className="text-[9px] text-slate-600 dark:text-slate-400 leading-relaxed">
-              Read-only view of the graph and its most recent execution trace.
-            </p>
-            <div className="border-t border-slate-200 dark:border-slate-700/60 pt-2 space-y-1.5">
-              <div className="text-[9px] uppercase tracking-wider text-slate-500 font-bold">GRAPH STATS</div>
-              <div className="flex justify-between text-[9px] text-slate-600 dark:text-slate-400"><span>Nodes</span><span className="text-indigo-600 dark:text-indigo-300 font-bold">{nodes.length}</span></div>
-              <div className="flex justify-between text-[9px] text-slate-600 dark:text-slate-400"><span>Edges</span><span className="text-indigo-600 dark:text-indigo-300 font-bold">{edges.length}</span></div>
-              <div className="flex justify-between text-[9px] text-slate-600 dark:text-slate-400"><span>Branches</span><span className="text-indigo-600 dark:text-indigo-300 font-bold">{edges.filter((e) => e.label).length}</span></div>
-            </div>
-          </div>
-        ) : selectedNode ? (
-          <NodeInspector
-            node={selectedNode}
-            onUpdate={(patch) => updateNodeData(selectedNode.id, patch)}
-            onDelete={deleteSelected}
-            allNodeIds={nodes.map((n) => n.id)}
-            onOpenSubgraph={openSubgraph}
-          />
-        ) : (
-          <div className="space-y-2">
-            <div className="text-[10px] uppercase tracking-widest text-indigo-700 dark:text-indigo-400/80 font-bold">INSPECTOR</div>
-            <p className="text-[9px] text-slate-600 dark:text-slate-400 leading-relaxed">
-              Select a node to configure its prompt, tools, condition, or loop count. Click an edge to rename the branch
-              (router edges pick by label).
-            </p>
-            <div className="border-t border-slate-200 dark:border-slate-700/60 pt-2 space-y-1.5">
-              <div className="text-[9px] uppercase tracking-wider text-slate-500 font-bold">GRAPH STATS</div>
-              <div className="flex justify-between text-[9px] text-slate-600 dark:text-slate-400"><span>Nodes</span><span className="text-indigo-600 dark:text-indigo-300 font-bold">{nodes.length}</span></div>
-              <div className="flex justify-between text-[9px] text-slate-600 dark:text-slate-400"><span>Edges</span><span className="text-indigo-600 dark:text-indigo-300 font-bold">{edges.length}</span></div>
-              <div className="flex justify-between text-[9px] text-slate-600 dark:text-slate-400"><span>Branches</span><span className="text-indigo-600 dark:text-indigo-300 font-bold">{edges.filter((e) => e.label).length}</span></div>
-            </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="text-[10px] uppercase tracking-widest text-indigo-700 dark:text-indigo-400/80 font-bold">INSPECTOR</div>
+                <p className="text-[9px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                  Select a node to configure its prompt, tools, condition, or loop count. Click an edge to rename the branch
+                  (router edges pick by label).
+                </p>
+                <div className="border-t border-slate-200 dark:border-slate-700/60 pt-2 space-y-1.5">
+                  <div className="text-[9px] uppercase tracking-wider text-slate-500 font-bold">GRAPH STATS</div>
+                  <div className="flex justify-between text-[9px] text-slate-600 dark:text-slate-400"><span>Nodes</span><span className="text-indigo-600 dark:text-indigo-300 font-bold">{nodes.length}</span></div>
+                  <div className="flex justify-between text-[9px] text-slate-600 dark:text-slate-400"><span>Edges</span><span className="text-indigo-600 dark:text-indigo-300 font-bold">{edges.length}</span></div>
+                  <div className="flex justify-between text-[9px] text-slate-600 dark:text-slate-400"><span>Branches</span><span className="text-indigo-600 dark:text-indigo-300 font-bold">{edges.filter((e) => e.label).length}</span></div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1867,7 +1928,14 @@ function CanvasInner({
 
       {/* ─── Macro Library Panel (shown via toolbar button) ─── */}
       {showMacroLibrary && (
-        <div className="absolute left-2 top-16 z-20 w-64 max-h-[70vh] overflow-y-auto rounded-lg border border-slate-700/60 bg-[#0a0a14]/95 backdrop-blur-md p-3 shadow-2xl font-mono">
+        <div className={clsx(
+          "absolute left-2 top-16 z-20 w-64 max-h-[70vh] overflow-y-auto rounded-lg backdrop-blur-md p-3 shadow-2xl font-mono",
+          canvasTheme === "paper"
+            ? "border border-slate-200 bg-white/95 text-slate-800"
+            : canvasTheme === "graphite"
+              ? "border border-slate-600/60 bg-[#1a1d27]/95 text-slate-200"
+              : "border border-slate-700/60 bg-[#0a0a14]/95 text-slate-200"
+        )}>
           <MacroLibrary
             nodes={nodes}
             edges={edges}
@@ -1881,7 +1949,14 @@ function CanvasInner({
 
       {/* ─── Debugger Panel ─── */}
       {showDebugger && (
-        <div className="absolute right-2 bottom-16 z-20 w-64 max-h-[60vh] overflow-y-auto rounded-lg border border-slate-700/60 bg-[#0a0a14]/95 backdrop-blur-md p-3 shadow-2xl">
+        <div className={clsx(
+          "absolute right-2 bottom-16 z-20 w-64 max-h-[60vh] overflow-y-auto rounded-lg backdrop-blur-md p-3 shadow-2xl",
+          canvasTheme === "paper"
+            ? "border border-slate-200 bg-white/95 text-slate-800"
+            : canvasTheme === "graphite"
+              ? "border border-slate-600/60 bg-[#1a1d27]/95 text-slate-200"
+              : "border border-slate-700/60 bg-[#0a0a14]/95 text-slate-200"
+        )}>
           <DebuggerPanel
             nodeStatuses={effStatuses}
             nodeDetails={effDetails}

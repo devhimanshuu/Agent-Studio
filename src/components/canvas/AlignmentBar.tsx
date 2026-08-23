@@ -11,12 +11,13 @@ import {
   LayoutTemplate,
   X,
 } from "lucide-react";
+import type { Edge } from "@xyflow/react";
 import type { CanvasNode } from "./graphUtils";
 import { computeLayout } from "./autoLayout";
 
 interface AlignmentBarProps {
   selectedNodes: CanvasNode[];
-  edges: { source: string; target: string; id?: string; label?: string | number | null }[];
+  edges: Edge[];
   onAlign: (updatedNodes: CanvasNode[]) => void;
   onDismiss: () => void;
 }
@@ -72,17 +73,17 @@ export function AlignmentBar({ selectedNodes, edges, onAlign, onDismiss }: Align
   };
 
   const btnClass =
-    "inline-flex items-center justify-center h-7 w-7 rounded border border-slate-700/60 bg-[#0a0a14] text-slate-400 hover:text-white hover:border-indigo-400 hover:bg-indigo-950/40 transition-colors cursor-pointer";
+    "inline-flex items-center justify-center h-7 w-7 rounded border border-slate-300 dark:border-slate-700/60 bg-white/95 dark:bg-[#0a0a14] text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-white hover:border-indigo-400 dark:hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-slate-400";
   const activeBtnClass =
-    "inline-flex items-center justify-center h-7 w-7 rounded border border-indigo-500/50 bg-indigo-950/40 text-indigo-300 hover:bg-indigo-900/50 transition-colors cursor-pointer";
+    "inline-flex items-center justify-center h-7 w-7 rounded border border-indigo-400 dark:border-indigo-500/50 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors cursor-pointer";
 
   return (
-    <div className="absolute left-1/2 bottom-16 z-30 -translate-x-1/2 flex items-center gap-1 rounded-xl border border-slate-700/60 bg-[#0a0a14]/95 backdrop-blur-md px-2.5 py-1.5 shadow-2xl font-mono">
-      <span className="text-[8px] font-bold text-indigo-400 uppercase tracking-widest mr-1.5">
+    <div className="absolute left-1/2 bottom-16 z-30 -translate-x-1/2 flex items-center gap-1 rounded-xl border border-slate-200 dark:border-slate-700/60 bg-white/95 dark:bg-[#0a0a14]/95 backdrop-blur-md px-2.5 py-1.5 shadow-2xl font-mono">
+      <span className="text-[8px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mr-1.5">
         {selectedNodes.length} selected
       </span>
 
-      <div className="w-px h-5 bg-slate-700/60 mx-1" />
+      <div className="w-px h-5 bg-slate-200 dark:bg-slate-700/60 mx-1" />
 
       <button onClick={alignLeft} className={btnClass} title="Align Left">
         <AlignStartVertical className="h-3.5 w-3.5" />
@@ -97,36 +98,36 @@ export function AlignmentBar({ selectedNodes, edges, onAlign, onDismiss }: Align
         <AlignEndHorizontal className="h-3.5 w-3.5" />
       </button>
 
-      <div className="w-px h-5 bg-slate-700/60 mx-1" />
+      <div className="w-px h-5 bg-slate-200 dark:bg-slate-700/60 mx-1" />
 
       <button
         onClick={distributeHorizontal}
-        className={selectedNodes.length >= 3 ? btnClass : activeBtnClass}
+        className={btnClass}
         disabled={selectedNodes.length < 3}
-        title="Distribute Horizontally"
+        title="Distribute Horizontally (requires 3+ nodes)"
       >
         <Rows3 className="h-3.5 w-3.5" />
       </button>
       <button
         onClick={distributeVertical}
-        className={selectedNodes.length >= 3 ? btnClass : activeBtnClass}
+        className={btnClass}
         disabled={selectedNodes.length < 3}
-        title="Distribute Vertically"
+        title="Distribute Vertically (requires 3+ nodes)"
       >
         <Columns3 className="h-3.5 w-3.5" />
       </button>
 
-      <div className="w-px h-5 bg-slate-700/60 mx-1" />
+      <div className="w-px h-5 bg-slate-200 dark:bg-slate-700/60 mx-1" />
 
       <button onClick={autoTidy} className={activeBtnClass} title="Auto-Tidy Layout">
         <LayoutTemplate className="h-3.5 w-3.5" />
       </button>
 
-      <div className="w-px h-5 bg-slate-700/60 mx-1" />
+      <div className="w-px h-5 bg-slate-200 dark:bg-slate-700/60 mx-1" />
 
       <button
         onClick={onDismiss}
-        className="inline-flex items-center justify-center h-7 w-7 rounded border border-slate-700/60 bg-[#0a0a14] text-slate-500 hover:text-red-400 hover:border-red-500/50 transition-colors cursor-pointer"
+        className="inline-flex items-center justify-center h-7 w-7 rounded border border-slate-300 dark:border-slate-700/60 bg-white/95 dark:bg-[#0a0a14] text-slate-400 hover:text-red-500 hover:border-red-400 dark:hover:border-red-500/50 transition-colors cursor-pointer"
         title="Dismiss"
       >
         <X className="h-3 w-3" />

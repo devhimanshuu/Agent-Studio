@@ -135,7 +135,7 @@ async function runPreview(
   const openApiService = new OpenApiService(new OpenApiRepository());
 
   await Promise.all([
-    mcpService.syncRegistryTools(userId, toolRegistry).catch((err) => {
+    mcpService.registerUserMcpTools(userId, toolRegistry).catch((err) => {
       logger.warn({ userId, err }, "Failed to sync MCP tools for preview");
     }),
     openApiService.syncRegistryTools(userId, toolRegistry).catch((err) => {

@@ -1,5 +1,6 @@
 "use client";
 
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Trash2, GitBranch, Braces, Boxes, CornerUpRight, RefreshCw, Sparkles, Circle } from "lucide-react";
 import { clsx } from "clsx";
 import { BUILT_IN_TOOL_CATALOG } from "@/modules/tools";

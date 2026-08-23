@@ -66,7 +66,7 @@ export async function GET(req: Request) {
     if (fetchAll) {
       const { items, totalCount } = await fetchAllSmithery(
         fetchType as "servers" | "skills",
-        (item: unknown) => item
+        (item) => item
       );
       return NextResponse.json({
         success: true,

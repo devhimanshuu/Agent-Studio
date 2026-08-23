@@ -9,6 +9,7 @@ import {
   Star,
   FolderOpen,
 } from "lucide-react";
+import type { Edge } from "@xyflow/react";
 import type { AgentGraphDefinition, GraphNodeType } from "@/types/graph";
 import type { CanvasNode } from "./graphUtils";
 
@@ -27,7 +28,7 @@ interface MacroLibraryProps {
   /** Current canvas nodes (for saving selections). */
   nodes: CanvasNode[];
   /** Current canvas edges. */
-  edges: { id: string; source: string; target: string; label?: string | number | null }[];
+  edges: Edge[];
   /** IDs of currently selected nodes. */
   selectedNodeIds: Set<string>;
   /** Called when user wants to add a macro to the canvas. */
@@ -148,8 +149,8 @@ export function MacroLibrary({
 
       {/* Save form */}
       {showSave && (
-        <div className="rounded border border-emerald-500/30 bg-emerald-950/20 p-2 space-y-1.5">
-          <div className="text-[8px] text-emerald-400 font-bold uppercase tracking-wider">
+        <div className="rounded border border-emerald-300 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/20 p-2 space-y-1.5">
+          <div className="text-[8px] text-emerald-700 dark:text-emerald-400 font-bold uppercase tracking-wider">
             Save {selectedNodeIds.size} selected nodes as component
           </div>
           <div className="flex items-center gap-1.5">
@@ -160,7 +161,7 @@ export function MacroLibrary({
                 if (e.key === "Enter") saveSelection();
               }}
               placeholder="Component name…"
-              className="flex-1 rounded border border-slate-700 bg-black/40 px-2 py-1 text-[9px] text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-500"
+              className="flex-1 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-black/40 px-2 py-1 text-[9px] text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:border-emerald-500"
               autoFocus
             />
             <button
@@ -179,7 +180,7 @@ export function MacroLibrary({
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Search components…"
-        className="w-full rounded border border-slate-700/60 bg-black/40 px-2.5 py-1.5 text-[9px] text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500"
+        className="w-full rounded border border-slate-300 dark:border-slate-700/60 bg-white dark:bg-black/40 px-2.5 py-1.5 text-[9px] text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:border-indigo-500"
       />
 
       {/* Component list */}

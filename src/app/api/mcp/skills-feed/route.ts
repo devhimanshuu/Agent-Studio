@@ -148,24 +148,27 @@ function mapComposioSkillCategory(cat: string): SkillCategory {
 }
 
 function smitheryItemToSkill(s: Record<string, unknown>): AgentSkill {
+  const qualityScore = typeof s.qualityScore === "number" ? s.qualityScore : 0.8;
+  const categories = Array.isArray(s.categories) ? (s.categories as string[]) : [];
+  const servers = Array.isArray(s.servers) ? (s.servers as string[]) : [];
   return {
-    id: `smithery-${s.id as string}`,
-    name: (s.displayName as string) || (s.slug as string) || "Smithery Skill",
-    description: (s.description as string) || "",
-    category: mapSkillCategory(((s.categories as string[])?.[0]) || ""),
-    author: s.namespace || "smithery",
+    id: `smithery-${String(s.id ?? "")}`,
+    name: String(s.displayName || s.slug || "Smithery Skill"),
+    description: String(s.description || ""),
+    category: mapSkillCategory(categories[0] || ""),
+    author: String(s.namespace || "smithery"),
     source: "smithery" as const,
-    sourceUrl: s.gitUrl,
-    requiredServers: s.servers || [],
+    sourceUrl: s.gitUrl ? String(s.gitUrl) : undefined,
+    requiredServers: servers,
     requiredTools: [],
-    tags: ["smithery", ...(s.categories || []), ...(s.servers || [])].slice(0, 5),
-    stars: s.externalStars || 0,
-    installs: s.totalActivations || 0,
-    rating: Math.min(5, Math.max(1, Math.round((s.qualityScore || 0.8) * 5))),
-    difficulty: (s.qualityScore > 0.9 ? "ADVANCED" : s.qualityScore > 0.7 ? "INTERMEDIATE" : "BEGINNER") as AgentSkill["difficulty"],
+    tags: ["smithery", ...categories, ...servers].slice(0, 5),
+    stars: typeof s.externalStars === "number" ? s.externalStars : 0,
+    installs: typeof s.totalActivations === "number" ? s.totalActivations : 0,
+    rating: Math.min(5, Math.max(1, Math.round(qualityScore * 5))),
+    difficulty: (qualityScore > 0.9 ? "ADVANCED" : qualityScore > 0.7 ? "INTERMEDIATE" : "BEGINNER") as AgentSkill["difficulty"],
     estimatedTime: "5 min",
     steps: [
-      { order: 1, action: "execute", description: `Execute ${s.displayName || s.slug} skill capabilities` },
+      { order: 1, action: "execute", description: `Execute ${String(s.displayName || s.slug || "skill")} capabilities` },
       { order: 2, action: "process", description: "Process results and generate output" },
       { order: 3, action: "deliver", description: "Deliver final response to user" },
     ],

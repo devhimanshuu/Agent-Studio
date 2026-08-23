@@ -22,6 +22,33 @@ interface ApiDirectoryEntry {
   originUrl?: string;
 }
 
+interface ApisGuruVersionInfo {
+  title?: string;
+  description?: string;
+  version?: string;
+  "x-apisguru-categories"?: string[];
+  "x-logo"?: { url?: string };
+  externalDocs?: { url?: string };
+  license?: { name?: string; url?: string };
+  contact?: { email?: string; url?: string };
+  "x-origin"?: Array<{ url?: string }>;
+}
+
+interface ApisGuruVersionData {
+  info?: ApisGuruVersionInfo;
+  swaggerUrl?: string;
+  swaggerYamlUrl?: string;
+  openapiVer?: string;
+  updated?: string;
+  externalDocs?: { url?: string };
+  "x-apisguru-direct"?: { url?: string };
+}
+
+interface ApisGuruEntry {
+  preferred?: string;
+  versions?: Record<string, ApisGuruVersionData>;
+}
+
 interface DirectoryCache {
   items: ApiDirectoryEntry[];
   providers: string[];
@@ -53,7 +80,7 @@ async function fetchFullDirectory(): Promise<DirectoryCache> {
     throw new Error(`Failed to fetch APIs.guru directory (${listRes.status})`);
   }
 
-  const rawList = (await listRes.json()) as Record<string, unknown>;
+  const rawList = (await listRes.json()) as Record<string, ApisGuruEntry>;
   const rawMetrics = metricsRes && metricsRes.ok ? await metricsRes.json().catch(() => null) : null;
 
   const items: ApiDirectoryEntry[] = [];
