@@ -211,10 +211,6 @@ export const toolExecutionNode: GraphNode = async (state, config) => {
   // Prior-step references ($step<N>.result / {{ step_<N>.result }}) are
   // resolved against the accumulated results so multi-step plans can feed a
   // later call with an earlier call's output.
-  const resolvedInput = resolveStepReferences(step.input, {
-    results: state.results,
-    userInput: state.input,
-  });
   const executionInput = { ...(resolvedInput as Record<string, unknown>), action: step.action };
   try {
     const output = await withRetries(
