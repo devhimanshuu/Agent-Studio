@@ -1,7 +1,7 @@
 import { LLMProvider } from "./LLMProvider";
 import { GroqProvider } from "./GroqProvider";
 import { OpenRouterProvider } from "./OpenRouterProvider";
-import { CustomOpenAICompatibleProvider, CustomProviderConfig } from "./CustomOpenAICompatibleProvider";
+import { CustomOpenAICompatibleProvider } from "./CustomOpenAICompatibleProvider";
 import { LLMRouter, LLMRouterOptions } from "./LLMRouter";
 import {
   ALL_FALLBACK_MODELS,
