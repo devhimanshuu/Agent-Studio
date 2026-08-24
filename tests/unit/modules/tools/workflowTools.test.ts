@@ -99,8 +99,8 @@ describe("Bounded Workflow Step Tools", () => {
 
       expect(result.status).toBe("APPROVED");
       expect(result.formattedMarkdown).toContain("# Refund Approval Report");
-      expect(result.formattedMarkdown).toContain("## 📋 Executive Summary");
-      expect(result.formattedMarkdown).toContain("## 🔍 Execution Step Evidences");
+      expect(result.formattedMarkdown).toContain("## Executive Summary");
+      expect(result.formattedMarkdown).toContain("## Execution Step Evidences");
       expect(result.includedStepsCount).toBe(2);
     });
 

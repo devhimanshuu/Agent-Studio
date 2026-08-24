@@ -48,7 +48,7 @@ export async function chatCompletionRequest(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
         ...extraHeaders,
       },
       body: JSON.stringify(body),
@@ -169,7 +169,7 @@ export async function streamChatCompletion(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
         ...extraHeaders,
       },
       body: JSON.stringify(body),

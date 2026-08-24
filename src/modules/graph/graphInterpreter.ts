@@ -1,4 +1,4 @@
-import { LLMProvider, LLMChatMessage, getLLMProvider } from "@/providers/llm";
+import { LLMProvider, LLMChatMessage, getLLMProvider, getProviderForModel } from "@/providers/llm";
 import { SkillDTO, SkillVersionDTO } from "@/types/skill";
 import { ExecutionStatus } from "@/types/execution";
 import { AgentGraphDefinition, GraphNodeDefinition, GraphEdgeDefinition } from "@/types/graph";
@@ -1251,16 +1251,30 @@ export class GraphInterpreter {
       },
     ];
 
+    const effectiveModel = data.model;
+    const hasCustomApi = Boolean(data.customApiBaseUrl || data.customApiKey);
+    const activeLlm = (effectiveModel || hasCustomApi)
+      ? getProviderForModel(effectiveModel, {
+          customApiKey: data.customApiKey,
+          customApiBaseUrl: data.customApiBaseUrl,
+          customApiProvider: data.customApiProvider,
+        })
+      : ctx.llm;
+    const modelLabel = effectiveModel || activeLlm.model || activeLlm.name;
+
     // Emit LLM call start event
     this.emit(ctx, {
       type: "llm:call:start",
       nodeId: node.id,
-      model: ctx.llm.name,
+      model: modelLabel,
       promptPreview: systemPrompt.slice(0, 120),
     });
 
     const llmStarted = Date.now();
-    const completion = await ctx.llm.complete(messages, { temperature: 0.2, maxTokens: 800 });
+    const completion = await activeLlm.complete(messages, {
+      temperature: data.temperature ?? 0.2,
+      maxTokens: data.maxTokens ?? 800,
+    });
     const llmDurationMs = Date.now() - llmStarted;
 
     // Emit LLM call end event
@@ -1268,7 +1282,7 @@ export class GraphInterpreter {
       type: "llm:call:end",
       nodeId: node.id,
       status: "SUCCESS",
-      model: ctx.llm.name,
+      model: modelLabel,
       inputTokens: completion.usage?.inputTokens,
       outputTokens: completion.usage?.outputTokens,
       durationMs: llmDurationMs,
@@ -2348,8 +2362,9 @@ export class GraphInterpreter {
           }
           output = { destination: "webhook", dispatched: Boolean(webhookUrl), status: "DELIVERED" };
         }
-      } catch (err: any) {
-        output = { destination: dest, dispatched: false, error: err.message };
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        output = { destination: dest, dispatched: false, error: errorMsg };
       }
     }
 
@@ -2448,15 +2463,15 @@ export class GraphInterpreter {
         throw new Error(`SearXNG query returned ${res.status}: ${res.statusText}`);
       }
 
-      const json = await res.json();
-      const rawResults: any[] = json.results || [];
-      const results = rawResults.slice(0, limit).map((r: any) => ({
-        title: r.title || "Untitled",
-        url: r.url || "",
-        content: r.content || "",
-        score: r.score || 0,
-        publishedDate: r.publishedDate || null,
-        engine: r.engine || "searxng",
+      const json = (await res.json()) as { results?: Array<Record<string, unknown>> };
+      const rawResults = json.results || [];
+      const results = rawResults.slice(0, limit).map((r) => ({
+        title: (r.title as string) || "Untitled",
+        url: (r.url as string) || "",
+        content: (r.content as string) || "",
+        score: (r.score as number) || 0,
+        publishedDate: (r.publishedDate as string) || null,
+        engine: (r.engine as string) || "searxng",
       }));
 
       output = { query, host, count: results.length, results };
@@ -2543,7 +2558,7 @@ export class GraphInterpreter {
       }
       ctx.results[node.id] = output;
       this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "crawl4ai_scrape", status: "SUCCESS", output, durationMs: Date.now() - started });
-    } catch (_error) {
+    } catch {
       output = { url: targetUrl, markdown: `## Scraped Content for ${targetUrl}\n\nAutomated extraction completed.`, wordCount: 150, success: true };
       ctx.results[node.id] = output;
     }

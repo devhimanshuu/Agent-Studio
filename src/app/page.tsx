@@ -20,7 +20,6 @@ import {
   Activity,
   FileText,
   Search,
-  SlidersHorizontal,
   Workflow,
   Cpu,
   Layers,
@@ -32,13 +31,11 @@ import {
   Eye,
   Gauge,
   TimerReset,
-  History,
   Wallet,
   MousePointerClick,
   LayoutTemplate,
   Palette,
   Link2,
-  TriangleAlert,
   Network,
   Webhook,
   Globe,
@@ -49,16 +46,12 @@ import {
   Mic,
   Volume2,
   Sparkles,
-  Server,
   HardDrive,
   FileSpreadsheet,
   FileCheck,
   BrainCircuit,
-  ArrowRight,
   Terminal,
-  ExternalLink,
   Code2,
-  Share2,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Reveal } from "@/components/Reveal";
@@ -67,8 +60,6 @@ import {
   N8nOfficialLogo,
   DifyOfficialLogo,
   SmitheryOfficialLogo,
-  GlamaOfficialLogo,
-  McpProtocolLogo,
 } from "@/components/common/BrandLogos";
 
 // Lazy-loaded client components for fast initial server rendering
@@ -78,52 +69,6 @@ const NeuralPatterns = dynamic(() => import("@/components/landing/NeuralPatterns
 const FooterPortfolioWidget = dynamic(() => import("@/components/landing/FooterPortfolioWidget").then((m) => m.FooterPortfolioWidget));
 const HeroAuthSection = dynamic(() => import("@/components/landing/HeroAuthSection").then((m) => m.HeroAuthSection));
 const FooterAuthCTA = dynamic(() => import("@/components/landing/HeroAuthSection").then((m) => m.FooterAuthCTA));
-
-// ────────────── Runtime Nodes ──────────────
-const runtimeNodes = [
-  {
-    tag: "PLANNER NODE",
-    accent: "text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-black/40",
-    icon: ListChecks,
-    title: "Plan Generation",
-    desc: "The LLM emits a deterministic, schema-validated execution plan — never touches tools directly or causes unconstrained loops.",
-  },
-  {
-    tag: "PERMISSION NODE",
-    accent: "text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-black/40",
-    icon: ShieldCheck,
-    title: "Tool Authorization",
-    desc: "Every planned step must exist, be enabled, and be listed in the workflow's allowedTools — unlisted calls are rejected pre-execution.",
-  },
-  {
-    tag: "SELECTION NODE",
-    accent: "text-cyan-700 dark:text-cyan-300 border-cyan-300 dark:border-cyan-500/40 bg-cyan-50 dark:bg-black/40",
-    icon: GitBranch,
-    title: "Step Routing",
-    desc: "The graph walks step-by-step via conditional edges: approve, execute, fan-out, or finish — the plan is executed deterministically.",
-  },
-  {
-    tag: "EXECUTION NODE",
-    accent: "text-violet-700 dark:text-violet-300 border-violet-300 dark:border-violet-500/40 bg-violet-50 dark:bg-black/40",
-    icon: Wrench,
-    title: "Step Execution",
-    desc: "Executes extraction, microservices, and tool steps with state continuity, template resolution ({{ ... }}), and automatic transient retries.",
-  },
-  {
-    tag: "REVIEW NODE",
-    accent: "text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-black/40",
-    icon: Shield,
-    title: "HITL Pause",
-    desc: "Write actions flagged for review park the run in PAUSED_FOR_APPROVAL. A single-use idempotency key guarantees one-time dispatch.",
-  },
-  {
-    tag: "FINISH NODE",
-    accent: "text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-black/40",
-    icon: Flag,
-    title: "Report Synthesis",
-    desc: "Step results and path decisions are synthesized into the final output and persisted alongside the full execution trace timeline.",
-  },
-];
 
 // ────────────── Production Canvas Node Categories ──────────────
 const canvasNodeCategories = [

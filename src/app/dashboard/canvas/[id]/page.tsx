@@ -30,7 +30,7 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { toast } from "@/stores/toastStore";
 import { AgentGraphDefinition } from "@/types/graph";
 import { clsx } from "clsx";
-import { getPrefilledExecutionInput, safeParseExecutionInput } from "@/lib/execution/inputHelper";
+import { getPrefilledExecutionInput } from "@/lib/execution/inputHelper";
 import { JsonEditorModal } from "@/components/common/JsonEditorModal";
 import { Maximize2, ChevronDown, ChevronUp } from "lucide-react";
 
@@ -130,7 +130,7 @@ export default function CanvasEditorPage({ params }: { params: Promise<{ id: str
         setIsDirty(false);
         setSyncStatus("synced");
         queryClient.invalidateQueries({ queryKey: ["skill", id] });
-      } catch (err) {
+      } catch {
         setSyncStatus("unsaved");
       }
     }, 1200);

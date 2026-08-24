@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   AlertCircle,
   FileJson,
-  Code2,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { toast } from "@/stores/toastStore";
@@ -37,25 +36,6 @@ export function JsonEditorModal({
   const [copied, setCopied] = useState(false);
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [jsonStats, setJsonStats] = useState<{ keys: number; bytes: number } | null>(null);
-
-  // Sync state when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      setLocalValue(value);
-      validate(value);
-    }
-  }, [isOpen, value]);
-
-  // Handle escape key
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
 
   const validate = useCallback((text: string) => {
     const trimmed = text.trim();
@@ -83,6 +63,25 @@ export function JsonEditorModal({
       return false;
     }
   }, []);
+
+  // Sync state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setLocalValue(value);
+      validate(value);
+    }
+  }, [isOpen, value, validate]);
+
+  // Handle escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
 
   const handleChange = (text: string) => {
     setLocalValue(text);

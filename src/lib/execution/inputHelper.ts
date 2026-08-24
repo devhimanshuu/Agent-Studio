@@ -1,5 +1,12 @@
 import { SkillVersionDTO } from "@/types/skill";
 
+interface SchemaProperty {
+  type?: string;
+  default?: unknown;
+  example?: unknown;
+  [key: string]: unknown;
+}
+
 /**
  * Generates a prefilled, structured JSON input string for a skill or workflow.
  * Inspects existing examples, inputSchema definitions, and properties.
@@ -22,11 +29,11 @@ export function getPrefilledExecutionInput(version?: SkillVersionDTO | null): st
   }
 
   // 2. If inputSchema declares properties, generate a realistic sample
-  const schemaProps = (version.inputSchema?.properties as Record<string, any>) || {};
+  const schemaProps = (version.inputSchema?.properties as Record<string, SchemaProperty> | undefined) || {};
   const propKeys = Object.keys(schemaProps);
 
   if (propKeys.length > 0) {
-    const sample: Record<string, any> = {};
+    const sample: Record<string, unknown> = {};
 
     for (const [key, prop] of Object.entries(schemaProps)) {
       if (prop.default !== undefined) {

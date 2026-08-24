@@ -8,7 +8,7 @@ import { WORKFLOW_TEMPLATES } from "@/components/workflows/WorkflowTemplates";
 export const revalidate = 300;
 
 interface CacheEntry {
-  data: any;
+  data: Record<string, unknown>;
   timestamp: number;
 }
 
@@ -71,14 +71,14 @@ function getStudioTemplates(q: string, category: string, tag: string = "") {
         t.id.includes("windmill");
 
       const icon = isOpenSource
-        ? "⚡"
+        ? "Layers"
         : isZeroKey
-        ? "🌐"
+        ? "Globe"
         : t.category.includes("SECURITY")
-        ? "🛡️"
+        ? "Shield"
         : t.category.includes("FINANCE")
-        ? "🪙"
-        : "⚡";
+        ? "Coins"
+        : "Workflow";
 
       const categories = [
         t.category.toLowerCase(),
@@ -136,7 +136,7 @@ function getStudioTemplates(q: string, category: string, tag: string = "") {
         readme: `### Enterprise Workflow Starter\n\n**Instructions:**\n${t.instructions}\n\n**Steps:**\n${t.stepsSummary.join(" → ")}\n\n**Allowed Tools:**\n${t.allowedTools.join(", ")}`,
         author: "Enterprise Blueprints",
         authorUrl: "/dashboard/skills",
-        icon: isOpenSource ? "⚡" : isZeroKey ? "🌐" : "🛡️",
+        icon: isOpenSource ? "Layers" : isZeroKey ? "Globe" : "Shield",
         iconBackground: isOpenSource ? "#4F46E5" : isZeroKey ? "#0D9488" : "#312E81",
         categories: [
           t.category.toLowerCase(),
@@ -283,7 +283,7 @@ export async function GET(request: Request) {
         readme: w.description || "",
         author: w.user?.username || w.user?.name || "n8n Community",
         authorUrl: `https://n8n.io/workflows/${w.id}`,
-        icon: "⚡",
+        icon: "Workflow",
         iconBackground: "#F0506E",
         categories: (w.categories || []).map((c: any) => (typeof c === "string" ? c : c.name || "Automation")),
         primaryCategory: (w.categories?.[0]?.name || w.categories?.[0] || "automation").toLowerCase(),
@@ -363,7 +363,7 @@ export async function GET(request: Request) {
           readme: t.readme || "",
           author: t.publisher_unique_handle || (t.publisher_type === "organization" ? "Dify Team" : "Community"),
           authorUrl: `https://marketplace.dify.ai/templates/${t.id}`,
-          icon: t.icon || "🤖",
+          icon: t.icon || "Layers",
           iconBackground: t.icon_background || "#1C64F2",
           categories: Array.isArray(t.categories) ? t.categories : ["operations"],
           primaryCategory: (t.categories?.[0] || "operations").toLowerCase(),
@@ -461,7 +461,7 @@ export async function GET(request: Request) {
       readme: w.description || "",
       author: w.user?.username || w.user?.name || "n8n Community",
       authorUrl: `https://n8n.io/workflows/${w.id}`,
-      icon: "⚡",
+      icon: "Workflow",
       iconBackground: "#F0506E",
       categories: (w.categories || []).map((c: any) => (typeof c === "string" ? c : c.name || "Automation")),
       primaryCategory: (w.categories?.[0]?.name || w.categories?.[0] || "automation").toLowerCase(),
@@ -496,7 +496,7 @@ export async function GET(request: Request) {
         readme: t.readme || "",
         author: t.publisher_unique_handle || (t.publisher_type === "organization" ? "Dify Team" : "Community"),
         authorUrl: `https://marketplace.dify.ai/templates/${t.id}`,
-        icon: t.icon || "🤖",
+        icon: t.icon || "Layers",
         iconBackground: t.icon_background || "#1C64F2",
         categories: Array.isArray(t.categories) ? t.categories : ["operations"],
         primaryCategory: (t.categories?.[0] || "operations").toLowerCase(),

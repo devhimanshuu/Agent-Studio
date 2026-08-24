@@ -58,6 +58,18 @@ export interface GraphNodeData {
   prompt?: string;
   /** Explicit model override (e.g. `cohere/north-mini-code:free`, `google/gemma-4-26b-a4b-it:free`). */
   model?: string;
+  /** Custom API Key for proprietary or self-hosted model endpoints. */
+  customApiKey?: string;
+  /** Custom API Base URL (e.g. `http://localhost:11434/v1`, `https://api.openai.com/v1`, `https://api.together.xyz/v1`). */
+  customApiBaseUrl?: string;
+  /** Provider identifier or protocol format (e.g. `custom_openai`, `ollama`, `together`, `groq`, `anthropic`). */
+  customApiProvider?: string;
+  /** Sampling temperature (0.0 - 2.0). */
+  temperature?: number;
+  /** Max output tokens for LLM generation. */
+  maxTokens?: number;
+  /** Top-P nucleus sampling. */
+  topP?: number;
   /** Tool names the agent may invoke (resolved to registry tools at runtime). */
   allowedTools?: string[];
   // tool
