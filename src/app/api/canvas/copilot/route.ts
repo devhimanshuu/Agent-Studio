@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { getLLMProvider } from "@/providers/llm";
+import { getProviderForModel } from "@/providers/llm";
 import type { AgentGraphDefinition } from "@/types/graph";
 import { unauthorized, serverError } from "@/lib/api/handlers";
 import { rateLimit } from "@/lib/api/rateLimit";
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { prompt } = body;
+    const { prompt, model } = body;
 
     if (!prompt || typeof prompt !== "string" || prompt.trim().length === 0) {
       return NextResponse.json(
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const llm = getLLMProvider();
+    const llm = getProviderForModel(model);
     const llmResponse = await llm.complete(
       [
         { role: "system", content: COPILOT_SYSTEM_PROMPT },

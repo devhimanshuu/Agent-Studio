@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
-import { Sparkles, Loader2, Wand2, ChevronDown, ChevronUp } from "lucide-react";
+import { Sparkles, Loader2, Wand2, ChevronDown, ChevronUp, AlertCircle } from "lucide-react";
 import { clsx } from "clsx";
 import type { AgentGraphDefinition } from "@/types/graph";
 
@@ -127,8 +127,9 @@ export function CanvasCopilot({ onGraphGenerated, disabled = false, position = "
 
         {/* Error */}
         {error && (
-          <div className="px-3 py-1.5 border-b border-red-300 dark:border-red-500/30 bg-red-50 dark:bg-red-950/40 text-[9px] text-red-600 dark:text-red-400">
-            ✗ {error}
+          <div className="px-3 py-1.5 border-b border-red-300 dark:border-red-500/30 bg-red-50 dark:bg-red-950/40 text-[9px] text-red-600 dark:text-red-400 flex items-center gap-1.5">
+            <AlertCircle className="h-3 w-3 shrink-0" />
+            {error}
           </div>
         )}
 

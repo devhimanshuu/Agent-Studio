@@ -25,12 +25,7 @@ import {
   FileCheck,
   HardDrive,
   BrainCircuit,
-  Database,
   FileSpreadsheet,
-  Mic,
-  Volume2,
-  Webhook,
-  Eye,
   Gauge,
   ChevronRight,
 } from "lucide-react";
@@ -622,7 +617,6 @@ export function LiveAgentCanvasDemo() {
   const [logHistory, setLogHistory] = useState<DemoTraceStep[]>([]);
   const [simSpeed, setSimSpeed] = useState<number>(1); // 1x, 2x, 4x
   const [showHeatmap, setShowHeatmap] = useState<boolean>(false);
-  const [isGhostMode, setIsGhostMode] = useState<boolean>(false);
 
   // Canvas Pan and Zoom
   const [zoom, setZoom] = useState<number>(1);

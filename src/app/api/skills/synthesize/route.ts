@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { getLLMProvider } from "@/providers/llm";
+import { getProviderForModel } from "@/providers/llm";
 import { SkillService } from "@/services/SkillService";
 import { createSkillSchema } from "@/validators/skillSchema";
 import type { AgentGraphDefinition } from "@/types/graph";
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { prompt, autoMount = false } = body;
+    const { prompt, autoMount = false, model } = body;
 
     if (!prompt || typeof prompt !== "string" || prompt.trim().length === 0) {
       return NextResponse.json(
@@ -165,10 +165,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    logger.info({ userId, promptLength: prompt.length }, "Skill synthesis started");
+    logger.info({ userId, promptLength: prompt.length, model }, "Skill synthesis started");
 
     // ── Phase 1: LLM generates graph + server analysis ──
-    const llm = getLLMProvider();
+    const llm = getProviderForModel(model);
     const llmResponse = await llm.complete(
       [
         { role: "system", content: SYNTHESIZER_SYSTEM_PROMPT },

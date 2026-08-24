@@ -17,12 +17,16 @@ import {
   Check,
   Zap,
   Clock,
-  Sparkles,
-  Layers,
-  ShieldAlert,
   ChevronDown,
   ChevronUp,
   User,
+  Globe,
+  Play,
+  Loader2,
+  Key,
+  AlertCircle,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { EmptyState } from "@/components/feedback/EmptyState";
@@ -238,13 +242,15 @@ function ProviderModelPanel({
                     </span>
                   )}
                   {item.throughput && (
-                    <span className="px-1 py-0.2 rounded bg-slate-100 dark:bg-black/50 border border-slate-200 dark:border-indigo-950 text-emerald-600 dark:text-emerald-400 font-bold">
-                      ⚡ {item.throughput}
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-black/50 border border-slate-200 dark:border-indigo-950 text-emerald-600 dark:text-emerald-400 font-bold">
+                      <Zap className="h-2.5 w-2.5" />
+                      {item.throughput}
                     </span>
                   )}
                   {item.latency && (
-                    <span className="px-1 py-0.2 rounded bg-slate-100 dark:bg-black/50 border border-slate-200 dark:border-indigo-950">
-                      ⏱ {item.latency}
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-black/50 border border-slate-200 dark:border-indigo-950">
+                      <Clock className="h-2.5 w-2.5" />
+                      {item.latency}
                     </span>
                   )}
                   <span className="px-1 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-bold ml-auto">
@@ -306,6 +312,209 @@ function ProviderCard({ status }: { status: ProviderStatus }) {
           models={openRouterList}
           apiKeyEnvName="OPENROUTER_API_KEY"
         />
+      </div>
+    </div>
+  );
+}
+
+const SETTINGS_PRESET_ENDPOINTS = [
+  { label: "Ollama (Local)", url: "http://localhost:11434/v1", model: "llama3.2", provider: "ollama" },
+  { label: "Groq LPU", url: "https://api.groq.com/openai/v1", model: "groq/compound", provider: "groq" },
+  { label: "OpenRouter", url: "https://openrouter.ai/api/v1", model: "google/gemma-4-26b-a4b-it:free", provider: "openrouter" },
+  { label: "OpenAI", url: "https://api.openai.com/v1", model: "gpt-4o", provider: "openai" },
+  { label: "Together AI", url: "https://api.together.xyz/v1", model: "meta-llama/Llama-3.3-70B-Instruct-Turbo", provider: "together" },
+  { label: "vLLM / LM Studio", url: "http://localhost:8000/v1", model: "custom-local", provider: "custom_openai" },
+];
+
+function CustomModelApiCard() {
+  const [model, setModel] = React.useState("gpt-4o");
+  const [apiBaseUrl, setApiBaseUrl] = React.useState("https://api.openai.com/v1");
+  const [apiKey, setApiKey] = React.useState("");
+  const [showKey, setShowKey] = React.useState(false);
+  const [testing, setTesting] = React.useState(false);
+  const [testResult, setTestResult] = React.useState<{
+    ok: boolean;
+    latencyMs?: number;
+    model?: string;
+    reply?: string;
+    error?: string;
+  } | null>(null);
+
+  const handleTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/models/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: model.trim() || "gpt-4o",
+          apiKey: apiKey.trim() || undefined,
+          apiBaseUrl: apiBaseUrl.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.connected) {
+        setTestResult({
+          ok: true,
+          latencyMs: data.latencyMs,
+          model: data.model,
+          reply: data.reply,
+        });
+      } else {
+        setTestResult({
+          ok: false,
+          error: data.error || "Connection failed",
+        });
+      }
+    } catch (err: unknown) {
+      setTestResult({
+        ok: false,
+        error: err instanceof Error ? err.message : "Network error",
+      });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <div className="p-6 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-4 shadow-sm font-mono">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-200 flex items-center gap-2">
+          <Globe className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+          CUSTOM MODEL API & ENDPOINT INTEGRATION
+        </h3>
+        <span className="text-[9px] px-2 py-0.5 rounded border border-indigo-400/40 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold">
+          OPENAI-COMPATIBLE API
+        </span>
+      </div>
+
+      <p className="text-[11px] text-slate-600 dark:text-slate-400 font-serif leading-relaxed">
+        Connect any external OpenAI-compatible API endpoint directly to Agent Studio workflows — including local Ollama instances, private vLLM clusters, LM Studio, DeepSeek, Together AI, or corporate proxy gateways.
+      </p>
+
+      {/* Preset Quick Fill Buttons */}
+      <div className="space-y-1.5 pt-1">
+        <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block">
+          Quick Endpoint Presets:
+        </span>
+        <div className="flex flex-wrap gap-2">
+          {SETTINGS_PRESET_ENDPOINTS.map((preset) => (
+            <button
+              key={preset.label}
+              type="button"
+              onClick={() => {
+                setApiBaseUrl(preset.url);
+                setModel(preset.model);
+              }}
+              className={clsx(
+                "px-2.5 py-1 rounded border text-[9px] font-bold transition-all cursor-pointer",
+                apiBaseUrl === preset.url
+                  ? "border-indigo-500 bg-indigo-600 text-white shadow-xs"
+                  : "border-slate-300 dark:border-indigo-950 bg-slate-50 dark:bg-black/50 text-slate-700 dark:text-slate-300 hover:border-indigo-400"
+              )}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Inputs Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+        {/* Model ID */}
+        <div className="space-y-1">
+          <label className="text-[9px] font-bold text-slate-700 dark:text-slate-300">
+            Model Identifier
+          </label>
+          <input
+            type="text"
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            placeholder="e.g. gpt-4o, llama3.2, deepseek-chat"
+            className="w-full px-3 py-1.5 text-xs rounded bg-white dark:bg-black/60 border border-slate-300 dark:border-indigo-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+          />
+        </div>
+
+        {/* API Base URL */}
+        <div className="space-y-1">
+          <label className="text-[9px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+            <Globe className="h-3 w-3 text-indigo-500" /> API Base URL
+          </label>
+          <input
+            type="text"
+            value={apiBaseUrl}
+            onChange={(e) => setApiBaseUrl(e.target.value)}
+            placeholder="e.g. http://localhost:11434/v1"
+            className="w-full px-3 py-1.5 text-xs rounded bg-white dark:bg-black/60 border border-slate-300 dark:border-indigo-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+          />
+        </div>
+
+        {/* API Key */}
+        <div className="space-y-1">
+          <label className="text-[9px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+            <Key className="h-3 w-3 text-indigo-500" /> API Key (Optional for Local)
+          </label>
+          <div className="relative">
+            <input
+              type={showKey ? "text" : "password"}
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="sk-..."
+              className="w-full px-3 py-1.5 pr-8 text-xs rounded bg-white dark:bg-black/60 border border-slate-300 dark:border-indigo-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+            />
+            <button
+              type="button"
+              onClick={() => setShowKey(!showKey)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer p-0.5"
+            >
+              {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Test Bar & Status Output */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-200 dark:border-indigo-950">
+        <button
+          type="button"
+          onClick={handleTest}
+          disabled={testing}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer disabled:opacity-50 shadow-sm shadow-indigo-500/20"
+        >
+          {testing ? (
+            <>
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> TESTING ENDPOINT CONNECTIVITY…
+            </>
+          ) : (
+            <>
+              <Play className="h-3.5 w-3.5" /> TEST CUSTOM API CONNECTION
+            </>
+          )}
+        </button>
+
+        {testResult && (
+          <div
+            className={clsx(
+              "px-3 py-1.5 rounded-lg border text-xs flex items-center gap-2 font-bold",
+              testResult.ok
+                ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300"
+                : "border-red-400 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300"
+            )}
+          >
+            {testResult.ok ? (
+              <>
+                <Check className="h-4 w-4 text-emerald-500" />
+                <span>CONNECTED: {testResult.latencyMs}ms latency · Model &ldquo;{testResult.model}&rdquo; responding</span>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="h-4 w-4 text-red-500" />
+                <span>CONNECTION FAILED: {testResult.error}</span>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -572,7 +781,10 @@ export default function SettingsPage() {
             />
           </div>
         ) : (
-          <ProviderCard status={status} />
+          <>
+            <ProviderCard status={status} />
+            <CustomModelApiCard />
+          </>
         )}
       </div>
 

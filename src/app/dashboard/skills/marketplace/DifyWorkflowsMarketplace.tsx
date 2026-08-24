@@ -583,7 +583,7 @@ export function DifyWorkflowsMarketplace() {
                   className="h-10 w-10 rounded-lg border border-slate-200 dark:border-slate-800 flex items-center justify-center text-xl shrink-0"
                   style={{ backgroundColor: detailWorkflow.iconBackground || "#EFF1F5" }}
                 >
-                  {detailWorkflow.icon || "🤖"}
+                  <DifyOfficialLogo className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useState } from "react";
-import { Download, X, Image, Code2, FileJson, Loader2 } from "lucide-react";
+import { Download, X, Image, Code2, FileJson, Loader2, FileCode2, FileText, GitBranch, Code, FileType } from "lucide-react";
 import { clsx } from "clsx";
 import {
   EXPORT_FORMATS,
@@ -27,6 +27,16 @@ const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>
   visual: Image,
   code: Code2,
   data: FileJson,
+};
+
+const FORMAT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  png: Image,
+  svg: FileCode2,
+  pdf: FileText,
+  mermaid: GitBranch,
+  "langgraph-py": Code,
+  "langgraph-ts": FileCode2,
+  json: FileJson,
 };
 
 const CATEGORIES = ["visual", "code", "data"] as const;
@@ -141,27 +151,32 @@ export function ExportDialog({ isOpen, onClose, graph, canvasContainerRef }: Exp
 
         {/* Format cards */}
         <div className="p-4 space-y-2">
-          {filteredFormats.map((format) => (
-            <button
-              key={format.id}
-              onClick={() => handleExport(format)}
-              disabled={exporting !== null}
-              className="w-full flex items-center gap-3 rounded-lg border border-slate-700/60 bg-[#0d0d1a] p-3 text-left hover:border-indigo-400/50 hover:bg-indigo-950/30 transition-all cursor-pointer disabled:opacity-50"
-            >
-              <span className="text-xl">{format.icon}</span>
-              <div className="min-w-0 flex-1">
-                <div className="text-[10px] font-bold text-white tracking-wider">
-                  {format.label}
+          {filteredFormats.map((format) => {
+            const FormatIcon = FORMAT_ICONS[format.id] || FileType;
+            return (
+              <button
+                key={format.id}
+                onClick={() => handleExport(format)}
+                disabled={exporting !== null}
+                className="w-full flex items-center gap-3 rounded-lg border border-slate-700/60 bg-[#0d0d1a] p-3 text-left hover:border-indigo-400/50 hover:bg-indigo-950/30 transition-all cursor-pointer disabled:opacity-50"
+              >
+                <div className="p-2 rounded-lg bg-indigo-950/40 border border-indigo-500/20 text-indigo-400 shrink-0">
+                  <FormatIcon className="h-4 w-4" />
                 </div>
-                <div className="text-[8px] text-slate-500">{format.description}</div>
-              </div>
-              {exporting === format.id ? (
-                <Loader2 className="h-4 w-4 text-indigo-400 animate-spin shrink-0" />
-              ) : (
-                <Download className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-              )}
-            </button>
-          ))}
+                <div className="min-w-0 flex-1">
+                  <div className="text-[10px] font-bold text-white tracking-wider">
+                    {format.label}
+                  </div>
+                  <div className="text-[8px] text-slate-500">{format.description}</div>
+                </div>
+                {exporting === format.id ? (
+                  <Loader2 className="h-4 w-4 text-indigo-400 animate-spin shrink-0" />
+                ) : (
+                  <Download className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

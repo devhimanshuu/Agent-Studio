@@ -537,8 +537,8 @@ function PackDetailModal({
               {installState.errors.length > 0 && (
                 <div className="space-y-1">
                   {installState.errors.map((err, i) => (
-                    <p key={i} className="text-[9px] font-mono text-red-600 dark:text-red-400">
-                      ⚠ {err}
+                    <p key={i} className="text-[9px] font-mono text-red-600 dark:text-red-400 flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3 shrink-0" /> {err}
                     </p>
                   ))}
                 </div>

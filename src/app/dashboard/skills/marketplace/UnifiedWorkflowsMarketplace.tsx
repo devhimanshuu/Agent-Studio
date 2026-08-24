@@ -8,7 +8,6 @@ import {
   Loader2,
   GitBranch,
   ExternalLink,
-  Sparkles,
   LayoutGrid,
   List,
   Eye,
@@ -80,7 +79,7 @@ const PROVIDERS: Array<{
 
 const UNIFIED_CATEGORIES = [
   { id: "ALL", label: "ALL CATEGORIES" },
-  { id: "zero-key", label: "⚡ ZERO-KEY / FREE APIS" },
+  { id: "zero-key", label: "ZERO-KEY / FREE APIS" },
   { id: "ai", label: "AI & AGENTS" },
   { id: "marketing", label: "MARKETING" },
   { id: "sales", label: "SALES & CRM" },
@@ -526,8 +525,8 @@ export function UnifiedWorkflowsMarketplace() {
                         {/* Provider Brand Pill */}
                         <div className="flex items-center gap-1 shrink-0">
                           {wf.badges?.includes("zero-key") && (
-                            <span className="px-1.5 py-0.5 rounded-full text-[7.5px] font-bold uppercase tracking-wider border border-emerald-500/40 bg-emerald-500/10 text-emerald-400">
-                              ⚡ NO API KEY
+                            <span className="px-1.5 py-0.5 rounded-full text-[7.5px] font-bold uppercase tracking-wider border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 inline-flex items-center gap-0.5">
+                              <Zap className="h-2 w-2" /> NO API KEY
                             </span>
                           )}
                           <span
@@ -648,8 +647,8 @@ export function UnifiedWorkflowsMarketplace() {
                           {wf.name}
                         </h3>
                         {wf.badges?.includes("zero-key") && (
-                          <span className="px-1.5 py-0.2 rounded text-[7.5px] font-bold uppercase tracking-wider border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 shrink-0">
-                            ⚡ NO API KEY
+                          <span className="px-1.5 py-0.2 rounded text-[7.5px] font-bold uppercase tracking-wider border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 shrink-0 inline-flex items-center gap-0.5">
+                            <Zap className="h-2 w-2" /> NO API KEY
                           </span>
                         )}
                         <span
@@ -738,7 +737,13 @@ export function UnifiedWorkflowsMarketplace() {
                       : "border-indigo-500/30 bg-indigo-500/10 text-indigo-400"
                   )}
                 >
-                  {detailWorkflow.icon || (detailWorkflow.provider === "n8n" ? "⚡" : detailWorkflow.provider === "dify" ? "🤖" : "🛡️")}
+                  {detailWorkflow.provider === "n8n" ? (
+                    <N8nOfficialLogo className="h-5 w-5" />
+                  ) : detailWorkflow.provider === "dify" ? (
+                    <DifyOfficialLogo className="h-5 w-5" />
+                  ) : (
+                    <Layers className="h-5 w-5 text-indigo-400" />
+                  )}
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">

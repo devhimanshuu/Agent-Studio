@@ -365,7 +365,7 @@ export const CANVAS_NODE_TYPES: CanvasNodeTypeMeta[] = [
     defaults: {
       dispatchDestination: "discord",
       dispatchWebhookUrl: "",
-      dispatchMessage: "🚀 **Workflow Complete:**\n{{ results }}",
+      dispatchMessage: "**Workflow Complete:**\n{{ results }}",
     },
   },
   // ─── Data Formatter / Mapping ───

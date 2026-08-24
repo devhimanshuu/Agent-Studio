@@ -8,6 +8,12 @@ export interface CanvasNodeData {
   description?: string;
   prompt?: string;
   model?: string;
+  customApiKey?: string;
+  customApiBaseUrl?: string;
+  customApiProvider?: string;
+  temperature?: number;
+  maxTokens?: number;
+  topP?: number;
   allowedTools?: string[];
   toolName?: string;
   action?: string;

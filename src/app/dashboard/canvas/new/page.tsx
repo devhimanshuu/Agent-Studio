@@ -101,11 +101,12 @@ function NewCanvasForm() {
       toast.success("Agent graph created", `Opening canvas for "${skill.name}".`);
       router.push(`/dashboard/canvas/${skill.id}`);
     },
-    onError: (e: any) => {
+    onError: (e: unknown) => {
       let msg = e instanceof Error ? e.message : "Failed to create graph";
-      if (e?.fields) {
-        const fieldDetails = Object.entries(e.fields)
-          .map(([field, msgs]) => `${field}: ${(msgs as string[]).join(", ")}`)
+      const errWithFields = e as { fields?: Record<string, string[]> } | null;
+      if (errWithFields?.fields) {
+        const fieldDetails = Object.entries(errWithFields.fields)
+          .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(", ") : String(msgs)}`)
           .join(" | ");
         msg = `${msg} (${fieldDetails})`;
       }

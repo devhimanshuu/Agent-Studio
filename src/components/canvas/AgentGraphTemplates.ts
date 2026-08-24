@@ -305,7 +305,7 @@ export const CANVAS_TEMPLATES: CanvasTemplate[] = [
           data: {
             label: "DISCORD/SLACK DISPATCH",
             dispatchDestination: "discord",
-            dispatchMessage: "🚀 **Daily Tech Radar & Hackathon Radar Briefing:**\n\n{{ results.tech_scout_agent }}",
+            dispatchMessage: "**Daily Tech Radar & Hackathon Radar Briefing:**\n\n{{ results.tech_scout_agent }}",
           },
         },
         { id: "end", type: "end", position: { x: NODE_X * 5 + 40, y: GRID_Y }, data: { label: "END" } },
@@ -498,7 +498,7 @@ export const CANVAS_TEMPLATES: CanvasTemplate[] = [
           data: {
             label: "EMERGENCY BROADCAST",
             dispatchDestination: "discord",
-            dispatchMessage: "🚨 **CIVIL SAFETY ADVISORY ALERT:**\n\n{{ results.disaster_agent }}",
+            dispatchMessage: "**CIVIL SAFETY ADVISORY ALERT:**\n\n{{ results.disaster_agent }}",
           },
         },
         { id: "end", type: "end", position: { x: NODE_X * 5 + 40, y: GRID_Y }, data: { label: "END" } },
@@ -694,7 +694,7 @@ export const CANVAS_TEMPLATES: CanvasTemplate[] = [
           data: {
             label: "SLACK INCIDENT ALERT",
             dispatchDestination: "slack",
-            dispatchMessage: "🛡️ **CRITICAL SECURITY CVE ALERT:**\n\n{{ results.secops_agent }}",
+            dispatchMessage: "**CRITICAL SECURITY CVE ALERT:**\n\n{{ results.secops_agent }}",
           },
         },
         { id: "end", type: "end", position: { x: NODE_X * 6 + 40, y: GRID_Y }, data: { label: "END" } },
@@ -829,7 +829,7 @@ export const CANVAS_TEMPLATES: CanvasTemplate[] = [
           data: {
             label: "DISCORD CHANGELOG DISPATCH",
             dispatchDestination: "discord",
-            dispatchMessage: "📦 **New Package Releases & Migration Guide:**\n\n{{ results.migration_agent }}",
+            dispatchMessage: "**New Package Releases & Migration Guide:**\n\n{{ results.migration_agent }}",
           },
         },
         { id: "end", type: "end", position: { x: NODE_X * 4 + 40, y: GRID_Y }, data: { label: "END" } },
@@ -1167,7 +1167,7 @@ export const CANVAS_TEMPLATES: CanvasTemplate[] = [
           data: {
             label: "DISCORD/SLACK DISPATCH",
             dispatchDestination: "discord",
-            dispatchMessage: "🎙️ **Voice Dispatch Processed:**\n\n**Transcript:** {{ results.whisper_node.text }}\n\n**Agent Answer:** {{ results.triage_agent }}",
+            dispatchMessage: "**Voice Dispatch Processed:**\n\n**Transcript:** {{ results.whisper_node.text }}\n\n**Agent Answer:** {{ results.triage_agent }}",
           },
         },
         { id: "end", type: "end", position: { x: NODE_X * 5 + 40, y: GRID_Y }, data: { label: "END" } },
@@ -1298,7 +1298,7 @@ export const CANVAS_TEMPLATES: CanvasTemplate[] = [
           data: {
             label: "SLACK OPS BROADCAST",
             dispatchDestination: "slack",
-            dispatchMessage: "⚙️ **Distributed Orchestrator Run Complete:**\n\n{{ results }}",
+            dispatchMessage: "**Distributed Orchestrator Run Complete:**\n\n{{ results }}",
           },
         },
         { id: "end", type: "end", position: { x: NODE_X * 6 + 40, y: GRID_Y }, data: { label: "END" } },

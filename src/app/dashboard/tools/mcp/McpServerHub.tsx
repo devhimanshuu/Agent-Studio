@@ -944,7 +944,9 @@ function ServerCard(props: {
         </p>
 
         {server.lastError && server.status === "ERROR" && (
-          <p className="text-[9px] font-mono text-red-700 dark:text-red-400 font-semibold break-all">⚠ {server.lastError}</p>
+          <p className="text-[9px] font-mono text-red-700 dark:text-red-400 font-semibold break-all flex items-center gap-1">
+            <CircleAlert className="h-3 w-3 shrink-0" /> {server.lastError}
+          </p>
         )}
       </div>
 
@@ -1400,7 +1402,7 @@ function ToolTestConsole({
                 : "border-red-300 dark:border-red-500/40 bg-red-50 dark:bg-red-950/40 text-red-800 dark:text-red-300 shadow-sm"
             )}
           >
-            {result.ok ? "STATUS: SUCCESS (200 OK)" : "STATUS: EXECUTION ERROR"} · ⚡ {result.durationMs}ms
+            {result.ok ? "STATUS: SUCCESS (200 OK)" : "STATUS: EXECUTION ERROR"} · <Zap className="h-3 w-3 inline" /> {result.durationMs}ms
           </span>
         )}
       </div>
@@ -2199,7 +2201,9 @@ function ConnectModal({
           </div>
 
           {error && (
-            <p className="text-[10px] font-mono text-red-700 dark:text-red-400 font-semibold">⚠ {error}</p>
+            <p className="text-[10px] font-mono text-red-700 dark:text-red-400 font-semibold flex items-center gap-1">
+              <CircleAlert className="h-3 w-3 shrink-0" /> {error}
+            </p>
           )}
 
           <div className="flex items-center justify-end gap-2 pt-1">

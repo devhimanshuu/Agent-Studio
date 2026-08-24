@@ -1,13 +1,40 @@
 "use client";
 
 import React, { useState, useCallback, useEffect, useRef } from "react";
-import { Trash2, GitBranch, Braces, Boxes, CornerUpRight, RefreshCw, Sparkles, Circle } from "lucide-react";
+import {
+  Trash2,
+  GitBranch,
+  Braces,
+  Boxes,
+  CornerUpRight,
+  RefreshCw,
+  Sparkles,
+  Circle,
+  Sliders,
+  X,
+  Key,
+  Globe,
+  Eye,
+  EyeOff,
+  Loader2,
+  Check,
+  AlertCircle,
+  Play,
+  Server,
+} from "lucide-react";
 import { clsx } from "clsx";
 import { BUILT_IN_TOOL_CATALOG } from "@/modules/tools";
 import type { CanvasNode, CanvasNodeData } from "./graphUtils";
 import { GraphNodeType } from "@/types/graph";
 import type { McpServerDTO } from "@/types/mcp";
-import { GROQ_FREE_MODELS, OPENROUTER_FREE_MODELS } from "@/providers/llm";
+import {
+  GROQ_FREE_MODELS,
+  GROQ_SAFETY_MODELS,
+  OPENROUTER_CHAT_MODELS,
+  EMBEDDING_MODELS,
+  AUDIO_MODELS,
+  VISION_MODELS,
+} from "@/providers/llm";
 
 interface NodeInspectorProps {
   node: CanvasNode;
@@ -35,7 +62,281 @@ function Field({ label, children, hint }: { label: string; children: React.React
   );
 }
 
+interface ModelSelectFieldProps {
+  value?: string;
+  customApiKey?: string;
+  customApiBaseUrl?: string;
+  customApiProvider?: string;
+  onUpdate: (patch: {
+    model?: string;
+    customApiKey?: string;
+    customApiBaseUrl?: string;
+    customApiProvider?: string;
+  }) => void;
+}
+
+const PRESET_ENDPOINTS = [
+  { label: "Ollama", url: "http://localhost:11434/v1", provider: "ollama", defaultModel: "llama3.2" },
+  { label: "Groq", url: "https://api.groq.com/openai/v1", provider: "groq", defaultModel: "groq/compound" },
+  { label: "OpenRouter", url: "https://openrouter.ai/api/v1", provider: "openrouter", defaultModel: "google/gemma-4-26b-a4b-it:free" },
+  { label: "OpenAI", url: "https://api.openai.com/v1", provider: "openai", defaultModel: "gpt-4o" },
+  { label: "Together", url: "https://api.together.xyz/v1", provider: "together", defaultModel: "meta-llama/Llama-3.3-70B-Instruct-Turbo" },
+  { label: "vLLM", url: "http://localhost:8000/v1", provider: "custom_openai", defaultModel: "local-model" },
+];
+
 function ModelSelectField({
+  value,
+  customApiKey,
+  customApiBaseUrl,
+  customApiProvider,
+  onUpdate,
+}: ModelSelectFieldProps) {
+  const [isCustom, setIsCustom] = useState(() => {
+    if (customApiBaseUrl || customApiKey) return true;
+    if (!value || value === "openrouter/free" || value === "") return false;
+    const isKnown =
+      GROQ_FREE_MODELS.some((m) => m.model === value) ||
+      GROQ_SAFETY_MODELS.some((m) => m.model === value) ||
+      OPENROUTER_CHAT_MODELS.some((m) => m.model === value);
+    return !isKnown;
+  });
+
+  const [showApiConfig, setShowApiConfig] = useState(() => Boolean(customApiKey || customApiBaseUrl));
+  const [showKey, setShowKey] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const handleSelectChange = (val: string) => {
+    if (val === "__custom__") {
+      setIsCustom(true);
+      setShowApiConfig(true);
+      return;
+    }
+    setIsCustom(false);
+    onUpdate({ model: val || undefined });
+  };
+
+  const handleTestApi = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/models/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: value || "gpt-4o",
+          apiKey: customApiKey,
+          apiBaseUrl: customApiBaseUrl,
+          provider: customApiProvider,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.connected) {
+        setTestResult({ ok: true, message: `Connected (${data.latencyMs}ms)` });
+      } else {
+        setTestResult({ ok: false, message: data.error || "Connection failed" });
+      }
+    } catch (err: unknown) {
+      setTestResult({ ok: false, message: err instanceof Error ? err.message : "Network error" });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <Field label="LLM Model" hint="Select a curated model, auto-failover router, or configure custom API endpoint">
+        <select
+          value={isCustom ? "__custom__" : (value ?? "openrouter/free")}
+          onChange={(e) => handleSelectChange(e.target.value)}
+          className={`${inputClass} cursor-pointer`}
+        >
+          <option value="openrouter/free">[Auto-Router] OpenRouter: Free Models (Recommended)</option>
+          <option value="">[Failover Router] Multi-Provider (Groq + OpenRouter)</option>
+
+          <optgroup label="Groq Ultra-Fast Free Models (LPU Hardware)">
+            {GROQ_FREE_MODELS.map((m) => (
+              <option key={m.model} value={m.model}>
+                {m.label} ({m.throughput || "fast"}) · $0
+              </option>
+            ))}
+          </optgroup>
+
+          <optgroup label="Groq Safety & Guardrail Models">
+            {GROQ_SAFETY_MODELS.map((m) => (
+              <option key={m.model} value={m.model}>
+                [Safety] {m.label} ({m.throughput || "fast"}) · $0
+              </option>
+            ))}
+          </optgroup>
+
+          <optgroup label="OpenRouter Flagship Reasoning & Coding">
+            {OPENROUTER_CHAT_MODELS.filter((m) => m.model !== "openrouter/free").map((m) => (
+              <option key={m.model} value={m.model}>
+                {m.label} {m.contextLength ? `· ${(m.contextLength / 1000).toFixed(0)}k ctx` : ""} · $0
+              </option>
+            ))}
+          </optgroup>
+
+          <optgroup label="Custom / Bring Your Own Model (BYOM)">
+            <option value="__custom__">Custom Model & API Endpoint (Ollama, OpenAI, Groq, vLLM)...</option>
+          </optgroup>
+        </select>
+      </Field>
+
+      {/* Model Name Input for Custom Model */}
+      {isCustom && (
+        <div className="space-y-1 pl-2 border-l-2 border-indigo-500/60">
+          <label className="text-[8px] font-mono font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+            Custom Model Identifier
+          </label>
+          <input
+            type="text"
+            value={value ?? ""}
+            onChange={(e) => onUpdate({ model: e.target.value })}
+            placeholder="e.g. openai/gpt-4o, llama3.3:70b, deepseek-chat, claude-3-7-sonnet"
+            className={inputClass}
+          />
+        </div>
+      )}
+
+      {/* Toggle Custom API & Auth Header Options */}
+      <div className="pt-0.5">
+        <button
+          type="button"
+          onClick={() => setShowApiConfig(!showApiConfig)}
+          className="flex items-center justify-between w-full px-2 py-1 rounded border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 text-[9px] font-bold text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
+        >
+          <span className="flex items-center gap-1.5">
+            <Key className="h-3 w-3 text-indigo-500" />
+            <span>CUSTOM API & AUTH CONFIGURATION</span>
+            {(customApiKey || customApiBaseUrl) && (
+              <span className="text-[7.5px] px-1 py-0.2 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-mono font-bold">
+                ACTIVE
+              </span>
+            )}
+          </span>
+          <span className="text-slate-400">{showApiConfig ? "–" : "+"}</span>
+        </button>
+
+        {showApiConfig && (
+          <div className="mt-1.5 p-2 rounded-lg border border-indigo-200 dark:border-indigo-900/40 bg-indigo-50/30 dark:bg-indigo-950/20 space-y-2 text-[9px]">
+            {/* Quick Endpoint Presets */}
+            <div>
+              <span className="text-[8px] font-mono text-slate-500 block mb-1">Quick Endpoint Presets:</span>
+              <div className="flex flex-wrap gap-1">
+                {PRESET_ENDPOINTS.map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => {
+                      onUpdate({
+                        customApiBaseUrl: preset.url,
+                        customApiProvider: preset.provider,
+                        ...(isCustom && !value ? { model: preset.defaultModel } : {}),
+                      });
+                    }}
+                    className={clsx(
+                      "px-1.5 py-0.5 rounded border text-[8px] font-mono transition-colors cursor-pointer",
+                      customApiBaseUrl === preset.url
+                        ? "border-indigo-500 bg-indigo-600 text-white font-bold"
+                        : "border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300 hover:border-indigo-400"
+                    )}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom API Base URL */}
+            <div className="space-y-1">
+              <label className="text-[8px] font-mono text-slate-600 dark:text-slate-400 flex items-center gap-1">
+                <Globe className="h-2.5 w-2.5 text-indigo-400" /> API Base URL / Endpoint
+              </label>
+              <input
+                type="text"
+                value={customApiBaseUrl ?? ""}
+                onChange={(e) => onUpdate({ customApiBaseUrl: e.target.value.trim() || undefined })}
+                placeholder="e.g. http://localhost:11434/v1, https://api.openai.com/v1"
+                className={inputClass}
+              />
+              <p className="text-[7.5px] text-slate-500 font-mono">
+                OpenAI-compatible `/chat/completions` endpoint URL.
+              </p>
+            </div>
+
+            {/* Custom API Key */}
+            <div className="space-y-1">
+              <label className="text-[8px] font-mono text-slate-600 dark:text-slate-400 flex items-center gap-1">
+                <Key className="h-2.5 w-2.5 text-indigo-400" /> Model API Key (Optional)
+              </label>
+              <div className="relative">
+                <input
+                  type={showKey ? "text" : "password"}
+                  value={customApiKey ?? ""}
+                  onChange={(e) => onUpdate({ customApiKey: e.target.value.trim() || undefined })}
+                  placeholder="Enter custom API key (or leave empty to use default vault key)"
+                  className={`${inputClass} pr-7`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowKey(!showKey)}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-0.5"
+                  title={showKey ? "Hide API key" : "Reveal API key"}
+                >
+                  {showKey ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                </button>
+              </div>
+              <p className="text-[7.5px] text-slate-500 font-mono">
+                Stored securely for this node. Overrides global environment keys.
+              </p>
+            </div>
+
+            {/* Test Connection Button & Status */}
+            <div className="pt-1 flex items-center justify-between gap-2 border-t border-indigo-200/50 dark:border-indigo-900/40">
+              <button
+                type="button"
+                onClick={handleTestApi}
+                disabled={testing}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded border border-indigo-400/60 bg-indigo-600 hover:bg-indigo-500 text-white text-[8.5px] font-bold tracking-wider uppercase transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {testing ? (
+                  <>
+                    <Loader2 className="h-2.5 w-2.5 animate-spin" /> TESTING API…
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-2.5 w-2.5" /> TEST MODEL API
+                  </>
+                )}
+              </button>
+
+              {testResult && (
+                <div
+                  className={clsx(
+                    "text-[8px] font-mono flex items-center gap-1 font-semibold truncate max-w-[170px]",
+                    testResult.ok ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+                  )}
+                  title={testResult.message}
+                >
+                  {testResult.ok ? (
+                    <Check className="h-2.5 w-2.5 shrink-0 text-emerald-500" />
+                  ) : (
+                    <AlertCircle className="h-2.5 w-2.5 shrink-0 text-red-500" />
+                  )}
+                  <span className="truncate">{testResult.message}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EmbeddingModelSelectField({
   value,
   onChange,
 }: {
@@ -43,30 +344,121 @@ function ModelSelectField({
   onChange: (model: string) => void;
 }) {
   return (
-    <Field label="LLM Model (Free Tier)" hint="Select an OpenRouter / Groq free model or use OpenRouter Auto-Router">
+    <Field label="Vector Embedding Model" hint="Dense embedding model used to compute vector embeddings for RAG">
       <select
-        value={value ?? "openrouter/free"}
+        value={value ?? "nvidia/nemotron-3-embed-1b:free"}
         onChange={(e) => onChange(e.target.value)}
         className={`${inputClass} cursor-pointer`}
       >
-        <option value="openrouter/free">⚡ OpenRouter: Free Models Auto-Router (openrouter/free · Recommended)</option>
-        <option value="">⚡ Multi-Provider Failover Router (Groq + OpenRouter)</option>
-        <optgroup label="OpenRouter Free Models">
-          {OPENROUTER_FREE_MODELS.filter((m) => m.model !== "openrouter/free").map((m) => (
-            <option key={m.model} value={m.model}>
-              {m.label} {m.contextLength ? `· ${(m.contextLength / 1000).toFixed(0)}k ctx` : ""} {m.throughput ? `· ${m.throughput}` : ""} · $0
-            </option>
-          ))}
-        </optgroup>
-        <optgroup label="Groq Free Models (Ultra Fast)">
-          {GROQ_FREE_MODELS.map((m) => (
-            <option key={m.model} value={m.model}>
-              {m.label} ({m.throughput || "fast"}) · $0
-            </option>
-          ))}
-        </optgroup>
+        {EMBEDDING_MODELS.map((m) => (
+          <option key={m.model} value={m.model}>
+            {m.label} ({m.contextLength ? `${m.contextLength} ctx` : "dense vector"})
+          </option>
+        ))}
       </select>
     </Field>
+  );
+}
+
+function AudioModelSelectField({
+  value,
+  onChange,
+}: {
+  value?: string;
+  onChange: (model: string) => void;
+}) {
+  return (
+    <Field label="Audio Speech & STT Model" hint="Cloud Groq LPU transcription or local Faster-Whisper">
+      <select
+        value={value ?? "whisper-large-v3-turbo"}
+        onChange={(e) => onChange(e.target.value)}
+        className={`${inputClass} cursor-pointer`}
+      >
+        {AUDIO_MODELS.map((m) => (
+          <option key={m.model} value={m.model}>
+            {m.label} ({m.throughput || "fast"}) · $0
+          </option>
+        ))}
+      </select>
+    </Field>
+  );
+}
+
+function VisionModelSelectField({
+  value,
+  onChange,
+}: {
+  value?: string;
+  onChange: (model: string) => void;
+}) {
+  return (
+    <Field label="Document Vision & OCR Model" hint="Multimodal vision model used to parse charts, figures and tables">
+      <select
+        value={value ?? "nvidia/nemotron-nano-12b-v2-vl:free"}
+        onChange={(e) => onChange(e.target.value)}
+        className={`${inputClass} cursor-pointer`}
+      >
+        {VISION_MODELS.map((m) => (
+          <option key={m.model} value={m.model}>
+            {m.label} ({m.contextLength ? `${(m.contextLength / 1000).toFixed(0)}k ctx` : "fast"}) · $0
+          </option>
+        ))}
+      </select>
+    </Field>
+  );
+}
+
+function HyperparametersField({
+  temperature,
+  maxTokens,
+  onChange,
+}: {
+  temperature?: number;
+  maxTokens?: number;
+  onChange: (patch: { temperature?: number; maxTokens?: number }) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded border border-slate-200 dark:border-indigo-950/60 bg-slate-50/50 dark:bg-black/30 p-2 space-y-2">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex items-center justify-between w-full text-[9px] font-mono font-bold text-slate-600 dark:text-slate-400 hover:text-indigo-400 cursor-pointer"
+      >
+        <span className="flex items-center gap-1.5">
+          <Sliders className="h-3 w-3 text-indigo-400" />
+          <span>SAMPLING & LIMITS</span>
+          <span className="text-[8px] font-normal text-slate-400">({temperature ?? 0.2} temp · {maxTokens ?? 800} max)</span>
+        </span>
+        <span className="text-[8px]">{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-200 dark:border-indigo-950/50">
+          <Field label="Temperature" hint="0 = deterministic, 1 = creative">
+            <input
+              type="number"
+              step={0.05}
+              min={0}
+              max={2}
+              value={temperature ?? 0.2}
+              onChange={(e) => onChange({ temperature: parseFloat(e.target.value) || 0 })}
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Max Output Tokens" hint="Cap response length">
+            <input
+              type="number"
+              step={100}
+              min={50}
+              max={8192}
+              value={maxTokens ?? 800}
+              onChange={(e) => onChange({ maxTokens: parseInt(e.target.value, 10) || 800 })}
+              className={inputClass}
+            />
+          </Field>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -318,7 +710,15 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
         <>
           <ModelSelectField
             value={node.data.model}
-            onChange={(m) => onUpdate({ model: m || undefined })}
+            customApiKey={node.data.customApiKey}
+            customApiBaseUrl={node.data.customApiBaseUrl}
+            customApiProvider={node.data.customApiProvider}
+            onUpdate={(patch) => onUpdate(patch)}
+          />
+          <HyperparametersField
+            temperature={node.data.temperature}
+            maxTokens={node.data.maxTokens}
+            onChange={(patch) => onUpdate(patch)}
           />
           <PromptField
             label="Agent Prompt"
@@ -353,7 +753,9 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
             </div>
           )}
           {optimizeError && (
-            <div className="text-[8px] text-red-400">✗ {optimizeError}</div>
+            <div className="text-[8px] text-red-400 flex items-center gap-1">
+              <X className="h-2.5 w-2.5 shrink-0" /> {optimizeError}
+            </div>
           )}
         </>
       )}
@@ -362,7 +764,15 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
         <>
           <ModelSelectField
             value={node.data.model}
-            onChange={(m) => onUpdate({ model: m || undefined })}
+            customApiKey={node.data.customApiKey}
+            customApiBaseUrl={node.data.customApiBaseUrl}
+            customApiProvider={node.data.customApiProvider}
+            onUpdate={(patch) => onUpdate(patch)}
+          />
+          <HyperparametersField
+            temperature={node.data.temperature}
+            maxTokens={node.data.maxTokens}
+            onChange={(patch) => onUpdate(patch)}
           />
           <PromptField
             label="Supervisor Prompt"
@@ -397,7 +807,9 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
             </div>
           )}
           {optimizeError && (
-            <div className="text-[8px] text-red-400">✗ {optimizeError}</div>
+            <div className="text-[8px] text-red-400 flex items-center gap-1">
+              <X className="h-2.5 w-2.5 shrink-0" /> {optimizeError}
+            </div>
           )}
           <Field label="Routing Hint" hint="Add label text to each outgoing edge — the supervisor returns one of them.">
             <div className="rounded border border-violet-300 dark:border-violet-500/30 bg-violet-50 dark:bg-violet-950/20 p-2 text-[9px] text-violet-700 dark:text-violet-300">
@@ -462,14 +874,23 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
             </select>
           </Field>
           {node.data.routerMode === "ai" ? (
-            <PromptField
-              label="Router Prompt"
-              hint={'The model returns { "next": "<edge label>" }.'}
-              value={node.data.routerPrompt ?? ""}
-              onChange={(v) => onUpdate({ routerPrompt: v })}
-              rows={4}
-              allNodeIds={allNodeIds}
-            />
+            <>
+              <ModelSelectField
+                value={node.data.model}
+                customApiKey={node.data.customApiKey}
+                customApiBaseUrl={node.data.customApiBaseUrl}
+                customApiProvider={node.data.customApiProvider}
+                onUpdate={(patch) => onUpdate(patch)}
+              />
+              <PromptField
+                label="Router Prompt"
+                hint={'The model returns { "next": "<edge label>" }.'}
+                value={node.data.routerPrompt ?? ""}
+                onChange={(v) => onUpdate({ routerPrompt: v })}
+                rows={4}
+                allNodeIds={allNodeIds}
+              />
+            </>
           ) : (
             <Field
               label="Condition Expression"
@@ -1172,7 +1593,7 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
               onChange={(e) => onUpdate({ dispatchMessage: e.target.value })}
               rows={4}
               spellCheck={false}
-              placeholder="🚀 **Alert Report:**\n{{ results.agent_1 }}"
+              placeholder="**Alert Report:**\n{{ results.agent_1 }}"
               className={`${inputClass} resize-y text-[9px] leading-relaxed`}
             />
             <p className="text-[8px] text-slate-500 leading-tight">
@@ -1273,6 +1694,10 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
       {/* ─── Docling PDF & Document Parser Inspector ─── */}
       {type === "docling_pdf_parser" && (
         <>
+          <VisionModelSelectField
+            value={node.data.model}
+            onChange={(m) => onUpdate({ model: m || undefined })}
+          />
           <Field label="Document / PDF URL" hint="Target PDF file, paper URL, or local path">
             <input
               value={node.data.doclingDocumentUrl ?? ""}
@@ -1432,6 +1857,10 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
       {/* ─── Qdrant Vector Memory Inspector ─── */}
       {type === "qdrant_vector_memory" && (
         <>
+          <EmbeddingModelSelectField
+            value={node.data.model}
+            onChange={(m) => onUpdate({ model: m || undefined })}
+          />
           <Field label="Qdrant Host URL" hint="Self-hosted Qdrant vector database (e.g. http://localhost:6333)">
             <input
               value={node.data.qdrantHost ?? "http://localhost:6333"}
@@ -1472,6 +1901,10 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
       {/* ─── Audio Transcriber (Faster-Whisper) Inspector ─── */}
       {type === "audio_transcriber" && (
         <>
+          <AudioModelSelectField
+            value={node.data.model}
+            onChange={(m) => onUpdate({ model: m || undefined })}
+          />
           <Field label="Audio Source URL / Base64" hint="Direct audio URL (.mp3, .wav) or template {{ input.audioUrl }}">
             <input
               value={node.data.audioSourceUrl ?? ""}
@@ -1540,11 +1973,11 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
               onChange={(e) => onUpdate({ noteColor: e.target.value })}
               className={`${inputClass} cursor-pointer`}
             >
-              <option value="yellow">🟡 Yellow</option>
-              <option value="pink">🩷 Pink</option>
-              <option value="blue">🔵 Blue</option>
-              <option value="green">🟢 Green</option>
-              <option value="purple">🟣 Purple</option>
+              <option value="yellow">Yellow</option>
+              <option value="pink">Pink</option>
+              <option value="blue">Blue</option>
+              <option value="green">Green</option>
+              <option value="purple">Purple</option>
             </select>
           </Field>
           <Field label="Content (Markdown)">

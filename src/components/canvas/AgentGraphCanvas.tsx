@@ -31,7 +31,7 @@ import { useExecutionStream, replayEvents } from "./useExecutionStream";
 import { computeLayout } from "./autoLayout";
 import { validateGraph } from "./graphValidation";
 import { collapseSelection } from "./subgraphUtils";
-import { Workflow, Play, Link2, X, Pause, Radio, Flame, LayoutTemplate, AlertTriangle, GitBranch, Keyboard, Copy, Boxes, CornerUpLeft, Maximize, Minimize, Undo2, Redo2, Search, Download, Upload, ClipboardPaste, Package, Bug, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight, ChevronDown, ChevronUp } from "lucide-react";
+import { Workflow, Play, Link2, X, Pause, Radio, Flame, LayoutTemplate, AlertTriangle, GitBranch, Keyboard, Copy, Boxes, CornerUpLeft, Maximize, Minimize, Undo2, Redo2, Search, Download, Upload, Package, Bug, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight, ChevronDown, ChevronUp, Check } from "lucide-react";
 import { toast } from "@/stores/toastStore";
 import { QuickConnectSearch } from "./quickConnectSearch";
 import { AlignmentBar } from "./AlignmentBar";
@@ -821,72 +821,93 @@ function CanvasInner({
   // FULL-SCREEN LAYOUT — SaaS product editor
   // ══════════════════════════════════════════════════════════════════════
   if (isFullScreen) {
+    const isPaper = canvasTheme === "paper";
+    const isGraphite = canvasTheme === "graphite";
+
+    const toolbarGroupCls = isPaper
+      ? "flex items-center rounded-lg border border-slate-300 bg-slate-50/80 shadow-2xs overflow-hidden"
+      : isGraphite
+      ? "flex items-center rounded-lg border border-slate-700/60 bg-white/5 shadow-xs overflow-hidden"
+      : "flex items-center rounded-lg border border-indigo-900/50 bg-white/5 shadow-xs overflow-hidden";
+
+    const toolbarDividerCls = isPaper ? "w-px h-3.5 bg-slate-200" : isGraphite ? "w-px h-3.5 bg-slate-700/60" : "w-px h-3.5 bg-indigo-950/80";
+
+    const toolbarBtnCls = isPaper
+      ? "text-slate-700 hover:text-slate-950 hover:bg-slate-200/80 transition-colors disabled:opacity-30 cursor-pointer"
+      : "text-slate-300 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-30 cursor-pointer";
+
+    const toolbarPillBtnCls = isPaper
+      ? "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-300 bg-slate-50/80 text-[9px] font-bold uppercase text-slate-700 hover:text-slate-950 hover:bg-slate-200/80 transition-colors shadow-2xs cursor-pointer"
+      : isGraphite
+      ? "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-700/60 bg-white/5 text-[9px] font-bold uppercase text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+      : "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-indigo-900/50 bg-white/5 text-[9px] font-bold uppercase text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer";
+
     return (
-      <div className={clsx("fixed inset-0 z-[9999] flex flex-col font-mono overflow-hidden", canvasTheme === "paper" ? "bg-slate-100" : canvasTheme === "graphite" ? "bg-[#0e1015]" : "bg-[#07070d]")}>
+      <div className={clsx("fixed inset-0 z-[9999] flex flex-col font-mono overflow-hidden", isPaper ? "bg-slate-100" : isGraphite ? "bg-[#0e1015]" : "bg-[#07070d]")}>
         {/* ─── Top Toolbar ─── */}
-        <div className={clsx("h-12 shrink-0 flex items-center justify-between px-4 border-b backdrop-blur-md relative z-40", canvasTheme === "paper" ? "border-slate-200 bg-white/90" : canvasTheme === "graphite" ? "border-slate-700/80 bg-[#141722]/90" : "border-indigo-950/80 bg-[#0a0a14]/90")}>
-          <div className="flex items-center gap-3">
+        <div className={clsx("min-h-12 shrink-0 flex items-center justify-between px-3 sm:px-4 py-1.5 border-b backdrop-blur-md relative z-40 gap-3 overflow-x-auto scrollbar-none", isPaper ? "border-slate-200 bg-white/95 text-slate-800 shadow-xs" : isGraphite ? "border-slate-700/80 bg-[#141722]/95 text-slate-200" : "border-indigo-950/80 bg-[#0a0a14]/95 text-slate-200")}>
+          <div className="flex items-center gap-3 shrink-0">
             <div className="flex items-center gap-2">
-              <Workflow className="h-4 w-4 text-indigo-400" />
-              <span className="text-[11px] font-bold text-slate-100 uppercase tracking-widest">CANVAS EDITOR</span>
+              <Workflow className={clsx("h-4 w-4 shrink-0", isPaper ? "text-indigo-600" : "text-indigo-400")} />
+              <span className={clsx("text-[11px] font-bold uppercase tracking-widest whitespace-nowrap", isPaper ? "text-slate-900" : "text-slate-100")}>CANVAS EDITOR</span>
             </div>
-            <span className="text-slate-600 font-mono text-[10px]">·</span>
-            <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
+            <span className={clsx("font-mono text-[10px]", isPaper ? "text-slate-400" : "text-slate-600")}>·</span>
+            <div className={clsx("flex items-center gap-2 text-[10px] font-mono whitespace-nowrap", isPaper ? "text-slate-600" : "text-slate-400")}>
               <span><b>{nodes.length}</b> nodes</span>
               <span>·</span>
               <span><b>{edges.length}</b> edges</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 flex-nowrap">
             {!readOnly && (
               <>
                 {/* History Group */}
-                <div className="flex items-center rounded-lg border border-slate-700/60 bg-white/5 shadow-xs overflow-hidden">
-                  <button onClick={undo} disabled={historyIndex <= 0} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-30 cursor-pointer" title="Undo (⌘+Z)"><Undo2 className="h-3.5 w-3.5" /></button>
-                  <div className="w-px h-3.5 bg-slate-700/60" />
-                  <button onClick={redo} disabled={historyIndex >= history.length - 1} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-30 cursor-pointer" title="Redo (⌘+Shift+Z)"><Redo2 className="h-3.5 w-3.5" /></button>
+                <div className={toolbarGroupCls}>
+                  <button onClick={undo} disabled={historyIndex <= 0} className={clsx("p-1.5", toolbarBtnCls)} title="Undo (⌘+Z)"><Undo2 className="h-3.5 w-3.5" /></button>
+                  <div className={toolbarDividerCls} />
+                  <button onClick={redo} disabled={historyIndex >= history.length - 1} className={clsx("p-1.5", toolbarBtnCls)} title="Redo (⌘+Shift+Z)"><Redo2 className="h-3.5 w-3.5" /></button>
                 </div>
 
                 {/* Layout & Macros */}
-                <div className="flex items-center rounded-lg border border-slate-700/60 bg-white/5 shadow-xs overflow-hidden">
-                  <button onClick={handleAutoLayout} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-bold uppercase text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer" title="Auto Layout">
-                    <LayoutTemplate className="h-3 w-3 text-indigo-400" /> AUTO LAYOUT
+                <div className={toolbarGroupCls}>
+                  <button onClick={handleAutoLayout} className={clsx("inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-bold uppercase", toolbarBtnCls)} title="Auto Layout">
+                    <LayoutTemplate className={clsx("h-3 w-3", isPaper ? "text-indigo-600" : "text-indigo-400")} /> AUTO LAYOUT
                   </button>
-                  <div className="w-px h-3.5 bg-slate-700/60" />
-                  <button onClick={handleCollapse} disabled={!nodes.some((n) => n.selected || n.id === selectedNodeId)} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-bold uppercase text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer disabled:opacity-30" title="Collapse Selection into Macro">
-                    <Boxes className="h-3 w-3 text-violet-400" /> MACRO
+                  <div className={toolbarDividerCls} />
+                  <button onClick={handleCollapse} disabled={!nodes.some((n) => n.selected || n.id === selectedNodeId)} className={clsx("inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-bold uppercase", toolbarBtnCls)} title="Collapse Selection into Macro">
+                    <Boxes className={clsx("h-3 w-3", isPaper ? "text-violet-600" : "text-violet-400")} /> MACRO
                   </button>
-                  <div className="w-px h-3.5 bg-slate-700/60" />
-                  <button onClick={() => setShowNodeSearch((s) => !s)} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-bold uppercase text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer" title="Find Node (⌘+F)">
-                    <Search className="h-3 w-3 text-cyan-400" /> FIND
+                  <div className={toolbarDividerCls} />
+                  <button onClick={() => setShowNodeSearch((s) => !s)} className={clsx("inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-bold uppercase", toolbarBtnCls)} title="Find Node (⌘+F)">
+                    <Search className={clsx("h-3 w-3", isPaper ? "text-cyan-600" : "text-cyan-400")} /> FIND
                   </button>
                 </div>
 
                 {/* Portability */}
-                <div className="flex items-center rounded-lg border border-slate-700/60 bg-white/5 shadow-xs overflow-hidden">
-                  <button onClick={importGraph} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer" title="Import Graph JSON"><Upload className="h-3.5 w-3.5" /></button>
-                  <div className="w-px h-3.5 bg-slate-700/60" />
-                  <button onClick={exportGraph} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer" title="Quick Export JSON"><Download className="h-3.5 w-3.5" /></button>
-                  <div className="w-px h-3.5 bg-slate-700/60" />
-                  <button onClick={() => setShowExportDialog(true)} className="inline-flex items-center gap-1 px-2.5 py-1 text-[9px] font-bold uppercase text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer" title="Export formats">
+                <div className={toolbarGroupCls}>
+                  <button onClick={importGraph} className={clsx("p-1.5", toolbarBtnCls)} title="Import Graph JSON"><Upload className="h-3.5 w-3.5" /></button>
+                  <div className={toolbarDividerCls} />
+                  <button onClick={exportGraph} className={clsx("p-1.5", toolbarBtnCls)} title="Quick Export JSON"><Download className="h-3.5 w-3.5" /></button>
+                  <div className={toolbarDividerCls} />
+                  <button onClick={() => setShowExportDialog(true)} className={clsx("inline-flex items-center gap-1 px-2.5 py-1 text-[9px] font-bold uppercase", toolbarBtnCls)} title="Export formats">
                     EXPORT…
                   </button>
                 </div>
 
                 {/* Tools */}
-                <div className="flex items-center rounded-lg border border-slate-700/60 bg-white/5 shadow-xs overflow-hidden">
-                  <button onClick={() => setShowMacroLibrary((p) => !p)} className={clsx("inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-bold uppercase transition-colors cursor-pointer", showMacroLibrary ? "text-indigo-400 bg-indigo-950/60" : "text-slate-300 hover:text-white hover:bg-white/10")} title="Components Library">
+                <div className={toolbarGroupCls}>
+                  <button onClick={() => setShowMacroLibrary((p) => !p)} className={clsx("inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-bold uppercase transition-colors cursor-pointer", showMacroLibrary ? (isPaper ? "text-indigo-700 bg-indigo-100/90 font-bold" : "text-indigo-400 bg-indigo-950/60") : toolbarBtnCls)} title="Components Library">
                     <Package className="h-3 w-3" /> COMPONENTS
                   </button>
-                  <div className="w-px h-3.5 bg-slate-700/60" />
-                  <button onClick={() => setShowDebugger((p) => !p)} className={clsx("inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-bold uppercase transition-colors cursor-pointer", showDebugger ? "text-indigo-400 bg-indigo-950/60" : "text-slate-300 hover:text-white hover:bg-white/10")} title="Debugger Panel">
+                  <div className={toolbarDividerCls} />
+                  <button onClick={() => setShowDebugger((p) => !p)} className={clsx("inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-bold uppercase transition-colors cursor-pointer", showDebugger ? (isPaper ? "text-indigo-700 bg-indigo-100/90 font-bold" : "text-indigo-400 bg-indigo-950/60") : toolbarBtnCls)} title="Debugger Panel">
                     <Bug className="h-3 w-3" /> DEBUG
                   </button>
                   {coverage && coverage.length > 0 && (
                     <>
-                      <div className="w-px h-3.5 bg-slate-700/60" />
-                      <button onClick={() => setCoverageMode((c) => !c)} className={clsx("inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-bold uppercase transition-colors cursor-pointer", coverageMode ? "text-emerald-400 bg-emerald-950/60" : "text-slate-300 hover:text-white hover:bg-white/10")} title="Coverage">
+                      <div className={toolbarDividerCls} />
+                      <button onClick={() => setCoverageMode((c) => !c)} className={clsx("inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-bold uppercase transition-colors cursor-pointer", coverageMode ? (isPaper ? "text-emerald-700 bg-emerald-100/90 font-bold" : "text-emerald-400 bg-emerald-950/60") : toolbarBtnCls)} title="Coverage">
                         <GitBranch className="h-3 w-3" /> COVERAGE
                       </button>
                     </>
@@ -895,29 +916,36 @@ function CanvasInner({
 
                 {/* Shortcuts & Theme */}
                 <div className="relative">
-                  <button onClick={() => setShowShortcuts((s) => !s)} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-700/60 bg-white/5 text-[9px] font-bold uppercase text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer" title="Keyboard Shortcuts">
+                  <button onClick={() => setShowShortcuts((s) => !s)} className={toolbarPillBtnCls} title="Keyboard Shortcuts">
                     <Keyboard className="h-3.5 w-3.5" /> SHORTCUTS
                   </button>
                   {showShortcuts && (
-                    <div className="absolute right-0 top-8 z-[100] w-64 space-y-1.5 rounded-xl border border-slate-700/80 dark:border-indigo-500/30 bg-white/75 dark:bg-[#0a0a14]/75 p-3 shadow-2xl backdrop-blur-2xl">
-                      <div className="text-[9px] font-bold uppercase tracking-widest text-indigo-400 mb-1.5">KEYBOARD SHORTCUTS</div>
+                    <div className={clsx(
+                      "absolute right-0 top-8 z-[100] w-64 space-y-1.5 rounded-xl p-3 shadow-2xl backdrop-blur-2xl border",
+                      isPaper
+                        ? "border-slate-300 bg-white/95 text-slate-800 shadow-xl"
+                        : isGraphite
+                        ? "border-slate-700/80 bg-[#141722]/95 text-slate-200"
+                        : "border-indigo-500/30 bg-[#0a0a14]/95 text-slate-200"
+                    )}>
+                      <div className={clsx("text-[9px] font-bold uppercase tracking-widest mb-1.5", isPaper ? "text-indigo-600" : "text-indigo-400")}>KEYBOARD SHORTCUTS</div>
                       {[["⌘+Z", "undo"], ["⌘+Shift+Z", "redo"], ["⌘+C", "copy"], ["⌘+V", "paste"], ["⌘+D", "duplicate"], ["⌘+F", "find node"], ["⌘+E", "export"], ["F11", "fullscreen"], ["⌥+click", "duplicate node"], ["⌫", "delete"]].map(([key, desc]) => (
                         <div key={key} className="flex items-center justify-between gap-2 text-[9px]">
-                          <kbd className="rounded border border-slate-700 bg-black/60 px-1 py-0.5 font-mono text-slate-300">{key}</kbd>
-                          <span className="text-slate-400">{desc}</span>
+                          <kbd className={clsx("rounded px-1 py-0.5 font-mono", isPaper ? "border border-slate-300 bg-slate-100 text-slate-700" : "border border-slate-700 bg-black/60 text-slate-300")}>{key}</kbd>
+                          <span className={isPaper ? "text-slate-600" : "text-slate-400"}>{desc}</span>
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
 
-                <button onClick={cycleTheme} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-700/60 bg-white/5 text-[9px] font-bold uppercase text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer" title="Cycle Theme">
+                <button onClick={cycleTheme} className={toolbarPillBtnCls} title="Cycle Theme">
                   <Copy className="h-3.5 w-3.5" /> {canvasTheme?.toUpperCase() ?? "THEME"}
                 </button>
               </>
             )}
 
-            <button onClick={toggleFullScreen} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-600 text-white text-[9px] font-bold uppercase tracking-wider hover:bg-indigo-500 transition-all cursor-pointer shadow-md shadow-indigo-500/25" title="Exit Full-screen (F11)">
+            <button onClick={toggleFullScreen} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-600 text-white text-[9px] font-bold uppercase tracking-wider hover:bg-indigo-500 transition-all cursor-pointer shadow-md shadow-indigo-500/25 shrink-0" title="Exit Full-screen (F11)">
               <Minimize className="h-3.5 w-3.5" /> EXIT FULLSCREEN
             </button>
           </div>
@@ -925,10 +953,10 @@ function CanvasInner({
 
         {/* ─── Trace status bar ─── */}
         {inTraceMode && (
-          <div className={clsx("shrink-0 flex items-center justify-between gap-2 px-3 py-1.5 border-b text-[9px]", canvasTheme === "paper" ? "border-indigo-200 bg-indigo-50" : canvasTheme === "graphite" ? "border-indigo-500/30 bg-indigo-950/40" : "border-indigo-500/30 bg-indigo-950/40")}>
+          <div className={clsx("shrink-0 flex items-center justify-between gap-2 px-3 py-1.5 border-b text-[9px]", isPaper ? "border-indigo-200 bg-indigo-50/90 text-indigo-900" : isGraphite ? "border-indigo-500/30 bg-indigo-950/40 text-indigo-200" : "border-indigo-500/30 bg-indigo-950/40 text-indigo-200")}>
             <div className="flex items-center gap-2">
               <span className={clsx("inline-block h-2 w-2 rounded-full", trace.connected ? "bg-emerald-500 animate-pulse" : "bg-red-500")} />
-              <span className="font-bold text-indigo-300">{isPreview ? "GHOST PREVIEW" : "LIVE TRACE"} · {effExecutionStatus ?? "CONNECTING…"}</span>
+              <span className={clsx("font-bold", isPaper ? "text-indigo-800" : "text-indigo-300")}>{isPreview ? "GHOST PREVIEW" : "LIVE TRACE"} · {effExecutionStatus ?? "CONNECTING…"}</span>
             </div>
             <div className="flex items-center gap-2">{traceHeaderExtra}</div>
           </div>
@@ -936,11 +964,11 @@ function CanvasInner({
 
         {/* ─── Subgraph breadcrumb ─── */}
         {inSubgraph && (
-          <div className={clsx("shrink-0 flex items-center justify-between px-3 py-1.5 border-b text-[9px]", canvasTheme === "paper" ? "border-slate-200 bg-slate-100" : canvasTheme === "graphite" ? "border-slate-600 bg-slate-900/60" : "border-slate-700/50 bg-slate-900/60")}>
-            <div className={clsx("flex items-center gap-1.5", canvasTheme === "paper" ? "text-slate-600" : "text-slate-400")}>
+          <div className={clsx("shrink-0 flex items-center justify-between px-3 py-1.5 border-b text-[9px]", isPaper ? "border-slate-200 bg-slate-100 text-slate-800" : isGraphite ? "border-slate-600 bg-slate-900/60 text-slate-200" : "border-slate-700/50 bg-slate-900/60 text-slate-200")}>
+            <div className={clsx("flex items-center gap-1.5", isPaper ? "text-slate-700" : "text-slate-400")}>
               <Boxes className="h-3 w-3" />
               <span className="font-bold uppercase">{inTraceMode ? "SUBGRAPH TRACE" : "Editing macro"}</span>
-              <span className="text-indigo-400 font-bold">› {subgraphStack[subgraphStack.length - 1].label}</span>
+              <span className={clsx("font-bold", isPaper ? "text-indigo-600" : "text-indigo-400")}>› {subgraphStack[subgraphStack.length - 1].label}</span>
             </div>
             <button onClick={writeBackSubgraph} className="inline-flex items-center gap-1 rounded border border-indigo-500/50 bg-indigo-600/80 px-2 py-1 text-[9px] font-bold text-white hover:bg-indigo-500 transition-colors cursor-pointer">
               <CornerUpLeft className="h-3 w-3" /> {inTraceMode ? "BACK" : "EXIT"}
@@ -1165,8 +1193,9 @@ function CanvasInner({
 
             {/* Terminal banner */}
             {terminal && (
-              <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-lg border border-emerald-500/50 bg-emerald-950/80 backdrop-blur-sm px-5 py-2 text-[10px] font-bold tracking-widest text-emerald-300 shadow-xl">
-                ✓ {isPreview ? "PREVIEW" : "EXECUTION"} {effExecutionStatus}
+              <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-lg border border-emerald-500/50 bg-emerald-950/80 backdrop-blur-sm px-5 py-2 text-[10px] font-bold tracking-widest text-emerald-300 shadow-xl flex items-center gap-1.5">
+                <Check className="h-3 w-3 shrink-0" />
+                <span>{isPreview ? "PREVIEW" : "EXECUTION"} {effExecutionStatus}</span>
               </div>
             )}
           </div>
@@ -1217,26 +1246,26 @@ function CanvasInner({
                 ) : selectedEdge ? (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <div className="text-[9px] uppercase tracking-widest text-indigo-400 font-bold flex items-center gap-1.5"><Link2 className="h-3 w-3" /> EDGE</div>
+                      <div className={clsx("text-[9px] uppercase tracking-widest font-bold flex items-center gap-1.5", isPaper ? "text-indigo-700" : "text-indigo-400")}><Link2 className="h-3 w-3" /> EDGE</div>
                       <button onClick={deleteSelected} className="inline-flex items-center gap-1 px-2 py-1 rounded border border-red-500/30 text-[9px] text-red-400 hover:bg-red-950/40 transition-colors cursor-pointer"><X className="h-3 w-3" /></button>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[8px] font-bold text-indigo-400 uppercase tracking-widest">Branch Label</label>
-                      <input value={typeof selectedEdge.label === "string" ? selectedEdge.label : ""} onChange={(e) => updateEdgeLabel(selectedEdge.id, e.target.value)} placeholder="true / false / high / worker" className="w-full rounded border border-slate-700 bg-black/40 px-2.5 py-1.5 text-[10px] text-white font-mono placeholder:text-slate-600 focus:border-indigo-500 focus:outline-none" />
+                      <label className={clsx("text-[8px] font-bold uppercase tracking-widest", isPaper ? "text-indigo-700" : "text-indigo-400")}>Branch Label</label>
+                      <input value={typeof selectedEdge.label === "string" ? selectedEdge.label : ""} onChange={(e) => updateEdgeLabel(selectedEdge.id, e.target.value)} placeholder="true / false / high / worker" className={clsx("w-full rounded border px-2.5 py-1.5 text-[10px] font-mono focus:border-indigo-500 focus:outline-none", isPaper ? "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400" : "border-slate-700 bg-black/40 text-white placeholder:text-slate-600")} />
                     </div>
-                    <div className="text-[8px] text-slate-500 font-mono">{selectedEdge.source} → {selectedEdge.target}</div>
+                    <div className={clsx("text-[8px] font-mono", isPaper ? "text-slate-600" : "text-slate-500")}>{selectedEdge.source} → {selectedEdge.target}</div>
                   </div>
                 ) : selectedNode ? (
                   <NodeInspector node={selectedNode} onUpdate={(patch) => updateNodeData(selectedNode.id, patch)} onDelete={deleteSelected} allNodeIds={nodes.map((n) => n.id)} onOpenSubgraph={openSubgraph} onToggleBreakpoint={handleToggleBreakpoint} />
                 ) : (
                   <div className="space-y-3">
-                    <div className="text-[9px] uppercase tracking-widest text-indigo-400 font-bold">INSPECTOR</div>
-                    <p className="text-[9px] text-slate-400 leading-relaxed">Select a node or edge to configure it.</p>
-                    <div className="border-t border-indigo-900/30 pt-2 space-y-1.5">
-                      <div className="text-[8px] uppercase tracking-wider text-slate-500 font-bold">GRAPH STATS</div>
-                      <div className="flex justify-between text-[9px] text-slate-400"><span>Nodes</span><span className="text-indigo-400 font-bold">{nodes.length}</span></div>
-                      <div className="flex justify-between text-[9px] text-slate-400"><span>Edges</span><span className="text-indigo-400 font-bold">{edges.length}</span></div>
-                      <div className="flex justify-between text-[9px] text-slate-400"><span>Branches</span><span className="text-indigo-400 font-bold">{edges.filter((e) => e.label).length}</span></div>
+                    <div className={clsx("text-[9px] uppercase tracking-widest font-bold", isPaper ? "text-indigo-700" : "text-indigo-400")}>INSPECTOR</div>
+                    <p className={clsx("text-[9px] leading-relaxed", isPaper ? "text-slate-600" : "text-slate-400")}>Select a node or edge to configure it.</p>
+                    <div className={clsx("border-t pt-2 space-y-1.5", isPaper ? "border-slate-200" : "border-indigo-900/30")}>
+                      <div className={clsx("text-[8px] uppercase tracking-wider font-bold", isPaper ? "text-slate-500" : "text-slate-500")}>GRAPH STATS</div>
+                      <div className={clsx("flex justify-between text-[9px]", isPaper ? "text-slate-600" : "text-slate-400")}><span>Nodes</span><span className={clsx("font-bold", isPaper ? "text-indigo-700" : "text-indigo-400")}>{nodes.length}</span></div>
+                      <div className={clsx("flex justify-between text-[9px]", isPaper ? "text-slate-600" : "text-slate-400")}><span>Edges</span><span className={clsx("font-bold", isPaper ? "text-indigo-700" : "text-indigo-400")}>{edges.length}</span></div>
+                      <div className={clsx("flex justify-between text-[9px]", isPaper ? "text-slate-600" : "text-slate-400")}><span>Branches</span><span className={clsx("font-bold", isPaper ? "text-indigo-700" : "text-indigo-400")}>{edges.filter((e) => e.label).length}</span></div>
                     </div>
                   </div>
                 )}

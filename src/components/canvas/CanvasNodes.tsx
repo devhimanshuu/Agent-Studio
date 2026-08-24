@@ -38,6 +38,9 @@ import {
   BrainCircuit,
   Mic,
   Volume2,
+  Check,
+  X,
+  Loader2,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { CANVAS_NODE_TYPE_MAP } from "./nodeTypes";
@@ -255,14 +258,26 @@ function ToolNode({ data, selected }: NodePropsShape) {
       <div className="text-[8px] text-slate-500 dark:text-slate-400 truncate">action · {data.action ?? "—"}</div>
       {toolCall && (
         <div className="flex items-center gap-1 mt-1">
-          <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold border ${
+          <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold border inline-flex items-center gap-1 ${
             toolCall.status === "SUCCESS"
               ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700/50"
               : toolCall.status === "RUNNING"
                 ? "bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300 border-cyan-200 dark:border-cyan-700/50"
                 : "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700/50"
           }`}>
-            {toolCall.status === "RUNNING" ? "⏳ executing" : toolCall.status === "SUCCESS" ? `✓ ${toolCall.toolName}` : `✗ failed`}
+            {toolCall.status === "RUNNING" ? (
+              <>
+                <Loader2 className="h-2 w-2 animate-spin" /> executing
+              </>
+            ) : toolCall.status === "SUCCESS" ? (
+              <>
+                <Check className="h-2 w-2" /> {toolCall.toolName}
+              </>
+            ) : (
+              <>
+                <X className="h-2 w-2" /> failed
+              </>
+            )}
           </span>
           {toolCall.durationMs !== undefined && (
             <span className="text-[7px] text-slate-400">{toolCall.durationMs}ms</span>
@@ -322,12 +337,20 @@ function ApprovalNode({ data, selected }: NodePropsShape) {
       </div>
       {approval?.decision && (
         <div className="flex items-center gap-1 mt-1">
-          <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold border ${
+          <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold border inline-flex items-center gap-1 ${
             approval.decision === "APPROVED"
               ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700/50"
               : "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700/50"
           }`}>
-            {approval.decision === "APPROVED" ? "✓ APPROVED" : "✗ DENIED"}
+            {approval.decision === "APPROVED" ? (
+              <>
+                <Check className="h-2 w-2" /> APPROVED
+              </>
+            ) : (
+              <>
+                <X className="h-2 w-2" /> DENIED
+              </>
+            )}
           </span>
         </div>
       )}
@@ -350,12 +373,18 @@ function LoopNode({ data, selected }: NodePropsShape) {
       <div className="text-[8px] text-slate-500 dark:text-slate-400">repeats body edge, then exits</div>
       {loopState && (
         <div className="flex items-center gap-1 mt-1">
-          <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold border ${
+          <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold border inline-flex items-center gap-1 ${
             loopState.exited
               ? "bg-slate-100 dark:bg-slate-800/40 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700/50"
               : "bg-fuchsia-100 dark:bg-fuchsia-900/40 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-200 dark:border-fuchsia-700/50"
           }`}>
-            {loopState.exited ? `✓ exited` : `${loopState.iteration}/${loopState.maxIterations}`}
+            {loopState.exited ? (
+              <>
+                <Check className="h-2 w-2" /> exited
+              </>
+            ) : (
+              `${loopState.iteration}/${loopState.maxIterations}`
+            )}
           </span>
         </div>
       )}
