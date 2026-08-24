@@ -1,8 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
-import { McpClientService } from "@/services/McpClientService";
-import { McpServerRepository } from "@/repositories/McpServerRepository";
+import { apiServices } from "@/lib/api/services";
 
-const mcpService = new McpClientService(new McpServerRepository());
+
+const { mcpService } = apiServices();
 
 /**
  * GET /api/mcp/servers/:id/progress
@@ -23,37 +23,52 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const stream = new ReadableStream({
     start(controller) {
+      let closed = false;
+      let unsubscribe: (() => void) | null = () => {};
+      const safeUnsubscribe = () => {
+        closed = true;
+        try { unsubscribe?.(); } catch { /* noop */ }
+        unsubscribe = null;
+      };
+
       // Send initial connection event
       controller.enqueue(
         encoder.encode(`data: ${JSON.stringify({ type: "connected", serverId: id, timestamp: Date.now() })}\n\n`)
       );
 
-      // Subscribe to progress events from the MCP connection
-      const unsubscribe = mcpService.onProgress(id, userId, (event) => {
+      // Subscribe to progress events from the MCP connection.
+      // Async: the service verifies OWNERSHIP before attaching the listener —
+      // a non-owner (or unconnected server) resolves to a no-op subscription.
+      void mcpService.onProgress(id, userId, (event) => {
+        if (closed) return;
         try {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
         } catch {
           // Stream may be closed by the client
-          unsubscribe();
+          safeUnsubscribe();
         }
+      }).then((unsub) => {
+        if (closed) { try { unsub(); } catch { /* noop */ } return; }
+        unsubscribe = unsub;
       });
 
       // Heartbeat every 30s to keep connection alive
       const heartbeat = setInterval(() => {
+        if (closed) { clearInterval(heartbeat); return; }
         try {
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ type: "heartbeat", timestamp: Date.now() })}\n\n`)
           );
         } catch {
           clearInterval(heartbeat);
-          unsubscribe();
+          safeUnsubscribe();
         }
       }, 30_000);
 
       // Clean up when client disconnects
       request.signal.addEventListener("abort", () => {
         clearInterval(heartbeat);
-        unsubscribe();
+        safeUnsubscribe();
         try {
           controller.close();
         } catch {

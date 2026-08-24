@@ -24,6 +24,21 @@ export type GraphNodeType =
   | "aggregate"
   | "variable"
   | "output"
+  | "rss_feed"
+  | "web_reader"
+  | "notification_dispatcher"
+  | "data_mapper"
+  | "schedule_trigger"
+  | "webhook_trigger"
+  | "searxng_search"
+  | "crawl4ai_scrape"
+  | "docling_pdf_parser"
+  | "gotenberg_pdf_exporter"
+  | "nocodb_record"
+  | "pocketbase_store"
+  | "qdrant_vector_memory"
+  | "audio_transcriber"
+  | "piper_tts"
   | "sticky_note"
   | "frame";
 
@@ -41,6 +56,20 @@ export interface GraphNodeData {
   // agent / supervisor
   /** System prompt for the LLM agent node. */
   prompt?: string;
+  /** Explicit model override (e.g. `cohere/north-mini-code:free`, `google/gemma-4-26b-a4b-it:free`). */
+  model?: string;
+  /** Custom API Key for proprietary or self-hosted model endpoints. */
+  customApiKey?: string;
+  /** Custom API Base URL (e.g. `http://localhost:11434/v1`, `https://api.openai.com/v1`, `https://api.together.xyz/v1`). */
+  customApiBaseUrl?: string;
+  /** Provider identifier or protocol format (e.g. `custom_openai`, `ollama`, `together`, `groq`, `anthropic`). */
+  customApiProvider?: string;
+  /** Sampling temperature (0.0 - 2.0). */
+  temperature?: number;
+  /** Max output tokens for LLM generation. */
+  maxTokens?: number;
+  /** Top-P nucleus sampling. */
+  topP?: number;
   /** Tool names the agent may invoke (resolved to registry tools at runtime). */
   allowedTools?: string[];
   // tool
@@ -104,11 +133,140 @@ export interface GraphNodeData {
   httpBody?: Record<string, unknown>;
   /** Expected response type. */
   httpResponseType?: "json" | "text" | "blob";
+  /** Per-request wall-clock budget in ms. Default 30s, capped by the run timeout. */
+  httpTimeoutMs?: number;
   // transform
   /** Transform operation type. */
-  transformOp?: "map" | "filter" | "merge" | "flatten" | "sort" | "dedupe" | "pick" | "omit" | "template";
+  transformOp?: string;
   /** Transform expression or field path. */
   transformExpr?: string;
+  // rss_feed
+  /** RSS or Atom feed URL to ingest. */
+  rssUrl?: string;
+  /** Max items to fetch from the RSS feed (default 10). */
+  rssMaxItems?: number;
+  // web_reader
+  /** Target URL to scrape and convert into LLM-ready markdown using Jina Reader (https://r.jina.ai/<url>). */
+  readerUrl?: string;
+  /** Reader format mode: markdown, html, or text. */
+  readerFormat?: "markdown" | "html" | "text";
+  /** Optional target CSS selector or sub-path. */
+  readerTargetSelector?: string;
+  // notification_dispatcher
+  /** Dispatch destination channel. */
+  dispatchDestination?: "discord" | "slack" | "telegram" | "webhook";
+  /** Target webhook or endpoint URL. */
+  dispatchWebhookUrl?: string;
+  /** Message content or template to send. */
+  dispatchMessage?: string;
+  /** Optional channel override or sender label. */
+  dispatchChannel?: string;
+  /** Telegram Bot API token (for telegram destination). */
+  telegramBotToken?: string;
+  /** Telegram chat or channel ID. */
+  telegramChatId?: string;
+  // data_mapper
+  /** Key-value mapping pairs: target field -> source expression / template. */
+  mapperSchema?: Record<string, string>;
+  /** Optional JSONPath or JS transform expression. */
+  mapperExpression?: string;
+  // schedule_trigger
+  /** Standard 5-field cron expression (e.g. '0 9 * * *'). */
+  cronExpression?: string;
+  /** Cron timezone string (default UTC). */
+  cronTimezone?: string;
+  /** Human readable interval description (e.g. 'Every day at 9:00 AM'). */
+  scheduleInterval?: string;
+  // webhook_trigger
+  /** Inbound webhook path / route identifier. */
+  webhookPath?: string;
+  /** Accepted HTTP method for inbound trigger. */
+  webhookMethod?: "POST" | "GET" | "PUT";
+  /** Expected payload schema or secret token. */
+  webhookSecret?: string;
+  // searxng_search
+  /** SearXNG instance URL (e.g. 'https://searx.be' or 'http://localhost:8080'). */
+  searxngHost?: string;
+  /** Search query template string. */
+  searxngQuery?: string;
+  /** Categories to search (e.g. ['general', 'science', 'news', 'it']). */
+  searxngCategories?: string[];
+  /** Max results to return (default 5). */
+  searxngLimit?: number;
+  // crawl4ai_scrape
+  /** Crawl4AI / Scraper API service endpoint or target URL. */
+  crawl4aiHost?: string;
+  /** Target page URL to crawl. */
+  crawl4aiUrl?: string;
+  /** Optional CSS selector or extraction strategy. */
+  crawl4aiSelector?: string;
+  /** Word count threshold for content filtering. */
+  crawl4aiWordCountThreshold?: number;
+  // docling_pdf_parser
+  /** Docling microservice endpoint or document URL. */
+  doclingHost?: string;
+  /** Document / PDF URL or file path to parse. */
+  doclingDocumentUrl?: string;
+  /** Output format (markdown, json, html). */
+  doclingOutputFormat?: "markdown" | "json" | "html";
+  /** Whether to enable OCR table parsing. */
+  doclingOcr?: boolean;
+  // gotenberg_pdf_exporter
+  /** Gotenberg PDF conversion instance URL. */
+  gotenbergHost?: string;
+  /** HTML / Markdown content template to render to PDF. */
+  gotenbergHtmlContent?: string;
+  /** Paper size: A4, Letter, Legal. */
+  gotenbergPaperSize?: "A4" | "Letter" | "Legal";
+  /** Page orientation: portrait or landscape. */
+  gotenbergLandscape?: boolean;
+  // nocodb_record
+  /** NocoDB API host URL (e.g. 'http://localhost:8080' or cloud instance). */
+  nocodbHost?: string;
+  /** NocoDB API Token / Auth Key. */
+  nocodbApiToken?: string;
+  /** NocoDB Base / Table ID or Name. */
+  nocodbTableId?: string;
+  /** Operation: list, create, find, update. */
+  nocodbOperation?: "list" | "create" | "find" | "update";
+  /** Record payload or query parameters (JSON template). */
+  nocodbData?: Record<string, unknown>;
+  // pocketbase_store
+  /** PocketBase instance host URL (e.g. 'http://127.0.0.1:8090'). */
+  pocketbaseHost?: string;
+  /** PocketBase Collection name. */
+  pocketbaseCollection?: string;
+  /** Action: get, create, update, list. */
+  pocketbaseAction?: "get" | "create" | "update" | "list";
+  /** Record ID for get/update. */
+  pocketbaseRecordId?: string;
+  /** Record payload or query filters (JSON template). */
+  pocketbaseData?: Record<string, unknown>;
+  // qdrant_vector_memory
+  /** Qdrant instance URL (e.g. 'http://localhost:6333'). */
+  qdrantHost?: string;
+  /** Qdrant Collection Name. */
+  qdrantCollection?: string;
+  /** Action: search, upsert, count. */
+  qdrantAction?: "search" | "upsert" | "count";
+  /** Query text or semantic search template. */
+  qdrantQuery?: string;
+  /** Limit top K results (default 3). */
+  qdrantTopK?: number;
+  // audio_transcriber (Faster-Whisper)
+  /** Faster-Whisper / Audio API host endpoint. */
+  audioTranscriberHost?: string;
+  /** Audio source URL or file base64 template. */
+  audioSourceUrl?: string;
+  /** Language hint (e.g. 'en', 'auto'). */
+  audioLanguage?: string;
+  // piper_tts
+  /** Piper TTS service host endpoint. */
+  piperHost?: string;
+  /** Text template to synthesize into speech. */
+  piperText?: string;
+  /** Voice model identifier (e.g. 'en_US-lessac-medium'). */
+  piperVoice?: string;
   // delay
   /** Delay duration in milliseconds. */
   delayMs?: number;
@@ -116,14 +274,14 @@ export interface GraphNodeData {
   delayTemplate?: string;
   // aggregate
   /** How to combine results from incoming branches. */
-  aggregateMode?: "concat" | "merge" | "count" | "first" | "all" | "custom";
+  aggregateMode?: string;
   /** Custom aggregation expression (JS). */
   aggregateExpr?: string;
   // variable
   /** Variable name to get or set. */
   varName?: string;
   /** Operation: get or set. */
-  varOp?: "get" | "set";
+  varOp?: string;
   /** Value to set (JSON template). */
   varValue?: unknown;
   // output

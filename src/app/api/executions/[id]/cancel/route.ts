@@ -1,15 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { ExecutionService } from "@/services/ExecutionService";
-import { ExecutionRepository } from "@/repositories/ExecutionRepository";
-import { SkillRepository } from "@/repositories/SkillRepository";
-import { AuditLogRepository } from "@/repositories/AuditLogRepository";
 import { unauthorized, serverError, notFound } from "@/lib/api/handlers";
+import { apiServices } from "@/lib/api/services";
 
-const executionRepo = new ExecutionRepository();
-const skillRepo = new SkillRepository();
-const auditRepo = new AuditLogRepository();
-const executionService = new ExecutionService(executionRepo, skillRepo, auditRepo);
+const { executionService } = apiServices();
 
 export async function POST(
   _request: Request,

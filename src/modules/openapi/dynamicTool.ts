@@ -182,6 +182,18 @@ export async function executeOpenApiRequest(
     queryString ? `?${queryString}` : ""
   }`;
 
+  // Query-param API keys are part of the URL and URLs end up in logs, error
+  // messages and persisted request details — mask the key value everywhere
+  // EXCEPT the actual outbound fetch.
+  const sanitizeUrl = (u: string): string => {
+    if (!authConfig?.apiKeyQueryParam || !authConfig?.apiKeyValue) return u;
+    return u.replace(
+      `${authConfig.apiKeyQueryParam}=${encodeURIComponent(authConfig.apiKeyValue)}`,
+      `${authConfig.apiKeyQueryParam}=${encodeURIComponent("***REDACTED***")}`
+    );
+  };
+  const safeUrl = sanitizeUrl(finalUrl);
+
   // 4. Prepare Request Body
   let requestBody: string | undefined = undefined;
   if (["POST", "PUT", "PATCH", "DELETE"].includes(endpoint.method)) {
@@ -206,13 +218,12 @@ export async function executeOpenApiRequest(
   }
 
   const loggedHeaders: Record<string, string> = { ...headers };
-  if (loggedHeaders["Authorization"] || loggedHeaders["authorization"]) {
-    loggedHeaders["Authorization"] = "***REDACTED***";
-    delete loggedHeaders["authorization"];
+  for (const key of Object.keys(loggedHeaders)) {
+    if (SENSITIVE_HEADER_RE.test(key)) loggedHeaders[key] = "***REDACTED***";
   }
 
   const requestDetails = {
-    url: finalUrl,
+    url: safeUrl,
     method: endpoint.method,
     headers: loggedHeaders,
     body: requestBody ? tryParseJson(requestBody) : undefined,
@@ -287,3 +298,6 @@ function tryParseJson(text: string): unknown {
     return text;
   }
 }
+
+/** Header names whose values must never reach logs or client responses. */
+const SENSITIVE_HEADER_RE = /^(authorization|proxy-authorization|x-api-key|api-key|apikey|x-auth-token|x-access-token|cookie)$/i;

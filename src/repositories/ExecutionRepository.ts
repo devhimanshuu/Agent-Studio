@@ -208,6 +208,20 @@ export class ExecutionRepository implements IExecutionRepository {
     return this.mapExecution(updated);
   }
 
+  /**
+   * Atomic compare-and-swap claim for (re)starting a run: flips the row to
+   * RUNNING only when it is not already RUNNING. `updateMany` guarantees
+   * exactly one concurrent caller wins; losers get `false` instead of a
+   * double-invoked graph run.
+   */
+  async claimRun(id: string): Promise<boolean> {
+    const result = await prisma.execution.updateMany({
+      where: { id, status: { not: "RUNNING" } },
+      data: { status: "RUNNING", errorMessage: null },
+    });
+    return result.count === 1;
+  }
+
   async addStep(executionId: string, step: Omit<ExecutionStepDTO, "id" | "executionId">): Promise<ExecutionStepDTO> {
     const created = await prisma.executionStep.create({
       data: {

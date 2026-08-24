@@ -1,20 +1,14 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
-import { ApprovalRepository } from "@/repositories/ApprovalRepository";
-import { ApprovalHistoryRepository } from "@/repositories/ApprovalHistoryRepository";
-import { ExecutionRepository } from "@/repositories/ExecutionRepository";
-import { ApprovalEngine } from "@/modules/approval";
 import { unauthorized, forbidden, badRequest, serverError, notFound } from "@/lib/api/handlers";
+import { apiServices } from "@/lib/api/services";
 
 const cancelSchema = z.object({
   idempotencyKey: z.string().min(1, "Idempotency key is required"),
 });
 
-const approvalRepo = new ApprovalRepository();
-const historyRepo = new ApprovalHistoryRepository();
-const executionRepo = new ExecutionRepository();
-const approvalEngine = new ApprovalEngine(approvalRepo, historyRepo, executionRepo);
+const { approvalEngine } = apiServices();
 
 export async function POST(
   request: Request,

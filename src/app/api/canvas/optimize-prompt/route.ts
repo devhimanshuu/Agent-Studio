@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { getLLMProvider } from "@/providers/llm";
+import { unauthorized, serverError } from "@/lib/api/handlers";
+import { rateLimit } from "@/lib/api/rateLimit";
 
 const OPTIMIZER_SYSTEM_PROMPT = `You are a prompt engineering expert. Given an agent's current system prompt and its role context, produce an optimized version that:
 
@@ -18,6 +21,12 @@ Rules:
 - Return ONLY the optimized prompt text, no explanations or meta-commentary`;
 
 export async function POST(request: NextRequest) {
+  const { userId } = await auth();
+  if (!userId) return unauthorized();
+
+  const limited = rateLimit(`canvas:optimize:${userId}`);
+  if (limited) return limited;
+
   try {
     const body = await request.json();
     const { prompt, nodeType, label, condition, toolName } = body;
@@ -65,13 +74,6 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("[Prompt Optimizer]", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Optimization failed",
-      },
-      { status: 500 }
-    );
+    return serverError(error);
   }
 }

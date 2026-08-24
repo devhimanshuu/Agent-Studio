@@ -10,7 +10,7 @@ import {
 import { Tool, ToolRegistry } from "@/modules/tools";
 
 export interface IMcpClientService {
-  listServers(userId: string): Promise<McpServerDTO[]>;
+  listServers(userId: string, limit?: number): Promise<McpServerDTO[]>;
   getServer(serverId: string, userId: string): Promise<McpServerDTO | null>;
   createServer(input: CreateMcpServerInput): Promise<McpServerDTO>;
   updateServer(serverId: string, userId: string, input: UpdateMcpServerInput): Promise<McpServerDTO>;
@@ -27,7 +27,7 @@ export interface IMcpClientService {
   getPrompt(serverId: string, userId: string, promptName: string, args?: Record<string, string>): Promise<unknown>;
   getMetrics(serverId: string, userId: string): Promise<Record<string, unknown>>;
   /** Subscribe to progress events from a connected MCP server. */
-  onProgress(serverId: string, userId: string, listener: (event: McpProgressEvent) => void): () => void;
+  onProgress(serverId: string, userId: string, listener: (event: McpProgressEvent) => void): Promise<() => void>;
   /** Handle a sampling/createMessage request from a connected MCP server. */
   handleSamplingRequest(serverId: string, userId: string, params: Record<string, unknown>): Promise<McpSamplingResult>;
   /** Sync cached MCP tools into a registry as standard ITools (idempotent). */

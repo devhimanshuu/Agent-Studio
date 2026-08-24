@@ -1,43 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { ExecutionService } from "@/services/ExecutionService";
-import { ExecutionHistoryService } from "@/modules/history";
-import { ExecutionRepository } from "@/repositories/ExecutionRepository";
-import { SkillRepository } from "@/repositories/SkillRepository";
-import { AuditLogRepository } from "@/repositories/AuditLogRepository";
-import { ExecutionLogRepository } from "@/repositories/ExecutionLogRepository";
-import { ApprovalRepository } from "@/repositories/ApprovalRepository";
-import { ApprovalHistoryRepository } from "@/repositories/ApprovalHistoryRepository";
 import { unauthorized, serverError, notFound, forbidden } from "@/lib/api/handlers";
 import { rateLimit } from "@/lib/api/rateLimit";
+import { apiServices } from "@/lib/api/services";
 
-import { McpClientService } from "@/services/McpClientService";
-import { McpServerRepository } from "@/repositories/McpServerRepository";
-import { OpenApiService } from "@/services/OpenApiService";
-import { OpenApiRepository } from "@/repositories/OpenApiRepository";
-
-const executionRepo = new ExecutionRepository();
-const skillRepo = new SkillRepository();
-const auditRepo = new AuditLogRepository();
-const approvalRepo = new ApprovalRepository();
-const historyRepo = new ApprovalHistoryRepository();
-const mcpService = new McpClientService(new McpServerRepository());
-const openApiService = new OpenApiService(new OpenApiRepository());
-
-const executionService = new ExecutionService(executionRepo, skillRepo, auditRepo, {
-  mcpService,
-  openApiService,
-  approvalRepo,
-});
-const historyService = new ExecutionHistoryService(
-  executionRepo,
-  skillRepo,
-  auditRepo,
-  executionService,
-  new ExecutionLogRepository(),
-  approvalRepo,
-  historyRepo
-);
+const { historyService } = apiServices();
 
 /**
  * Replay a previous execution. Reuses its skill version + input, creates a NEW

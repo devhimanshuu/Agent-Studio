@@ -20,8 +20,34 @@
 const STEP_REF = /^\$step(\d+)\.result$/;
 const BRACED_STEP_REF = /^\{\{\s*step_(\d+)\.result\s*\}\}$/;
 const BRACED_INPUT_REF = /^\{\{\s*(?:input\.)?([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*)\s*\}\}$/;
-const EMBEDDED_STEP_REF = /\$step(\d+)\.result|\{\{\s*step_(\d+)\.result\s*\}\}/g;
-const EMBEDDED_INPUT_REF = /\{\{\s*(?:input\.)?([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*)\s*\}\}/g;
+
+/**
+ * Fresh regex instances per call — the previous module-level `/g` patterns
+ * carried `lastIndex` between concurrent requests. The call sites were
+ * synchronous so no interleaving ever bit in practice, but one refactor away
+ * from that invariant was a latent cross-request corruption bug.
+ */
+function embeddedStepRef(value: string): boolean {
+  return new RegExp("\\$step(\\d+)\\.result|\\{\\{\\s*step_(\\d+)\\.result\\s*\\}\\}").test(value);
+}
+function embeddedInputRef(value: string): boolean {
+  return new RegExp("\\{\\{\\s*(?:input\\.)?([A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)*)\\s*\\}\\}").test(value);
+}
+function replaceEmbeddedStepRefs(value: string, ctx: StepReferenceContext): string {
+  return value.replace(new RegExp("\\$step(\\d+)\\.result|\\{\\{\\s*step_(\\d+)\\.result\\s*\\}\\}", "g"), (_match, a?: string, b?: string) => {
+    const stepNumber = a ?? b;
+    const ref = unwrapResult(ctx.results[`step_${stepNumber}`]);
+    if (ref === undefined) return _match;
+    return typeof ref === "string" ? ref : JSON.stringify(ref);
+  });
+}
+function replaceEmbeddedInputRefs(value: string, userInput: Record<string, unknown>): string {
+  return value.replace(new RegExp("\\{\\{\\s*(?:input\\.)?([A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)*)\\s*\\}\\}", "g"), (match, path: string) => {
+    const ref = getByPath(userInput, path.split("."));
+    if (ref === undefined) return match;
+    return typeof ref === "string" ? ref : JSON.stringify(ref);
+  });
+}
 
 /** Context available to reference resolution. */
 export interface StepReferenceContext {
@@ -83,24 +109,9 @@ export function resolveStepReferences(value: unknown, ctx: StepReferenceContext)
     const trimmed = value.trim();
     const single = resolveStepReference(trimmed, ctx);
     if (single.found) return single.resolved;
-    if (!EMBEDDED_STEP_REF.test(value) && !EMBEDDED_INPUT_REF.test(value)) return value;
-    EMBEDDED_STEP_REF.lastIndex = 0;
-    EMBEDDED_INPUT_REF.lastIndex = 0;
-    let out = value.replace(EMBEDDED_STEP_REF, (match, a?: string, b?: string) => {
-      const stepNumber = a ?? b;
-      const ref = unwrapResult(ctx.results[`step_${stepNumber}`]);
-      if (ref === undefined) return match;
-      return typeof ref === "string" ? ref : JSON.stringify(ref);
-    });
-    EMBEDDED_STEP_REF.lastIndex = 0;
-    EMBEDDED_INPUT_REF.lastIndex = 0;
-    out = out.replace(EMBEDDED_INPUT_REF, (match, path: string) => {
-      const ref = getByPath(ctx.userInput, path.split("."));
-      if (ref === undefined) return match;
-      return typeof ref === "string" ? ref : JSON.stringify(ref);
-    });
-    EMBEDDED_STEP_REF.lastIndex = 0;
-    EMBEDDED_INPUT_REF.lastIndex = 0;
+    if (!embeddedStepRef(value) && !embeddedInputRef(value)) return value;
+    let out = replaceEmbeddedStepRefs(value, ctx);
+    out = replaceEmbeddedInputRefs(out, ctx.userInput);
     return out;
   }
   if (Array.isArray(value)) return value.map((v) => resolveStepReferences(v, ctx));

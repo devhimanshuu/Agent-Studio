@@ -17,6 +17,8 @@ export interface IExecutionRepository {
   listForUser(userId: string, query: ExecutionQuery): Promise<ExecutionDTO[]>;
   create(input: StartExecutionInput, maxSteps: number, skillName?: string): Promise<ExecutionDTO>;
   updateStatus(id: string, status: ExecutionDTO["status"], errorMessage?: string): Promise<ExecutionDTO>;
+  /** Atomic CAS: flip to RUNNING only when not already RUNNING. False = another caller is running it. */
+  claimRun(id: string): Promise<boolean>;
   addStep(executionId: string, step: Omit<ExecutionStepDTO, "id" | "executionId">): Promise<ExecutionStepDTO>;
   addToolCall(executionId: string, toolCall: Omit<ToolCallDTO, "id" | "executionId" | "executedAt">): Promise<ToolCallDTO>;
   /** Aggregated usage counts per tool name (tools dashboard metric). Scoped to

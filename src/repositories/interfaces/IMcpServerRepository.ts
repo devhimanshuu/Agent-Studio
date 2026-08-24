@@ -10,7 +10,9 @@ export interface IMcpServerRepository {
   findById(id: string): Promise<McpServerDTO | null>;
   /** Scoped to the owning user — returns null when the server belongs to someone else. */
   findByIdForUser(id: string, userId: string): Promise<McpServerDTO | null>;
-  findByUserId(userId: string): Promise<McpServerDTO[]>;
+  findByUserId(userId: string, limit?: number): Promise<McpServerDTO[]>;
+    /** Raw (unredacted) headers for one user-owned server — outbound connection setup ONLY. */
+  getRawHeadersForUser(id: string, userId: string): Promise<Record<string, string> | null>;
   create(input: CreateMcpServerInput): Promise<McpServerDTO>;
   update(id: string, userId: string, input: UpdateMcpServerInput): Promise<McpServerDTO>;
   delete(id: string, userId: string): Promise<void>;

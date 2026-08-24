@@ -1,30 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { ExecutionService } from "@/services/ExecutionService";
-import { ExecutionRepository } from "@/repositories/ExecutionRepository";
-import { SkillRepository } from "@/repositories/SkillRepository";
-import { AuditLogRepository } from "@/repositories/AuditLogRepository";
-import { ApprovalRepository } from "@/repositories/ApprovalRepository";
 import { unauthorized, forbidden, notFound, serverError, badRequest } from "@/lib/api/handlers";
 import { rateLimit } from "@/lib/api/rateLimit";
+import { apiServices } from "@/lib/api/services";
 
-import { McpClientService } from "@/services/McpClientService";
-import { McpServerRepository } from "@/repositories/McpServerRepository";
-import { OpenApiService } from "@/services/OpenApiService";
-import { OpenApiRepository } from "@/repositories/OpenApiRepository";
-
-const executionRepo = new ExecutionRepository();
-const skillRepo = new SkillRepository();
-const auditRepo = new AuditLogRepository();
-const approvalRepo = new ApprovalRepository();
-const mcpService = new McpClientService(new McpServerRepository());
-const openApiService = new OpenApiService(new OpenApiRepository());
-
-const executionService = new ExecutionService(executionRepo, skillRepo, auditRepo, {
-  mcpService,
-  openApiService,
-  approvalRepo,
-});
+const { executionService } = apiServices();
 
 /**
  * Step-Level Safe Recovery Endpoint:
@@ -42,7 +22,7 @@ export async function POST(
 
   try {
     const { id } = await params;
-    const execution = await executionRepo.findByIdForUser(id, userId);
+    const execution = await executionService.getExecutionForUser(id, userId);
     if (!execution) {
       return notFound("Execution not found or you do not have access to it");
     }

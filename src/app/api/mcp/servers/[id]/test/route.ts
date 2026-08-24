@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { McpClientService } from "@/services/McpClientService";
-import { McpServerRepository } from "@/repositories/McpServerRepository";
+import { apiServices } from "@/lib/api/services";
+
 import { mcpTestToolSchema } from "@/validators/mcpSchema";
 import { unauthorized, badRequest, serverError, notFound } from "@/lib/api/handlers";
 
-const mcpService = new McpClientService(new McpServerRepository());
+const { mcpService } = apiServices();
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { userId } = await auth();

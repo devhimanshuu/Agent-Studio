@@ -1,12 +1,40 @@
 "use client";
 
 import React, { useState, useCallback, useEffect, useRef } from "react";
-import { Trash2, GitBranch, Braces, Boxes, CornerUpRight, RefreshCw, Sparkles, Circle } from "lucide-react";
+import {
+  Trash2,
+  GitBranch,
+  Braces,
+  Boxes,
+  CornerUpRight,
+  RefreshCw,
+  Sparkles,
+  Circle,
+  Sliders,
+  X,
+  Key,
+  Globe,
+  Eye,
+  EyeOff,
+  Loader2,
+  Check,
+  AlertCircle,
+  Play,
+  Server,
+} from "lucide-react";
 import { clsx } from "clsx";
 import { BUILT_IN_TOOL_CATALOG } from "@/modules/tools";
 import type { CanvasNode, CanvasNodeData } from "./graphUtils";
 import { GraphNodeType } from "@/types/graph";
 import type { McpServerDTO } from "@/types/mcp";
+import {
+  GROQ_FREE_MODELS,
+  GROQ_SAFETY_MODELS,
+  OPENROUTER_CHAT_MODELS,
+  EMBEDDING_MODELS,
+  AUDIO_MODELS,
+  VISION_MODELS,
+} from "@/providers/llm";
 
 interface NodeInspectorProps {
   node: CanvasNode;
@@ -30,6 +58,406 @@ function Field({ label, children, hint }: { label: string; children: React.React
       <label className={labelClass}>{label}</label>
       {children}
       {hint && <p className="text-[8px] text-slate-500 leading-tight">{hint}</p>}
+    </div>
+  );
+}
+
+interface ModelSelectFieldProps {
+  value?: string;
+  customApiKey?: string;
+  customApiBaseUrl?: string;
+  customApiProvider?: string;
+  onUpdate: (patch: {
+    model?: string;
+    customApiKey?: string;
+    customApiBaseUrl?: string;
+    customApiProvider?: string;
+  }) => void;
+}
+
+const PRESET_ENDPOINTS = [
+  { label: "Ollama", url: "http://localhost:11434/v1", provider: "ollama", defaultModel: "llama3.2" },
+  { label: "Groq", url: "https://api.groq.com/openai/v1", provider: "groq", defaultModel: "groq/compound" },
+  { label: "OpenRouter", url: "https://openrouter.ai/api/v1", provider: "openrouter", defaultModel: "google/gemma-4-26b-a4b-it:free" },
+  { label: "OpenAI", url: "https://api.openai.com/v1", provider: "openai", defaultModel: "gpt-4o" },
+  { label: "Together", url: "https://api.together.xyz/v1", provider: "together", defaultModel: "meta-llama/Llama-3.3-70B-Instruct-Turbo" },
+  { label: "vLLM", url: "http://localhost:8000/v1", provider: "custom_openai", defaultModel: "local-model" },
+];
+
+function ModelSelectField({
+  value,
+  customApiKey,
+  customApiBaseUrl,
+  customApiProvider,
+  onUpdate,
+}: ModelSelectFieldProps) {
+  const [isCustom, setIsCustom] = useState(() => {
+    if (customApiBaseUrl || customApiKey) return true;
+    if (!value || value === "openrouter/free" || value === "") return false;
+    const isKnown =
+      GROQ_FREE_MODELS.some((m) => m.model === value) ||
+      GROQ_SAFETY_MODELS.some((m) => m.model === value) ||
+      OPENROUTER_CHAT_MODELS.some((m) => m.model === value);
+    return !isKnown;
+  });
+
+  const [showApiConfig, setShowApiConfig] = useState(() => Boolean(customApiKey || customApiBaseUrl));
+  const [showKey, setShowKey] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const handleSelectChange = (val: string) => {
+    if (val === "__custom__") {
+      setIsCustom(true);
+      setShowApiConfig(true);
+      return;
+    }
+    setIsCustom(false);
+    onUpdate({ model: val || undefined });
+  };
+
+  const handleTestApi = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/models/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: value || "gpt-4o",
+          apiKey: customApiKey,
+          apiBaseUrl: customApiBaseUrl,
+          provider: customApiProvider,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.connected) {
+        setTestResult({ ok: true, message: `Connected (${data.latencyMs}ms)` });
+      } else {
+        setTestResult({ ok: false, message: data.error || "Connection failed" });
+      }
+    } catch (err: unknown) {
+      setTestResult({ ok: false, message: err instanceof Error ? err.message : "Network error" });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <Field label="LLM Model" hint="Select a curated model, auto-failover router, or configure custom API endpoint">
+        <select
+          value={isCustom ? "__custom__" : (value ?? "openrouter/free")}
+          onChange={(e) => handleSelectChange(e.target.value)}
+          className={`${inputClass} cursor-pointer`}
+        >
+          <option value="openrouter/free">[Auto-Router] OpenRouter: Free Models (Recommended)</option>
+          <option value="">[Failover Router] Multi-Provider (Groq + OpenRouter)</option>
+
+          <optgroup label="Groq Ultra-Fast Free Models (LPU Hardware)">
+            {GROQ_FREE_MODELS.map((m) => (
+              <option key={m.model} value={m.model}>
+                {m.label} ({m.throughput || "fast"}) · $0
+              </option>
+            ))}
+          </optgroup>
+
+          <optgroup label="Groq Safety & Guardrail Models">
+            {GROQ_SAFETY_MODELS.map((m) => (
+              <option key={m.model} value={m.model}>
+                [Safety] {m.label} ({m.throughput || "fast"}) · $0
+              </option>
+            ))}
+          </optgroup>
+
+          <optgroup label="OpenRouter Flagship Reasoning & Coding">
+            {OPENROUTER_CHAT_MODELS.filter((m) => m.model !== "openrouter/free").map((m) => (
+              <option key={m.model} value={m.model}>
+                {m.label} {m.contextLength ? `· ${(m.contextLength / 1000).toFixed(0)}k ctx` : ""} · $0
+              </option>
+            ))}
+          </optgroup>
+
+          <optgroup label="Custom / Bring Your Own Model (BYOM)">
+            <option value="__custom__">Custom Model & API Endpoint (Ollama, OpenAI, Groq, vLLM)...</option>
+          </optgroup>
+        </select>
+      </Field>
+
+      {/* Model Name Input for Custom Model */}
+      {isCustom && (
+        <div className="space-y-1 pl-2 border-l-2 border-indigo-500/60">
+          <label className="text-[8px] font-mono font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+            Custom Model Identifier
+          </label>
+          <input
+            type="text"
+            value={value ?? ""}
+            onChange={(e) => onUpdate({ model: e.target.value })}
+            placeholder="e.g. openai/gpt-4o, llama3.3:70b, deepseek-chat, claude-3-7-sonnet"
+            className={inputClass}
+          />
+        </div>
+      )}
+
+      {/* Toggle Custom API & Auth Header Options */}
+      <div className="pt-0.5">
+        <button
+          type="button"
+          onClick={() => setShowApiConfig(!showApiConfig)}
+          className="flex items-center justify-between w-full px-2 py-1 rounded border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 text-[9px] font-bold text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
+        >
+          <span className="flex items-center gap-1.5">
+            <Key className="h-3 w-3 text-indigo-500" />
+            <span>CUSTOM API & AUTH CONFIGURATION</span>
+            {(customApiKey || customApiBaseUrl) && (
+              <span className="text-[7.5px] px-1 py-0.2 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-mono font-bold">
+                ACTIVE
+              </span>
+            )}
+          </span>
+          <span className="text-slate-400">{showApiConfig ? "–" : "+"}</span>
+        </button>
+
+        {showApiConfig && (
+          <div className="mt-1.5 p-2 rounded-lg border border-indigo-200 dark:border-indigo-900/40 bg-indigo-50/30 dark:bg-indigo-950/20 space-y-2 text-[9px]">
+            {/* Quick Endpoint Presets */}
+            <div>
+              <span className="text-[8px] font-mono text-slate-500 block mb-1">Quick Endpoint Presets:</span>
+              <div className="flex flex-wrap gap-1">
+                {PRESET_ENDPOINTS.map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => {
+                      onUpdate({
+                        customApiBaseUrl: preset.url,
+                        customApiProvider: preset.provider,
+                        ...(isCustom && !value ? { model: preset.defaultModel } : {}),
+                      });
+                    }}
+                    className={clsx(
+                      "px-1.5 py-0.5 rounded border text-[8px] font-mono transition-colors cursor-pointer",
+                      customApiBaseUrl === preset.url
+                        ? "border-indigo-500 bg-indigo-600 text-white font-bold"
+                        : "border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300 hover:border-indigo-400"
+                    )}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom API Base URL */}
+            <div className="space-y-1">
+              <label className="text-[8px] font-mono text-slate-600 dark:text-slate-400 flex items-center gap-1">
+                <Globe className="h-2.5 w-2.5 text-indigo-400" /> API Base URL / Endpoint
+              </label>
+              <input
+                type="text"
+                value={customApiBaseUrl ?? ""}
+                onChange={(e) => onUpdate({ customApiBaseUrl: e.target.value.trim() || undefined })}
+                placeholder="e.g. http://localhost:11434/v1, https://api.openai.com/v1"
+                className={inputClass}
+              />
+              <p className="text-[7.5px] text-slate-500 font-mono">
+                OpenAI-compatible `/chat/completions` endpoint URL.
+              </p>
+            </div>
+
+            {/* Custom API Key */}
+            <div className="space-y-1">
+              <label className="text-[8px] font-mono text-slate-600 dark:text-slate-400 flex items-center gap-1">
+                <Key className="h-2.5 w-2.5 text-indigo-400" /> Model API Key (Optional)
+              </label>
+              <div className="relative">
+                <input
+                  type={showKey ? "text" : "password"}
+                  value={customApiKey ?? ""}
+                  onChange={(e) => onUpdate({ customApiKey: e.target.value.trim() || undefined })}
+                  placeholder="Enter custom API key (or leave empty to use default vault key)"
+                  className={`${inputClass} pr-7`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowKey(!showKey)}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-0.5"
+                  title={showKey ? "Hide API key" : "Reveal API key"}
+                >
+                  {showKey ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                </button>
+              </div>
+              <p className="text-[7.5px] text-slate-500 font-mono">
+                Stored securely for this node. Overrides global environment keys.
+              </p>
+            </div>
+
+            {/* Test Connection Button & Status */}
+            <div className="pt-1 flex items-center justify-between gap-2 border-t border-indigo-200/50 dark:border-indigo-900/40">
+              <button
+                type="button"
+                onClick={handleTestApi}
+                disabled={testing}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded border border-indigo-400/60 bg-indigo-600 hover:bg-indigo-500 text-white text-[8.5px] font-bold tracking-wider uppercase transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {testing ? (
+                  <>
+                    <Loader2 className="h-2.5 w-2.5 animate-spin" /> TESTING API…
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-2.5 w-2.5" /> TEST MODEL API
+                  </>
+                )}
+              </button>
+
+              {testResult && (
+                <div
+                  className={clsx(
+                    "text-[8px] font-mono flex items-center gap-1 font-semibold truncate max-w-[170px]",
+                    testResult.ok ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+                  )}
+                  title={testResult.message}
+                >
+                  {testResult.ok ? (
+                    <Check className="h-2.5 w-2.5 shrink-0 text-emerald-500" />
+                  ) : (
+                    <AlertCircle className="h-2.5 w-2.5 shrink-0 text-red-500" />
+                  )}
+                  <span className="truncate">{testResult.message}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EmbeddingModelSelectField({
+  value,
+  onChange,
+}: {
+  value?: string;
+  onChange: (model: string) => void;
+}) {
+  return (
+    <Field label="Vector Embedding Model" hint="Dense embedding model used to compute vector embeddings for RAG">
+      <select
+        value={value ?? "nvidia/nemotron-3-embed-1b:free"}
+        onChange={(e) => onChange(e.target.value)}
+        className={`${inputClass} cursor-pointer`}
+      >
+        {EMBEDDING_MODELS.map((m) => (
+          <option key={m.model} value={m.model}>
+            {m.label} ({m.contextLength ? `${m.contextLength} ctx` : "dense vector"})
+          </option>
+        ))}
+      </select>
+    </Field>
+  );
+}
+
+function AudioModelSelectField({
+  value,
+  onChange,
+}: {
+  value?: string;
+  onChange: (model: string) => void;
+}) {
+  return (
+    <Field label="Audio Speech & STT Model" hint="Cloud Groq LPU transcription or local Faster-Whisper">
+      <select
+        value={value ?? "whisper-large-v3-turbo"}
+        onChange={(e) => onChange(e.target.value)}
+        className={`${inputClass} cursor-pointer`}
+      >
+        {AUDIO_MODELS.map((m) => (
+          <option key={m.model} value={m.model}>
+            {m.label} ({m.throughput || "fast"}) · $0
+          </option>
+        ))}
+      </select>
+    </Field>
+  );
+}
+
+function VisionModelSelectField({
+  value,
+  onChange,
+}: {
+  value?: string;
+  onChange: (model: string) => void;
+}) {
+  return (
+    <Field label="Document Vision & OCR Model" hint="Multimodal vision model used to parse charts, figures and tables">
+      <select
+        value={value ?? "nvidia/nemotron-nano-12b-v2-vl:free"}
+        onChange={(e) => onChange(e.target.value)}
+        className={`${inputClass} cursor-pointer`}
+      >
+        {VISION_MODELS.map((m) => (
+          <option key={m.model} value={m.model}>
+            {m.label} ({m.contextLength ? `${(m.contextLength / 1000).toFixed(0)}k ctx` : "fast"}) · $0
+          </option>
+        ))}
+      </select>
+    </Field>
+  );
+}
+
+function HyperparametersField({
+  temperature,
+  maxTokens,
+  onChange,
+}: {
+  temperature?: number;
+  maxTokens?: number;
+  onChange: (patch: { temperature?: number; maxTokens?: number }) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded border border-slate-200 dark:border-indigo-950/60 bg-slate-50/50 dark:bg-black/30 p-2 space-y-2">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex items-center justify-between w-full text-[9px] font-mono font-bold text-slate-600 dark:text-slate-400 hover:text-indigo-400 cursor-pointer"
+      >
+        <span className="flex items-center gap-1.5">
+          <Sliders className="h-3 w-3 text-indigo-400" />
+          <span>SAMPLING & LIMITS</span>
+          <span className="text-[8px] font-normal text-slate-400">({temperature ?? 0.2} temp · {maxTokens ?? 800} max)</span>
+        </span>
+        <span className="text-[8px]">{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-200 dark:border-indigo-950/50">
+          <Field label="Temperature" hint="0 = deterministic, 1 = creative">
+            <input
+              type="number"
+              step={0.05}
+              min={0}
+              max={2}
+              value={temperature ?? 0.2}
+              onChange={(e) => onChange({ temperature: parseFloat(e.target.value) || 0 })}
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Max Output Tokens" hint="Cap response length">
+            <input
+              type="number"
+              step={100}
+              min={50}
+              max={8192}
+              value={maxTokens ?? 800}
+              onChange={(e) => onChange({ maxTokens: parseInt(e.target.value, 10) || 800 })}
+              className={inputClass}
+            />
+          </Field>
+        </div>
+      )}
     </div>
   );
 }
@@ -280,6 +708,18 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
 
       {type === "agent" && (
         <>
+          <ModelSelectField
+            value={node.data.model}
+            customApiKey={node.data.customApiKey}
+            customApiBaseUrl={node.data.customApiBaseUrl}
+            customApiProvider={node.data.customApiProvider}
+            onUpdate={(patch) => onUpdate(patch)}
+          />
+          <HyperparametersField
+            temperature={node.data.temperature}
+            maxTokens={node.data.maxTokens}
+            onChange={(patch) => onUpdate(patch)}
+          />
           <PromptField
             label="Agent Prompt"
             hint="System prompt for this specialist agent. Receives the accumulated workflow context."
@@ -313,13 +753,27 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
             </div>
           )}
           {optimizeError && (
-            <div className="text-[8px] text-red-400">✗ {optimizeError}</div>
+            <div className="text-[8px] text-red-400 flex items-center gap-1">
+              <X className="h-2.5 w-2.5 shrink-0" /> {optimizeError}
+            </div>
           )}
         </>
       )}
 
       {type === "supervisor" && (
         <>
+          <ModelSelectField
+            value={node.data.model}
+            customApiKey={node.data.customApiKey}
+            customApiBaseUrl={node.data.customApiBaseUrl}
+            customApiProvider={node.data.customApiProvider}
+            onUpdate={(patch) => onUpdate(patch)}
+          />
+          <HyperparametersField
+            temperature={node.data.temperature}
+            maxTokens={node.data.maxTokens}
+            onChange={(patch) => onUpdate(patch)}
+          />
           <PromptField
             label="Supervisor Prompt"
             hint="The model picks the next node among the outgoing edge labels."
@@ -353,7 +807,9 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
             </div>
           )}
           {optimizeError && (
-            <div className="text-[8px] text-red-400">✗ {optimizeError}</div>
+            <div className="text-[8px] text-red-400 flex items-center gap-1">
+              <X className="h-2.5 w-2.5 shrink-0" /> {optimizeError}
+            </div>
           )}
           <Field label="Routing Hint" hint="Add label text to each outgoing edge — the supervisor returns one of them.">
             <div className="rounded border border-violet-300 dark:border-violet-500/30 bg-violet-50 dark:bg-violet-950/20 p-2 text-[9px] text-violet-700 dark:text-violet-300">
@@ -418,14 +874,23 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
             </select>
           </Field>
           {node.data.routerMode === "ai" ? (
-            <PromptField
-              label="Router Prompt"
-              hint={'The model returns { "next": "<edge label>" }.'}
-              value={node.data.routerPrompt ?? ""}
-              onChange={(v) => onUpdate({ routerPrompt: v })}
-              rows={4}
-              allNodeIds={allNodeIds}
-            />
+            <>
+              <ModelSelectField
+                value={node.data.model}
+                customApiKey={node.data.customApiKey}
+                customApiBaseUrl={node.data.customApiBaseUrl}
+                customApiProvider={node.data.customApiProvider}
+                onUpdate={(patch) => onUpdate(patch)}
+              />
+              <PromptField
+                label="Router Prompt"
+                hint={'The model returns { "next": "<edge label>" }.'}
+                value={node.data.routerPrompt ?? ""}
+                onChange={(v) => onUpdate({ routerPrompt: v })}
+                rows={4}
+                allNodeIds={allNodeIds}
+              />
+            </>
           ) : (
             <Field
               label="Condition Expression"
@@ -922,6 +1387,583 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
         </>
       )}
 
+      {/* ─── Schedule Trigger Inspector ─── */}
+      {type === "schedule_trigger" && (
+        <>
+          <Field label="Cron Expression" hint="Standard 5-field cron (min hour dom month dow)">
+            <input
+              value={node.data.cronExpression ?? "0 9 * * *"}
+              onChange={(e) => onUpdate({ cronExpression: e.target.value })}
+              placeholder="0 9 * * *"
+              className={inputClass}
+            />
+            <div className="flex flex-wrap gap-1 mt-1">
+              {[
+                { label: "Hourly", expr: "0 * * * *", desc: "Every hour" },
+                { label: "Daily 9AM", expr: "0 9 * * *", desc: "Every day at 9:00 AM" },
+                { label: "Weekdays", expr: "0 9 * * 1-5", desc: "Mon-Fri at 9:00 AM" },
+                { label: "Every 15m", expr: "*/15 * * * *", desc: "Every 15 minutes" },
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => onUpdate({ cronExpression: preset.expr, scheduleInterval: preset.desc })}
+                  className="px-1.5 py-0.5 rounded border border-blue-300 dark:border-blue-500/40 bg-blue-50 dark:bg-blue-950/40 text-[8px] font-mono text-blue-700 dark:text-blue-300 hover:bg-blue-100"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </Field>
+          <Field label="Timezone">
+            <input
+              value={node.data.cronTimezone ?? "UTC"}
+              onChange={(e) => onUpdate({ cronTimezone: e.target.value })}
+              placeholder="UTC, America/New_York, Asia/Kolkata"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Schedule Description">
+            <input
+              value={node.data.scheduleInterval ?? "Every day at 9:00 AM UTC"}
+              onChange={(e) => onUpdate({ scheduleInterval: e.target.value })}
+              placeholder="Human-readable schedule description"
+              className={inputClass}
+            />
+          </Field>
+        </>
+      )}
+
+      {/* ─── Webhook Trigger Inspector ─── */}
+      {type === "webhook_trigger" && (
+        <>
+          <Field label="Webhook Endpoint Path">
+            <input
+              value={node.data.webhookPath ?? "/api/webhooks/incoming"}
+              onChange={(e) => onUpdate({ webhookPath: e.target.value })}
+              placeholder="/api/webhooks/my-trigger"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="HTTP Method">
+            <select
+              value={node.data.webhookMethod ?? "POST"}
+              onChange={(e) => onUpdate({ webhookMethod: e.target.value as any })}
+              className={`${inputClass} cursor-pointer`}
+            >
+              <option value="POST">POST (Standard Event Body)</option>
+              <option value="GET">GET (Query Parameters)</option>
+              <option value="PUT">PUT (Payload Update)</option>
+            </select>
+          </Field>
+          <Field label="Secret Token (Optional)" hint="Validates Authorization: Bearer <secret> or X-Webhook-Secret">
+            <input
+              type="password"
+              value={node.data.webhookSecret ?? ""}
+              onChange={(e) => onUpdate({ webhookSecret: e.target.value })}
+              placeholder="whsec_..."
+              className={inputClass}
+            />
+          </Field>
+        </>
+      )}
+
+      {/* ─── RSS / Atom Feed Ingestion Inspector ─── */}
+      {type === "rss_feed" && (
+        <>
+          <Field label="Feed URL" hint="Supports any valid RSS 2.0 or Atom XML URL">
+            <input
+              value={node.data.rssUrl ?? ""}
+              onChange={(e) => onUpdate({ rssUrl: e.target.value })}
+              placeholder="https://news.ycombinator.com/rss"
+              className={inputClass}
+            />
+            <div className="flex flex-wrap gap-1 mt-1">
+              {[
+                { label: "Hacker News", url: "https://news.ycombinator.com/rss" },
+                { label: "TechCrunch", url: "https://techcrunch.com/feed/" },
+                { label: "ArXiv AI", url: "https://export.arxiv.org/rss/cs.AI" },
+                { label: "GitHub Releases", url: "https://github.com/facebook/react/releases.atom" },
+              ].map((feed) => (
+                <button
+                  key={feed.label}
+                  type="button"
+                  onClick={() => onUpdate({ rssUrl: feed.url })}
+                  className="px-1.5 py-0.5 rounded border border-orange-300 dark:border-orange-500/40 bg-orange-50 dark:bg-orange-950/40 text-[8px] font-mono text-orange-700 dark:text-orange-300 hover:bg-orange-100"
+                >
+                  {feed.label}
+                </button>
+              ))}
+            </div>
+          </Field>
+          <Field label="Max Items to Ingest">
+            <input
+              type="number"
+              min={1}
+              max={50}
+              value={node.data.rssMaxItems ?? 10}
+              onChange={(e) => onUpdate({ rssMaxItems: parseInt(e.target.value, 10) || 10 })}
+              className={inputClass}
+            />
+          </Field>
+        </>
+      )}
+
+      {/* ─── Jina Web Reader Inspector ─── */}
+      {type === "web_reader" && (
+        <>
+          <Field label="Target Web Page URL" hint="Converts any live website into clean LLM markdown via r.jina.ai">
+            <input
+              value={node.data.readerUrl ?? ""}
+              onChange={(e) => onUpdate({ readerUrl: e.target.value })}
+              placeholder="https://example.com or {{ input.url }}"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Reader Format Mode">
+            <select
+              value={node.data.readerFormat ?? "markdown"}
+              onChange={(e) => onUpdate({ readerFormat: e.target.value as any })}
+              className={`${inputClass} cursor-pointer`}
+            >
+              <option value="markdown">Clean Markdown (Recommended for LLMs)</option>
+              <option value="text">Plain Text</option>
+              <option value="html">Sanitized HTML</option>
+            </select>
+          </Field>
+          <Field label="CSS Selector Target (Optional)" hint="Extracts only specific article container or main body">
+            <input
+              value={node.data.readerTargetSelector ?? ""}
+              onChange={(e) => onUpdate({ readerTargetSelector: e.target.value })}
+              placeholder="article, main, .content"
+              className={inputClass}
+            />
+          </Field>
+        </>
+      )}
+
+      {/* ─── Notification Dispatcher Inspector ─── */}
+      {type === "notification_dispatcher" && (
+        <>
+          <Field label="Destination Platform">
+            <select
+              value={node.data.dispatchDestination ?? "discord"}
+              onChange={(e) => onUpdate({ dispatchDestination: e.target.value as any })}
+              className={`${inputClass} cursor-pointer`}
+            >
+              <option value="discord">Discord Webhook</option>
+              <option value="slack">Slack Incoming Webhook</option>
+              <option value="telegram">Telegram Bot</option>
+              <option value="webhook">Generic HTTP Webhook</option>
+            </select>
+          </Field>
+          {node.data.dispatchDestination === "telegram" ? (
+            <>
+              <Field label="Telegram Bot Token">
+                <input
+                  type="password"
+                  value={node.data.telegramBotToken ?? ""}
+                  onChange={(e) => onUpdate({ telegramBotToken: e.target.value })}
+                  placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Telegram Chat ID">
+                <input
+                  value={node.data.telegramChatId ?? ""}
+                  onChange={(e) => onUpdate({ telegramChatId: e.target.value })}
+                  placeholder="-1001234567890 or @channelname"
+                  className={inputClass}
+                />
+              </Field>
+            </>
+          ) : (
+            <Field label="Webhook URL" hint="Paste Discord/Slack webhook URL or custom endpoint">
+              <input
+                value={node.data.dispatchWebhookUrl ?? ""}
+                onChange={(e) => onUpdate({ dispatchWebhookUrl: e.target.value })}
+                placeholder="https://discord.com/api/webhooks/... or https://hooks.slack.com/..."
+                className={inputClass}
+              />
+            </Field>
+          )}
+          <Field label="Message Content Template">
+            <textarea
+              value={node.data.dispatchMessage ?? ""}
+              onChange={(e) => onUpdate({ dispatchMessage: e.target.value })}
+              rows={4}
+              spellCheck={false}
+              placeholder="**Alert Report:**\n{{ results.agent_1 }}"
+              className={`${inputClass} resize-y text-[9px] leading-relaxed`}
+            />
+            <p className="text-[8px] text-slate-500 leading-tight">
+              Supports markdown and template variables (e.g. {`{{ results.<nodeId> }}`})
+            </p>
+          </Field>
+        </>
+      )}
+
+      {/* ─── Data Mapper Inspector ─── */}
+      {type === "data_mapper" && (
+        <>
+          <Field label="Schema Mappings (JSON)" hint="Maps output fields to dot-paths or expressions">
+            <textarea
+              value={node.data.mapperSchema ? JSON.stringify(node.data.mapperSchema, null, 2) : ""}
+              onChange={(e) => {
+                try { onUpdate({ mapperSchema: e.target.value ? JSON.parse(e.target.value) : {} }); } catch {}
+              }}
+              rows={5}
+              spellCheck={false}
+              placeholder='{\n  "title": "item.title",\n  "url": "item.link",\n  "score": "item.score"\n}'
+              className={`${inputClass} resize-y text-[9px] leading-relaxed font-mono`}
+            />
+          </Field>
+          <Field label="Custom JSONPath / Transform Expression (Optional)">
+            <input
+              value={node.data.mapperExpression ?? ""}
+              onChange={(e) => onUpdate({ mapperExpression: e.target.value })}
+              placeholder="$.items[?(@.score > 100)]"
+              className={inputClass}
+            />
+          </Field>
+        </>
+      )}
+
+      {/* ─── SearXNG Metasearch Inspector ─── */}
+      {type === "searxng_search" && (
+        <>
+          <Field label="SearXNG Instance Endpoint" hint="Any public instance or self-hosted SearXNG (e.g. http://localhost:8080)">
+            <input
+              value={node.data.searxngHost ?? "https://searx.be"}
+              onChange={(e) => onUpdate({ searxngHost: e.target.value })}
+              placeholder="https://searx.be or http://localhost:8080"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Search Query Template" hint="Supports template strings like {{ input.query }} or {{ results.agent.topic }}">
+            <input
+              value={node.data.searxngQuery ?? ""}
+              onChange={(e) => onUpdate({ searxngQuery: e.target.value })}
+              placeholder="autonomous AI agents or {{ input.query }}"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Max Results Limit">
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={node.data.searxngLimit ?? 5}
+              onChange={(e) => onUpdate({ searxngLimit: parseInt(e.target.value, 10) || 5 })}
+              className={inputClass}
+            />
+          </Field>
+        </>
+      )}
+
+      {/* ─── Crawl4AI Scraper Inspector ─── */}
+      {type === "crawl4ai_scrape" && (
+        <>
+          <Field label="Target Page URL" hint="Supports template strings like {{ input.targetUrl }} or {{ results.searxng.url }}">
+            <input
+              value={node.data.crawl4aiUrl ?? ""}
+              onChange={(e) => onUpdate({ crawl4aiUrl: e.target.value })}
+              placeholder="https://news.ycombinator.com or {{ results.search.url }}"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Crawl4AI Service Host (Optional)" hint="Self-hosted Crawl4AI Docker endpoint (defaults to built-in cleaner)">
+            <input
+              value={node.data.crawl4aiHost ?? ""}
+              onChange={(e) => onUpdate({ crawl4aiHost: e.target.value })}
+              placeholder="http://localhost:11235"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="CSS Selector Extraction (Optional)" hint="Filter article body, table, or main container">
+            <input
+              value={node.data.crawl4aiSelector ?? ""}
+              onChange={(e) => onUpdate({ crawl4aiSelector: e.target.value })}
+              placeholder="main, article, .content-body"
+              className={inputClass}
+            />
+          </Field>
+        </>
+      )}
+
+      {/* ─── Docling PDF & Document Parser Inspector ─── */}
+      {type === "docling_pdf_parser" && (
+        <>
+          <VisionModelSelectField
+            value={node.data.model}
+            onChange={(m) => onUpdate({ model: m || undefined })}
+          />
+          <Field label="Document / PDF URL" hint="Target PDF file, paper URL, or local path">
+            <input
+              value={node.data.doclingDocumentUrl ?? ""}
+              onChange={(e) => onUpdate({ doclingDocumentUrl: e.target.value })}
+              placeholder="https://arxiv.org/pdf/1706.03762.pdf or {{ input.pdfUrl }}"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Output Format">
+            <select
+              value={node.data.doclingOutputFormat ?? "markdown"}
+              onChange={(e) => onUpdate({ doclingOutputFormat: e.target.value as any })}
+              className={`${inputClass} cursor-pointer`}
+            >
+              <option value="markdown">Structured Markdown with Tables</option>
+              <option value="json">Structured JSON (Tokens + BBoxes)</option>
+              <option value="html">Semantic HTML</option>
+            </select>
+          </Field>
+          <Field label="Docling Service Host (Optional)" hint="Self-hosted Docling REST service (e.g. http://localhost:5001)">
+            <input
+              value={node.data.doclingHost ?? ""}
+              onChange={(e) => onUpdate({ doclingHost: e.target.value })}
+              placeholder="http://localhost:5001"
+              className={inputClass}
+            />
+          </Field>
+        </>
+      )}
+
+      {/* ─── Gotenberg PDF Exporter Inspector ─── */}
+      {type === "gotenberg_pdf_exporter" && (
+        <>
+          <Field label="Gotenberg Service Host" hint="Docker gotenberg/gotenberg endpoint">
+            <input
+              value={node.data.gotenbergHost ?? "http://localhost:3000"}
+              onChange={(e) => onUpdate({ gotenbergHost: e.target.value })}
+              placeholder="http://localhost:3000"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Paper Size & Layout">
+            <div className="grid grid-cols-2 gap-2">
+              <select
+                value={node.data.gotenbergPaperSize ?? "A4"}
+                onChange={(e) => onUpdate({ gotenbergPaperSize: e.target.value as any })}
+                className={`${inputClass} cursor-pointer`}
+              >
+                <option value="A4">A4 Standard</option>
+                <option value="Letter">US Letter</option>
+                <option value="Legal">Legal</option>
+              </select>
+              <label className="flex items-center gap-1.5 text-[9px] text-slate-700 dark:text-slate-300 font-mono">
+                <input
+                  type="checkbox"
+                  checked={node.data.gotenbergLandscape ?? false}
+                  onChange={(e) => onUpdate({ gotenbergLandscape: e.target.checked })}
+                  className="rounded border-slate-400"
+                />
+                Landscape
+              </label>
+            </div>
+          </Field>
+          <Field label="HTML / Markdown Report Template" hint="Content to render to PDF. Supports {{ results.<nodeId> }}">
+            <textarea
+              value={node.data.gotenbergHtmlContent ?? ""}
+              onChange={(e) => onUpdate({ gotenbergHtmlContent: e.target.value })}
+              rows={5}
+              spellCheck={false}
+              placeholder="<h1>Executive Summary</h1>\n<p>{{ results.agent }}</p>"
+              className={`${inputClass} resize-y text-[9px] leading-relaxed font-mono`}
+            />
+          </Field>
+        </>
+      )}
+
+      {/* ─── NocoDB Record Inspector ─── */}
+      {type === "nocodb_record" && (
+        <>
+          <Field label="NocoDB Host URL" hint="Self-hosted NocoDB instance (e.g. http://localhost:8080)">
+            <input
+              value={node.data.nocodbHost ?? "http://localhost:8080"}
+              onChange={(e) => onUpdate({ nocodbHost: e.target.value })}
+              placeholder="http://localhost:8080"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Table ID / Table Name">
+            <input
+              value={node.data.nocodbTableId ?? ""}
+              onChange={(e) => onUpdate({ nocodbTableId: e.target.value })}
+              placeholder="tbl_leads, tbl_articles"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Database Operation">
+            <select
+              value={node.data.nocodbOperation ?? "create"}
+              onChange={(e) => onUpdate({ nocodbOperation: e.target.value as any })}
+              className={`${inputClass} cursor-pointer`}
+            >
+              <option value="create">CREATE (Insert New Record)</option>
+              <option value="list">LIST (Query / Find Rows)</option>
+              <option value="find">FIND BY ID</option>
+              <option value="update">UPDATE (Patch Record)</option>
+            </select>
+          </Field>
+          <Field label="Record Payload / Query Data (JSON)" hint="Row values to insert or query filters">
+            <textarea
+              value={node.data.nocodbData ? JSON.stringify(node.data.nocodbData, null, 2) : "{}"}
+              onChange={(e) => {
+                try { onUpdate({ nocodbData: e.target.value ? JSON.parse(e.target.value) : {} }); } catch {}
+              }}
+              rows={4}
+              spellCheck={false}
+              placeholder='{\n  "title": "{{ results.agent.title }}",\n  "status": "APPROVED"\n}'
+              className={`${inputClass} resize-y text-[9px] leading-relaxed font-mono`}
+            />
+          </Field>
+        </>
+      )}
+
+      {/* ─── PocketBase Store Inspector ─── */}
+      {type === "pocketbase_store" && (
+        <>
+          <Field label="PocketBase Host URL" hint="Self-hosted PocketBase single binary (e.g. http://127.0.0.1:8090)">
+            <input
+              value={node.data.pocketbaseHost ?? "http://127.0.0.1:8090"}
+              onChange={(e) => onUpdate({ pocketbaseHost: e.target.value })}
+              placeholder="http://127.0.0.1:8090"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Collection Name">
+            <input
+              value={node.data.pocketbaseCollection ?? "agent_state"}
+              onChange={(e) => onUpdate({ pocketbaseCollection: e.target.value })}
+              placeholder="agent_state, session_logs"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Store Action">
+            <select
+              value={node.data.pocketbaseAction ?? "create"}
+              onChange={(e) => onUpdate({ pocketbaseAction: e.target.value as any })}
+              className={`${inputClass} cursor-pointer`}
+            >
+              <option value="create">CREATE (Insert Document)</option>
+              <option value="get">GET (Retrieve by ID)</option>
+              <option value="list">LIST (Query Collection)</option>
+              <option value="update">UPDATE (Patch Document)</option>
+            </select>
+          </Field>
+        </>
+      )}
+
+      {/* ─── Qdrant Vector Memory Inspector ─── */}
+      {type === "qdrant_vector_memory" && (
+        <>
+          <EmbeddingModelSelectField
+            value={node.data.model}
+            onChange={(m) => onUpdate({ model: m || undefined })}
+          />
+          <Field label="Qdrant Host URL" hint="Self-hosted Qdrant vector database (e.g. http://localhost:6333)">
+            <input
+              value={node.data.qdrantHost ?? "http://localhost:6333"}
+              onChange={(e) => onUpdate({ qdrantHost: e.target.value })}
+              placeholder="http://localhost:6333"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Vector Collection Name">
+            <input
+              value={node.data.qdrantCollection ?? "knowledge_base"}
+              onChange={(e) => onUpdate({ qdrantCollection: e.target.value })}
+              placeholder="knowledge_base, user_memories"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Semantic Search Query Template">
+            <input
+              value={node.data.qdrantQuery ?? ""}
+              onChange={(e) => onUpdate({ qdrantQuery: e.target.value })}
+              placeholder="{{ input.question }} or search text"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Top K Nearest Neighbors">
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={node.data.qdrantTopK ?? 3}
+              onChange={(e) => onUpdate({ qdrantTopK: parseInt(e.target.value, 10) || 3 })}
+              className={inputClass}
+            />
+          </Field>
+        </>
+      )}
+
+      {/* ─── Audio Transcriber (Faster-Whisper) Inspector ─── */}
+      {type === "audio_transcriber" && (
+        <>
+          <AudioModelSelectField
+            value={node.data.model}
+            onChange={(m) => onUpdate({ model: m || undefined })}
+          />
+          <Field label="Audio Source URL / Base64" hint="Direct audio URL (.mp3, .wav) or template {{ input.audioUrl }}">
+            <input
+              value={node.data.audioSourceUrl ?? ""}
+              onChange={(e) => onUpdate({ audioSourceUrl: e.target.value })}
+              placeholder="https://example.com/recording.mp3 or {{ input.audioUrl }}"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Audio Language Code">
+            <input
+              value={node.data.audioLanguage ?? "auto"}
+              onChange={(e) => onUpdate({ audioLanguage: e.target.value })}
+              placeholder="auto, en, es, de, fr, hi"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Faster-Whisper Service Host (Optional)" hint="Self-hosted Faster-Whisper REST API">
+            <input
+              value={node.data.audioTranscriberHost ?? ""}
+              onChange={(e) => onUpdate({ audioTranscriberHost: e.target.value })}
+              placeholder="http://localhost:8000"
+              className={inputClass}
+            />
+          </Field>
+        </>
+      )}
+
+      {/* ─── Piper TTS Voice Synthesizer Inspector ─── */}
+      {type === "piper_tts" && (
+        <>
+          <Field label="Speech Voice Model">
+            <input
+              value={node.data.piperVoice ?? "en_US-lessac-medium"}
+              onChange={(e) => onUpdate({ piperVoice: e.target.value })}
+              placeholder="en_US-lessac-medium, en_GB-alan-medium"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Text Content to Speak Template" hint="Supports template strings like {{ results.agent }}">
+            <textarea
+              value={node.data.piperText ?? ""}
+              onChange={(e) => onUpdate({ piperText: e.target.value })}
+              rows={4}
+              spellCheck={false}
+              placeholder="{{ results.agent }} or Hello, how may I assist you today?"
+              className={`${inputClass} resize-y text-[9px] leading-relaxed`}
+            />
+          </Field>
+          <Field label="Piper Service Host (Optional)">
+            <input
+              value={node.data.piperHost ?? ""}
+              onChange={(e) => onUpdate({ piperHost: e.target.value })}
+              placeholder="http://localhost:5000"
+              className={inputClass}
+            />
+          </Field>
+        </>
+      )}
+
       {/* Sticky Note Inspector */}
       {type === "sticky_note" && (
         <>
@@ -931,11 +1973,11 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
               onChange={(e) => onUpdate({ noteColor: e.target.value })}
               className={`${inputClass} cursor-pointer`}
             >
-              <option value="yellow">🟡 Yellow</option>
-              <option value="pink">🩷 Pink</option>
-              <option value="blue">🔵 Blue</option>
-              <option value="green">🟢 Green</option>
-              <option value="purple">🟣 Purple</option>
+              <option value="yellow">Yellow</option>
+              <option value="pink">Pink</option>
+              <option value="blue">Blue</option>
+              <option value="green">Green</option>
+              <option value="purple">Purple</option>
             </select>
           </Field>
           <Field label="Content (Markdown)">

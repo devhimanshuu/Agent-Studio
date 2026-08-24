@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plug, Loader2, Server, ShieldCheck, CircleAlert } from "lucide-react";
+import { Plug, Loader2, Server, ShieldCheck, CircleAlert, Check } from "lucide-react";
 import { clsx } from "clsx";
 import { McpServerDTO } from "@/types/mcp";
 import { mcpToolRegistryName } from "@/modules/mcp/toolAdapter";
@@ -109,7 +109,7 @@ export function AvailableMcpTools({ selected, onAdd }: AvailableMcpToolsProps) {
                       : "border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 hover:border-amber-400"
                   )}
                 >
-                  {isSelected && <span className="text-emerald-600 dark:text-emerald-400">✓</span>}
+                  {isSelected && <Check className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" />}
                   <span className="truncate">{registryName}</span>
                   {tool.isWrite && (
                     <span className="inline-flex items-center gap-0.5 text-[8px] uppercase tracking-wider font-semibold px-1 rounded bg-amber-200/60 dark:bg-amber-900/40">

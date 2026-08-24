@@ -3,9 +3,8 @@ import { auth } from "@clerk/nextjs/server";
 import { env } from "@/lib/config/env";
 import { unauthorized } from "@/lib/api/handlers";
 import {
-  GROQ_FREE_MODELS,
-  OPENROUTER_FREE_MODELS,
-  ALL_FALLBACK_MODELS,
+  GROQ_ALL_MODELS,
+  ALL_MODELS_CATALOG,
   ModelEntry,
 } from "@/providers/llm";
 import { ProviderStatus } from "@/types/settings";
@@ -25,22 +24,33 @@ export async function GET() {
   const hasOpenRouter = Boolean(env.OPENROUTER_API_KEY);
 
   const formatModels = (entries: ModelEntry[]) =>
-    entries.map((e) => ({ label: e.label, model: e.model }));
+    entries.map((e) => ({
+      label: e.label,
+      model: e.model,
+      category: e.category || "general",
+      contextLength: e.contextLength,
+      latency: e.latency,
+      throughput: e.throughput,
+      inputPrice: e.inputPrice ?? 0,
+      outputPrice: e.outputPrice ?? 0,
+    }));
+
+  const openRouterCatalog = ALL_MODELS_CATALOG.filter((m) => m.provider === "openrouter");
 
   const status: ProviderStatus = {
     groqConfigured: hasGroq,
     openRouterConfigured: hasOpenRouter,
-    groqModels: hasGroq ? GROQ_FREE_MODELS.length : 0,
-    openRouterModels: hasOpenRouter ? OPENROUTER_FREE_MODELS.length : 0,
-    totalModels: hasGroq || hasOpenRouter ? ALL_FALLBACK_MODELS.length : 0,
+    groqModels: hasGroq ? GROQ_ALL_MODELS.length : 0,
+    openRouterModels: hasOpenRouter ? openRouterCatalog.length : 0,
+    totalModels: hasGroq || hasOpenRouter ? (hasGroq ? GROQ_ALL_MODELS.length : 0) + (hasOpenRouter ? openRouterCatalog.length : 0) : 0,
     runtimeReady: hasGroq || hasOpenRouter,
     roster: {
-      groq: hasGroq ? formatModels(GROQ_FREE_MODELS) : [],
-      openRouter: hasOpenRouter ? formatModels(OPENROUTER_FREE_MODELS) : [],
+      groq: hasGroq ? formatModels(GROQ_ALL_MODELS) : [],
+      openRouter: hasOpenRouter ? formatModels(openRouterCatalog) : [],
     },
     availableModels: {
-      groq: formatModels(GROQ_FREE_MODELS),
-      openRouter: formatModels(OPENROUTER_FREE_MODELS),
+      groq: formatModels(GROQ_ALL_MODELS),
+      openRouter: formatModels(openRouterCatalog),
     },
   };
 

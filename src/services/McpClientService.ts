@@ -16,6 +16,7 @@ import { McpConnection, CircuitBreaker, createMcpTool } from "@/modules/mcp";
 import { McpRpcClient } from "@/modules/mcp/toolAdapter";
 import { computeToolDiff } from "@/modules/mcp/toolDiff";
 import { Tool, ToolRegistry } from "@/modules/tools";
+import { LLMChatMessage } from "@/providers/llm";
 import { logger } from "@/lib/logger";
 
 /**
@@ -39,8 +40,8 @@ export class McpClientService implements IMcpClientService {
 
   constructor(private mcpRepo: IMcpServerRepository) {}
 
-  async listServers(userId: string): Promise<McpServerDTO[]> {
-    return this.mcpRepo.findByUserId(userId);
+  async listServers(userId: string, limit?: number): Promise<McpServerDTO[]> {
+    return this.mcpRepo.findByUserId(userId, limit);
   }
 
   async getServer(serverId: string, userId: string): Promise<McpServerDTO | null> {
@@ -78,7 +79,7 @@ export class McpClientService implements IMcpClientService {
   }
 
   async connect(serverId: string, userId: string): Promise<McpServerDTO> {
-    const server = await this.requireServer(serverId, userId);
+    const server = await this.rawServerFor(serverId, userId);
     const connection = this.getConnection(server);
 
     try {
@@ -257,28 +258,28 @@ export class McpClientService implements IMcpClientService {
   }
 
   async listResources(serverId: string, userId: string): Promise<unknown[]> {
-    const server = await this.requireServer(serverId, userId);
+    const server = await this.rawServerFor(serverId, userId);
     const connection = this.getConnection(server);
     if (!connection.isConnected) await connection.connect();
     return connection.listResources();
   }
 
   async readResource(serverId: string, userId: string, uri: string): Promise<unknown> {
-    const server = await this.requireServer(serverId, userId);
+    const server = await this.rawServerFor(serverId, userId);
     const connection = this.getConnection(server);
     if (!connection.isConnected) await connection.connect();
     return connection.readResource(uri);
   }
 
   async listPrompts(serverId: string, userId: string): Promise<unknown[]> {
-    const server = await this.requireServer(serverId, userId);
+    const server = await this.rawServerFor(serverId, userId);
     const connection = this.getConnection(server);
     if (!connection.isConnected) await connection.connect();
     return connection.listPrompts();
   }
 
   async getPrompt(serverId: string, userId: string, promptName: string, args?: Record<string, string>): Promise<unknown> {
-    const server = await this.requireServer(serverId, userId);
+    const server = await this.rawServerFor(serverId, userId);
     const connection = this.getConnection(server);
     if (!connection.isConnected) await connection.connect();
     return connection.getPrompt(promptName, args);
@@ -300,25 +301,42 @@ export class McpClientService implements IMcpClientService {
   /**
    * Subscribe to progress events from a connected MCP server's tool calls.
    * Returns an unsubscribe function.
+   *
+   * Ownership is ENFORCED here (not just at the route): the connection map is
+   * keyed by serverId alone, so without this check any authenticated user
+   * could subscribe to another user's server events. Fails closed — returns a
+   * no-op unsubscribe when the caller does not own the server or it is not
+   * connected in this process.
    */
-  onProgress(serverId: string, userId: string, listener: (event: McpProgressEvent) => void): () => void {
-    const server = this.connections.get(serverId);
-    if (!server) return () => {};
-    return server.onProgress(listener);
+  async onProgress(
+    serverId: string,
+    userId: string,
+    listener: (event: McpProgressEvent) => void
+  ): Promise<() => void> {
+    try {
+      await this.requireServer(serverId, userId);
+    } catch {
+      return () => {};
+    }
+    const connection = this.connections.get(serverId);
+    if (!connection) return () => {};
+    return connection.onProgress(listener);
   }
 
   /**
-   * Handle a sampling/createMessage request from a connected MCP server.
-   * This proxies the request to Agent Studio's LLM engine. For now, it
-   * returns a structured response indicating the request was received.
-   * In production, this would call the user's configured LLM provider.
+   * Handle a sampling/createMessage request from a connected MCP server by
+   * proxying it through Agent Studio's configured LLM router (Groq →
+   * OpenRouter failover). Previously this returned a canned echo while the
+   * connection advertised the `sampling` capability — servers got fabricated
+   * completions.
    */
   async handleSamplingRequest(
     serverId: string,
     userId: string,
     params: Record<string, unknown>
   ): Promise<McpSamplingResult> {
-    const server = await this.requireServer(serverId, userId);
+    // Ownership gate (throws when the caller does not own this server).
+    await this.requireServer(serverId, userId);
     const request = params as unknown as McpSamplingRequest;
 
     logger.info(
@@ -326,29 +344,62 @@ export class McpClientService implements IMcpClientService {
       "Processing MCP sampling request"
     );
 
-    // Build the sampling response. In a full implementation, this would
-    // route to the user's configured LLM provider (OpenAI, Anthropic, etc).
-    // For now, we return a structured result that acknowledges the request.
-    const messages = request.messages ?? [];
-    const lastUserMessage = messages.filter((m) => m.role === "user").pop();
-    const userContent = lastUserMessage?.content?.text ?? "";
+    const { getLLMProvider } = await import("@/providers/llm");
+    const llm = getLLMProvider();
 
-    return {
-      model: request.modelPreferences?.hints?.[0]?.name ?? "agent-studio-default",
-      role: "assistant",
-      content: {
-        type: "text",
-        text: `[Agent Studio Sampling] Received request from MCP server "${server.name}". ${request.systemPrompt ? `System: ${request.systemPrompt.slice(0, 100)}...` : ""} User content: ${userContent.slice(0, 200)}`,
-      },
-      stopReason: "end_turn",
-    };
+    const messages: LLMChatMessage[] = [];
+    if (request.systemPrompt) {
+      messages.push({ role: "system", content: request.systemPrompt });
+    }
+    for (const message of request.messages ?? []) {
+      if (message.role !== "user" && message.role !== "assistant") continue;
+      const content =
+        typeof message.content === "string"
+          ? message.content
+          : ((message.content as { text?: string } | undefined)?.text ?? "");
+      if (!content) continue;
+      messages.push({ role: message.role, content });
+    }
+    if (messages.length === 0) {
+      messages.push({ role: "user", content: "(empty sampling request)" });
+    }
+
+    try {
+      // MCP caps sampling responses (~128k tokens model-side); stay modest.
+      const completion = await llm.complete(messages, { temperature: 0.3, maxTokens: 1024 });
+      return {
+        model: `${llm.name}/${llm.model}`,
+        role: "assistant",
+        content: { type: "text", text: completion.content },
+        stopReason: "end_turn",
+      };
+    } catch (error) {
+      // No providers configured / all cooling down — say so instead of
+      // fabricating content. The server sees an explicit refusal.
+      logger.warn({ serverId, err: error }, "LLM unavailable for MCP sampling request");
+      return {
+        model: request.modelPreferences?.hints?.[0]?.name ?? "agent-studio-default",
+        role: "assistant",
+        content: {
+          type: "text",
+          text: `Agent Studio could not serve this sampling request: ${
+            error instanceof Error ? error.message : "no LLM provider configured"
+          }.`,
+        },
+        stopReason: "refusal",
+      };
+    }
   }
 
   /**
    * Sync a user's cached MCP tools into a ToolRegistry as standard `ITool`s.
    * Called by the execution runtime before a run so skills can call MCP tools
    * by their registry name (`mcp_<serverId>_<toolName>`) inside allowedTools.
-   * Idempotent: re-syncing replaces tools by name.
+   *
+   * Uses namespace-scoped replacement (`mcp_*`): tools from OTHER users left
+   * over from earlier runs are scrubbed instead of accumulating — on the
+   * shared process-wide registries that previously made cross-user tool
+   * invocation possible. Idempotent per call.
    */
   async registerUserMcpTools(userId: string, registry: ToolRegistry): Promise<Tool[]> {
     const servers = await this.mcpRepo.findByUserId(userId);
@@ -360,7 +411,7 @@ export class McpClientService implements IMcpClientService {
         tools.push(createMcpTool(definition, rpc, { serverId: server.id, serverName: server.name }));
       }
     }
-    registry.syncTools(tools);
+    registry.syncDynamicTools(["mcp_"], tools);
     return tools;
   }
 
@@ -408,6 +459,20 @@ export class McpClientService implements IMcpClientService {
       this.breakers.set(serverId, breaker);
     }
     return breaker;
+  }
+
+  /**
+   * Load the user's server DTO with RAW (unredacted) auth headers for
+   * outbound connections. The only path secret material is allowed to take
+   * out of the repository.
+   */
+  private async rawServerFor(serverId: string, userId: string): Promise<McpServerDTO> {
+    const server = await this.requireServer(serverId, userId);
+    if (!server.headers || Object.values(server.headers).some((v) => v === "__REDACTED__")) {
+      const raw = await this.mcpRepo.getRawHeadersForUser(serverId, userId);
+      return { ...server, headers: raw ?? server.headers };
+    }
+    return server;
   }
 
   private async requireServer(serverId: string, userId: string): Promise<McpServerDTO> {

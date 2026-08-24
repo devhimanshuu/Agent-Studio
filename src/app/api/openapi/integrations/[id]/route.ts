@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { OpenApiService } from "@/services/OpenApiService";
-import { OpenApiRepository } from "@/repositories/OpenApiRepository";
+import { apiServices } from "@/lib/api/services";
+
 import { updateOpenApiIntegrationSchema } from "@/validators/openApiSchema";
 import { unauthorized, notFound, badRequest, serverError } from "@/lib/api/handlers";
 import { ZodError } from "zod";
 
-const openApiService = new OpenApiService(new OpenApiRepository());
+const { openApiService } = apiServices();
 
 export async function GET(
   _request: Request,

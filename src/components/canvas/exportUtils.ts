@@ -88,29 +88,29 @@ export function graphToMermaid(graph: AgentGraphDefinition): string {
     const label = n.data.label || n.id;
     switch (n.type) {
       case "start":
-        return `  ${id}([🟢 ${label}])`;
+        return `  ${id}([Start: ${label}])`;
       case "end":
-        return `  ${id}([🔴 ${label}])`;
+        return `  ${id}([End: ${label}])`;
       case "agent":
-        return `  ${id}["🤖 ${label}"]`;
+        return `  ${id}["Agent: ${label}"]`;
       case "supervisor":
-        return `  ${id}{"🔀 ${label}"}`;
+        return `  ${id}{"Supervisor: ${label}"}`;
       case "tool":
-        return `  ${id}["🔧 ${label}"]`;
+        return `  ${id}["Tool: ${label}"]`;
       case "router":
-        return `  ${id}{"❓ ${label}"}`;
+        return `  ${id}{"Router: ${label}"}`;
       case "approval":
-        return `  ${id}["🛡️ ${label}"]`;
+        return `  ${id}["Approval: ${label}"]`;
       case "loop":
-        return `  ${id}{"🔁 ${label}"}`;
+        return `  ${id}{"Loop: ${label}"}`;
       case "parallel":
-        return `  ${id}{"⚡ ${label}"}`;
+        return `  ${id}{"Parallel: ${label}"}`;
       case "subgraph":
-        return `  ${id}["📦 ${label}"]`;
+        return `  ${id}["Subgraph: ${label}"]`;
       case "sticky_note":
-        return `  ${id}["📝 ${label}"]:::note`;
+        return `  ${id}["Note: ${label}"]:::note`;
       case "frame":
-        return `  ${id}["📐 ${label}"]:::frame`;
+        return `  ${id}["Frame: ${label}"]:::frame`;
       default:
         return `  ${id}["${label}"]`;
     }
@@ -719,11 +719,11 @@ export interface ExportFormat {
 }
 
 export const EXPORT_FORMATS: ExportFormat[] = [
-  { id: "png", label: "PNG Image", description: "High-resolution raster image (3x)", category: "visual", icon: "🖼️", extension: ".png" },
-  { id: "svg", label: "SVG Vector", description: "Scalable vector graphic", category: "visual", icon: "📐", extension: ".svg" },
-  { id: "pdf", label: "PDF Document", description: "Print-ready document", category: "visual", icon: "📄", extension: ".pdf" },
-  { id: "mermaid", label: "Mermaid.js", description: "Flowchart diagram code", category: "code", icon: "🧜", extension: ".md" },
-  { id: "langgraph-py", label: "LangGraph Python", description: "Python StateGraph code", category: "code", icon: "🐍", extension: ".py" },
-  { id: "langgraph-ts", label: "LangGraph TypeScript", description: "TypeScript StateGraph code", category: "code", icon: "📘", extension: ".ts" },
-  { id: "json", label: "JSON Schema", description: "Graph definition (import/export)", category: "data", icon: "📋", extension: ".json" },
+  { id: "png", label: "PNG Image", description: "High-resolution raster image (3x)", category: "visual", icon: "png", extension: ".png" },
+  { id: "svg", label: "SVG Vector", description: "Scalable vector graphic", category: "visual", icon: "svg", extension: ".svg" },
+  { id: "pdf", label: "PDF Document", description: "Print-ready document", category: "visual", icon: "pdf", extension: ".pdf" },
+  { id: "mermaid", label: "Mermaid.js", description: "Flowchart diagram code", category: "code", icon: "mermaid", extension: ".md" },
+  { id: "langgraph-py", label: "LangGraph Python", description: "Python StateGraph code", category: "code", icon: "python", extension: ".py" },
+  { id: "langgraph-ts", label: "LangGraph TypeScript", description: "TypeScript StateGraph code", category: "code", icon: "typescript", extension: ".ts" },
+  { id: "json", label: "JSON Schema", description: "Graph definition (import/export)", category: "data", icon: "json", extension: ".json" },
 ];

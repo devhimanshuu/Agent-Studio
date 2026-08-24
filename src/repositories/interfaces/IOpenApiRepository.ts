@@ -1,5 +1,6 @@
 import {
   CreateOpenApiIntegrationInput,
+  OpenApiAuthConfig,
   OpenApiEndpointDefinition,
   OpenApiIntegrationDTO,
   OpenApiStatus,
@@ -9,7 +10,9 @@ import {
 export interface IOpenApiRepository {
   findById(id: string): Promise<OpenApiIntegrationDTO | null>;
   findByIdForUser(id: string, userId: string): Promise<OpenApiIntegrationDTO | null>;
-  findByUserId(userId: string): Promise<OpenApiIntegrationDTO[]>;
+  /** Decrypted auth config for one user-owned integration — execution paths ONLY. */
+  getRawAuthConfigForUser(id: string, userId: string): Promise<OpenApiAuthConfig | null>;
+  findByUserId(userId: string, limit?: number): Promise<OpenApiIntegrationDTO[]>;
   create(input: CreateOpenApiIntegrationInput): Promise<OpenApiIntegrationDTO>;
   update(id: string, userId: string, input: UpdateOpenApiIntegrationInput): Promise<OpenApiIntegrationDTO>;
   delete(id: string, userId: string): Promise<void>;

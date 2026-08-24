@@ -13,9 +13,12 @@ export interface AgentSkill {
   requiredServers: string[]; // MCP server IDs needed
   requiredTools: string[];   // Specific tool names needed
   tags: string[];
-  stars: number;
-  installs: number;
-  rating: number; // 1-5
+  /** Real GitHub stars when the source provides them — NEVER fabricated. */
+  stars?: number;
+  /** Real install counts when the registry exposes them; undefined otherwise. */
+  installs?: number;
+  /** Real rating when the source provides one; undefined otherwise. */
+  rating?: number; // 1-5
   difficulty: "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
   estimatedTime: string; // e.g., "5 min"
   steps: SkillStep[];

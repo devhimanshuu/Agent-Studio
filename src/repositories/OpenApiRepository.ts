@@ -11,6 +11,47 @@ import {
 } from "@/types/openapi";
 import { prisma } from "@/lib/prisma";
 import { ensureUserExists } from "@/lib/user";
+import { decrypt, encrypt } from "@/services/VaultService";
+import { mergeRedactedAuthConfig, redactAuthConfig } from "@/lib/secrets";
+
+/**
+ * Encrypted envelope stored in the `authConfig` JSON column. Bearer tokens /
+ * API keys are AES-256-GCM encrypted with the Vault master key — previously
+ * this column held plaintext secrets while the schema comment claimed
+ * "Encrypted/stored".
+ */
+interface EncryptedAuthEnvelope {
+  __enc: true;
+  data: string;
+  iv: string;
+  tag: string;
+}
+
+function isEnvelope(value: unknown): value is EncryptedAuthEnvelope {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      (value as EncryptedAuthEnvelope).__enc === true &&
+      typeof (value as EncryptedAuthEnvelope).data === "string"
+  );
+}
+
+function sealAuthConfig(config: Record<string, unknown> | null | undefined): Prisma.InputJsonValue | typeof Prisma.DbNull {
+  if (!config || Object.keys(config).length === 0) return Prisma.DbNull;
+  const { encrypted, iv, tag } = encrypt(JSON.stringify(config));
+  return { __enc: true, data: encrypted, iv, tag } as unknown as Prisma.InputJsonValue;
+}
+
+function unsealAuthConfig(raw: unknown): Record<string, unknown> | null {
+  if (!isEnvelope(raw)) return (raw as Record<string, unknown>) ?? null;
+  try {
+    return JSON.parse(decrypt(raw.data, raw.iv, raw.tag)) as Record<string, unknown>;
+  } catch {
+    // Wrong VAULT_MASTER_KEY or corrupted row — fail closed to no-auth rather
+    // than leaking anything.
+    return null;
+  }
+}
 
 export class OpenApiRepository implements IOpenApiRepository {
   async findById(id: string): Promise<OpenApiIntegrationDTO | null> {
@@ -33,12 +74,27 @@ export class OpenApiRepository implements IOpenApiRepository {
     }
   }
 
-  async findByUserId(userId: string): Promise<OpenApiIntegrationDTO[]> {
+  /** Decrypted auth config for one user-owned integration — execution paths ONLY. */
+  async getRawAuthConfigForUser(id: string, userId: string): Promise<OpenApiAuthConfig | null> {
+    if (!prisma.openApiIntegration) return null;
+    try {
+      const row = await prisma.openApiIntegration.findFirst({
+        where: { id, userId },
+        select: { authConfig: true },
+      });
+      return (unsealAuthConfig(row?.authConfig) as OpenApiAuthConfig) ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  async findByUserId(userId: string, limit?: number): Promise<OpenApiIntegrationDTO[]> {
     if (!prisma.openApiIntegration) return [];
     try {
       const rows = await prisma.openApiIntegration.findMany({
         where: { userId },
         orderBy: { updatedAt: "desc" },
+        ...(limit && limit > 0 ? { take: Math.min(limit, 200) } : {}),
       });
       return rows.map((row) => this.map(row));
     } catch {
@@ -58,7 +114,7 @@ export class OpenApiRepository implements IOpenApiRepository {
           rawSpec: (input.rawSpec ?? {}) as unknown as Prisma.InputJsonValue,
           baseUrl: input.baseUrl,
           authType: input.authType ?? "NONE",
-          authConfig: (input.authConfig ?? Prisma.DbNull) as unknown as Prisma.InputJsonValue,
+          authConfig: sealAuthConfig(input.authConfig as unknown as Record<string, unknown>),
           endpoints: (input.endpoints ?? []) as unknown as Prisma.InputJsonValue,
           status: "CONNECTED",
         },
@@ -71,6 +127,17 @@ export class OpenApiRepository implements IOpenApiRepository {
     const existing = await prisma.openApiIntegration.findFirst({ where: { id, userId } });
     if (!existing) throw new Error("OpenAPI integration not found or you do not have access to it");
 
+    let sealed: Prisma.InputJsonValue | typeof Prisma.DbNull | undefined;
+    if (input.authConfig !== undefined) {
+      const existingPlain = unsealAuthConfig(existing.authConfig);
+      const merged = input.authConfig
+        ? mergeRedactedAuthConfig(existingPlain, input.authConfig as Partial<OpenApiAuthConfig> as Partial<Record<string, unknown>> & Record<string, unknown>)
+        : null;
+      sealed = merged
+        ? sealAuthConfig(merged)
+        : Prisma.DbNull;
+    }
+
     const row = await prisma.openApiIntegration.update({
       where: { id },
       data: {
@@ -78,8 +145,8 @@ export class OpenApiRepository implements IOpenApiRepository {
         ...(input.description !== undefined && { description: input.description || null }),
         ...(input.baseUrl !== undefined && { baseUrl: input.baseUrl }),
         ...(input.authType !== undefined && { authType: input.authType }),
-        ...(input.authConfig !== undefined && {
-          authConfig: (input.authConfig as Prisma.InputJsonValue) ?? Prisma.DbNull,
+        ...(sealed !== undefined && {
+          authConfig: sealed as Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput,
         }),
         ...(input.endpoints !== undefined && {
           endpoints: input.endpoints as unknown as Prisma.InputJsonValue,
@@ -133,7 +200,9 @@ export class OpenApiRepository implements IOpenApiRepository {
       rawSpec: (row.rawSpec as Record<string, unknown>) ?? {},
       baseUrl: row.baseUrl,
       authType: row.authType as OpenApiAuthType,
-      authConfig: (row.authConfig as OpenApiAuthConfig) ?? null,
+      // DTO carries the MASKED config — secret fields are `__REDACTED__`
+      // sentinels that the update path treats as "keep existing".
+      authConfig: redactAuthConfig(unsealAuthConfig(row.authConfig)) as OpenApiAuthConfig | null,
       endpoints: (row.endpoints as unknown as OpenApiEndpointDefinition[]) ?? [],
       status: row.status as OpenApiStatus,
       lastError: row.lastError,

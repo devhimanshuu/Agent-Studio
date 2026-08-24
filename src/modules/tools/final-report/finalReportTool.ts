@@ -35,14 +35,14 @@ export const finalReportTool: Tool = {
     formattedMarkdown += `**Workflow Status**: \`${status}\`  \n`;
     formattedMarkdown += `**Generated At**: ${generatedAt}  \n`;
     formattedMarkdown += `**Report ID**: \`${reportId}\`  \n\n`;
-    formattedMarkdown += `## 📋 Executive Summary\n${summary}\n\n`;
+    formattedMarkdown += `## Executive Summary\n${summary}\n\n`;
 
     if (recommendation) {
-      formattedMarkdown += `## 💡 Recommended Next Action\n${recommendation}\n\n`;
+      formattedMarkdown += `## Recommended Next Action\n${recommendation}\n\n`;
     }
 
     if (stepResults && Object.keys(stepResults).length > 0) {
-      formattedMarkdown += `## 🔍 Execution Step Evidences\n`;
+      formattedMarkdown += `## Execution Step Evidences\n`;
       for (const [stepKey, stepVal] of Object.entries(stepResults)) {
         formattedMarkdown += `### ${stepKey.replace(/_/g, " ").toUpperCase()}\n\`\`\`json\n${JSON.stringify(
           stepVal,

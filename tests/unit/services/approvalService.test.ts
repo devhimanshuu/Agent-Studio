@@ -5,6 +5,13 @@ import { IAuditLogRepository } from "@/repositories/interfaces/IAuditLogReposito
 import { ApprovalRequestDTO, RespondApprovalInput } from "@/types/approval";
 
 class FakeApprovalRepo implements IApprovalRepository {
+  async expireStaleForUser(userId: string): Promise<number> {
+    let n = 0;
+    for (const r of this.requests.values()) {
+      if (r.userId === userId && r.status === "PENDING") { r.status = "EXPIRED"; n += 1; }
+    }
+    return n;
+  }
   requests = new Map<string, ApprovalRequestDTO>();
   respondCalls: RespondApprovalInput[] = [];
   /** When set, `respond` returns null without mutating — simulates losing the CAS race. */

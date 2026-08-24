@@ -190,10 +190,10 @@ export async function POST(req: Request) {
 
     // Determine badges
     const badges: ServerQualityScore["badges"] = [];
-    if (schema.score >= 90) badges.push({ id: "schema-star", label: "Schema Star", icon: "⭐", description: "Excellent tool schema quality", earnedAt: new Date().toISOString() });
-    if (community.score >= 80) badges.push({ id: "community-favorite", label: "Community Favorite", icon: "❤️", description: "Highly rated by the community", earnedAt: new Date().toISOString() });
-    if (server.isVerified) badges.push({ id: "verified", label: "Verified", icon: "🛡️", description: "Officially verified server", earnedAt: new Date().toISOString() });
-    if (uptime.score >= 85) badges.push({ id: "high-uptime", label: "High Uptime", icon: "🟢", description: "Consistently available", earnedAt: new Date().toISOString() });
+    if (schema.score >= 90) badges.push({ id: "schema-star", label: "Schema Star", icon: "Star", description: "Excellent tool schema quality", earnedAt: new Date().toISOString() });
+    if (community.score >= 80) badges.push({ id: "community-favorite", label: "Community Favorite", icon: "Heart", description: "Highly rated by the community", earnedAt: new Date().toISOString() });
+    if (server.isVerified) badges.push({ id: "verified", label: "Verified", icon: "ShieldCheck", description: "Officially verified server", earnedAt: new Date().toISOString() });
+    if (uptime.score >= 85) badges.push({ id: "high-uptime", label: "High Uptime", icon: "Activity", description: "Consistently available", earnedAt: new Date().toISOString() });
 
     return {
       serverId: server.id,

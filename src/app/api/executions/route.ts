@@ -1,18 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { startExecutionSchema } from "@/validators/executionSchema";
-import { ExecutionService } from "@/services/ExecutionService";
-import { ExecutionHistoryService } from "@/modules/history";
-import { ExecutionRepository } from "@/repositories/ExecutionRepository";
-import { SkillRepository } from "@/repositories/SkillRepository";
-import { AuditLogRepository } from "@/repositories/AuditLogRepository";
-import { ExecutionLogRepository } from "@/repositories/ExecutionLogRepository";
-import { ApprovalRepository } from "@/repositories/ApprovalRepository";
-import { ApprovalHistoryRepository } from "@/repositories/ApprovalHistoryRepository";
 import { unauthorized, badRequest, serverError, isValidIsoDate } from "@/lib/api/handlers";
 import { rateLimit } from "@/lib/api/rateLimit";
 import { ExecutionError } from "@/modules/execution/executor/errors";
 import { ExecutionQuery, ExecutionStatus } from "@/types/execution";
+import { apiServices } from "@/lib/api/services";
 
 const VALID_STATUSES = new Set<ExecutionStatus>([
   "PENDING",
@@ -27,32 +20,7 @@ const VALID_STATUSES = new Set<ExecutionStatus>([
 const VALID_SORT_BY = new Set(["startedAt", "durationMs", "status"]);
 const VALID_SORT_ORDER = new Set(["asc", "desc"]);
 
-import { McpClientService } from "@/services/McpClientService";
-import { McpServerRepository } from "@/repositories/McpServerRepository";
-import { OpenApiService } from "@/services/OpenApiService";
-import { OpenApiRepository } from "@/repositories/OpenApiRepository";
-
-const executionRepo = new ExecutionRepository();
-const skillRepo = new SkillRepository();
-const auditRepo = new AuditLogRepository();
-const approvalRepo = new ApprovalRepository();
-const mcpService = new McpClientService(new McpServerRepository());
-const openApiService = new OpenApiService(new OpenApiRepository());
-
-const executionService = new ExecutionService(executionRepo, skillRepo, auditRepo, {
-  mcpService,
-  openApiService,
-  approvalRepo,
-});
-const historyService = new ExecutionHistoryService(
-  executionRepo,
-  skillRepo,
-  auditRepo,
-  executionService,
-  new ExecutionLogRepository(),
-  approvalRepo,
-  new ApprovalHistoryRepository()
-);
+const { executionService, historyService } = apiServices();
 
 export async function GET(request: Request) {
   const { userId } = await auth();

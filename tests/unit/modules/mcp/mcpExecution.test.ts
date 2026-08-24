@@ -322,6 +322,10 @@ describe("McpClientService.registerUserMcpTools", () => {
       const row = this.rows.find((r) => r.id === id);
       return row && row.userId === userId ? row : null;
     }
+    async getRawHeadersForUser(id: string, userId: string): Promise<Record<string, string> | null> {
+      return this.rows.find((r) => r.id === id && r.userId === userId)?.headers ?? null;
+    }
+
     async findByUserId(userId: string) {
       return this.rows.filter((r) => r.userId === userId);
     }
@@ -413,17 +417,14 @@ describe("McpClientService.registerUserMcpTools", () => {
     await service.registerUserMcpTools("u1", registry);
     expect(registry.listTools()).toHaveLength(1);
 
-    // Another user's cached tools sync into the same shared registry but are
-    // namespaced per server id — never a collision.
+    // Per-user ISOLATION on a shared registry: syncing another user's tools
+    // REPLACES all previously synced mcp_* tools instead of accumulating
+    // them. The old accumulate-and-keep behavior is what made cross-user
+    // tool invocation possible via lingering namespaced entries.
     const other = await service.registerUserMcpTools("u2", registry);
     expect(other.map((t) => t.name)).toEqual(["mcp_svc_b_secret_tool"]);
     expect(registry.hasTool("mcp_svc_b_secret_tool")).toBe(true);
-
-    // Mapped contract matches the cached definition (READ vs WRITE + HITL).
-    const readTool = registry.getTool("mcp_svc_a_get_issue")!;
-    expect(readTool.type).toBe("READ");
-    expect(readTool.requiresApproval).toBe(false);
-    expect(readTool.inputSchema).toMatchObject({ type: "object" });
+    expect(registry.hasTool("mcp_svc_a_get_issue")).toBe(false);
     const writeTool = registry.getTool("mcp_svc_b_secret_tool")!;
     expect(writeTool.type).toBe("WRITE");
     expect(writeTool.requiresApproval).toBe(true);

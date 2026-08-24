@@ -19,6 +19,10 @@ import {
 
 /** Minimal in-memory repo backing the service during the live test. */
 class E2eMcpRepo implements IMcpServerRepository {
+  async getRawHeadersForUser(id: string, userId: string): Promise<Record<string, string> | null> {
+    const row = this.rows.find((r) => r.id === id && r.userId === userId);
+    return row?.headers ?? null;
+  }
   private rows: McpServerDTO[] = [];
   seed(rows: McpServerDTO[]) {
     this.rows = rows;

@@ -64,9 +64,14 @@ describe("PermissionChecker", () => {
     });
   });
 
-  it("allows tool matching by base action name", () => {
+  it("DENIES base action name matching (cross-user bypass removed)", () => {
     const registry = new ToolRegistry();
     registry.registerTool(makeTool({ name: "mcp_supabase_run_sql", description: "SQL" }));
-    expect(checker.check("mcp_supabase_run_sql", ["run_sql"], registry)).toEqual({ ok: true });
+    // The old base-name fallback let a skill allowed "run_sql" execute any
+    // tenant's namespaced MCP tool. Only the FULL registry name or a
+    // server-scoped prefix may be allowed now.
+    expect(checker.check("mcp_supabase_run_sql", ["run_sql"], registry).ok).toBe(false);
+    expect(checker.check("mcp_supabase_run_sql", ["mcp_supabase_run_sql"], registry)).toEqual({ ok: true });
+    expect(checker.check("mcp_supabase_run_sql", ["mcp_supabase_*"], registry)).toEqual({ ok: true });
   });
 });

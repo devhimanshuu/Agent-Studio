@@ -228,12 +228,17 @@ describe("ExecutionService.resumeExecution", () => {
     });
 
     const engineInputs: unknown[] = [];
-    // Keep the run pending so the execution stays RUNNING deterministically
-    // (a resolving run would flip it to COMPLETED in the continuation).
+    // The resume path now AWAITS the run (fire-and-forget froze on
+    // serverless), so the stub RESOLVES a completed result.
     const engine = {
-      run: (input: unknown) => {
+      run: async (input: unknown) => {
         engineInputs.push(input);
-        return new Promise(() => {});
+        return {
+          status: "COMPLETED",
+          finalOutput: { done: true },
+          providerUsed: "groq/x",
+          plan: null,
+        };
       },
     } as unknown as ExecutionEngine;
 
@@ -249,11 +254,14 @@ describe("ExecutionService.resumeExecution", () => {
 
     const result = await service.resumeExecution(execution.id, "u1");
     expect(result.id).toBe(execution.id);
-    // The resumed run was actually launched, and the execution is RUNNING again.
+    // The resumed run was launched exactly once, with restored resume state…
     expect(engineInputs).toHaveLength(1);
     expect((engineInputs[0] as { resume?: unknown }).resume).toBeDefined();
+    // …and because the run is now awaited, the returned row already reflects
+    // the terminal state (no polling a floating promise on serverless).
+    expect(result.status).toBe("COMPLETED");
     const fresh = await execRepo.findById(execution.id);
-    expect(fresh?.status).toBe("RUNNING");
+    expect(fresh?.status).toBe("COMPLETED");
   });
 
   it("throws when there is no persisted plan to resume from", async () => {

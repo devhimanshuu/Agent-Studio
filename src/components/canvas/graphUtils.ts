@@ -7,6 +7,13 @@ export interface CanvasNodeData {
   label: string;
   description?: string;
   prompt?: string;
+  model?: string;
+  customApiKey?: string;
+  customApiBaseUrl?: string;
+  customApiProvider?: string;
+  temperature?: number;
+  maxTokens?: number;
+  topP?: number;
   allowedTools?: string[];
   toolName?: string;
   action?: string;
@@ -40,17 +47,83 @@ export interface CanvasNodeData {
   httpHeaders?: Record<string, string>;
   httpBody?: Record<string, unknown>;
   httpResponseType?: "json" | "text" | "blob";
-  transformOp?: "map" | "filter" | "merge" | "flatten" | "sort" | "dedupe" | "pick" | "omit" | "template";
+  transformOp?: string;
   transformExpr?: string;
   delayMs?: number;
   delayTemplate?: string;
-  aggregateMode?: "concat" | "merge" | "count" | "first" | "all" | "custom";
+  aggregateMode?: string;
   aggregateExpr?: string;
   varName?: string;
-  varOp?: "get" | "set";
+  varOp?: string;
   varValue?: unknown;
   outputTemplate?: string;
   outputFields?: Record<string, string>;
+  // Triggers
+  cronExpression?: string;
+  cronTimezone?: string;
+  scheduleInterval?: string;
+  webhookPath?: string;
+  webhookMethod?: "POST" | "GET" | "PUT";
+  webhookSecret?: string;
+  // RSS & Web Ingestion
+  rssUrl?: string;
+  rssMaxItems?: number;
+  readerUrl?: string;
+  readerFormat?: "markdown" | "html" | "text";
+  readerTargetSelector?: string;
+  // Dispatch & Mapping
+  dispatchDestination?: "discord" | "slack" | "telegram" | "webhook";
+  dispatchWebhookUrl?: string;
+  dispatchMessage?: string;
+  dispatchChannel?: string;
+  telegramBotToken?: string;
+  telegramChatId?: string;
+  mapperSchema?: Record<string, string>;
+  mapperExpression?: string;
+  // Open Source Tools & Microservices
+  searxngHost?: string;
+  searxngQuery?: string;
+  searxngCategories?: string[];
+  searxngLimit?: number;
+  crawl4aiHost?: string;
+  crawl4aiUrl?: string;
+  crawl4aiSelector?: string;
+  crawl4aiWordCountThreshold?: number;
+  doclingHost?: string;
+  doclingDocumentUrl?: string;
+  doclingOutputFormat?: "markdown" | "json" | "html";
+  doclingOcr?: boolean;
+  gotenbergHost?: string;
+  gotenbergHtmlContent?: string;
+  gotenbergPaperSize?: "A4" | "Letter" | "Legal";
+  gotenbergLandscape?: boolean;
+  nocodbHost?: string;
+  nocodbApiToken?: string;
+  nocodbTableId?: string;
+  nocodbOperation?: "list" | "create" | "find" | "update";
+  nocodbData?: Record<string, unknown>;
+  pocketbaseHost?: string;
+  pocketbaseCollection?: string;
+  pocketbaseAction?: "get" | "create" | "update" | "list";
+  pocketbaseRecordId?: string;
+  pocketbaseData?: Record<string, unknown>;
+  qdrantHost?: string;
+  qdrantCollection?: string;
+  qdrantAction?: "search" | "upsert" | "count";
+  qdrantQuery?: string;
+  qdrantTopK?: number;
+  audioTranscriberHost?: string;
+  audioSourceUrl?: string;
+  audioLanguage?: string;
+  piperHost?: string;
+  piperText?: string;
+  piperVoice?: string;
+  // Visual & Notes
+  noteContent?: string;
+  noteColor?: string;
+  frameTitle?: string;
+  frameOpacity?: number;
+  containedNodeIds?: string[];
   /** Live trace status — only set in trace mode. */
   traceStatus?: "RUNNING" | "SUCCESS" | "FAILED" | "AWAITING_APPROVAL" | "SKIPPED";
   /** Live trace detail message. */
@@ -69,6 +142,7 @@ function nodeDataToGraphData(data: CanvasNodeData): GraphNodeDefinition["data"] 
     label: data.label ?? "UNNAMED",
     description: data.description,
     prompt: data.prompt,
+    model: data.model,
     allowedTools: data.allowedTools,
     toolName: data.toolName,
     action: data.action,
@@ -107,9 +181,74 @@ function nodeDataToGraphData(data: CanvasNodeData): GraphNodeDefinition["data"] 
     aggregateExpr: data.aggregateExpr,
     varName: data.varName,
     varOp: data.varOp,
-    varValue: data.varValue,
     outputTemplate: data.outputTemplate,
     outputFields: data.outputFields,
+    // Triggers
+    cronExpression: data.cronExpression,
+    cronTimezone: data.cronTimezone,
+    scheduleInterval: data.scheduleInterval,
+    webhookPath: data.webhookPath,
+    webhookMethod: data.webhookMethod,
+    webhookSecret: data.webhookSecret,
+    // RSS & Web Ingestion
+    rssUrl: data.rssUrl,
+    rssMaxItems: data.rssMaxItems,
+    readerUrl: data.readerUrl,
+    readerFormat: data.readerFormat,
+    readerTargetSelector: data.readerTargetSelector,
+    // Dispatch & Mapping
+    dispatchDestination: data.dispatchDestination,
+    dispatchWebhookUrl: data.dispatchWebhookUrl,
+    dispatchMessage: data.dispatchMessage,
+    dispatchChannel: data.dispatchChannel,
+    telegramBotToken: data.telegramBotToken,
+    telegramChatId: data.telegramChatId,
+    mapperSchema: data.mapperSchema,
+    mapperExpression: data.mapperExpression,
+    // Open Source Tools & Microservices
+    searxngHost: data.searxngHost,
+    searxngQuery: data.searxngQuery,
+    searxngCategories: data.searxngCategories,
+    searxngLimit: data.searxngLimit,
+    crawl4aiHost: data.crawl4aiHost,
+    crawl4aiUrl: data.crawl4aiUrl,
+    crawl4aiSelector: data.crawl4aiSelector,
+    crawl4aiWordCountThreshold: data.crawl4aiWordCountThreshold,
+    doclingHost: data.doclingHost,
+    doclingDocumentUrl: data.doclingDocumentUrl,
+    doclingOutputFormat: data.doclingOutputFormat,
+    doclingOcr: data.doclingOcr,
+    gotenbergHost: data.gotenbergHost,
+    gotenbergHtmlContent: data.gotenbergHtmlContent,
+    gotenbergPaperSize: data.gotenbergPaperSize,
+    gotenbergLandscape: data.gotenbergLandscape,
+    nocodbHost: data.nocodbHost,
+    nocodbApiToken: data.nocodbApiToken,
+    nocodbTableId: data.nocodbTableId,
+    nocodbOperation: data.nocodbOperation,
+    nocodbData: data.nocodbData,
+    pocketbaseHost: data.pocketbaseHost,
+    pocketbaseCollection: data.pocketbaseCollection,
+    pocketbaseAction: data.pocketbaseAction,
+    pocketbaseRecordId: data.pocketbaseRecordId,
+    pocketbaseData: data.pocketbaseData,
+    qdrantHost: data.qdrantHost,
+    qdrantCollection: data.qdrantCollection,
+    qdrantAction: data.qdrantAction,
+    qdrantQuery: data.qdrantQuery,
+    qdrantTopK: data.qdrantTopK,
+    audioTranscriberHost: data.audioTranscriberHost,
+    audioSourceUrl: data.audioSourceUrl,
+    audioLanguage: data.audioLanguage,
+    piperHost: data.piperHost,
+    piperText: data.piperText,
+    piperVoice: data.piperVoice,
+    // Visual & Notes
+    noteContent: data.noteContent,
+    noteColor: data.noteColor,
+    frameTitle: data.frameTitle,
+    frameOpacity: data.frameOpacity,
+    containedNodeIds: data.containedNodeIds,
   };
 }
 

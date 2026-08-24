@@ -1,6 +1,12 @@
 export interface ModelRosterItem {
   label: string;
   model: string;
+  category?: "code" | "general" | "reasoning" | "vision" | "embedding" | "safety" | "audio" | "router";
+  contextLength?: number;
+  latency?: string;
+  throughput?: string;
+  inputPrice?: number;
+  outputPrice?: number;
 }
 
 export interface ProviderStatus {
@@ -13,8 +19,8 @@ export interface ProviderStatus {
   runtimeReady: boolean;
   /** Complete roster for the settings UI. */
   roster: {
-    groq: (string | ModelRosterItem)[];
-    openRouter: (string | ModelRosterItem)[];
+    groq: ModelRosterItem[];
+    openRouter: ModelRosterItem[];
   };
   availableModels: {
     groq: ModelRosterItem[];

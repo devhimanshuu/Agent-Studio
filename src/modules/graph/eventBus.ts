@@ -6,7 +6,9 @@
  * SSE stream route subscribes per execution id and fans them out to the canvas
  * trace view. In single-instance deployments this is lossless; for horizontally
  * scaled deployments, the SSE route also replays persisted ExecutionStep rows
- * on connect so late viewers still see the full trace.
+ * on connect so late viewers still see the full trace. To go fully multi-
+ * instance, swap the Map for a Redis pub/sub channel keyed by executionId —
+ * the publish/subscribe surface here is intentionally the only coupling.
  *
  * Granular events (tool:call, llm:call, mcp:tool, approval, router:decision,
  * loop:iteration, parallel:branch) provide detailed trace visibility for

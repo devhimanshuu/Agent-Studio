@@ -2,19 +2,14 @@ import { auth } from "@clerk/nextjs/server";
 import { executionEventBus, ExecutionEvent } from "@/modules/graph/eventBus";
 import { GraphInterpreter } from "@/modules/graph/graphInterpreter";
 import { previewStore } from "@/modules/graph/previewStore";
-import { SkillRepository } from "@/repositories/SkillRepository";
-import { ExecutionRepository } from "@/repositories/ExecutionRepository";
-import { ApprovalRepository } from "@/repositories/ApprovalRepository";
-import { ExecutionLogRepository } from "@/repositories/ExecutionLogRepository";
 import { createToolRegistry } from "@/modules/tools";
 import { PermissionChecker } from "@/modules/execution/tool-registry/permissionChecker";
 import { getLLMProvider } from "@/providers/llm";
 import { AgentGraphDefinition } from "@/types/graph";
 import { logger } from "@/lib/logger";
+import { apiServices } from "@/lib/api/services";
 
 export const dynamic = "force-dynamic";
-
-const skillRepo = new SkillRepository();
 
 const SSE_HEADERS = {
   "Content-Type": "text/event-stream",
@@ -112,11 +107,6 @@ export async function GET(
   return new Response(stream, { headers: SSE_HEADERS });
 }
 
-import { McpClientService } from "@/services/McpClientService";
-import { McpServerRepository } from "@/repositories/McpServerRepository";
-import { OpenApiService } from "@/services/OpenApiService";
-import { OpenApiRepository } from "@/repositories/OpenApiRepository";
-
 /** Run the graph interpreter in dry-run mode against the preview session. */
 async function runPreview(
   previewId: string,
@@ -125,14 +115,16 @@ async function runPreview(
   graph: AgentGraphDefinition,
   inputData: Record<string, unknown>
 ): Promise<void> {
+  const { skillRepo, mcpService, openApiService, executionRepo, approvalRepo, logRepo } = apiServices();
+
   const version = await skillRepo.findVersionById(skillVersionId);
   if (!version) throw new Error("Skill version not found");
   const skill = await skillRepo.findByIdForUser(version.skillId, userId);
   if (!skill) throw new Error("Skill not found");
 
+  // Ghost previews run on an ISOLATED registry (never the shared execution
+  // registries) so a preview can never mutate live tool state mid-run.
   const toolRegistry = createToolRegistry();
-  const mcpService = new McpClientService(new McpServerRepository());
-  const openApiService = new OpenApiService(new OpenApiRepository());
 
   await Promise.all([
     mcpService.registerUserMcpTools(userId, toolRegistry).catch((err) => {
@@ -147,9 +139,9 @@ async function runPreview(
     llm: getLLMProvider(),
     toolRegistry,
     permissionChecker: new PermissionChecker(),
-    executionRepo: new ExecutionRepository(),
-    approvalRepo: new ApprovalRepository(),
-    logRepo: new ExecutionLogRepository(),
+    executionRepo,
+    approvalRepo,
+    logRepo,
   });
 
   await interpreter.run({
