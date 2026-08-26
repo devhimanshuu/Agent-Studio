@@ -1851,6 +1851,15 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
               <option value="update">UPDATE (Patch Document)</option>
             </select>
           </Field>
+          <Field label="Auth Token (Optional)" hint="PocketBase admin or user auth token for protected collections">
+            <input
+              value={node.data.pocketbaseAuthToken ?? ""}
+              onChange={(e) => onUpdate({ pocketbaseAuthToken: e.target.value })}
+              placeholder="pbc_xxx... (leave empty for public)"
+              className={inputClass}
+              type="password"
+            />
+          </Field>
         </>
       )}
 
@@ -1893,6 +1902,15 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
               value={node.data.qdrantTopK ?? 3}
               onChange={(e) => onUpdate({ qdrantTopK: parseInt(e.target.value, 10) || 3 })}
               className={inputClass}
+            />
+          </Field>
+          <Field label="API Key (Optional)" hint="Qdrant API key if QDRANT__SERVICE__API_KEY is set on the server">
+            <input
+              value={node.data.qdrantApiKey ?? ""}
+              onChange={(e) => onUpdate({ qdrantApiKey: e.target.value })}
+              placeholder="qdrant_xxx... (leave empty for no auth)"
+              className={inputClass}
+              type="password"
             />
           </Field>
         </>

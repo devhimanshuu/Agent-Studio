@@ -10,12 +10,14 @@ import {
   Trash2,
   CheckSquare,
   Wrench,
-  Sparkles,
+  FileText,
   Layers,
   Loader2,
 } from "lucide-react";
 import { createSkillSchema } from "@/validators/skillSchema";
 import { BUILT_IN_TOOL_CATALOG } from "@/modules/tools";
+import { AvailableMcpTools } from "@/components/skills/AvailableMcpTools";
+import { AvailableOpenApiTools } from "@/components/skills/AvailableOpenApiTools";
 import { SkillDTO, SkillVersionDTO } from "@/types/skill";
 import { WorkflowStepChain } from "./WorkflowStepChain";
 import { toast } from "@/stores/toastStore";
@@ -32,6 +34,17 @@ interface WorkflowFormProps {
   onSubmit: (values: FormValues) => Promise<void>;
   isSubmitting?: boolean;
 }
+
+const COMMON_HITL_PRESETS = [
+  "create_task",
+  "disburse_funds",
+  "execute_payment",
+  "delete_record",
+  "dispatch_security_alert",
+  "send_external_webhook",
+  "modify_database",
+  "send_email_broadcast",
+];
 
 const inputClass =
   "w-full rounded border border-slate-300 dark:border-indigo-900/50 bg-white dark:bg-[#0a0a0a] px-3 py-2 text-xs text-slate-900 dark:text-slate-100 font-mono placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:border-indigo-500 focus:outline-none transition-colors shadow-sm";
@@ -161,6 +174,7 @@ export function WorkflowForm({
 
   const allowedTools = watch("allowedTools") || [];
   const actionsRequiringApproval = watch("actionsRequiringApproval") || [];
+  const [customActionInput, setCustomActionInput] = useState("");
 
   const toggleTool = (toolName: string) => {
     const next = allowedTools.includes(toolName)
@@ -174,6 +188,15 @@ export function WorkflowForm({
       ? actionsRequiringApproval.filter((a) => a !== actionName)
       : [...actionsRequiringApproval, actionName];
     setValue("actionsRequiringApproval", next, { shouldValidate: true });
+  };
+
+  const addCustomApproval = () => {
+    const trimmed = customActionInput.trim();
+    if (!trimmed) return;
+    if (!actionsRequiringApproval.includes(trimmed)) {
+      setValue("actionsRequiringApproval", [...actionsRequiringApproval, trimmed], { shouldValidate: true });
+    }
+    setCustomActionInput("");
   };
 
   const onValidSubmit = async (values: FormValues) => {
@@ -206,7 +229,7 @@ export function WorkflowForm({
       <div className="p-6 rounded border border-slate-200 dark:border-indigo-900/50 bg-white/90 dark:bg-[#0a0a0a]/90 space-y-4 shadow-sm">
         <div className="border-b border-slate-200 dark:border-indigo-950 pb-3">
           <h2 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+            <FileText className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
             01. WORKFLOW IDENTIFIER & PURPOSE
           </h2>
         </div>
@@ -309,6 +332,17 @@ export function WorkflowForm({
             );
           })}
         </div>
+
+        <div className="pt-3 space-y-3">
+          <AvailableMcpTools
+            selected={allowedTools}
+            onAdd={(name) => toggleTool(name)}
+          />
+          <AvailableOpenApiTools
+            selected={allowedTools}
+            onAdd={(name) => toggleTool(name)}
+          />
+        </div>
       </div>
 
       {/* SECTION 3: HITL HUMAN APPROVAL LOCKS */}
@@ -327,29 +361,87 @@ export function WorkflowForm({
           Actions selected below will pause workflow execution into <code className="text-amber-900 dark:text-amber-200 font-bold font-mono">PAUSED_FOR_APPROVAL</code> until reviewed by a user. Approval generates a single-use token to prevent replay duplicates.
         </p>
 
-        <div className="flex flex-wrap gap-3 pt-1">
-          {["create_task", "delete_record", "disburse_funds", "send_external_webhook"].map((action) => {
-            const isChecked = actionsRequiringApproval.includes(action);
-            return (
-              <label
-                key={action}
-                className={clsx(
-                  "inline-flex items-center gap-2 px-3 py-1.5 rounded border text-xs cursor-pointer select-none transition-colors",
-                  isChecked
-                    ? "border-amber-400 bg-amber-200/80 dark:bg-amber-950 text-amber-950 dark:text-amber-200 font-bold"
-                    : "border-amber-200 dark:border-amber-900/40 bg-white dark:bg-black text-amber-800 dark:text-amber-300"
-                )}
-              >
-                <input
-                  type="checkbox"
-                  checked={isChecked}
-                  onChange={() => toggleApproval(action)}
-                  className="accent-amber-600"
-                />
-                <code>{action}</code>
-              </label>
-            );
-          })}
+        <div className="space-y-3 pt-1">
+          {/* Selected Actions Chips */}
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-widest text-amber-900/80 dark:text-amber-300/80 font-bold mb-1.5">
+              ACTIVE APPROVAL GATES ({actionsRequiringApproval.length})
+            </div>
+            {actionsRequiringApproval.length === 0 ? (
+              <p className="text-[10px] text-slate-500 font-mono italic">
+                No write actions locked. All tool executions will run autonomously without human pauses.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {actionsRequiringApproval.map((action) => (
+                  <span
+                    key={action}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-amber-400 bg-amber-200 dark:bg-amber-950 text-amber-950 dark:text-amber-200 text-xs font-mono font-bold shadow-sm"
+                  >
+                    <code>{action}</code>
+                    <button
+                      type="button"
+                      onClick={() => toggleApproval(action)}
+                      className="text-amber-800 dark:text-amber-400 hover:text-red-600 transition-colors cursor-pointer ml-1"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Custom Action Adder */}
+          <div className="flex gap-2 pt-1">
+            <input
+              value={customActionInput}
+              onChange={(e) => setCustomActionInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addCustomApproval();
+                }
+              }}
+              placeholder="Type custom action name e.g. execute_payment, send_slack_alert…"
+              className={`${inputClass} border-amber-300 dark:border-amber-900/50 bg-white dark:bg-black/60`}
+            />
+            <button
+              type="button"
+              onClick={addCustomApproval}
+              className="shrink-0 px-3 py-2 rounded border border-amber-400 bg-amber-200 dark:bg-amber-900 text-xs font-mono font-bold text-amber-950 dark:text-amber-100 hover:bg-amber-300 dark:hover:bg-amber-800 transition-all cursor-pointer"
+            >
+              + ADD ACTION
+            </button>
+          </div>
+
+          {/* Preset Suggestions */}
+          <div className="pt-2 border-t border-amber-200 dark:border-amber-900/40 space-y-1.5">
+            <div className="text-[9px] font-mono uppercase tracking-widest text-amber-900/70 dark:text-amber-400/70 font-semibold">
+              COMMON WRITE ACTION PRESETS (CLICK TO TOGGLE)
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {COMMON_HITL_PRESETS.map((action) => {
+                const isSelected = actionsRequiringApproval.includes(action);
+                return (
+                  <button
+                    key={action}
+                    type="button"
+                    onClick={() => toggleApproval(action)}
+                    className={clsx(
+                      "px-2 py-1 rounded border text-[10px] font-mono transition-all cursor-pointer font-medium",
+                      isSelected
+                        ? "border-amber-500 bg-amber-200 dark:bg-amber-900 text-amber-950 dark:text-amber-100 font-bold shadow-sm"
+                        : "border-amber-300/80 dark:border-amber-900/50 bg-white/80 dark:bg-black/40 text-amber-900 dark:text-amber-300 hover:border-amber-400"
+                    )}
+                  >
+                    {isSelected ? "✓ " : "+ "}
+                    {action}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 

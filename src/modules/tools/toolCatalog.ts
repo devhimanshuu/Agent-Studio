@@ -28,7 +28,7 @@ export const BUILT_IN_TOOL_CATALOG: ToolCatalogItem[] = [
     name: "document_search",
     displayName: "Document Search",
     description:
-      "Searches a mock knowledge base about the platform. Keyword matching with synonym expansion, ranked by relevance with a snippet.",
+      "Semantic search over documents using Qdrant vector database (if configured) or PostgreSQL full-text search. Returns ranked results with relevance scores.",
     category: "SEARCH",
     type: "READ",
     parameters: documentSearchInputSchema,
@@ -40,7 +40,7 @@ export const BUILT_IN_TOOL_CATALOG: ToolCatalogItem[] = [
     name: "record_lookup",
     displayName: "Record Lookup",
     description:
-      "Structured lookup over mock records — employees, customers, orders, banks, and audit reports. Exact id match or field search, returned as JSON.",
+      "Query real records from NocoDB tables or PostgreSQL execution history. Supports exact ID match and full-text search across all fields.",
     category: "DATA",
     type: "READ",
     parameters: recordLookupInputSchema,
@@ -50,9 +50,9 @@ export const BUILT_IN_TOOL_CATALOG: ToolCatalogItem[] = [
   },
   {
     name: "mock_task_creator",
-    displayName: "Mock Task Creator",
+    displayName: "Task Creator",
     description:
-      "Simulates creating a task — generates a taskId and returns the created task. No real persistence. WRITE action: requires human approval.",
+      "Create real tasks persisted to PostgreSQL. Tasks include title, description, priority, due date, and status tracking. WRITE action: requires human approval.",
     category: "TASK",
     type: "WRITE",
     parameters: mockTaskCreatorInputSchema,

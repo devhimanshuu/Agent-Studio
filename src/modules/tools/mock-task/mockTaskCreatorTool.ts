@@ -5,26 +5,18 @@ import {
   mockTaskCreatorOutputSchema,
 } from "../validators/mockTaskCreator";
 
-function generateTaskId(): string {
-  const rand =
-    typeof globalThis.crypto?.randomUUID === "function"
-      ? globalThis.crypto.randomUUID().slice(0, 8)
-      : Math.random().toString(36).slice(2, 10);
-  return `TASK-${rand.toUpperCase()}`;
-}
-
 /**
- * WRITE tool — simulates creating a task. No real persistence: returns the
- * generated taskId, status, title, and createdAt. Because it mutates
- * (simulated) state, `requiresApproval` is true and every invocation pauses
- * for human approval in the runtime.
+ * Real task creator tool — persists tasks to PostgreSQL via Prisma.
+ *
+ * Tasks are stored in the `tasks` table and can be queried, updated, and
+ * managed through the Task Management dashboard or via API.
  */
 export const mockTaskCreatorTool: Tool = {
   id: "mock_task_creator",
   name: "mock_task_creator",
-  displayName: "Mock Task Creator",
+  displayName: "Task Creator",
   description:
-    "Simulates creating a task — generates a taskId and returns the created task. No real persistence. WRITE action: requires human approval.",
+    "Create real tasks persisted to PostgreSQL. Tasks include title, description, priority, due date, and status tracking.",
   category: "TASK",
   type: "WRITE",
   inputSchema: mockTaskCreatorInputSchema,
@@ -40,21 +32,45 @@ export const mockTaskCreatorTool: Tool = {
 
   async execute(input) {
     const parsed = mockTaskCreatorInputValidator.parse(input);
+
+    const { prisma } = await import("@/lib/prisma");
+
+    // Map priority string to enum
+    const priorityMap: Record<string, "LOW" | "MEDIUM" | "HIGH" | "URGENT"> = {
+      low: "LOW",
+      medium: "MEDIUM",
+      high: "HIGH",
+      urgent: "URGENT",
+    };
+
+    // Create real task in PostgreSQL
+    const task = await prisma.task.create({
+      data: {
+        title: parsed.title,
+        description: parsed.description,
+        priority: priorityMap[parsed.priority ?? "medium"] ?? "MEDIUM",
+        dueDate: parsed.dueDate ? new Date(parsed.dueDate) : null,
+        status: "TODO",
+      },
+    });
+
     return {
-      taskId: generateTaskId(),
-      status: "CREATED",
-      title: parsed.title,
-      priority: parsed.priority ?? "medium",
-      createdAt: new Date().toISOString(),
-      ...(parsed.description ? { description: parsed.description } : {}),
-      ...(parsed.dueDate ? { dueDate: parsed.dueDate } : {}),
+      taskId: task.id,
+      status: task.status,
+      title: task.title,
+      priority: task.priority,
+      createdAt: task.createdAt.toISOString(),
+      ...(task.description ? { description: task.description } : {}),
+      ...(task.dueDate ? { dueDate: task.dueDate.toISOString().split("T")[0] } : {}),
+      source: "postgresql",
     };
   },
 
   async healthCheck() {
     const started = Date.now();
     try {
-      await mockTaskCreatorTool.execute({ title: "health check" });
+      const { prisma } = await import("@/lib/prisma");
+      await prisma.$queryRaw`SELECT 1`;
       return { status: "healthy", latencyMs: Date.now() - started };
     } catch (error) {
       return {

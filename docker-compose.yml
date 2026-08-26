@@ -1,0 +1,199 @@
+# =============================================================================
+# Agent Studio — Local Development Stack
+#
+# Spins up all 9 self-hosted microservices used by graph nodes, plus PostgreSQL.
+#
+# Usage:
+#   docker compose up -d                # start everything
+#   docker compose up -d searxng qdrant # start only what you need
+#   docker compose down -v              # stop and remove volumes
+#
+# After starting, copy .env.example to .env.local and set the DATABASE_URL to:
+#   DATABASE_URL=postgresql://agent:secret@localhost:5432/agentstudio
+# =============================================================================
+
+services:
+  # ─── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: agentstudio
+      POSTGRES_USER: agent
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent -d agentstudio"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ─── SearXNG (Privacy-first Metasearch Engine) ──────────────────────────────
+  # Graph node: searxng_search
+  # Docs: https://docs.searxng.org
+  searxng:
+    image: searxng/searxng:latest
+    ports:
+      - "8080:8080"
+    environment:
+      SEARXNG_BASE_URL: http://localhost:8080/
+    volumes:
+      - searxng_data:/etc/searxng
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Crawl4AI (LLM-Optimized Web Scraper) ──────────────────────────────────
+  # Graph node: crawl4ai_scrape
+  # Docs: https://github.com/unclecode/crawl4ai
+  crawl4ai:
+    image: unclecode/crawl4ai:latest
+    ports:
+      - "11235:11235"
+    environment:
+      CRAWL4AI_HOST: "0.0.0.0"
+      CRAWL4AI_PORT: "11235"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11235/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ─── Docling (IBM Document Parser) ──────────────────────────────────────────
+  # Graph node: docling_pdf_parser
+  # Docs: https://github.com/docling-project/docling
+  docling:
+    image: ghcr.io/docling-project/docling-serve:latest
+    ports:
+      - "5001:5001"
+    environment:
+      DOCLING_SERVE_HOST: "0.0.0.0"
+      DOCLING_SERVE_PORT: "5001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  # ─── Gotenberg (PDF Generation Engine) ──────────────────────────────────────
+  # Graph node: gotenberg_pdf_exporter
+  # Docs: https://gotenberg.dev
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    ports:
+      - "3000:3000"
+    command:
+      - "gotenberg"
+      - "--port=3000"
+      - "--timeout=30s"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── NocoDB (Open-Source Airtable Alternative) ─────────────────────────────
+  # Graph node: nocodb_record
+  # Docs: https://nocodb.com
+  nocodb:
+    image: nocodb/nocodb:latest
+    ports:
+      - "8085:8080"
+    environment:
+      NC_DB: "pg://postgres:5432?u=agent&p=secret&d=agentstudio"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # ─── PocketBase (Lightweight Backend / KV Store) ────────────────────────────
+  # Graph node: pocketbase_store
+  # Docs: https://pocketbase.io
+  pocketbase:
+    image: ghcr.io/muchobien/pocketbase:latest
+    ports:
+      - "8090:8090"
+    volumes:
+      - pocketbase_data:/pb/pb_migrations
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8090/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Qdrant (Vector Database for RAG) ──────────────────────────────────────
+  # Graph node: qdrant_vector_memory
+  # Docs: https://qdrant.tech
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: "6334"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Faster-Whisper (Speech-to-Text) ───────────────────────────────────────
+  # Graph node: audio_transcriber
+  # Docs: https://github.com/fedirz/faster-whisper-server
+  whisper:
+    image: fedirz/faster-whisper-server:latest-cuda
+    # Use CPU-only image on macOS/Windows without NVIDIA GPU:
+    # image: fedirz/faster-whisper-server:latest-cpu
+    ports:
+      - "8000:8000"
+    environment:
+      WHISPER_MODEL: "Systran/faster-whisper-large-v3-turbo"
+    volumes:
+      - whisper_models:/root/.cache
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  # ─── Piper TTS (Text-to-Speech) ────────────────────────────────────────────
+  # Graph node: piper_tts
+  # Docs: https://github.com/rhasspy/piper
+  piper:
+    image: rhasspy/wyoming-piper:latest
+    ports:
+      - "5000:5000"
+    command: >
+      --voice en_US-lessac-medium
+    environment:
+      PIPER_VOICE: "en_US-lessac-medium"
+    volumes:
+      - piper_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  pgdata:
+  searxng_data:
+  pocketbase_data:
+  qdrant_data:
+  whisper_models:
+  piper_data:

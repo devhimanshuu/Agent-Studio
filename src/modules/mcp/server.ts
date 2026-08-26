@@ -6,26 +6,47 @@ import { IExecutionService } from "@/services/interfaces/IExecutionService";
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { jsonSchemaToZod } from "./toolAdapter";
+import { createSession, getSession, updateSessionStatus, deleteSession } from "./sessionStore";
 
 const MCP_SERVER_NAME = "agent-studio";
 const MCP_SERVER_VERSION = "1.0.0";
 
-/** Module-level session registry so `/api/mcp/sse` GETs and `/api/mcp/messages`
- * POSTs route to the transport that owns each MCP session. A session is born
- * when a client POSTs `initialize`; the transport registers itself here via
- * `onsessioninitialized`, and later requests reuse it by session id. */
-const sessions = new Map<string, { transport: WebStandardStreamableHTTPServerTransport; server: McpServer }>();
+/**
+ * In-memory transport registry for active sessions.
+ * Maps sessionId -> { transport, server } for routing requests.
+ * The actual session data is persisted to PostgreSQL via sessionStore.
+ */
+const transportRegistry = new Map<string, { transport: WebStandardStreamableHTTPServerTransport; server: McpServer }>();
 
-/** Create a fresh stateful transport wired into the session registry. */
-function createSessionTransport(server: McpServer): WebStandardStreamableHTTPServerTransport {
+/** Create a fresh stateful transport wired into the persistent session store. */
+async function createSessionTransport(server: McpServer): Promise<WebStandardStreamableHTTPServerTransport> {
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: () => crypto.randomUUID(),
-    onsessioninitialized: (sessionId) => {
-      sessions.set(sessionId, { transport, server });
-      // Release the session mapping when the client disconnects so stale
-      // transports don't accumulate in the module-level registry.
-      transport.onclose = () => {
-        sessions.delete(sessionId);
+    onsessioninitialized: async (sessionId) => {
+      // Register transport in memory for request routing
+      transportRegistry.set(sessionId, { transport, server });
+      
+      // Persist session to database
+      try {
+        await createSession({
+          sessionId,
+          transport: "SSE",
+          status: "ACTIVE",
+          metadata: { serverName: MCP_SERVER_NAME },
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+        });
+      } catch (error) {
+        logger.error({ error, sessionId }, "Failed to persist MCP session");
+      }
+
+      // Release the session mapping when the client disconnects
+      transport.onclose = async () => {
+        transportRegistry.delete(sessionId);
+        try {
+          await updateSessionStatus(sessionId, "CLOSED");
+        } catch (error) {
+          logger.error({ error, sessionId }, "Failed to update session status on close");
+        }
         server.close().catch(() => {});
         logger.info({ sessionId }, "MCP session closed");
       };
@@ -86,7 +107,7 @@ export class AgentStudioMcpServer {
   /** Handle GET /api/mcp/sse — opens the SSE stream for an initialized session. */
   async handleSseRequest(request: Request): Promise<Response> {
     const sessionId = request.headers.get("mcp-session-id");
-    const session = sessionId ? sessions.get(sessionId) : undefined;
+    const session = sessionId ? transportRegistry.get(sessionId) : undefined;
     if (!session) {
       // No session yet — the client must initialize via POST /api/mcp/messages
       // first, then GET the stream with the issued session id.
@@ -104,7 +125,7 @@ export class AgentStudioMcpServer {
   /** Handle POST /api/mcp/messages — initialize a session or forward to it. */
   async handleMessageRequest(request: Request): Promise<Response> {
     const sessionId = request.headers.get("mcp-session-id");
-    const session = sessionId ? sessions.get(sessionId) : undefined;
+    const session = sessionId ? transportRegistry.get(sessionId) : undefined;
     if (session) {
       return session.transport.handleRequest(request);
     }
@@ -129,7 +150,7 @@ export class AgentStudioMcpServer {
     }
 
     const server = await this.buildServer();
-    const transport = createSessionTransport(server);
+    const transport = await createSessionTransport(server);
     // Connect once per session; `handleRequest` below processes the initialize
     // message and fires `onsessioninitialized`, registering the session.
     await server.connect(transport);
@@ -138,7 +159,7 @@ export class AgentStudioMcpServer {
 
   /** Number of live sessions (health endpoint). */
   get sessionCount(): number {
-    return sessions.size;
+    return transportRegistry.size;
   }
 
   /** Build an SDK McpServer with one tool per published workflow. Public so

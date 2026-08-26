@@ -7,6 +7,7 @@ import { useClerk, useAuth } from "@clerk/nextjs";
 import {
   LayoutDashboard,
   Workflow,
+  Cpu,
   Play,
   GitCompare,
   Shield,
@@ -26,8 +27,8 @@ import { useSidebar } from "@/components/providers/SidebarContext";
 
 const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, tag: "SYS_01" },
-  { name: "Agent Canvas", href: "/dashboard/canvas", icon: Network, tag: "GRAPH_V1" },
   { name: "Studio", href: "/dashboard/skills", icon: Workflow, tag: "STUDIO_V2" },
+  { name: "Agent Canvas", href: "/dashboard/canvas", icon: Network, tag: "GRAPH_V1" },
   { name: "Executions", href: "/dashboard/executions", icon: Play, tag: "TRACE_LOG" },
   { name: "Observability", href: "/dashboard/history", icon: Gauge, tag: "OBS_07" },
   { name: "Audit Log", href: "/dashboard/audit", icon: ScrollText, tag: "AUDIT" },

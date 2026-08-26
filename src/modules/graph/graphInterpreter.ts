@@ -2486,20 +2486,9 @@ export class GraphInterpreter {
       });
 
       ctx.results[node.id] = output;
-    } catch (error) {
-      // Fallback to mock search results if public SearXNG instance is rate-limited
-      output = {
-        query,
-        host,
-        count: 3,
-        results: [
-          { title: `${query} - Overview & Documentation`, url: `https://en.wikipedia.org/wiki/${encodeURIComponent(query)}`, content: `Top organic search result summary for "${query}".`, engine: "searxng-mock" },
-          { title: `${query} Official Guide`, url: `https://github.com/topics/${encodeURIComponent(query)}`, content: `Latest releases and community discussion regarding ${query}.`, engine: "searxng-mock" },
-          { title: `Deep Dive into ${query}`, url: `https://arxiv.org/search/?query=${encodeURIComponent(query)}`, content: `Recent developments and benchmark analysis for ${query}.`, engine: "searxng-mock" },
-        ],
-        warning: error instanceof Error ? error.message : String(error),
-      };
-      ctx.results[node.id] = output;
+        } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      throw new ExecutionError(`SearXNG search failed against ${host}: ${errMsg}`, "GRAPH_FAILURE");
     }
 
     await this.persistStep(ctx, node, "SUCCESS", { query, output: summarize(output) });
@@ -2507,292 +2496,364 @@ export class GraphInterpreter {
     return this.firstSuccessor(outgoing, node);
   }
 
-  /** Crawl4AI Scraper node — extracts structured LLM-ready markdown from web pages. */
+  /** Crawl4AI Scraper node — extracts structured LLM-ready markdown from web pages via Crawl4AI API. */
   private async runCrawl4AiNode(ctx: WalkCtx, node: GraphNodeDefinition, outgoing: GraphEdgeDefinition[]) {
     const data = node.data;
     const rawUrl = data.crawl4aiUrl ?? "";
     const targetUrl = String(resolveTemplate(rawUrl, ctx) || rawUrl).trim();
-    if (!targetUrl) {
-      throw new ExecutionError(`Crawl4AI node "${data.label}" has no target URL configured`, "GRAPH_FAILURE");
-    }
-
+    if (!targetUrl) { throw new ExecutionError(`Crawl4AI node "${data.label}" has no target URL configured`, "GRAPH_FAILURE"); }
     const host = (data.crawl4aiHost || "").trim().replace(/\/+$/, "");
+    if (!host) { throw new ExecutionError(`Crawl4AI node "${data.label}" has no host configured - set crawl4aiHost (e.g. http://localhost:11235)`, "GRAPH_FAILURE"); }
     const selector = data.crawl4aiSelector || "";
+    const wordCountThreshold = typeof data.crawl4aiWordCountThreshold === "number" ? data.crawl4aiWordCountThreshold : 10;
     const started = Date.now();
-
-    this.emit(ctx, {
-      type: "tool:call:start",
-      nodeId: node.id,
-      toolName: "crawl4ai_scrape",
-      action: "crawl",
-      input: { targetUrl, host, selector },
-    });
-
+    this.emit(ctx, { type: "tool:call:start", nodeId: node.id, toolName: "crawl4ai_scrape", action: "crawl", input: { targetUrl, host, selector } });
     let output: unknown;
     try {
-      if (host) {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 25_000);
-        const res = await fetch(`${host}/crawl`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ urls: targetUrl, css_selector: selector || undefined }),
-          signal: controller.signal,
-        });
-        clearTimeout(timer);
-        if (res.ok) {
-          const json = await res.json();
-          output = { url: targetUrl, markdown: json.markdown || json.results?.[0]?.markdown || "", success: true };
-        } else {
-          throw new Error(`Crawl4AI host error ${res.status}`);
-        }
-      } else {
-        // Fallback to Jina clean markdown converter
-        const jinaUrl = `https://r.jina.ai/${targetUrl.replace(/^https?:\/\//, "https://")}`;
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 25_000);
-        const res = await fetch(jinaUrl, { headers: { Accept: "text/markdown" }, signal: controller.signal });
-        clearTimeout(timer);
-        const text = await res.text();
-        output = { url: targetUrl, markdown: text.slice(0, 50_000), wordCount: text.split(/\s+/).length, success: true };
-      }
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 30000);
+      const res = await fetch(`${host}/crawl`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ urls: [targetUrl], crawler_config: { css_selector: selector || undefined, word_count_threshold: wordCountThreshold } }),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (!res.ok) { const errText = await res.text().catch(() => ""); throw new ExecutionError(`Crawl4AI returned ${res.status}: ${errText.slice(0, 200)}`, "GRAPH_FAILURE"); }
+      const json = await res.json() as Record<string, unknown>;
+      const firstResult = Array.isArray(json.results) ? json.results[0] : json;
+      const markdown = (firstResult as Record<string, unknown>)?.markdown || json.markdown || "";
+      const wordCount = String(markdown).split(/\s+/).filter(Boolean).length;
+      output = { url: targetUrl, markdown: String(markdown).slice(0, 80000), wordCount, success: true };
+      const durationMs = Date.now() - started;
+      this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "crawl4ai_scrape", status: "SUCCESS", output, durationMs });
       ctx.results[node.id] = output;
-      this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "crawl4ai_scrape", status: "SUCCESS", output, durationMs: Date.now() - started });
-    } catch {
-      output = { url: targetUrl, markdown: `## Scraped Content for ${targetUrl}\n\nAutomated extraction completed.`, wordCount: 150, success: true };
-      ctx.results[node.id] = output;
+    } catch (error) {
+      const durationMs = Date.now() - started;
+      this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "crawl4ai_scrape", status: "FAILED", error: error instanceof Error ? error.message : String(error), durationMs });
+      if (error instanceof ExecutionError) throw error;
+      throw new ExecutionError(`Crawl4AI crawl failed: ${error instanceof Error ? error.message : String(error)}`, "GRAPH_FAILURE");
     }
-
     await this.persistStep(ctx, node, "SUCCESS", { targetUrl, output: summarize(output) });
     this.emitNodeEnd(ctx, node, "SUCCESS", `Crawl4AI ${targetUrl.slice(0, 40)}`);
     return this.firstSuccessor(outgoing, node);
   }
 
-  /** Docling PDF & Document Parser node — parses structured documents into Markdown and tables. */
+  /** Docling PDF & Document Parser node — parses documents into Markdown/tables via Docling API. */
   private async runDoclingNode(ctx: WalkCtx, node: GraphNodeDefinition, outgoing: GraphEdgeDefinition[]) {
     const data = node.data;
     const rawUrl = data.doclingDocumentUrl ?? "";
     const documentUrl = String(resolveTemplate(rawUrl, ctx) || rawUrl).trim();
+    if (!documentUrl) { throw new ExecutionError(`Docling node "${data.label}" has no document URL configured`, "GRAPH_FAILURE"); }
+    const host = (data.doclingHost || "").trim().replace(/\/+$/, "");
+    if (!host) { throw new ExecutionError(`Docling node "${data.label}" has no host - set doclingHost (e.g. http://localhost:5001)`, "GRAPH_FAILURE"); }
     const format = data.doclingOutputFormat ?? "markdown";
+    const ocr = data.doclingOcr ?? true;
     const started = Date.now();
-
-    this.emit(ctx, {
-      type: "tool:call:start",
-      nodeId: node.id,
-      toolName: "docling_pdf_parser",
-      action: "parse",
-      input: { documentUrl, format },
-    });
-
-    const output = {
-      documentUrl,
-      format,
-      pageCount: 12,
-      tablesCount: 3,
-      markdown: `### Document Analysis: ${documentUrl.split("/").pop() || "Document"}\n\n| Metric | Baseline | Proposed Model |\n|---|---|---|\n| Accuracy | 84.2% | **91.8%** |\n| Latency | 240ms | **65ms** |\n\n**Key Findings:** The proposed multi-agent architecture outperforms single-step LLM planners across all benchmark evaluations.`,
-      status: "PARSED",
-    };
-
-    ctx.results[node.id] = output;
-    this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "docling_pdf_parser", status: "SUCCESS", output, durationMs: Date.now() - started });
-    await this.persistStep(ctx, node, "SUCCESS", { documentUrl, output: summarize(output) });
-    this.emitNodeEnd(ctx, node, "SUCCESS", `Docling parsed → ${summarize(output)}`);
+    this.emit(ctx, { type: "tool:call:start", nodeId: node.id, toolName: "docling_pdf_parser", action: "parse", input: { documentUrl, format, ocr } });
+    let output: unknown;
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 60000);
+      const res = await fetch(`${host}/v1/document`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ file_urls: [documentUrl], to_formats: [format], ocr }),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (!res.ok) { const errText = await res.text().catch(() => ""); throw new ExecutionError(`Docling returned ${res.status}: ${errText.slice(0, 300)}`, "GRAPH_FAILURE"); }
+      const json = await res.json() as Record<string, unknown>;
+      const doc = (json.document as Record<string, unknown>) ?? json;
+      const markdown = String(doc.markdown_content || doc.md_content || JSON.stringify(doc)).slice(0, 80000);
+      const pageCount = Number(doc.page_count || 0);
+      const tablesCount = Number(doc.tables_count || 0);
+      output = { documentUrl, format, ocr, pageCount, tablesCount, markdown, status: "PARSED" };
+      const durationMs = Date.now() - started;
+      this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "docling_pdf_parser", status: "SUCCESS", output, durationMs });
+      ctx.results[node.id] = output;
+    } catch (error) {
+      const durationMs = Date.now() - started;
+      this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "docling_pdf_parser", status: "FAILED", error: error instanceof Error ? error.message : String(error), durationMs });
+      if (error instanceof ExecutionError) throw error;
+      throw new ExecutionError(`Docling parse failed: ${error instanceof Error ? error.message : String(error)}`, "GRAPH_FAILURE");
+    }
+    await this.persistStep(ctx, node, "SUCCESS", { documentUrl, format, output: summarize(output) });
+    this.emitNodeEnd(ctx, node, "SUCCESS", `Docling parsed ${format} -> ${summarize(output)}`);
     return this.firstSuccessor(outgoing, node);
   }
 
-  /** Gotenberg PDF Exporter node — renders HTML/Markdown into publication-ready PDF documents. */
+  /** Gotenberg PDF Exporter node — renders HTML into PDF via Gotenberg API. */
   private async runGotenbergNode(ctx: WalkCtx, node: GraphNodeDefinition, outgoing: GraphEdgeDefinition[]) {
     const data = node.data;
     const rawContent = data.gotenbergHtmlContent ?? "<h1>Report</h1>";
     const content = String(resolveTemplate(rawContent, ctx) || rawContent);
+    if (!content.trim()) { throw new ExecutionError(`Gotenberg node "${data.label}" has no HTML content`, "GRAPH_FAILURE"); }
+    const host = (data.gotenbergHost || "").trim().replace(/\/+$/, "");
+    if (!host) { throw new ExecutionError(`Gotenberg node "${data.label}" has no host - set gotenbergHost (e.g. http://localhost:3000)`, "GRAPH_FAILURE"); }
     const paperSize = data.gotenbergPaperSize ?? "A4";
     const landscape = data.gotenbergLandscape ?? false;
     const started = Date.now();
-
-    this.emit(ctx, {
-      type: "tool:call:start",
-      nodeId: node.id,
-      toolName: "gotenberg_pdf_exporter",
-      action: "convert",
-      input: { paperSize, landscape },
-    });
-
-    const output = {
-      status: "GENERATED",
-      paperSize,
-      orientation: landscape ? "landscape" : "portrait",
-      htmlLength: content.length,
-      fileName: `report-${Date.now()}.pdf`,
-      downloadUrl: `/api/reports/download?id=${ctx.executionId}`,
-    };
-
-    ctx.results[node.id] = output;
-    this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "gotenberg_pdf_exporter", status: "SUCCESS", output, durationMs: Date.now() - started });
-    await this.persistStep(ctx, node, "SUCCESS", { output: summarize(output) });
-    this.emitNodeEnd(ctx, node, "SUCCESS", `PDF Exporter → ${output.fileName}`);
+    const fileName = `report-${ctx.executionId}-${Date.now()}.pdf`;
+    this.emit(ctx, { type: "tool:call:start", nodeId: node.id, toolName: "gotenberg_pdf_exporter", action: "convert", input: { paperSize, landscape } });
+    let output: unknown;
+    try {
+      const formData = new FormData();
+      formData.append("files", new Blob([content], { type: "text/html" }), "index.html");
+      const qp = new URLSearchParams({ paperWidth: paperSize === "Letter" ? "8.5" : "21", paperHeight: paperSize === "Letter" ? "11" : "29.7", landscape: String(landscape) });
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 45000);
+      const res = await fetch(`${host}/forms/chromium/convert/html?${qp}`, { method: "POST", body: formData, signal: controller.signal });
+      clearTimeout(timer);
+      if (!res.ok) { const errText = await res.text().catch(() => ""); throw new ExecutionError(`Gotenberg failed ${res.status}: ${errText.slice(0, 300)}`, "GRAPH_FAILURE"); }
+      const pdfBuffer = await res.arrayBuffer();
+      const pdfBase64 = Buffer.from(pdfBuffer).toString("base64");
+      output = { status: "GENERATED", paperSize, orientation: landscape ? "landscape" : "portrait", htmlLength: content.length, fileName, pdfSizeBytes: pdfBuffer.byteLength, pdfBase64: pdfBase64.slice(0, 100000), contentType: res.headers.get("content-type") ?? "application/pdf" };
+      const durationMs = Date.now() - started;
+      this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "gotenberg_pdf_exporter", status: "SUCCESS", output, durationMs });
+      ctx.results[node.id] = output;
+    } catch (error) {
+      const durationMs = Date.now() - started;
+      this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "gotenberg_pdf_exporter", status: "FAILED", error: error instanceof Error ? error.message : String(error), durationMs });
+      if (error instanceof ExecutionError) throw error;
+      throw new ExecutionError(`Gotenberg PDF failed: ${error instanceof Error ? error.message : String(error)}`, "GRAPH_FAILURE");
+    }
+    await this.persistStep(ctx, node, "SUCCESS", { paperSize, landscape, fileName, output: summarize(output) });
+    this.emitNodeEnd(ctx, node, "SUCCESS", `PDF Exporter -> ${fileName}`);
     return this.firstSuccessor(outgoing, node);
   }
 
-  /** NocoDB Record node — reads, inserts, or updates records in open-source NocoDB. */
+  /** NocoDB Record node - reads/creates/updates records via NocoDB v2 REST API. */
   private async runNocodbNode(ctx: WalkCtx, node: GraphNodeDefinition, outgoing: GraphEdgeDefinition[]) {
     const data = node.data;
-    const host = (data.nocodbHost || "http://localhost:8080").replace(/\/+$/, "");
-    const tableId = data.nocodbTableId || "tbl_records";
+    const host = (data.nocodbHost || "").trim().replace(/\/+$/, "");
+    if (!host) { throw new ExecutionError(`NocoDB node "${data.label}" has no host - set nocodbHost`, "GRAPH_FAILURE"); }
+    const apiToken = data.nocodbApiToken || "";
+    const tableId = data.nocodbTableId || "";
     const operation = data.nocodbOperation || "create";
     const payload = resolveTemplate(data.nocodbData || {}, ctx) as Record<string, unknown>;
+    if (!tableId) { throw new ExecutionError(`NocoDB node "${data.label}" has no table ID`, "GRAPH_FAILURE"); }
     const started = Date.now();
-
-    this.emit(ctx, {
-      type: "tool:call:start",
-      nodeId: node.id,
-      toolName: "nocodb_record",
-      action: operation,
-      input: { host, tableId, operation, payload },
-    });
-
-    const output = {
-      tableId,
-      operation,
-      recordId: `rec_${Math.random().toString(36).slice(2, 9)}`,
-      fields: payload,
-      updatedAt: new Date().toISOString(),
-      status: "SUCCESS",
-    };
-
-    ctx.results[node.id] = output;
-    this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "nocodb_record", status: "SUCCESS", output, durationMs: Date.now() - started });
+    this.emit(ctx, { type: "tool:call:start", nodeId: node.id, toolName: "nocodb_record", action: operation, input: { host, tableId, operation } });
+    let output: unknown;
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (apiToken) headers["xc-token"] = apiToken;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 20000);
+      let res: Response;
+      const baseUrl = `${host}/api/v2/tables/${encodeURIComponent(tableId)}/records`;
+      switch (operation) {
+        case "list": res = await fetch(baseUrl, { method: "GET", headers, signal: controller.signal }); break;
+        case "find": { const fp = new URLSearchParams(); if (payload) { for (const [k,v] of Object.entries(payload)) { if (v!=null) fp.set(k,String(v)); } } const qs=fp.toString(); res = await fetch(`${baseUrl}${qs?"?"+qs:""}`, { method: "GET", headers, signal: controller.signal }); break; }
+        case "create": res = await fetch(baseUrl, { method: "POST", headers, body: JSON.stringify(payload), signal: controller.signal }); break;
+        case "update": { const rid = (payload?.Id || payload?.id || payload?.recordId) as string|undefined; const url = rid ? `${baseUrl}/${rid}` : baseUrl; res = await fetch(url, { method: "PATCH", headers, body: JSON.stringify(payload), signal: controller.signal }); break; }
+        default: clearTimeout(timer); throw new ExecutionError(`NocoDB unknown operation "${operation}"`, "GRAPH_FAILURE");
+      }
+      clearTimeout(timer);
+      if (!res.ok) { const errText = await res.text().catch(() => ""); throw new ExecutionError(`NocoDB ${operation} failed ${res.status}: ${errText.slice(0, 300)}`, "GRAPH_FAILURE"); }
+      const json = await res.json();
+      output = { tableId, operation, host, records: json.list ?? json.records ?? json, pageInfo: json.pageInfo ?? null, count: Array.isArray(json.list) ? json.list.length : Array.isArray(json) ? json.length : 1, status: "SUCCESS" };
+      const durationMs = Date.now() - started;
+      this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "nocodb_record", status: "SUCCESS", output, durationMs });
+      ctx.results[node.id] = output;
+    } catch (error) {
+      const durationMs = Date.now() - started;
+      this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "nocodb_record", status: "FAILED", error: error instanceof Error ? error.message : String(error), durationMs });
+      if (error instanceof ExecutionError) throw error;
+      throw new ExecutionError(`NocoDB ${operation} failed: ${error instanceof Error ? error.message : String(error)}`, "GRAPH_FAILURE");
+    }
     await this.persistStep(ctx, node, "SUCCESS", { tableId, operation, output: summarize(output) });
     this.emitNodeEnd(ctx, node, "SUCCESS", `NocoDB [${operation.toUpperCase()}] ${tableId}`);
     return this.firstSuccessor(outgoing, node);
   }
 
-  /** PocketBase Store node — persists graph state, session logs, and KV items. */
+  /** PocketBase Store node - persists data via PocketBase REST API. */
   private async runPocketbaseNode(ctx: WalkCtx, node: GraphNodeDefinition, outgoing: GraphEdgeDefinition[]) {
     const data = node.data;
+    const host = (data.pocketbaseHost || "").trim().replace(/\/+$/, "");
+    if (!host) { throw new ExecutionError(`PocketBase node "${data.label}" has no host - set pocketbaseHost`, "GRAPH_FAILURE"); }
     const collection = data.pocketbaseCollection || "agent_state";
     const action = data.pocketbaseAction || "create";
     const payload = resolveTemplate(data.pocketbaseData || {}, ctx) as Record<string, unknown>;
+    const authToken = data.pocketbaseAuthToken || "";
+    const recordId = data.pocketbaseRecordId || "";
     const started = Date.now();
-
-    this.emit(ctx, {
-      type: "tool:call:start",
-      nodeId: node.id,
-      toolName: "pocketbase_store",
-      action,
-      input: { collection, action, payload },
-    });
-
-    const output = {
-      collection,
-      action,
-      id: `pb_${Math.random().toString(36).slice(2, 10)}`,
-      created: new Date().toISOString(),
-      data: payload,
-      status: "PERSISTED",
-    };
-
-    ctx.results[node.id] = output;
-    this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "pocketbase_store", status: "SUCCESS", output, durationMs: Date.now() - started });
+    this.emit(ctx, { type: "tool:call:start", nodeId: node.id, toolName: "pocketbase_store", action, input: { host, collection, action } });
+    let output: unknown;
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15000);
+      const cu = `${host}/api/collections/${encodeURIComponent(collection)}/records`;
+      let res: Response;
+      switch (action) {
+        case "list": { const lp = new URLSearchParams(); if (payload) { for (const [k,v] of Object.entries(payload)) { if (v!=null) lp.set(k,String(v)); } } const qs=lp.toString(); res = await fetch(`${cu}${qs?"?"+qs:""}`, { method: "GET", headers, signal: controller.signal }); break; }
+        case "get": { const id = recordId || (payload?.id as string) || ""; if (!id) { clearTimeout(timer); throw new ExecutionError("PocketBase get requires a record ID", "GRAPH_FAILURE"); } res = await fetch(`${cu}/${encodeURIComponent(id)}`, { method: "GET", headers, signal: controller.signal }); break; }
+        case "create": res = await fetch(cu, { method: "POST", headers, body: JSON.stringify(payload), signal: controller.signal }); break;
+        case "update": { const uid = recordId || (payload?.id as string) || ""; if (!uid) { clearTimeout(timer); throw new ExecutionError("PocketBase update requires a record ID", "GRAPH_FAILURE"); } res = await fetch(`${cu}/${encodeURIComponent(uid)}`, { method: "PATCH", headers, body: JSON.stringify(payload), signal: controller.signal }); break; }
+        default: clearTimeout(timer); throw new ExecutionError(`PocketBase unknown action "${action}"`, "GRAPH_FAILURE");
+      }
+      clearTimeout(timer);
+      if (!res.ok) { const errText = await res.text().catch(() => ""); throw new ExecutionError(`PocketBase ${action} failed ${res.status}: ${errText.slice(0, 300)}`, "GRAPH_FAILURE"); }
+      const json = await res.json();
+      output = { collection, action, host, record: json.record ?? json, page: json.page ?? undefined, totalItems: json.totalItems ?? undefined, status: "PERSISTED" };
+      const durationMs = Date.now() - started;
+      this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "pocketbase_store", status: "SUCCESS", output, durationMs });
+      ctx.results[node.id] = output;
+    } catch (error) {
+      const durationMs = Date.now() - started;
+      this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "pocketbase_store", status: "FAILED", error: error instanceof Error ? error.message : String(error), durationMs });
+      if (error instanceof ExecutionError) throw error;
+      throw new ExecutionError(`PocketBase ${action} failed: ${error instanceof Error ? error.message : String(error)}`, "GRAPH_FAILURE");
+    }
     await this.persistStep(ctx, node, "SUCCESS", { collection, action, output: summarize(output) });
     this.emitNodeEnd(ctx, node, "SUCCESS", `PocketBase [${action.toUpperCase()}] ${collection}`);
     return this.firstSuccessor(outgoing, node);
   }
 
-  /** Qdrant Vector Memory node — performs semantic search recall. */
+  /** Qdrant Vector Memory node - search/upsert/count via Qdrant REST API. */
   private async runQdrantNode(ctx: WalkCtx, node: GraphNodeDefinition, outgoing: GraphEdgeDefinition[]) {
     const data = node.data;
+    const host = (data.qdrantHost || "").trim().replace(/\/+$/, "");
+    if (!host) { throw new ExecutionError(`Qdrant node "${data.label}" has no host - set qdrantHost`, "GRAPH_FAILURE"); }
     const collection = data.qdrantCollection || "knowledge_base";
+    const action = data.qdrantAction || "search";
     const rawQuery = data.qdrantQuery ?? "";
     const query = String(resolveTemplate(rawQuery, ctx) || rawQuery);
     const topK = typeof data.qdrantTopK === "number" ? data.qdrantTopK : 3;
+    const apiKey = data.qdrantApiKey || "";
     const started = Date.now();
-
-    this.emit(ctx, {
-      type: "tool:call:start",
-      nodeId: node.id,
-      toolName: "qdrant_vector_memory",
-      action: "search",
-      input: { collection, query, topK },
-    });
-
-    const output = {
-      collection,
-      query,
-      topK,
-      matches: [
-        { id: "vec_01", score: 0.94, payload: { title: "Architecture Guidelines", content: `Contextual policy and instructions relevant to "${query}".` } },
-        { id: "vec_02", score: 0.88, payload: { title: "Standard Operating Procedures", content: `Historical resolution steps for similar agent requests.` } },
-      ],
-      status: "RECALLED",
-    };
-
-    ctx.results[node.id] = output;
-    this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "qdrant_vector_memory", status: "SUCCESS", output, durationMs: Date.now() - started });
-    await this.persistStep(ctx, node, "SUCCESS", { query, output: summarize(output) });
-    this.emitNodeEnd(ctx, node, "SUCCESS", `Qdrant Recall (${topK} matches)`);
+    this.emit(ctx, { type: "tool:call:start", nodeId: node.id, toolName: "qdrant_vector_memory", action, input: { collection, query: query.slice(0,100), topK } });
+    let output: unknown;
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (apiKey) headers["api-key"] = apiKey;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15000);
+      const base = `${host}/collections/${encodeURIComponent(collection)}/points`;
+      let res: Response;
+      switch (action) {
+        case "search": res = await fetch(`${host}/collections/${encodeURIComponent(collection)}/points/scroll`, { method: "POST", headers, body: JSON.stringify({ limit: topK, with_payload: true, with_vector: false, filter: query ? { must: [{ key: "text", match: { text: query } }] } : undefined }), signal: controller.signal }); break;
+        case "upsert": { const ud = ctx.results[node.id] as Record<string,unknown> ?? {}; const points = (Array.isArray(ud) ? ud : [ud]).map((p:unknown) => { const pt=p as Record<string,unknown>; return { id: pt.id || `pt_${Date.now()}_${Math.random().toString(36).slice(2,8)}`, vector: pt.vector, payload: pt.payload ?? pt }; }); res = await fetch(base, { method: "PUT", headers, body: JSON.stringify({ points }), signal: controller.signal }); break; }
+        case "count": res = await fetch(`${host}/collections/${encodeURIComponent(collection)}/points/count`, { method: "GET", headers, signal: controller.signal }); break;
+        default: clearTimeout(timer); throw new ExecutionError(`Qdrant unknown action "${action}"`, "GRAPH_FAILURE");
+      }
+      clearTimeout(timer);
+      if (!res.ok) { const errText = await res.text().catch(() => ""); throw new ExecutionError(`Qdrant ${action} failed ${res.status}: ${errText.slice(0, 300)}`, "GRAPH_FAILURE"); }
+      const json = await res.json() as Record<string, unknown>;
+      if (action === "search") { const pts = (json.result as Array<Record<string,unknown>>) || []; output = { collection, action, query, topK, matches: pts.map(p => ({ id: p.id, score: p.score ?? null, payload: p.payload })), count: pts.length, status: "RECALLED" }; }
+      else if (action === "upsert") { output = { collection, action, status: json.status === "completed" ? "UPSERTED" : "PENDING", updateId: json.update_id ?? null }; }
+      else if (action === "count") { output = { collection, action, count: (json.result as Record<string,unknown>)?.count ?? json.count ?? 0, status: "COUNTED" }; }
+      const durationMs = Date.now() - started;
+      this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "qdrant_vector_memory", status: "SUCCESS", output, durationMs });
+      ctx.results[node.id] = output;
+    } catch (error) {
+      const durationMs = Date.now() - started;
+      this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "qdrant_vector_memory", status: "FAILED", error: error instanceof Error ? error.message : String(error), durationMs });
+      if (error instanceof ExecutionError) throw error;
+      throw new ExecutionError(`Qdrant ${action} failed: ${error instanceof Error ? error.message : String(error)}`, "GRAPH_FAILURE");
+    }
+    await this.persistStep(ctx, node, "SUCCESS", { collection, action, query: query.slice(0,80), output: summarize(output) });
+    this.emitNodeEnd(ctx, node, "SUCCESS", `Qdrant [${action.toUpperCase()}] ${collection}`);
     return this.firstSuccessor(outgoing, node);
   }
 
-  /** Faster-Whisper Audio Transcriber node — transcribes speech/audio into text. */
+  /** Faster-Whisper Audio Transcriber node - transcribes audio via Faster-Whisper API. */
   private async runAudioTranscriberNode(ctx: WalkCtx, node: GraphNodeDefinition, outgoing: GraphEdgeDefinition[]) {
     const data = node.data;
     const rawUrl = data.audioSourceUrl ?? "";
-    const audioUrl = String(resolveTemplate(rawUrl, ctx) || rawUrl);
+    const audioUrl = String(resolveTemplate(rawUrl, ctx) || rawUrl).trim();
+    if (!audioUrl) { throw new ExecutionError(`Audio Transcriber node "${data.label}" has no audio URL`, "GRAPH_FAILURE"); }
+    const host = (data.audioTranscriberHost || "").trim().replace(/\/+$/, "");
+    if (!host) { throw new ExecutionError(`Audio Transcriber node "${data.label}" has no host - set audioTranscriberHost`, "GRAPH_FAILURE"); }
     const language = data.audioLanguage || "auto";
     const started = Date.now();
-
-    this.emit(ctx, {
-      type: "tool:call:start",
-      nodeId: node.id,
-      toolName: "audio_transcriber",
-      action: "transcribe",
-      input: { audioUrl, language },
-    });
-
-    const output = {
-      audioUrl,
-      language: language === "auto" ? "en" : language,
-      durationSeconds: 42.5,
-      text: "Customer reports that the new API integration is encountering sporadic timeout errors during high concurrency peaks.",
-      confidence: 0.96,
-      status: "TRANSCRIBED",
-    };
-
-    ctx.results[node.id] = output;
-    this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "audio_transcriber", status: "SUCCESS", output, durationMs: Date.now() - started });
-    await this.persistStep(ctx, node, "SUCCESS", { audioUrl, output: summarize(output) });
-    this.emitNodeEnd(ctx, node, "SUCCESS", `Whisper transcribed → "${output.text.slice(0, 30)}…"`);
+    this.emit(ctx, { type: "tool:call:start", nodeId: node.id, toolName: "audio_transcriber", action: "transcribe", input: { audioUrl, language, host } });
+    let output: unknown;
+    try {
+      const ac = new AbortController();
+      const at = setTimeout(() => ac.abort(), 30000);
+      const ar = await fetch(audioUrl, { signal: ac.signal });
+      clearTimeout(at);
+      if (!ar.ok) { throw new ExecutionError(`Failed to fetch audio from ${audioUrl}: HTTP ${ar.status}`, "GRAPH_FAILURE"); }
+      const ab = await ar.blob();
+      const ct = ar.headers.get("content-type") ?? "audio/wav";
+      const fd = new FormData();
+      fd.append("file", new Blob([await ab.arrayBuffer()], { type: ct }), `audio-${Date.now()}`);
+      fd.append("model", "whisper-large-v3-turbo");
+      if (language !== "auto") fd.append("language", language);
+      fd.append("response_format", "verbose_json");
+      const wc = new AbortController();
+      const wt = setTimeout(() => wc.abort(), 120000);
+      const wr = await fetch(`${host}/v1/audio/transcriptions`, { method: "POST", body: fd, signal: wc.signal });
+      clearTimeout(wt);
+      if (!wr.ok) { const errText = await wr.text().catch(() => ""); throw new ExecutionError(`Whisper failed ${wr.status}: ${errText.slice(0,300)}`, "GRAPH_FAILURE"); }
+      const wj = await wr.json() as Record<string, unknown>;
+      output = { audioUrl, language: wj.language ?? language, durationSeconds: wj.duration ?? null, text: String(wj.text || ""), segments: wj.segments ?? null, confidence: wj.language_probability ?? null, status: "TRANSCRIBED" };
+      const durationMs = Date.now() - started;
+      this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "audio_transcriber", status: "SUCCESS", output, durationMs });
+      ctx.results[node.id] = output;
+    } catch (error) {
+      const durationMs = Date.now() - started;
+      this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "audio_transcriber", status: "FAILED", error: error instanceof Error ? error.message : String(error), durationMs });
+      if (error instanceof ExecutionError) throw error;
+      throw new ExecutionError(`Audio transcription failed: ${error instanceof Error ? error.message : String(error)}`, "GRAPH_FAILURE");
+    }
+    const preview = String((output as Record<string,unknown>)?.text ?? "").slice(0,60);
+    await this.persistStep(ctx, node, "SUCCESS", { audioUrl, language, output: summarize(output) });
+    this.emitNodeEnd(ctx, node, "SUCCESS", `Whisper transcribed -> "${preview}..."`);
     return this.firstSuccessor(outgoing, node);
   }
 
-  /** Piper TTS node — synthesizes text into voice speech audio. */
+  /** Piper TTS node - synthesizes text into speech via Piper HTTP API. */
   private async runPiperTtsNode(ctx: WalkCtx, node: GraphNodeDefinition, outgoing: GraphEdgeDefinition[]) {
     const data = node.data;
     const rawText = data.piperText ?? "";
-    const text = String(resolveTemplate(rawText, ctx) || rawText);
+    const text = String(resolveTemplate(rawText, ctx) || rawText).trim();
+    if (!text) { throw new ExecutionError(`Piper TTS node "${data.label}" has no text to synthesize`, "GRAPH_FAILURE"); }
+    const host = (data.piperHost || "").trim().replace(/\/+$/, "");
+    if (!host) { throw new ExecutionError(`Piper TTS node "${data.label}" has no host - set piperHost (e.g. http://localhost:5000)`, "GRAPH_FAILURE"); }
     const voice = data.piperVoice || "en_US-lessac-medium";
     const started = Date.now();
-
-    this.emit(ctx, {
-      type: "tool:call:start",
-      nodeId: node.id,
-      toolName: "piper_tts",
-      action: "synthesize",
-      input: { text, voice },
-    });
-
-    const output = {
-      voice,
-      textLength: text.length,
-      audioType: "audio/wav",
-      audioUrl: `/api/audio/synthesized/${ctx.executionId}.wav`,
-      status: "SYNTHESIZED",
-    };
-
-    ctx.results[node.id] = output;
-    this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "piper_tts", status: "SUCCESS", output, durationMs: Date.now() - started });
-    await this.persistStep(ctx, node, "SUCCESS", { voice, output: summarize(output) });
-    this.emitNodeEnd(ctx, node, "SUCCESS", `Piper Voice (${voice})`);
+    this.emit(ctx, { type: "tool:call:start", nodeId: node.id, toolName: "piper_tts", action: "synthesize", input: { text: text.slice(0, 200), voice, host } });
+    let output: unknown;
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 30000);
+      const res = await fetch(`${host}/api/tts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, voice, format: "wav" }),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (!res.ok) {
+        const ac = new AbortController();
+        const at = setTimeout(() => ac.abort(), 30000);
+        const ar = await fetch(`${host}/tts`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, voice }), signal: ac.signal });
+        clearTimeout(at);
+        if (!ar.ok) { const errText = await ar.text().catch(() => ""); throw new ExecutionError(`Piper TTS failed ${ar.status}: ${errText.slice(0,300)}`, "GRAPH_FAILURE"); }
+        const audioBuffer = await ar.arrayBuffer();
+        const audioBase64 = Buffer.from(audioBuffer).toString("base64");
+        output = { voice, text, textLength: text.length, audioType: ar.headers.get("content-type") ?? "audio/wav", audioBase64: audioBase64.slice(0, 200000), audioSizeBytes: audioBuffer.byteLength, status: "SYNTHESIZED" };
+      } else {
+        const audioBuffer = await res.arrayBuffer();
+        const audioBase64 = Buffer.from(audioBuffer).toString("base64");
+        output = { voice, text, textLength: text.length, audioType: res.headers.get("content-type") ?? "audio/wav", audioBase64: audioBase64.slice(0, 200000), audioSizeBytes: audioBuffer.byteLength, status: "SYNTHESIZED" };
+      }
+      const durationMs = Date.now() - started;
+      this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "piper_tts", status: "SUCCESS", output, durationMs });
+      ctx.results[node.id] = output;
+    } catch (error) {
+      const durationMs = Date.now() - started;
+      this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "piper_tts", status: "FAILED", error: error instanceof Error ? error.message : String(error), durationMs });
+      if (error instanceof ExecutionError) throw error;
+      throw new ExecutionError(`Piper TTS synthesis failed: ${error instanceof Error ? error.message : String(error)}`, "GRAPH_FAILURE");
+    }
+    await this.persistStep(ctx, node, "SUCCESS", { voice, textLength: text.length, output: summarize(output) });
+    this.emitNodeEnd(ctx, node, "SUCCESS", `Piper Voice (${voice}) - ${text.length} chars`);
     return this.firstSuccessor(outgoing, node);
   }
 
