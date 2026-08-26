@@ -242,6 +242,8 @@ export interface GraphNodeData {
   pocketbaseRecordId?: string;
   /** Record payload or query filters (JSON template). */
   pocketbaseData?: Record<string, unknown>;
+  /** PocketBase auth token for protected collections. */
+  pocketbaseAuthToken?: string;
   // qdrant_vector_memory
   /** Qdrant instance URL (e.g. 'http://localhost:6333'). */
   qdrantHost?: string;
@@ -253,6 +255,8 @@ export interface GraphNodeData {
   qdrantQuery?: string;
   /** Limit top K results (default 3). */
   qdrantTopK?: number;
+  /** Qdrant API key for authenticated instances. */
+  qdrantApiKey?: string;
   // audio_transcriber (Faster-Whisper)
   /** Faster-Whisper / Audio API host endpoint. */
   audioTranscriberHost?: string;

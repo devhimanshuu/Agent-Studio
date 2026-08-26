@@ -107,11 +107,13 @@ export interface CanvasNodeData {
   pocketbaseAction?: "get" | "create" | "update" | "list";
   pocketbaseRecordId?: string;
   pocketbaseData?: Record<string, unknown>;
+  pocketbaseAuthToken?: string;
   qdrantHost?: string;
   qdrantCollection?: string;
   qdrantAction?: "search" | "upsert" | "count";
   qdrantQuery?: string;
   qdrantTopK?: number;
+  qdrantApiKey?: string;
   audioTranscriberHost?: string;
   audioSourceUrl?: string;
   audioLanguage?: string;
@@ -232,10 +234,12 @@ function nodeDataToGraphData(data: CanvasNodeData): GraphNodeDefinition["data"] 
     pocketbaseAction: data.pocketbaseAction,
     pocketbaseRecordId: data.pocketbaseRecordId,
     pocketbaseData: data.pocketbaseData,
+    pocketbaseAuthToken: data.pocketbaseAuthToken,
     qdrantHost: data.qdrantHost,
     qdrantCollection: data.qdrantCollection,
     qdrantAction: data.qdrantAction,
     qdrantQuery: data.qdrantQuery,
+    qdrantApiKey: data.qdrantApiKey,
     qdrantTopK: data.qdrantTopK,
     audioTranscriberHost: data.audioTranscriberHost,
     audioSourceUrl: data.audioSourceUrl,

@@ -412,6 +412,7 @@ export const CANVAS_NODE_TYPES: CanvasNodeTypeMeta[] = [
     defaults: {
       crawl4aiUrl: "https://github.com/unclecode/crawl4ai",
       crawl4aiWordCountThreshold: 10,
+      crawl4aiHost: "http://localhost:11235",
     },
   },
   {
@@ -426,6 +427,7 @@ export const CANVAS_NODE_TYPES: CanvasNodeTypeMeta[] = [
       doclingDocumentUrl: "https://arxiv.org/pdf/1706.03762.pdf",
       doclingOutputFormat: "markdown",
       doclingOcr: true,
+      doclingHost: "http://localhost:5001",
     },
   },
   {
@@ -500,6 +502,7 @@ export const CANVAS_NODE_TYPES: CanvasNodeTypeMeta[] = [
     defaults: {
       audioSourceUrl: "{{ input.audioUrl }}",
       audioLanguage: "auto",
+      audioTranscriberHost: "http://localhost:8000",
     },
   },
   {
@@ -513,6 +516,7 @@ export const CANVAS_NODE_TYPES: CanvasNodeTypeMeta[] = [
     defaults: {
       piperText: "{{ results }}",
       piperVoice: "en_US-lessac-medium",
+      piperHost: "http://localhost:5000",
     },
   },
   // ─── Visual & Documentation Nodes ───
