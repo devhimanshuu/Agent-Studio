@@ -738,12 +738,14 @@ function DirectoryApiDetailModal({
           <span className="text-[10px] text-slate-500">APIs.guru Registry Specification</span>
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={onClose}
               className="px-3 py-1.5 text-[10px] font-mono font-semibold uppercase text-slate-600 dark:text-slate-400 hover:text-slate-800 cursor-pointer"
             >
               Close
             </button>
             <button
+              type="button"
               onClick={onImport}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded border border-indigo-500 bg-indigo-600 text-white text-[10px] font-mono font-semibold uppercase tracking-wider hover:bg-indigo-500 shadow-xs transition-all cursor-pointer active:scale-95"
             >

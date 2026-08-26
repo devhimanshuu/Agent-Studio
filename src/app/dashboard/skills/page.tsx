@@ -9,7 +9,7 @@ import {
   Copy,
   Archive,
   Trash2,
-  Sparkles,
+  Cpu,
   GitCompare,
   ArrowRight,
   Workflow,
@@ -17,6 +17,7 @@ import {
   Play,
   Package,
   Wand2,
+  Layers,
 } from "lucide-react";
 import { skillsApi } from "@/lib/api/skills";
 import { SkillDTO, SkillStatus } from "@/types/skill";
@@ -170,7 +171,7 @@ export default function SkillsDashboardPage() {
                   : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-indigo-950/40"
               )}
             >
-              <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+              <Package className="h-3.5 w-3.5 text-amber-400" />
               SKILLS MARKETPLACE
             </button>
             <button
@@ -450,7 +451,7 @@ export default function SkillsDashboardPage() {
                           v{skill.currentDraft?.versionNumber ?? skill.publishedVersion?.versionNumber ?? 1}
                         </span>
                         <span className="flex items-center gap-1 font-medium">
-                          <Sparkles className="h-3 w-3 text-indigo-600 dark:text-indigo-400/70" />
+                          <Layers className="h-3 w-3 text-indigo-600 dark:text-indigo-400/70" />
                           {skill.versions?.length ?? 0} versions
                         </span>
                       </div>

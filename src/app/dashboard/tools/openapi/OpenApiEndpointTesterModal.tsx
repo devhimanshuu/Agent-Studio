@@ -145,6 +145,7 @@ export function OpenApiEndpointTesterModal({
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-1 text-slate-400 hover:text-slate-200 rounded hover:bg-slate-100 dark:hover:bg-indigo-950/40 cursor-pointer"
           >
@@ -296,12 +297,14 @@ export function OpenApiEndpointTesterModal({
           <span className="text-[10px] text-slate-500">Runs live from server runtime</span>
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={onClose}
               className="px-3 py-1.5 text-[10px] font-mono font-semibold uppercase text-slate-600 dark:text-slate-400 hover:text-slate-800 cursor-pointer"
             >
               Close
             </button>
             <button
+              type="button"
               onClick={handleRunTest}
               disabled={isRunning}
               className="inline-flex items-center gap-1 px-3 py-1.5 rounded border border-indigo-500 bg-indigo-600 text-white text-[10px] font-mono font-semibold uppercase tracking-wider hover:bg-indigo-500 disabled:opacity-50 cursor-pointer"

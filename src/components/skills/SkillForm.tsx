@@ -2,13 +2,31 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Trash2, Sparkles, Wrench, CheckSquare, ListChecks, Loader2, Workflow } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Save,
+  Wrench,
+  CheckSquare,
+  ListChecks,
+  Loader2,
+  Workflow,
+  HelpCircle,
+  Info,
+  ChevronDown,
+  ChevronUp,
+  Cpu,
+} from "lucide-react";
 import { createSkillSchema } from "@/validators/skillSchema";
 import { BUILT_IN_TOOL_CATALOG, TOOL_CATEGORIES } from "@/modules/tools";
 import { AvailableMcpTools } from "./AvailableMcpTools";
+import { AvailableOpenApiTools } from "./AvailableOpenApiTools";
+import { ApprovalActionMarketplace } from "./ApprovalActionMarketplace";
+import { QuickConnectToolModal } from "./QuickConnectToolModal";
 import { SkillDTO, SkillVersionDTO } from "@/types/skill";
 import { WorkflowStepChain } from "@/components/workflows/WorkflowStepChain";
 import { toast } from "@/stores/toastStore";
+import { clsx } from "clsx";
 
 // Client-side form schema: same rules as the API validator, minus userId.
 const formSchema = createSkillSchema.omit({ userId: true });
@@ -227,6 +245,89 @@ function TagsInput({
   );
 }
 
+function BuilderModeGuide({
+  toolCount,
+  approvalCount,
+}: {
+  toolCount: number;
+  approvalCount: number;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const isWorkflow = toolCount > 1 || approvalCount > 0;
+
+  return (
+    <div className="rounded-lg border border-indigo-200 dark:border-indigo-900/50 bg-gradient-to-r from-indigo-50/90 via-slate-50 to-amber-50/60 dark:from-indigo-950/40 dark:via-[#0a0a0a] dark:to-amber-950/20 p-3.5 space-y-2 shadow-sm font-mono transition-all">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          {isWorkflow ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-100 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-700/60 text-[10px] font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wide">
+              <Workflow className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+              MODE: WORKFLOW PIPELINE ({toolCount} tools · {approvalCount} approvals)
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-100 dark:bg-indigo-950/80 border border-indigo-300 dark:border-indigo-700/60 text-[10px] font-bold text-indigo-900 dark:text-indigo-200 uppercase tracking-wide">
+              <Cpu className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+              MODE: ATOMIC SKILL ({toolCount === 0 ? "Prompt-only" : "Single capability"})
+            </span>
+          )}
+          <span className="text-[10px] text-slate-500 hidden sm:inline">
+            {isWorkflow
+              ? "Configured as a multi-step sequential business pipeline."
+              : "Configured as an atomic reusable AI capability."}
+          </span>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 uppercase tracking-wider transition-colors cursor-pointer"
+        >
+          <HelpCircle className="h-3.5 w-3.5" />
+          {isOpen ? "HIDE GUIDE" : "SKILL VS WORKFLOW GUIDE"}
+          {isOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+        </button>
+      </div>
+
+      {/* Expandable Guide Tooltip */}
+      {isOpen && (
+        <div className="pt-2 border-t border-slate-200 dark:border-indigo-950/70 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+          {/* Skill Mode Explanation */}
+          <div className="p-3 rounded border border-indigo-200 dark:border-indigo-900/40 bg-white/90 dark:bg-black/50 space-y-1.5">
+            <div className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300 font-bold text-[11px] uppercase tracking-wide">
+              <Cpu className="h-3.5 w-3.5" /> Building an Atomic Skill
+            </div>
+            <p className="text-[11px] text-slate-600 dark:text-slate-400 font-serif leading-relaxed">
+              Use this when you want a <strong>single focused capability</strong> (e.g. <em>Forex Rate Fetcher</em>, <em>SQL Generator</em>, <em>Text Classifier</em>).
+            </p>
+            <ul className="text-[10px] text-slate-600 dark:text-slate-400 space-y-0.5 list-disc list-inside">
+              <li>Select <strong>0 or 1 tool</strong> in Allowed Tools</li>
+              <li>Leave <strong>Actions Requiring Approval</strong> empty</li>
+              <li>Define strict <strong>Input & Output JSON Schemas</strong></li>
+              <li><span className="text-indigo-600 dark:text-indigo-400 font-bold">Reusable</span> across entire workspace & Agent Canvas</li>
+            </ul>
+          </div>
+
+          {/* Workflow Mode Explanation */}
+          <div className="p-3 rounded border border-amber-200 dark:border-amber-900/40 bg-white/90 dark:bg-black/50 space-y-1.5">
+            <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-300 font-bold text-[11px] uppercase tracking-wide">
+              <Workflow className="h-3.5 w-3.5" /> Building a Workflow Pipeline
+            </div>
+            <p className="text-[11px] text-slate-600 dark:text-slate-400 font-serif leading-relaxed">
+              Use this when you want a <strong>multi-step business process</strong> (e.g. <em>Customer Refund Automation</em>, <em>Invoice Audit</em>, <em>Lead CRM Triage</em>).
+            </p>
+            <ul className="text-[10px] text-slate-600 dark:text-slate-400 space-y-0.5 list-disc list-inside">
+              <li>Chain <strong>2+ sequential tools</strong> in Allowed Tools</li>
+              <li>Select write actions under <strong>Actions Requiring Approval (HITL)</strong></li>
+              <li>Write step-by-step instructions (<em>1. Search ➔ 2. Extract ➔ 3. Approve ➔ 4. Report</em>)</li>
+              <li><span className="text-amber-600 dark:text-amber-400 font-bold">Executes</span> as a bounded autonomous workflow</li>
+            </ul>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SkillForm({
   mode,
   skill,
@@ -270,6 +371,8 @@ export function SkillForm({
 
   const allowedTools = watch("allowedTools") || [];
   const actionsRequiringApproval = watch("actionsRequiringApproval") || [];
+  const instructions = watch("instructions") || "";
+  const [isQuickConnectOpen, setIsQuickConnectOpen] = useState(false);
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -286,6 +389,12 @@ export function SkillForm({
 
   return (
     <form onSubmit={onValidSubmit} className="space-y-6 font-mono" noValidate>
+      {/* Dynamic Skill vs Workflow Mode Guide Banner & Tooltip */}
+      <BuilderModeGuide
+        toolCount={allowedTools.length}
+        approvalCount={actionsRequiringApproval.length}
+      />
+
       {/* Live Pipeline Preview Banner */}
       <div className="p-4 rounded border border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/70 dark:bg-[#0a0a0a]/80 space-y-2 shadow-sm">
         <div className="flex items-center justify-between">
@@ -444,10 +553,20 @@ export function SkillForm({
           control={control}
           name="allowedTools"
           render={({ field }) => (
-            <div className="rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 p-4 space-y-2 shadow-sm">
-              <label className={`${labelClass} flex items-center gap-1.5`}>
-                <Wrench className="h-3.5 w-3.5" /> Allowed Tools * <span className="text-slate-500">(min 1)</span>
-              </label>
+            <div className="rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 p-4 space-y-3 shadow-sm">
+              <div className="flex items-center justify-between gap-2">
+                <label className={`${labelClass} flex items-center gap-1.5`}>
+                  <Wrench className="h-3.5 w-3.5 text-indigo-600" /> Allowed Tools * <span className="text-slate-500">(min 1)</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsQuickConnectOpen(true)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-950/70 text-[10px] font-bold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/80 transition-all cursor-pointer shadow-sm"
+                >
+                  <Plus className="h-3 w-3" /> Quick-Connect Public APIs & Tools
+                </button>
+              </div>
+
               <TagsInput
                 label=""
                 values={field.value ?? []}
@@ -455,6 +574,7 @@ export function SkillForm({
                 error={fieldMessage(errors.allowedTools)}
                 placeholder="e.g. calculator, document_search…"
               />
+
               <AvailableTools
                 selected={field.value ?? []}
                 onAdd={(name) => field.onChange([...(field.value ?? []), name])}
@@ -463,6 +583,22 @@ export function SkillForm({
                 selected={field.value ?? []}
                 onAdd={(name) => field.onChange([...(field.value ?? []), name])}
               />
+              <AvailableOpenApiTools
+                selected={field.value ?? []}
+                onAdd={(name) => field.onChange([...(field.value ?? []), name])}
+              />
+
+              {/* Quick Connect Modal */}
+              <QuickConnectToolModal
+                isOpen={isQuickConnectOpen}
+                onClose={() => setIsQuickConnectOpen(false)}
+                selectedTools={field.value ?? []}
+                onAddTool={(toolName) => {
+                  if (!field.value?.includes(toolName)) {
+                    field.onChange([...(field.value ?? []), toolName]);
+                  }
+                }}
+              />
             </div>
           )}
         />
@@ -470,15 +606,25 @@ export function SkillForm({
           control={control}
           name="actionsRequiringApproval"
           render={({ field }) => (
-            <div className="rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 p-4 space-y-2 shadow-sm">
-              <label className={`${labelClass} flex items-center gap-1.5`}>
-                <CheckSquare className="h-3.5 w-3.5" /> Actions Requiring Approval
-              </label>
-              <TagsInput
-                label=""
-                values={field.value ?? []}
+            <div className="rounded border border-amber-300 dark:border-amber-500/40 bg-amber-50/40 dark:bg-amber-950/20 p-4 space-y-3 shadow-sm">
+              <div className="flex items-center justify-between">
+                <label className={`${labelClass} flex items-center gap-1.5 text-amber-900 dark:text-amber-300 font-bold`}>
+                  <CheckSquare className="h-3.5 w-3.5 text-amber-600" /> Actions Requiring Approval (HITL)
+                </label>
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-200/80 dark:bg-amber-900/60 text-amber-950 dark:text-amber-200 font-bold">
+                  IDEMPOTENT PAUSE
+                </span>
+              </div>
+              <p className="text-[10px] text-amber-900/80 dark:text-amber-400/80 font-serif leading-tight">
+                When an agent attempts these write actions, execution will pause into <code className="font-mono font-bold">PAUSED_FOR_APPROVAL</code> until reviewed by a user.
+              </p>
+
+              {/* Action Marketplace, Auto-Binding & Policy Profiles */}
+              <ApprovalActionMarketplace
+                selected={field.value ?? []}
                 onChange={field.onChange}
-                placeholder="e.g. create, add… (tool action names)"
+                allowedTools={allowedTools}
+                instructions={instructions}
               />
             </div>
           )}
@@ -522,7 +668,7 @@ export function SkillForm({
           disabled={isSubmitting}
           className="inline-flex items-center gap-2 px-6 py-3 rounded border border-indigo-400 bg-indigo-600 text-white text-xs font-mono font-semibold hover:bg-indigo-500 shadow-md shadow-indigo-500/30 transition-all cursor-pointer disabled:opacity-50"
         >
-          {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           {mode === "create" ? "[ CREATE SKILL ]" : "[ SAVE DRAFT ]"}
         </button>
       </div>

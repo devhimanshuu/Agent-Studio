@@ -72,16 +72,14 @@ export function OpenApiHub() {
         setError(json.error || "Failed to load integrations");
       } else {
         setIntegrations(json.data);
-        if (json.data.length > 0 && !expandedId) {
-          setExpandedId(json.data[0].id);
-        }
+        setExpandedId((prev) => prev ?? (json.data.length > 0 ? json.data[0].id : null));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error");
     } finally {
       setLoading(false);
     }
-  }, [expandedId]);
+  }, []);
 
   useEffect(() => {
     fetchIntegrations();
@@ -159,28 +157,6 @@ export function OpenApiHub() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setHubMode("PRESETS");
-            }}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-amber-300 dark:border-amber-800/80 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-[10px] font-mono font-semibold uppercase tracking-wider hover:border-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/60 transition-all cursor-pointer shadow-xs"
-          >
-            <Zap className="h-3 w-3 text-amber-500 fill-amber-400" />
-            FREE TOOL PACKS ({OPENAPI_PRESETS.length})
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setHubMode("DIRECTORY");
-            }}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-indigo-300 dark:border-indigo-800/80 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 text-[10px] font-mono font-semibold uppercase tracking-wider hover:border-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-all cursor-pointer shadow-xs"
-          >
-            <Globe className="h-3 w-3 text-indigo-500 animate-pulse" />
-            GLOBAL REGISTRY (2,500+)
-          </button>
-
           <button
             type="button"
             onClick={() => {
@@ -324,13 +300,13 @@ export function OpenApiHub() {
                         data-open={isExpanded}
                       >
                         <div className="flex items-center gap-3">
-                          <button className="p-0.5 text-slate-400 hover:text-indigo-400">
+                          <span className="p-0.5 text-slate-400 hover:text-indigo-400">
                             {isExpanded ? (
                               <ChevronDown className="w-4 h-4 text-indigo-500" />
                             ) : (
                               <ChevronRight className="w-4 h-4" />
                             )}
-                          </button>
+                          </span>
                           <div>
                             <div className="flex items-center gap-2 flex-wrap">
                               <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wide">

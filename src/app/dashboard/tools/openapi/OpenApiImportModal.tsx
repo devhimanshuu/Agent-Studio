@@ -212,6 +212,7 @@ export function OpenApiImportModal({ isOpen, initialSpecUrl, onClose, onSuccess 
             </h2>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-1 text-slate-400 hover:text-slate-200 rounded hover:bg-slate-100 dark:hover:bg-indigo-950/40 cursor-pointer"
           >
@@ -672,6 +673,7 @@ export function OpenApiImportModal({ isOpen, initialSpecUrl, onClose, onSuccess 
         <div className="flex items-center justify-between px-5 py-3 border-t border-slate-200 dark:border-indigo-950 bg-slate-50 dark:bg-[#0a0a0e]">
           {step > 1 ? (
             <button
+              type="button"
               onClick={() => setStep((step - 1) as 1 | 2 | 3 | 4)}
               className="inline-flex items-center gap-1 px-3 py-1.5 rounded border border-slate-300 dark:border-indigo-900/60 bg-slate-100 dark:bg-indigo-950/40 text-slate-700 dark:text-slate-300 text-[10px] font-mono font-semibold uppercase tracking-wider hover:bg-slate-200 cursor-pointer"
             >
@@ -683,6 +685,7 @@ export function OpenApiImportModal({ isOpen, initialSpecUrl, onClose, onSuccess 
 
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={onClose}
               className="px-3 py-1.5 text-[10px] font-mono font-semibold uppercase text-slate-600 dark:text-slate-400 hover:text-slate-800 cursor-pointer"
             >
@@ -691,6 +694,7 @@ export function OpenApiImportModal({ isOpen, initialSpecUrl, onClose, onSuccess 
 
             {step === 1 && (
               <button
+                type="button"
                 onClick={handleParse}
                 disabled={isParsing || (sourceType === "URL" ? !specUrl : !rawSpecText)}
                 className="inline-flex items-center gap-1 px-3 py-1.5 rounded border border-indigo-500 bg-indigo-600 text-white text-[10px] font-mono font-semibold uppercase tracking-wider hover:bg-indigo-500 disabled:opacity-50 cursor-pointer"
@@ -709,6 +713,7 @@ export function OpenApiImportModal({ isOpen, initialSpecUrl, onClose, onSuccess 
 
             {step === 2 && (
               <button
+                type="button"
                 onClick={() => setStep(3)}
                 disabled={enabledCount === 0}
                 className="inline-flex items-center gap-1 px-3 py-1.5 rounded border border-indigo-500 bg-indigo-600 text-white text-[10px] font-mono font-semibold uppercase tracking-wider hover:bg-indigo-500 disabled:opacity-50 cursor-pointer"
@@ -719,6 +724,7 @@ export function OpenApiImportModal({ isOpen, initialSpecUrl, onClose, onSuccess 
 
             {step === 3 && (
               <button
+                type="button"
                 onClick={() => setStep(4)}
                 className="inline-flex items-center gap-1 px-3 py-1.5 rounded border border-indigo-500 bg-indigo-600 text-white text-[10px] font-mono font-semibold uppercase tracking-wider hover:bg-indigo-500 cursor-pointer"
               >
@@ -728,6 +734,7 @@ export function OpenApiImportModal({ isOpen, initialSpecUrl, onClose, onSuccess 
 
             {step === 4 && (
               <button
+                type="button"
                 onClick={handleSaveIntegration}
                 disabled={isSaving}
                 className="inline-flex items-center gap-1 px-3 py-1.5 rounded border border-indigo-500 bg-indigo-600 text-white text-[10px] font-mono font-semibold uppercase tracking-wider hover:bg-indigo-500 disabled:opacity-50 cursor-pointer"
