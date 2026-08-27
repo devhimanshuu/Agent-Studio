@@ -114,12 +114,45 @@ export function McpServerHub() {
   const [pendingUpdates, setPendingUpdates] = useState<(McpToolUpdate & { affectedSkillNames: string[] })[]>([]);
   const [diffViewerUpdate, setDiffViewerUpdate] = useState<(McpToolUpdate & { affectedSkillNames: string[] }) | null>(null);
 
+  const probe = useCallback(async (serverId: string) => {
+    try {
+      const h = await api<McpHealth>(`/api/mcp/servers/${serverId}/health`);
+      setHealth((prev) => ({ ...prev, [serverId]: h }));
+    } catch {
+      // Health probes are best-effort.
+    }
+  }, []);
+
+  const load = useCallback(async () => {
+    try {
+      setServers(await api<McpServerDTO[]>("/api/mcp/servers"));
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load MCP servers");
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+    api<McpPreset[]>("/api/mcp/presets")
+      .then((list) => {
+        if (Array.isArray(list) && list.length > 0) setPresets(list);
+      })
+      .catch(() => { });
+    // Fetch pending tool updates
+    api<(McpToolUpdate & { affectedSkillNames: string[] })[]>("/api/mcp/updates")
+      .then((updates) => {
+        if (Array.isArray(updates)) setPendingUpdates(updates);
+      })
+      .catch(() => { });
+  }, [load]);
+
   const handleMountFromDirectory = useCallback(async (server: PublicMcpServer) => {
     // ── Deep integration: Composio toolkit ──
     if (server.source === "composio") {
       try {
         setBusy(server.id);
-        const slug = server.id.replace("composio-", "");
+        const slug = server.id.replace("composio-tool-", "").replace("composio-", "");
         const res = await api<{ sessionId: string; mcpUrl: string; mcpHeaders: Record<string, string> }>(
           "/api/mcp/composio",
           { method: "POST", body: JSON.stringify({ toolkits: [slug] }) }
@@ -135,11 +168,18 @@ export function McpServerHub() {
             connectOnCreate: true,
           }),
         });
-        setServers((prev) => [...(prev ?? []), created]);
+        setServers((prev) => [created, ...(prev ?? []).filter((s) => s.id !== created.id)]);
+        if (created.status === "CONNECTED") {
+          await probe(created.id);
+          setSuccessMessage(`Mounted ${server.name} [Composio] successfully (${created.cachedTools?.length ?? 0} tools discovered)`);
+          setTimeout(() => setSuccessMessage(null), 4000);
+        } else if (created.lastError) {
+          setError(`Server created but connect failed: ${created.lastError}`);
+        }
         setBusy(null);
       } catch (e) {
         setBusy(null);
-        setError(e instanceof Error ? e.message : "Failed to connect Composio toolkit");
+        setError(e instanceof Error ? e.message : "Failed to connect Composio toolkit. Please check COMPOSIO_API_KEY.");
       }
       return;
     }
@@ -163,16 +203,57 @@ export function McpServerHub() {
             connectOnCreate: true,
           }),
         });
-        setServers((prev) => [...(prev ?? []), created]);
+        setServers((prev) => [created, ...(prev ?? []).filter((s) => s.id !== created.id)]);
+        if (created.status === "CONNECTED") {
+          await probe(created.id);
+          setSuccessMessage(`Mounted ${server.name} [Arcade] successfully (${created.cachedTools?.length ?? 0} tools discovered)`);
+          setTimeout(() => setSuccessMessage(null), 4000);
+        } else if (created.lastError) {
+          setError(`Server created but connect failed: ${created.lastError}`);
+        }
         setBusy(null);
       } catch (e) {
         setBusy(null);
-        setError(e instanceof Error ? e.message : "Failed to connect Arcade integration");
+        setError(e instanceof Error ? e.message : "Failed to connect Arcade integration. Please check ARCADE_API_KEY.");
       }
       return;
     }
 
     // ── Standard MCP server mount ──
+    const requiresAuth = Boolean(server.requiresAuthToken || (server.envVarsRequired && server.envVarsRequired.length > 0));
+
+    // Direct 1-Click Mount for zero-auth public servers with ready commands or SSE endpoints
+    if (!requiresAuth && (server.endpointUrl || server.command)) {
+      try {
+        setBusy(server.id);
+        const body = {
+          name: server.name,
+          transport: server.transport,
+          ...(server.transport === "SSE" ? { endpointUrl: server.endpointUrl } : { command: server.command }),
+          connectOnCreate: true,
+        };
+        const created = await api<McpServerDTO>("/api/mcp/servers", {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+        setServers((prev) => [created, ...(prev ?? []).filter((s) => s.id !== created.id)]);
+        if (created.status === "CONNECTED") {
+          await probe(created.id);
+          setSuccessMessage(`Connected ${server.name} successfully (${created.cachedTools?.length ?? 0} tools discovered)`);
+          setTimeout(() => setSuccessMessage(null), 4000);
+        } else if (created.lastError) {
+          setError(`Server created but connect failed: ${created.lastError}`);
+        }
+        setBusy(null);
+        return;
+      } catch (e) {
+        setBusy(null);
+        // Fall back to opening the modal if direct mount threw an error
+        setError(e instanceof Error ? e.message : "Direct mount failed; opening configuration modal.");
+      }
+    }
+
+    // If authentication is required or direct mount requires manual parameters
     const mappedPreset: McpPreset = {
       id: server.id,
       name: server.name,
@@ -180,36 +261,12 @@ export function McpServerHub() {
       endpointUrl: server.endpointUrl,
       command: server.command,
       description: server.description,
-      requiresAuthToken: Boolean(server.requiresAuthToken || (server.envVarsRequired && server.envVarsRequired.length > 0)),
+      requiresAuthToken: requiresAuth,
       category: (server.category as McpPreset["category"]) || "UTILITY",
     };
     setConnectPreset(mappedPreset);
     setConnectOpen(true);
-  }, []);
-
-  const load = useCallback(async () => {
-    try {
-      setServers(await api<McpServerDTO[]>("/api/mcp/servers"));
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load MCP servers");
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-    api<McpPreset[]>("/api/mcp/presets")
-      .then((list) => {
-        if (Array.isArray(list) && list.length > 0) setPresets(list);
-      })
-      .catch(() => {});
-    // Fetch pending tool updates
-    api<(McpToolUpdate & { affectedSkillNames: string[] })[]>("/api/mcp/updates")
-      .then((updates) => {
-        if (Array.isArray(updates)) setPendingUpdates(updates);
-      })
-      .catch(() => {});
-  }, [load]);
+  }, [probe]);
 
   const refresh = useCallback(
     async (serverId: string) => {
@@ -228,18 +285,8 @@ export function McpServerHub() {
         setBusy(null);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [load]
+    [load, probe]
   );
-
-  const probe = useCallback(async (serverId: string) => {
-    try {
-      const h = await api<McpHealth>(`/api/mcp/servers/${serverId}/health`);
-      setHealth((prev) => ({ ...prev, [serverId]: h }));
-    } catch {
-      // Health probes are best-effort.
-    }
-  }, []);
 
   const disconnect = useCallback(
     async (serverId: string) => {
@@ -330,14 +377,14 @@ export function McpServerHub() {
   }, [probe]);
 
   const connectedCount = (servers ?? []).filter((s) => s.status === "CONNECTED").length;
-  const totalTools = (servers ?? []).reduce((sum, s) => sum + s.cachedTools.length, 0);
+  const totalTools = (servers ?? []).reduce((sum, s) => sum + (s.cachedTools?.length ?? 0), 0);
 
   const filteredPresets = presets.filter((p) => {
     const matchesCategory = presetCategory === "ALL" || p.category === presetCategory;
     const matchesSearch =
       !presetSearch ||
       p.name.toLowerCase().includes(presetSearch.toLowerCase()) ||
-      p.description.toLowerCase().includes(presetSearch.toLowerCase());
+      (p.description?.toLowerCase().includes(presetSearch.toLowerCase()) ?? false);
     return matchesCategory && matchesSearch;
   });
 
@@ -473,6 +520,7 @@ export function McpServerHub() {
         {hubCatalogMode === "DIRECTORY" ? (
           <McpDirectoryBrowser
             onMount={handleMountFromDirectory}
+            busyServerId={busy}
             mountedServerIds={[
               ...(servers ?? []).map((s) => s.id),
               ...(servers ?? []).map((s) => s.name.toLowerCase().replace(/[^a-z0-9]/g, "-")),
@@ -625,25 +673,31 @@ export function McpServerHub() {
                   server={server}
                   health={health[server.id]}
                   busy={busy === server.id}
+                  expanded={expanded === server.id}
                   hasUpdate={pendingUpdates.some((u) => u.serverId === server.id)}
+                  pendingUpdate={pendingUpdates.find((u) => u.serverId === server.id) || undefined}
                   onConnect={() => refresh(server.id)}
                   onDisconnect={() => disconnect(server.id)}
                   onDelete={() => setDeleteTarget(server)}
                   onHealth={() => probe(server.id)}
                   onInspect={() => setExpanded((prev) => (prev === server.id ? null : server.id))}
+                  onViewUpdate={() => {
+                    const update = pendingUpdates.find((u) => u.serverId === server.id);
+                    if (update) setDiffViewerUpdate(update);
+                  }}
                 />
               ))}
             </div>
           ) : (
-          <div className="space-y-3">
-            {servers.map((server) => (                <ServerCard
-                  key={server.id}
-                  server={server}
-                  health={health[server.id]}
-                  busy={busy === server.id}
-                  expanded={expanded === server.id}
-                  hasUpdate={pendingUpdates.some((u) => u.serverId === server.id)}
-                  pendingUpdate={pendingUpdates.find((u) => u.serverId === server.id) || undefined}
+            <div className="space-y-3">
+              {servers.map((server) => (<ServerCard
+                key={server.id}
+                server={server}
+                health={health[server.id]}
+                busy={busy === server.id}
+                expanded={expanded === server.id}
+                hasUpdate={pendingUpdates.some((u) => u.serverId === server.id)}
+                pendingUpdate={pendingUpdates.find((u) => u.serverId === server.id) || undefined}
                 onToggle={() => setExpanded((prev) => (prev === server.id ? null : server.id))}
                 onConnect={() => refresh(server.id)}
                 onDisconnect={() => disconnect(server.id)}
@@ -655,8 +709,8 @@ export function McpServerHub() {
                   if (update) setDiffViewerUpdate(update);
                 }}
               />
-            ))}
-          </div>
+              ))}
+            </div>
           )
         )}
       </div>
@@ -724,115 +778,138 @@ function ServerGridCard(props: {
   server: McpServerDTO;
   health?: McpHealth;
   busy: boolean;
+  expanded?: boolean;
   hasUpdate: boolean;
+  pendingUpdate?: McpToolUpdate;
   onConnect: () => void;
   onDisconnect: () => void;
   onDelete: () => void;
   onHealth: () => void;
   onInspect: () => void;
+  onViewUpdate?: () => void;
 }) {
-  const { server, health } = props;
+  const { server, health, busy, expanded } = props;
   const theme = statusTheme[server.status] ?? statusTheme.DISCONNECTED;
   const isConnected = server.status === "CONNECTED";
+  const toolCount = server.cachedTools?.length ?? 0;
 
   return (
-    <div onClick={props.onInspect} className="rounded-lg border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/70 hover:border-indigo-500/60 dark:hover:border-indigo-500/50 hover:shadow-lg transition-all p-4 flex flex-col justify-between space-y-3 cursor-pointer">
-      {/* Top */}
-      <div className="space-y-2">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <ItemIcon
-              name={server.name}
-              size="sm"
-            />
-            <div className="min-w-0 flex-1">
-              <h3 className="text-xs font-mono font-bold text-slate-900 dark:text-slate-100 truncate">
-                {server.name}
-              </h3>
-              <p className="text-[9px] font-mono text-slate-500 truncate">
-                {server.transport === "SSE" ? server.endpointUrl : server.command}
-              </p>
+    <div className="rounded-lg border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/70 hover:border-indigo-500/60 dark:hover:border-indigo-500/50 hover:shadow-lg transition-all flex flex-col justify-between overflow-hidden">
+      <div className="p-4 flex flex-col justify-between space-y-3 flex-1">
+        {/* Top */}
+        <div className="space-y-2">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <ItemIcon
+                name={server.name}
+                size="sm"
+              />
+              <div className="min-w-0 flex-1">
+                <h3 className="text-xs font-mono font-bold text-slate-900 dark:text-slate-100 truncate">
+                  {server.name}
+                </h3>
+                <p className="text-[9px] font-mono text-slate-500 truncate">
+                  {server.transport === "SSE" ? server.endpointUrl : server.command}
+                </p>
+              </div>
             </div>
-          </div>
-          <span className={clsx(
-            "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border shrink-0",
-            theme.chip
-          )}>
-            <span className={clsx("h-1.5 w-1.5 rounded-full", theme.dot)} />
-            {server.status}
-          </span>
-        </div>
-
-        {/* Badges */}
-        <div className="flex flex-wrap gap-1">
-          <span className="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border border-slate-200 dark:border-indigo-900/50 bg-white dark:bg-[#0a0a0a]/60 text-slate-600 dark:text-slate-400">
-            {server.transport}
-          </span>
-          <span className="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border border-slate-200 dark:border-indigo-900/50 bg-white dark:bg-[#0a0a0a]/60 text-slate-600 dark:text-slate-400">
-            {server.cachedTools.length} TOOLS
-          </span>
-          {props.hasUpdate && (
-            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 animate-pulse">
-              <ArrowUpCircle className="h-2.5 w-2.5" /> UPDATE
-            </span>
-          )}
-          {health && (
             <span className={clsx(
-              "px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border",
-              health.status === "healthy" ? "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300" :
-              health.status === "degraded" ? "border-amber-300 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300" :
-              "border-red-300 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300"
+              "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border shrink-0",
+              theme.chip
             )}>
-              {health.status} · {health.latencyMs}ms
+              <span className={clsx("h-1.5 w-1.5 rounded-full", theme.dot)} />
+              {server.status}
             </span>
+          </div>
+
+          {/* Badges */}
+          <div className="flex flex-wrap gap-1">
+            <span className="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border border-slate-200 dark:border-indigo-900/50 bg-white dark:bg-[#0a0a0a]/60 text-slate-600 dark:text-slate-400">
+              {server.transport}
+            </span>
+            <span className="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border border-slate-200 dark:border-indigo-900/50 bg-white dark:bg-[#0a0a0a]/60 text-slate-600 dark:text-slate-400">
+              {toolCount} TOOLS
+            </span>
+            {props.hasUpdate && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 animate-pulse">
+                <ArrowUpCircle className="h-2.5 w-2.5" /> UPDATE
+              </span>
+            )}
+            {health && (
+              <span className={clsx(
+                "px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border",
+                health.status === "healthy" ? "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300" :
+                  health.status === "degraded" ? "border-amber-300 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300" :
+                    "border-red-300 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300"
+              )}>
+                {health.status} · {health.latencyMs}ms
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100 dark:border-indigo-950/60">
+          {isConnected ? (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); props.onDisconnect(); }}
+              disabled={busy}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-300 dark:border-indigo-900/50 text-[8px] font-mono uppercase tracking-wider font-semibold text-slate-600 dark:text-slate-400 hover:border-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <Unplug className="h-2.5 w-2.5" /> DISCONNECT
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); props.onConnect(); }}
+              disabled={busy}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-indigo-500 bg-indigo-600 text-white text-[8px] font-mono uppercase tracking-wider font-semibold hover:bg-indigo-500 shadow-sm shadow-indigo-500/30 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <PlugZap className="h-2.5 w-2.5" /> CONNECT
+            </button>
           )}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); props.onHealth(); }}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-300 dark:border-indigo-900/50 text-[8px] font-mono uppercase tracking-wider font-semibold text-slate-600 dark:text-slate-400 hover:border-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-all cursor-pointer"
+          >
+            <Activity className="h-2.5 w-2.5" /> PROBE
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); props.onInspect(); }}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-300 dark:border-indigo-900/50 text-[8px] font-mono uppercase tracking-wider font-semibold text-slate-600 dark:text-slate-400 hover:border-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-all cursor-pointer"
+          >
+            <Braces className="h-2.5 w-2.5" /> {expanded ? "COLLAPSE" : "INSPECT"}
+          </button>
+          {props.hasUpdate && props.onViewUpdate && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); props.onViewUpdate?.(); }}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-amber-400 bg-amber-50 dark:bg-amber-950/40 text-[8px] font-mono uppercase tracking-wider font-bold text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950/60 transition-all cursor-pointer"
+            >
+              <ArrowUpCircle className="h-2.5 w-2.5" /> UPDATE
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); props.onDelete(); }}
+            disabled={busy}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded border border-red-300 dark:border-red-500/30 text-[8px] font-mono uppercase tracking-wider font-semibold text-red-700 dark:text-red-300 hover:border-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all cursor-pointer disabled:opacity-50 ml-auto"
+          >
+            <Trash2 className="h-2.5 w-2.5" />
+          </button>
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100 dark:border-indigo-950/60">
-        {isConnected ? (
-          <button
-            type="button"
-            onClick={props.onDisconnect}
-            disabled={props.busy}
-            className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-300 dark:border-indigo-900/50 text-[8px] font-mono uppercase tracking-wider font-semibold text-slate-600 dark:text-slate-400 hover:border-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-all cursor-pointer disabled:opacity-50"
-          >
-            <Unplug className="h-2.5 w-2.5" /> DISCONNECT
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={props.onConnect}
-            disabled={props.busy}
-            className="inline-flex items-center gap-1 px-2 py-1 rounded border border-indigo-500 bg-indigo-600 text-white text-[8px] font-mono uppercase tracking-wider font-semibold hover:bg-indigo-500 shadow-sm shadow-indigo-500/30 transition-all cursor-pointer disabled:opacity-50"
-          >
-            <PlugZap className="h-2.5 w-2.5" /> CONNECT
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={props.onHealth}
-          className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-300 dark:border-indigo-900/50 text-[8px] font-mono uppercase tracking-wider font-semibold text-slate-600 dark:text-slate-400 hover:border-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-all cursor-pointer"
-        >
-          <Activity className="h-2.5 w-2.5" /> PROBE
-        </button>
-        <button
-          type="button"
-          onClick={props.onInspect}
-          className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-300 dark:border-indigo-900/50 text-[8px] font-mono uppercase tracking-wider font-semibold text-slate-600 dark:text-slate-400 hover:border-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-all cursor-pointer"
-        >
-          <Braces className="h-2.5 w-2.5" /> INSPECT
-        </button>
-        <button
-          type="button"
-          onClick={props.onDelete}
-          disabled={props.busy}
-          className="inline-flex items-center gap-1 px-2 py-1 rounded border border-red-300 dark:border-red-500/30 text-[8px] font-mono uppercase tracking-wider font-semibold text-red-700 dark:text-red-300 hover:border-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all cursor-pointer disabled:opacity-50 ml-auto"
-        >
-          <Trash2 className="h-2.5 w-2.5" />
-        </button>
-      </div>
+      {expanded && (
+        <ToolInspector
+          server={server}
+          pendingUpdate={props.pendingUpdate}
+          onViewUpdate={props.onViewUpdate}
+        />
+      )}
     </div>
   );
 }
@@ -896,87 +973,89 @@ function ServerCard(props: {
   const { server, health, busy, expanded } = props;
   const theme = statusTheme[server.status] ?? statusTheme.DISCONNECTED;
   const isConnected = server.status === "CONNECTED";
+  const toolCount = server.cachedTools?.length ?? 0;
 
   return (
-    <div className="group rounded-lg border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/70 hover:border-indigo-500/60 dark:hover:border-indigo-500/50 hover:shadow-md transition-all p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3.5">
-      {/* Left: Info, Badges */}
-      <div className="min-w-0 flex-1 space-y-1.5">
-        <div className="flex flex-wrap items-center gap-2">
-          <ItemIcon
-            name={server.name}
-            size="xs"
-          />
-          <h3 className="text-xs font-mono font-bold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-            {server.name}
-          </h3>
-          <span className={clsx(
-            "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border",
-            theme.chip
-          )}>
-            <span className={clsx("h-1.5 w-1.5 rounded-full", theme.dot)} />
-            {server.status}
-          </span>
-          <span className="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border border-slate-200 dark:border-indigo-900/50 bg-white dark:bg-[#0a0a0a]/60 text-slate-600 dark:text-slate-400">
-            {server.transport}
-          </span>
-          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border border-slate-200 dark:border-indigo-900/50 bg-white dark:bg-[#0a0a0a]/60 text-slate-600 dark:text-slate-400">
-            <Braces className="h-2.5 w-2.5" /> {server.cachedTools.length} TOOLS
-          </span>
-          {props.hasUpdate && (
-            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 animate-pulse">
-              <ArrowUpCircle className="h-2.5 w-2.5" /> UPDATE AVAILABLE
-            </span>
-          )}
-          {health && (
+    <div className="group rounded-lg border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/70 hover:border-indigo-500/60 dark:hover:border-indigo-500/50 hover:shadow-md transition-all overflow-hidden flex flex-col">
+      {/* Header Row */}
+      <div className="p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3.5">
+        {/* Left: Info, Badges */}
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <ItemIcon
+              name={server.name}
+              size="xs"
+            />
+            <h3 className="text-xs font-mono font-bold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+              {server.name}
+            </h3>
             <span className={clsx(
-              "px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border",
-              health.status === "healthy" ? "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300" :
-              health.status === "degraded" ? "border-amber-300 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300" :
-              "border-red-300 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300"
+              "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border",
+              theme.chip
             )}>
-              {health.status} · {health.latencyMs}ms
+              <span className={clsx("h-1.5 w-1.5 rounded-full", theme.dot)} />
+              {server.status}
             </span>
+            <span className="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border border-slate-200 dark:border-indigo-900/50 bg-white dark:bg-[#0a0a0a]/60 text-slate-600 dark:text-slate-400">
+              {server.transport}
+            </span>
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border border-slate-200 dark:border-indigo-900/50 bg-white dark:bg-[#0a0a0a]/60 text-slate-600 dark:text-slate-400">
+              <Braces className="h-2.5 w-2.5" /> {toolCount} TOOLS
+            </span>
+            {props.hasUpdate && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 animate-pulse">
+                <ArrowUpCircle className="h-2.5 w-2.5" /> UPDATE AVAILABLE
+              </span>
+            )}
+            {health && (
+              <span className={clsx(
+                "px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border",
+                health.status === "healthy" ? "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300" :
+                  health.status === "degraded" ? "border-amber-300 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300" :
+                    "border-red-300 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300"
+              )}>
+                {health.status} · {health.latencyMs}ms
+              </span>
+            )}
+          </div>
+
+          <p className="text-[9px] font-mono text-slate-500 truncate">
+            {server.transport === "SSE" ? server.endpointUrl : server.command}
+          </p>
+
+          {server.lastError && server.status === "ERROR" && (
+            <p className="text-[9px] font-mono text-red-700 dark:text-red-400 font-semibold break-all">⚠ {server.lastError}</p>
           )}
         </div>
 
-        <p className="text-[9px] font-mono text-slate-500 truncate">
-          {server.transport === "SSE" ? server.endpointUrl : server.command}
-        </p>
-
-        {server.lastError && server.status === "ERROR" && (
-          <p className="text-[9px] font-mono text-red-700 dark:text-red-400 font-semibold break-all flex items-center gap-1">
-            <CircleAlert className="h-3 w-3 shrink-0" /> {server.lastError}
-          </p>
-        )}
-      </div>
-
-      {/* Right: Actions */}
-      <div className="flex items-center gap-1.5">
-            {isConnected ? (
-              <ActionButton icon={Unplug} label="Disconnect" onClick={props.onDisconnect} disabled={busy} tone="neutral" />
-            ) : (
-              <ActionButton icon={PlugZap} label="Connect" onClick={props.onConnect} disabled={busy} tone="primary" />
-            )}
-            <ActionButton icon={RefreshCw} label="Rediscover" onClick={props.onRediscover} disabled={busy} tone="neutral" />
-            {props.hasUpdate && (
-              <button
-                type="button"
-                onClick={props.onViewUpdate}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded border border-amber-400 bg-amber-50 dark:bg-amber-950/40 text-[8px] font-mono uppercase tracking-wider font-bold text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950/60 transition-all cursor-pointer"
-              >
-                <ArrowUpCircle className="h-3 w-3" /> VIEW UPDATE
-              </button>
-            )}
-            <ActionButton icon={Trash2} label="Delete" onClick={props.onDelete} disabled={busy} tone="danger" />
+        {/* Right: Actions */}
+        <div className="flex items-center gap-1.5">
+          {isConnected ? (
+            <ActionButton icon={Unplug} label="Disconnect" onClick={props.onDisconnect} disabled={busy} tone="neutral" />
+          ) : (
+            <ActionButton icon={PlugZap} label="Connect" onClick={props.onConnect} disabled={busy} tone="primary" />
+          )}
+          <ActionButton icon={RefreshCw} label="Rediscover" onClick={props.onRediscover} disabled={busy} tone="neutral" />
+          {props.hasUpdate && (
             <button
               type="button"
-              onClick={props.onToggle}
-              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-300 dark:border-indigo-900/50 text-[8px] font-mono uppercase tracking-wider font-semibold text-slate-600 dark:text-slate-400 hover:border-indigo-400 transition-all cursor-pointer"
+              onClick={props.onViewUpdate}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-amber-400 bg-amber-50 dark:bg-amber-950/40 text-[8px] font-mono uppercase tracking-wider font-bold text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950/60 transition-all cursor-pointer"
             >
-              {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-              Inspect
+              <ArrowUpCircle className="h-3 w-3" /> VIEW UPDATE
             </button>
-          </div>
+          )}
+          <ActionButton icon={Trash2} label="Delete" onClick={props.onDelete} disabled={busy} tone="danger" />
+          <button
+            type="button"
+            onClick={props.onToggle}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-300 dark:border-indigo-900/50 text-[8px] font-mono uppercase tracking-wider font-semibold text-slate-600 dark:text-slate-400 hover:border-indigo-400 transition-all cursor-pointer"
+          >
+            {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            Inspect
+          </button>
+        </div>
+      </div>
 
       {expanded && <ToolInspector server={server} pendingUpdate={props.pendingUpdate} onViewUpdate={props.onViewUpdate} />}
     </div>
@@ -999,11 +1078,11 @@ function ActionButton(props: {
       className={clsx(
         "inline-flex items-center gap-1 px-2 py-1 rounded border text-[9px] font-mono uppercase tracking-wider font-semibold transition-all cursor-pointer disabled:opacity-50",
         props.tone === "primary" &&
-          "border-indigo-500 bg-indigo-600 text-white hover:bg-indigo-500 shadow-sm shadow-indigo-500/30",
+        "border-indigo-500 bg-indigo-600 text-white hover:bg-indigo-500 shadow-sm shadow-indigo-500/30",
         props.tone === "neutral" &&
-          "border-slate-300 dark:border-indigo-900/50 text-slate-600 dark:text-slate-400 hover:border-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300",
+        "border-slate-300 dark:border-indigo-900/50 text-slate-600 dark:text-slate-400 hover:border-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300",
         props.tone === "danger" &&
-          "border-red-300 dark:border-red-500/30 text-red-700 dark:text-red-300 hover:border-red-400 hover:bg-red-50 dark:hover:bg-red-950/30"
+        "border-red-300 dark:border-red-500/30 text-red-700 dark:text-red-300 hover:border-red-400 hover:bg-red-50 dark:hover:bg-red-950/30"
       )}
     >
       <Icon className="h-3 w-3" /> {props.label}
@@ -1025,6 +1104,7 @@ function generateSamplePayload(schema: Record<string, unknown> | undefined): str
   const sample: Record<string, unknown> = {};
 
   for (const [key, prop] of Object.entries(properties)) {
+    if (!prop || typeof prop !== "object") continue;
     if (prop.default !== undefined) {
       sample[key] = prop.default;
     } else if (prop.enum && Array.isArray(prop.enum) && prop.enum.length > 0) {
@@ -1050,7 +1130,7 @@ function generateSamplePayload(schema: Record<string, unknown> | undefined): str
 type InspectorTab = "tools" | "resources" | "prompts" | "sampling" | "progress";
 
 const INSPECTOR_TABS: { id: InspectorTab; label: string; icon: typeof Braces; count?: (s: McpServerDTO) => number }[] = [
-  { id: "tools", label: "TOOLS", icon: Braces, count: (s) => s.cachedTools.length },
+  { id: "tools", label: "TOOLS", icon: Braces, count: (s) => s.cachedTools?.length ?? 0 },
   { id: "resources", label: "RESOURCES", icon: Database },
   { id: "prompts", label: "PROMPTS", icon: BookOpen },
   { id: "sampling", label: "SAMPLING", icon: Brain },
@@ -1119,6 +1199,7 @@ function ToolsTab({ server, activeTestTool, setActiveTestTool, schemaOpen, setSc
   pendingUpdate?: McpToolUpdate;
   onViewUpdate?: () => void;
 }) {
+  const tools = server.cachedTools ?? [];
   return (
     <div className="space-y-3">
       {pendingUpdate && (
@@ -1142,14 +1223,14 @@ function ToolsTab({ server, activeTestTool, setActiveTestTool, schemaOpen, setSc
       )}
       <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400 font-semibold flex items-center justify-between">
         <span className="flex items-center gap-1.5">
-          <Braces className="h-3.5 w-3.5" /> DISCOVERED TOOLS ({server.cachedTools.length})
+          <Braces className="h-3.5 w-3.5" /> DISCOVERED TOOLS ({tools.length})
         </span>
         <span className="text-[9px] text-slate-500 font-normal">
           Click TEST on any tool for live schema execution
         </span>
       </div>
 
-      {server.cachedTools.length === 0 ? (
+      {tools.length === 0 ? (
         <div className="rounded border border-dashed border-slate-300 dark:border-indigo-900/50 p-6 text-center space-y-1">
           <p className="text-xs font-mono font-semibold text-slate-700 dark:text-slate-300">
             No tools cached yet.
@@ -1160,7 +1241,7 @@ function ToolsTab({ server, activeTestTool, setActiveTestTool, schemaOpen, setSc
         </div>
       ) : (
         <ul className="space-y-2.5">
-          {server.cachedTools.map((tool) => {
+          {tools.map((tool) => {
             const isTesting = activeTestTool === tool.name;
             const isSchemaOpen = schemaOpen === tool.name;
 
@@ -1260,7 +1341,7 @@ function ToolTestConsole({
     try {
       const parsed = JSON.parse(args);
       setArgs(JSON.stringify(parsed, null, 2));
-    } catch {}
+    } catch { }
   };
 
   const handleReset = () => {
@@ -1346,6 +1427,7 @@ function ToolTestConsole({
           <span className="text-slate-500 font-semibold uppercase">EXPECTED PARAMS:</span>
           {propKeys.map((k) => {
             const p = properties[k];
+            if (!p) return null;
             const isReq = Array.isArray(tool.inputSchema?.required) && tool.inputSchema.required.includes(k);
             return (
               <span
@@ -1547,7 +1629,9 @@ function ResourcesTab({ server }: { server: McpServerDTO }) {
                   <pre className="rounded border border-slate-200 dark:border-indigo-900/40 bg-black text-slate-100 p-3 text-[10px] font-mono overflow-x-auto max-h-72 overflow-y-auto whitespace-pre shadow-inner">
                     {typeof resourceContent === "string"
                       ? resourceContent
-                      : (resourceContent.text as string) ?? JSON.stringify(resourceContent, null, 2)}
+                      : ((resourceContent as Record<string, unknown>)?.contents as Array<{ text?: string }>)?.[0]?.text ??
+                      ((resourceContent as Record<string, unknown>)?.text as string) ??
+                      JSON.stringify(resourceContent, null, 2)}
                   </pre>
                 </div>
               )}
@@ -1775,11 +1859,15 @@ function SamplingTab({ server }: { server: McpServerDTO }) {
     setError(null);
     setResult(null);
     try {
-      let parsedMessages: unknown[];
+      let parsedMessages: unknown;
       try {
         parsedMessages = JSON.parse(messages);
       } catch {
-        setError("Messages must be valid JSON array");
+        setError("Messages must be valid JSON");
+        return;
+      }
+      if (!Array.isArray(parsedMessages)) {
+        setError("Messages must be a valid JSON array (e.g. [{ role: 'user', content: { ... } }])");
         return;
       }
       const res = await api<SamplingResult>(`/api/mcp/servers/${server.id}/sampling`, {
@@ -1897,6 +1985,10 @@ function ProgressTab({ server }: { server: McpServerDTO }) {
 
   const startListening = useCallback(() => {
     if (server.status !== "CONNECTED") return;
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
     setListening(true);
     setEvents([]);
 
@@ -1925,15 +2017,22 @@ function ProgressTab({ server }: { server: McpServerDTO }) {
   }, [server.id, server.status]);
 
   const stopListening = useCallback(() => {
-    eventSourceRef.current?.close();
-    eventSourceRef.current = null;
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
     setListening(false);
     setConnected(false);
   }, []);
 
   useEffect(() => {
-    return () => { eventSourceRef.current?.close(); };
-  }, []);
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+    };
+  }, [server.id]);
 
   if (server.status !== "CONNECTED") {
     return (
@@ -2059,7 +2158,7 @@ function ConnectModal({
   // 1-click presets opened from the hub pre-fill the form on mount.
   useEffect(() => {
     if (initialPreset) applyPreset(initialPreset);
-     
+
   }, [initialPreset]);
 
   const submit = async () => {
@@ -2071,9 +2170,14 @@ function ConnectModal({
         : undefined;
       const body =
         transport === "SSE"
-          ? { name: name.trim(), transport, endpointUrl: endpointUrl.trim(), headers }
-          : { name: name.trim(), transport, command: command.trim(), headers };
+          ? { name: name.trim(), transport, endpointUrl: endpointUrl.trim(), headers, connectOnCreate: true }
+          : { name: name.trim(), transport, command: command.trim(), headers, connectOnCreate: true };
       const server = await api<McpServerDTO>("/api/mcp/servers", { method: "POST", body: JSON.stringify(body) });
+      if (server.status === "ERROR") {
+        setError(server.lastError || "Connection failed. Please check the command/endpoint or auth credentials.");
+        onCreated(server);
+        return;
+      }
       onCreated(server);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create server");
@@ -2193,8 +2297,8 @@ function ConnectModal({
                 activePreset?.id === "github"
                   ? "ghp_xxxxxxxxxxxxxxxxxxxx (GitHub Personal Access Token)"
                   : activePreset?.id === "brave"
-                  ? "BSA_xxxxxxxxxxxxxxxxxxxx (Brave Search API Key)"
-                  : "Bearer token sent as an Authorization header"
+                    ? "BSA_xxxxxxxxxxxxxxxxxxxx (Brave Search API Key)"
+                    : "Bearer token sent as an Authorization header"
               }
               className="w-full rounded border border-slate-300 dark:border-indigo-800/60 bg-white dark:bg-black/50 p-2 text-[11px] font-mono text-slate-800 dark:text-slate-200 focus:border-indigo-400 outline-none"
             />
@@ -2314,7 +2418,7 @@ function DeleteMcpServerModal({
             <span className="text-[10px] uppercase text-slate-500 font-semibold">CACHED TOOLS:</span>
             <span className="font-bold text-red-600 dark:text-red-400 flex items-center gap-1">
               <Braces className="h-3 w-3" />
-              {server.cachedTools.length} TOOLS WILL BE UNMOUNTED
+              {server.cachedTools?.length ?? 0} TOOLS WILL BE UNMOUNTED
             </span>
           </div>
         </div>

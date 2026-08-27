@@ -16,8 +16,9 @@ import {
   Zap,
   Play,
   Package,
-  Wand2,
   Layers,
+  Wand2,
+  Network,
 } from "lucide-react";
 import { skillsApi } from "@/lib/api/skills";
 import { SkillDTO, SkillStatus } from "@/types/skill";
@@ -458,12 +459,19 @@ export default function SkillsDashboardPage() {
                     </div>
 
                     <div className="flex items-center justify-between gap-1.5 pt-3 border-t border-slate-100 dark:border-indigo-950/60 mt-auto">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <Link
                           href={`/dashboard/skills/${skill.id}`}
                           className="inline-flex items-center gap-1 px-3 py-1.5 rounded border border-indigo-400/80 bg-indigo-600 text-white text-xs hover:bg-indigo-500 font-bold shadow-sm transition-all"
                         >
                           <Play className="h-3 w-3" /> [ RUN ]
+                        </Link>
+                        <Link
+                          href={`/dashboard/canvas/${skill.id}`}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded border border-violet-300 dark:border-violet-900/60 bg-violet-50 dark:bg-violet-950/30 text-xs text-violet-700 dark:text-violet-300 hover:border-violet-400 hover:text-violet-900 dark:hover:text-violet-100 transition-all font-semibold"
+                          title="Open on visual Agent Canvas"
+                        >
+                          <Network className="h-3 w-3" /> CANVAS
                         </Link>
                         <Link
                           href={`/dashboard/skills/${skill.id}/edit`}

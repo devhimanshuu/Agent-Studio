@@ -52,6 +52,7 @@ import { ServerQualityScore, QualityGrade } from "@/types/agent-studio-registry"
 interface McpDirectoryBrowserProps {
   onMount: (server: PublicMcpServer) => void;
   mountedServerIds?: string[];
+  busyServerId?: string | null;
 }
 
 const SOURCES: { id: "ALL" | PublicMcpSource; label: string; countKey?: "glamaCount" | "mcpSoCount" | "smitheryCount" | "composioCount" | "arcadeCount" }[] = [
@@ -152,7 +153,7 @@ function useDirectoryFavorites() {
 
 // ────────────── Main Component ──────────────
 
-export function McpDirectoryBrowser({ onMount, mountedServerIds = [] }: McpDirectoryBrowserProps) {
+export function McpDirectoryBrowser({ onMount, mountedServerIds = [], busyServerId }: McpDirectoryBrowserProps) {
   const [servers, setServers] = useState<PublicMcpServer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -767,13 +768,22 @@ export function McpDirectoryBrowser({ onMount, mountedServerIds = [] }: McpDirec
                       ) : (
                         <button
                           type="button"
+                          disabled={busyServerId === server.id}
                           onClick={(e) => {
                             e.stopPropagation();
                             onMount(server);
                           }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-indigo-500 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-mono font-semibold uppercase tracking-wider shadow-sm shadow-indigo-500/25 active:scale-95 transition-all cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-indigo-500 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white text-[10px] font-mono font-semibold uppercase tracking-wider shadow-sm shadow-indigo-500/25 active:scale-95 transition-all cursor-pointer disabled:cursor-not-allowed"
                         >
-                          <Plus className="h-3 w-3" /> 1-CLICK MOUNT
+                          {busyServerId === server.id ? (
+                            <>
+                              <Loader2 className="h-3 w-3 animate-spin" /> MOUNTING…
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="h-3 w-3" /> 1-CLICK MOUNT
+                            </>
+                          )}
                         </button>
                       )}
                     </div>
@@ -900,13 +910,22 @@ export function McpDirectoryBrowser({ onMount, mountedServerIds = [] }: McpDirec
                     ) : (
                       <button
                         type="button"
+                        disabled={busyServerId === server.id}
                         onClick={(e) => {
                           e.stopPropagation();
                           onMount(server);
                         }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-indigo-500 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-mono font-semibold uppercase tracking-wider shadow-sm shadow-indigo-500/25 active:scale-95 transition-all cursor-pointer shrink-0 min-w-[90px]"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-indigo-500 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white text-[10px] font-mono font-semibold uppercase tracking-wider shadow-sm shadow-indigo-500/25 active:scale-95 transition-all cursor-pointer shrink-0 min-w-[90px] disabled:cursor-not-allowed"
                       >
-                        <Plus className="h-3 w-3" /> MOUNT
+                        {busyServerId === server.id ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin" /> MOUNTING…
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="h-3 w-3" /> MOUNT
+                          </>
+                        )}
                       </button>
                     )}
                   </div>
@@ -940,6 +959,7 @@ export function McpDirectoryBrowser({ onMount, mountedServerIds = [] }: McpDirec
           isFavorite={isFavorite(detailServer.id)}
           onToggleFavorite={() => toggleFavorite(detailServer.id)}
           isMounted={isServerMounted(detailServer)}
+          isBusy={busyServerId === detailServer.id}
         />,
         document.body
       )}
@@ -957,6 +977,7 @@ function ServerDetailModal({
   isFavorite,
   onToggleFavorite,
   isMounted,
+  isBusy,
 }: {
   server: PublicMcpServer;
   qualityScore: ServerQualityScore | null;
@@ -965,6 +986,7 @@ function ServerDetailModal({
   isFavorite: boolean;
   onToggleFavorite: () => void;
   isMounted: boolean;
+  isBusy?: boolean;
 }) {
   const isSse = server.transport === "SSE";
   const targetCmd = isSse ? server.endpointUrl ?? "" : server.command ?? "";
@@ -1432,15 +1454,29 @@ function ServerDetailModal({
           <button
             type="button"
             onClick={onMount}
-            disabled={isMounted}
+            disabled={isMounted || isBusy}
             className={clsx(
               "inline-flex items-center gap-1.5 px-4 py-2 rounded border text-[10px] font-mono font-semibold uppercase tracking-wider transition-all cursor-pointer",
               isMounted
                 ? "border-slate-300 dark:border-indigo-900/50 bg-slate-100 dark:bg-indigo-950/30 text-slate-400 cursor-not-allowed"
+                : isBusy
+                ? "border-indigo-500 bg-indigo-600 opacity-60 text-white cursor-not-allowed"
                 : "border-indigo-500 bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm shadow-indigo-500/25 active:scale-95"
             )}
           >
-            {isMounted ? <><Check className="h-3 w-3" /> ALREADY MOUNTED</> : <><Plus className="h-3 w-3" /> 1-CLICK MOUNT</>}
+            {isMounted ? (
+              <>
+                <Check className="h-3 w-3" /> ALREADY MOUNTED
+              </>
+            ) : isBusy ? (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" /> MOUNTING…
+              </>
+            ) : (
+              <>
+                <Plus className="h-3 w-3" /> 1-CLICK MOUNT
+              </>
+            )}
           </button>
         </div>
       </div>

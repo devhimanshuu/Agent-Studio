@@ -19,6 +19,7 @@ import {
   StickyNote,
   Play,
   Maximize2,
+  Network,
 } from "lucide-react";
 import { skillsApi } from "@/lib/api/skills";
 import { executionsApi } from "@/lib/api/executions";
@@ -76,7 +77,12 @@ export default function SkillDetailPage() {
   const publishMutation = useMutation({
     mutationFn: () => skillsApi.publish(id, skill!.currentDraft!.id),
     onSuccess: (v) => {
-      toast.success("Version published", `Draft published as v${v.versionNumber}`);
+      toast.success("Version published", `Draft published as v${v.versionNumber}`, {
+        action: {
+          label: "OPEN IN CANVAS",
+          href: `/dashboard/canvas/${id}`,
+        },
+      });
       invalidate();
     },
     onError: (e) => toast.error("Publish failed", e.message),
@@ -173,6 +179,13 @@ export default function SkillDetailPage() {
 
           <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
             <Link
+              href={`/dashboard/canvas/${skill.id}`}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-violet-400/80 bg-violet-600 hover:bg-violet-500 text-white font-semibold shadow-md shadow-violet-500/20 transition-all text-xs"
+              title="Open, visualize, and edit this workflow on the visual Agent Canvas"
+            >
+              <Network className="h-3.5 w-3.5" /> [ OPEN IN CANVAS ]
+            </Link>
+            <Link
               href={`/dashboard/skills/${skill.id}/edit`}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-200 hover:border-indigo-400 transition-all font-semibold shadow-sm"
             >
@@ -240,6 +253,37 @@ export default function SkillDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Published Active Banner */}
+      {skill.publishedVersion && (
+        <div className="rounded border border-emerald-300 dark:border-emerald-500/40 bg-gradient-to-r from-emerald-50/90 via-slate-50/70 to-indigo-50/60 dark:from-emerald-950/30 dark:via-[#0a0a0a]/80 dark:to-indigo-950/20 p-4 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[11px] font-mono font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">
+                PUBLISHED v{skill.publishedVersion.versionNumber} IS ACTIVE
+              </span>
+              {skill.publishedVersion.graphDefinition && (
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-300 font-bold border border-violet-200 dark:border-violet-500/40 inline-flex items-center gap-1 font-mono">
+                  <Network className="h-3 w-3" /> {skill.publishedVersion.graphDefinition.nodes.length} NODES
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-400 font-mono">
+              Ready for production execution and external MCP consumption. Visualize or expand its graph architecture anytime.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 font-mono text-xs w-full sm:w-auto">
+            <Link
+              href={`/dashboard/canvas/${skill.id}`}
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded border border-violet-400 bg-violet-600 hover:bg-violet-500 text-white font-semibold shadow-sm transition-all text-xs w-full sm:w-auto"
+            >
+              <Network className="h-3.5 w-3.5" /> OPEN IN CANVAS
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Execution input editor */}
       {draft && skill.status !== "ARCHIVED" && (

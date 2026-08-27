@@ -29,6 +29,7 @@ import { SkeletonSkillDetail } from "@/components/feedback/Skeleton";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { toast } from "@/stores/toastStore";
 import { AgentGraphDefinition } from "@/types/graph";
+import { buildInitialGraphFromSkill } from "@/components/canvas/graphUtils";
 import { clsx } from "clsx";
 import { getPrefilledExecutionInput } from "@/lib/execution/inputHelper";
 import { JsonEditorModal } from "@/components/common/JsonEditorModal";
@@ -108,11 +109,10 @@ export default function CanvasEditorPage({ params }: { params: Promise<{ id: str
   const [initialized, setInitialized] = useState(false);
   useEffect(() => {
     if (draft && !initialized) {
-      setGraph(draft.graphDefinition ?? null);
-      setRunInput(getPrefilledExecutionInput(draft));
+      setGraph(buildInitialGraphFromSkill(draft, skill?.name));
       setInitialized(true);
     }
-  }, [draft, initialized]);
+  }, [draft, skill?.name, initialized]);
 
   const handleGraphChange = useCallback((newGraph: AgentGraphDefinition) => {
     setGraph(newGraph);
@@ -230,7 +230,7 @@ export default function CanvasEditorPage({ params }: { params: Promise<{ id: str
           setSyncStatus("synced");
           queryClient.invalidateQueries({ queryKey: ["skill", id] });
         })
-        .catch(() => {});
+        .catch(() => { });
     }
 
     // Directly trigger execution without blocking on manual save
@@ -480,9 +480,8 @@ export default function CanvasEditorPage({ params }: { params: Promise<{ id: str
                 rows={3}
                 spellCheck={false}
                 placeholder="{ }"
-                className={`w-full rounded border bg-white dark:bg-black/60 px-3 py-2 text-[11px] text-slate-900 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none transition-colors resize-y shadow-inner ${
-                  runInputError ? "border-red-500" : "border-slate-300 dark:border-indigo-900/50 focus:border-indigo-500"
-                }`}
+                className={`w-full rounded border bg-white dark:bg-black/60 px-3 py-2 text-[11px] text-slate-900 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none transition-colors resize-y shadow-inner ${runInputError ? "border-red-500" : "border-slate-300 dark:border-indigo-900/50 focus:border-indigo-500"
+                  }`}
               />
             </div>
           )}

@@ -1,5 +1,6 @@
 import type { Node, Edge } from "@xyflow/react";
 import { AgentGraphDefinition, GraphNodeDefinition, GraphEdgeDefinition, GraphNodeType, createEmptyGraph } from "@/types/graph";
+import { SkillVersionDTO } from "@/types/skill";
 import { CANVAS_NODE_TYPE_MAP } from "./nodeTypes";
 
 /** Extra client-side state carried on each React Flow node (never persisted). */
@@ -362,5 +363,127 @@ export function createNodeFromType(
       ...(meta.defaults as Record<string, unknown>),
     } as CanvasNodeData,
     measured: { width, height },
+  };
+}
+
+/**
+ * Scaffolds an initial visual multi-agent graph from a SkillVersion if no graph exists yet.
+ * If the skill has tools (e.g. ['web_search', 'document_search']), builds a connected sequential chain:
+ * START -> Tool / Agent nodes (with approval gates where required) -> END.
+ */
+export function buildInitialGraphFromSkill(
+  version: SkillVersionDTO | null | undefined,
+  skillName?: string
+): AgentGraphDefinition {
+  if (
+    version?.graphDefinition &&
+    Array.isArray(version.graphDefinition.nodes) &&
+    version.graphDefinition.nodes.length > 0
+  ) {
+    return version.graphDefinition;
+  }
+
+  const allowedTools = version?.allowedTools ?? [];
+  const approvalTools = new Set(version?.actionsRequiringApproval ?? []);
+  const instructions = version?.instructions?.trim();
+
+  // If no tools and no detailed instructions, return minimal start -> end graph
+  if (allowedTools.length === 0 && (!instructions || instructions === "Visual multi-agent graph.")) {
+    return createEmptyGraph();
+  }
+
+  const nodes: GraphNodeDefinition[] = [
+    { id: "start", type: "start", position: { x: 50, y: 260 }, data: { label: "START" } },
+  ];
+  const edges: GraphEdgeDefinition[] = [];
+
+  let currentX = 280;
+  let prevNodeId = "start";
+
+  // If there are instructions and tools, scaffold an Agent orchestrator
+  if (instructions && instructions !== "Visual multi-agent graph.") {
+    const agentId = "agent-primary";
+    nodes.push({
+      id: agentId,
+      type: "agent",
+      position: { x: currentX, y: 260 },
+      data: {
+        label: skillName ? `${skillName.toUpperCase().slice(0, 18)} AGENT` : "PRIMARY AGENT",
+        description: "Orchestrator / reasoner",
+        prompt: instructions,
+        allowedTools: allowedTools,
+      },
+    });
+    edges.push({
+      id: `${prevNodeId}-${agentId}`,
+      source: prevNodeId,
+      target: agentId,
+    });
+    prevNodeId = agentId;
+    currentX += 260;
+  } else if (allowedTools.length > 0) {
+    // If no instructions but tool pipeline is defined, scaffold each tool node with approval gates
+    allowedTools.forEach((toolName, idx) => {
+      const needsApproval = approvalTools.has(toolName);
+
+      if (needsApproval) {
+        const approvalId = `gate_${idx + 1}`;
+        nodes.push({
+          id: approvalId,
+          type: "approval",
+          position: { x: currentX, y: 260 },
+          data: {
+            label: `GATE: ${toolName.toUpperCase().slice(0, 10)}`,
+            approvalReason: `Human review required before running ${toolName}`,
+          },
+        });
+        edges.push({
+          id: `${prevNodeId}-${approvalId}`,
+          source: prevNodeId,
+          target: approvalId,
+        });
+        prevNodeId = approvalId;
+        currentX += 240;
+      }
+
+      const toolId = `tool_${idx + 1}`;
+      nodes.push({
+        id: toolId,
+        type: "tool",
+        position: { x: currentX, y: 260 },
+        data: {
+          label: toolName.toUpperCase().replace(/[_-]/g, " "),
+          toolName: toolName,
+          action: "run",
+        },
+      });
+      edges.push({
+        id: `${prevNodeId}-${toolId}`,
+        source: prevNodeId,
+        target: toolId,
+      });
+      prevNodeId = toolId;
+      currentX += 240;
+    });
+  }
+
+  // Terminal END node
+  const endId = "end";
+  nodes.push({
+    id: endId,
+    type: "end",
+    position: { x: currentX, y: 260 },
+    data: { label: "END" },
+  });
+  edges.push({
+    id: `${prevNodeId}-${endId}`,
+    source: prevNodeId,
+    target: endId,
+  });
+
+  return {
+    version: 1,
+    nodes,
+    edges,
   };
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { CheckCircle2, AlertTriangle, Info, X } from "lucide-react";
 import { useToastStore, ToastVariant } from "@/stores/toastStore";
 import { clsx } from "clsx";
@@ -61,6 +62,31 @@ export function Toaster() {
                 <X className="h-3.5 w-3.5" />
               </button>
             </div>
+
+            {t.action && (
+              <div className="pt-2 mt-2 border-t border-slate-200/60 dark:border-indigo-900/40 flex items-center justify-end">
+                {t.action.href ? (
+                  <Link
+                    href={t.action.href}
+                    onClick={() => dismiss(t.id)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition-all"
+                  >
+                    {t.action.label} →
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      t.action?.onClick?.();
+                      dismiss(t.id);
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition-all cursor-pointer"
+                  >
+                    {t.action.label}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         );
       })}

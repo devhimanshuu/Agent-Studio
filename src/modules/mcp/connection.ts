@@ -17,20 +17,22 @@ export interface McpConnectionOptions {
   onSamplingRequest?: (params: Record<string, unknown>) => Promise<Record<string, unknown>>;
 }
 
-const DEFAULT_CONNECT_TIMEOUT_MS = 15_000;
-const DEFAULT_CALL_TIMEOUT_MS = 15_000;  /**
-   * A live MCP client connection. Owns the SDK `Client` + transport for one
-   * server and exposes the minimal RPC surface the tool adapter needs. The
-   * transport is chosen by stored config: stdio for local commands, and for
-   * remote endpoints Streamable HTTP first with a legacy SSE fallback.
-   *
-   * Declares sampling capability so connected MCP servers can request LLM
-   * completions back from Agent Studio's engine (nested agentic behavior).
-   *
-   * NOTE: `Client.connect()` calls `transport.start()` itself, so the transport
-   * must NOT be pre-started — doing so makes the SDK throw "already started".
-   */
-  export class McpConnection implements McpRpcClient {
+const DEFAULT_CONNECT_TIMEOUT_MS = 45_000;
+const DEFAULT_CALL_TIMEOUT_MS = 30_000;
+
+/**
+ * A live MCP client connection. Owns the SDK `Client` + transport for one
+ * server and exposes the minimal RPC surface the tool adapter needs. The
+ * transport is chosen by stored config: stdio for local commands, and for
+ * remote endpoints Streamable HTTP first with a legacy SSE fallback.
+ *
+ * Declares sampling capability so connected MCP servers can request LLM
+ * completions back from Agent Studio's engine (nested agentic behavior).
+ *
+ * NOTE: `Client.connect()` calls `transport.start()` itself, so the transport
+ * must NOT be pre-started — doing so makes the SDK throw "already started".
+ */
+export class McpConnection implements McpRpcClient {
   private client: Client | null = null;
   private transport: StdioClientTransport | StreamableHTTPClientTransport | SSEClientTransport | null = null;
   private progressListeners = new Set<(event: McpProgressEvent) => void>();
@@ -221,14 +223,40 @@ const DEFAULT_CALL_TIMEOUT_MS = 15_000;  /**
     if (typeof process !== "undefined" && process.platform === "win32") {
       const lower = command.toLowerCase();
       if (
-        (lower === "npx" || lower === "npm" || lower === "pnpm" || lower === "yarn") &&
+        (lower === "npx" || lower === "npm" || lower === "pnpm" || lower === "yarn" || lower === "uvx") &&
         !lower.endsWith(".cmd") &&
         !lower.endsWith(".exe")
       ) {
         resolvedCommand = `${command}.cmd`;
       }
     }
-    return new StdioClientTransport({ command: resolvedCommand, args });
+
+    // Build environment variables: inherit process.env + inject server.headers and auth tokens
+    const env: Record<string, string> = {
+      ...(typeof process !== "undefined" && process.env ? (process.env as Record<string, string>) : {}),
+    };
+    if (this.server.headers) {
+      for (const [key, value] of Object.entries(this.server.headers)) {
+        if (typeof value === "string" && value.trim()) {
+          const val = value.trim();
+          env[key] = val;
+          if (key.toLowerCase() === "authorization") {
+            const token = val.replace(/^bearer\s+/i, "");
+            env["AUTH_TOKEN"] = token;
+            env["BEARER_TOKEN"] = token;
+            env["API_KEY"] = token;
+            env["GITHUB_PERSONAL_ACCESS_TOKEN"] = token;
+            env["GITHUB_TOKEN"] = token;
+            env["BRAVE_API_KEY"] = token;
+            env["OPENAI_API_KEY"] = token;
+            env["SUPABASE_API_KEY"] = token;
+            env["STRIPE_SECRET_KEY"] = token;
+          }
+        }
+      }
+    }
+
+    return new StdioClientTransport({ command: resolvedCommand, args, env });
   }
 
   private buildStreamableTransport(): StreamableHTTPClientTransport {

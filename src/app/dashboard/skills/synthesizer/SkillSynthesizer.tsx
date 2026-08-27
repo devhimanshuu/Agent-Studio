@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useRef } from "react";
+import Link from "next/link";
 import {
   Wand2,
   Loader2,
@@ -18,6 +19,7 @@ import {
   Bot,
   Wrench,
   RefreshCw,
+  Network,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { useQueryClient } from "@tanstack/react-query";
@@ -159,7 +161,13 @@ export function SkillSynthesizer() {
             queryClient.invalidateQueries({ queryKey: ["skills"] });
             toast.success(
               "Skill synthesized & installed!",
-              `${data.data.skillName} is ready in your Studio`
+              `${data.data.skillName} is ready in your Studio`,
+              {
+                action: {
+                  label: "OPEN IN CANVAS",
+                  href: `/dashboard/canvas/${data.data.skillId}`,
+                },
+              }
             );
           } else if (data.data.warning) {
             toast.success("Graph generated", data.data.warning);
@@ -195,7 +203,12 @@ export function SkillSynthesizer() {
         setResult(data.data);
         setInstalled(true);
         queryClient.invalidateQueries({ queryKey: ["skills"] });
-        toast.success("Installed!", `${data.data.skillName} is now in your Studio`);
+        toast.success("Installed!", `${data.data.skillName} is now in your Studio`, {
+          action: {
+            label: "OPEN IN CANVAS",
+            href: `/dashboard/canvas/${data.data.skillId}`,
+          },
+        });
       } else {
         throw new Error(data.data?.warning || "Installation failed");
       }
@@ -378,8 +391,18 @@ export function SkillSynthesizer() {
                 </button>
               )}
               {installed && (
-                <div className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-300 shrink-0">
-                  <Check className="h-3 w-3" /> INSTALLED
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-300 shrink-0">
+                    <Check className="h-3 w-3" /> INSTALLED
+                  </div>
+                  {result.skillId && (
+                    <Link
+                      href={`/dashboard/canvas/${result.skillId}`}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-violet-400 bg-violet-600 hover:bg-violet-500 text-white text-[10px] font-mono font-bold shadow-sm transition-all shrink-0"
+                    >
+                      <Network className="h-3 w-3" /> OPEN IN CANVAS
+                    </Link>
+                  )}
                 </div>
               )}
             </div>

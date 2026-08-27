@@ -560,9 +560,9 @@ export async function GET(req: Request) {
       // Determine transport
       const transport: PublicMcpServer["transport"] = isRemote ? "SSE" : "STDIO";
 
-      // Use deploymentUrl for remote servers, or Smithery connect URL as fallback
+      // Use deploymentUrl for remote servers, or Smithery SSE stream URL as fallback
       const endpointUrl = isRemote
-        ? (s.deploymentUrl || `https://registry.smithery.ai/servers/${s.qualifiedName}/connect`)
+        ? (s.deploymentUrl ? String(s.deploymentUrl) : `https://server.smithery.ai/@${s.qualifiedName}/sse`)
         : undefined;
 
       // Detect auth requirement from description
@@ -592,7 +592,7 @@ export async function GET(req: Request) {
         tags,
         transport,
         endpointUrl: endpointUrl ? String(endpointUrl) : undefined,
-        command: !isRemote ? `npx -y @smithery/cli install ${s.qualifiedName}` : undefined,
+        command: !isRemote ? `npx -y @smithery/cli run ${s.qualifiedName}` : undefined,
         requiresAuthToken: requiresAuth,
         category,
         isVerified: Boolean(s.verified || s.bySmithery),
