@@ -1,28 +1,35 @@
 /**
  * Document Chunking Service — splits documents into optimal chunks for RAG.
  *
- * Supports multiple chunking strategies:
- * - Fixed-size chunks with overlap
- * - Semantic chunking (sentence-aware)
- * - Markdown-aware chunking
+ * Supports industry-standard chunking strategies:
+ * - Recursive Character Splitting (hierarchical separator awareness)
+ * - Semantic / Sentence-Aware Chunking (sentence boundaries)
+ * - Markdown-Aware Chunking (headings, code blocks, section hierarchy)
+ * - Fixed-Size Chunking with configurable overlap
  */
 
 export interface ChunkingOptions {
-  /** Maximum chunk size in characters */
+  /** Maximum chunk size in characters (default: 800) */
   maxChunkSize?: number;
-  /** Overlap between chunks in characters */
+  /** Overlap between chunks in characters (default: 150) */
   overlap?: number;
   /** Chunking strategy */
-  strategy?: "fixed" | "semantic" | "markdown";
-  /** Separator characters for semantic chunking */
+  strategy?: "recursive" | "semantic" | "markdown" | "fixed";
+  /** Separator characters for recursive/semantic chunking */
   separators?: string[];
+  /** Document source name or title */
+  source?: string;
+  /** Whether to inject section breadcrumb into chunk embedding text */
+  injectSectionHeader?: boolean;
 }
 
 export interface DocumentChunk {
   /** Unique chunk identifier */
   id: string;
-  /** The chunk content */
+  /** The chunk content for embedding and retrieval */
   content: string;
+  /** Optional contextual text with prepended breadcrumbs */
+  embeddingText: string;
   /** Chunk index in the document */
   index: number;
   /** Starting character position in original document */
@@ -31,54 +38,155 @@ export interface DocumentChunk {
   endOffset: number;
   /** Metadata about the chunk */
   metadata: {
-    /** Document title or filename */
+    /** Document title or source path */
     source?: string;
     /** Chunk character count */
     charCount: number;
     /** Approximate word count */
     wordCount: number;
-    /** Section header if found */
+    /** Estimated token count */
+    tokenCount: number;
+    /** Section header / breadcrumb if found */
     section?: string;
   };
 }
 
 /**
- * Split a document into chunks optimized for embedding and retrieval.
+ * Split a document into chunks optimized for embedding, vector storage, and semantic retrieval.
  */
 export function chunkDocument(
   document: string,
   options: ChunkingOptions = {}
 ): DocumentChunk[] {
   const {
-    maxChunkSize = 1000,
-    overlap = 200,
-    strategy = "semantic",
+    maxChunkSize = 800,
+    overlap = 150,
+    strategy = "recursive",
     separators,
+    source,
+    injectSectionHeader = true,
   } = options;
 
-  if (!document.trim()) {
+  const text = document ? document.trim() : "";
+  if (!text) {
     return [];
   }
 
+  let chunks: DocumentChunk[];
+
   switch (strategy) {
     case "markdown":
-      return chunkMarkdown(document, maxChunkSize, overlap);
+      chunks = chunkMarkdown(text, maxChunkSize, overlap, source, injectSectionHeader);
+      break;
     case "semantic":
-      return chunkSemantic(document, maxChunkSize, overlap, separators);
+      chunks = chunkSemantic(text, maxChunkSize, overlap, separators, source);
+      break;
     case "fixed":
+      chunks = chunkFixed(text, maxChunkSize, overlap, source);
+      break;
+    case "recursive":
     default:
-      return chunkFixed(document, maxChunkSize, overlap);
+      chunks = chunkRecursive(text, maxChunkSize, overlap, separators, source);
+      break;
   }
+
+  return chunks;
+}
+
+/**
+ * Recursive character splitter — splits on hierarchy of separators:
+ * ["\n\n", "\n", ". ", "! ", "? ", "; ", ", ", " ", ""]
+ */
+function chunkRecursive(
+  text: string,
+  maxChunkSize: number,
+  overlap: number,
+  customSeparators?: string[],
+  source?: string
+): DocumentChunk[] {
+  const separators = customSeparators ?? ["\n\n", "\n", ". ", "! ", "? ", "; ", " ", ""];
+  const rawPieces = splitRecursively(text, maxChunkSize, separators);
+
+  // Group pieces into chunks with overlap
+  const chunks: DocumentChunk[] = [];
+  let currentChunk: string[] = [];
+  let currentLength = 0;
+  let chunkIndex = 0;
+  let globalOffset = 0;
+
+  for (let i = 0; i < rawPieces.length; i++) {
+    const piece = rawPieces[i];
+    const pieceLen = piece.length;
+
+    if (currentLength + pieceLen > maxChunkSize && currentChunk.length > 0) {
+      const content = currentChunk.join("").trim();
+      if (content) {
+        chunks.push(createChunk(content, chunkIndex, globalOffset, globalOffset + content.length, source));
+        chunkIndex++;
+      }
+
+      // Calculate overlap pieces
+      let overlapLen = 0;
+      const overlapPieces: string[] = [];
+      for (let j = currentChunk.length - 1; j >= 0; j--) {
+        if (overlapLen + currentChunk[j].length <= overlap) {
+          overlapPieces.unshift(currentChunk[j]);
+          overlapLen += currentChunk[j].length;
+        } else {
+          break;
+        }
+      }
+
+      globalOffset += currentLength - overlapLen;
+      currentChunk = overlapPieces;
+      currentLength = overlapLen;
+    }
+
+    currentChunk.push(piece);
+    currentLength += pieceLen;
+  }
+
+  if (currentChunk.length > 0) {
+    const content = currentChunk.join("").trim();
+    if (content) {
+      chunks.push(createChunk(content, chunkIndex, globalOffset, globalOffset + content.length, source));
+    }
+  }
+
+  return chunks;
+}
+
+function splitRecursively(text: string, maxChunkSize: number, separators: string[]): string[] {
+  if (text.length <= maxChunkSize || separators.length === 0) {
+    return [text];
+  }
+
+  const [separator, ...remainingSeparators] = separators;
+  const parts = separator === "" ? text.split("") : text.split(separator);
+  const result: string[] = [];
+
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    const pieceWithSep = i < parts.length - 1 && separator !== "" ? part + separator : part;
+
+    if (pieceWithSep.length > maxChunkSize && remainingSeparators.length > 0) {
+      result.push(...splitRecursively(pieceWithSep, maxChunkSize, remainingSeparators));
+    } else {
+      result.push(pieceWithSep);
+    }
+  }
+
+  return result;
 }
 
 /**
  * Fixed-size chunking with overlap.
- * Simple but effective for most use cases.
  */
 function chunkFixed(
   text: string,
   maxChunkSize: number,
-  overlap: number
+  overlap: number,
+  source?: string
 ): DocumentChunk[] {
   const chunks: DocumentChunk[] = [];
   let start = 0;
@@ -89,14 +197,11 @@ function chunkFixed(
     const content = text.slice(start, end).trim();
 
     if (content) {
-      chunks.push(createChunk(content, index, start, end));
+      chunks.push(createChunk(content, index, start, end, source));
+      index++;
     }
 
-    // Move forward, accounting for overlap
-    start += maxChunkSize - overlap;
-    index++;
-
-    // Prevent infinite loop
+    start += Math.max(1, maxChunkSize - overlap);
     if (start >= text.length) break;
   }
 
@@ -104,14 +209,14 @@ function chunkFixed(
 }
 
 /**
- * Semantic chunking — splits at sentence/paragraph boundaries.
- * Produces more coherent chunks than fixed-size.
+ * Semantic chunking — splits cleanly at sentence boundaries.
  */
 function chunkSemantic(
   text: string,
   maxChunkSize: number,
   overlap: number,
-  separators?: string[]
+  separators?: string[],
+  source?: string
 ): DocumentChunk[] {
   const defaultSeparators = ["\n\n", "\n", ". ", "! ", "? ", "; "];
   const seps = separators ?? defaultSeparators;
@@ -123,100 +228,95 @@ function chunkSemantic(
 
   while (remaining.length > 0) {
     if (remaining.length <= maxChunkSize) {
-      // Remaining text fits in one chunk
-      chunks.push(createChunk(remaining.trim(), index, globalOffset, globalOffset + remaining.length));
+      chunks.push(createChunk(remaining.trim(), index, globalOffset, globalOffset + remaining.length, source));
       break;
     }
 
-    // Find the best split point
     let splitPos = -1;
     for (const sep of seps) {
-      // Look for the last occurrence of separator before maxChunkSize
       const pos = remaining.lastIndexOf(sep, maxChunkSize);
       if (pos > maxChunkSize * 0.3) {
-        // Don't split too early (at least 30% of chunk size)
         splitPos = pos + sep.length;
         break;
       }
     }
 
-    // Fallback: split at maxChunkSize
     if (splitPos === -1) {
       splitPos = maxChunkSize;
     }
 
     const content = remaining.slice(0, splitPos).trim();
     if (content) {
-      chunks.push(createChunk(content, index, globalOffset, globalOffset + splitPos));
+      chunks.push(createChunk(content, index, globalOffset, globalOffset + splitPos, source));
+      index++;
     }
 
-    // Move forward with overlap
-    const advance = splitPos - Math.min(overlap, splitPos * 0.3);
+    const advance = Math.max(1, splitPos - Math.min(overlap, Math.floor(splitPos * 0.3)));
     remaining = remaining.slice(advance);
     globalOffset += advance;
-    index++;
   }
 
   return chunks;
 }
 
 /**
- * Markdown-aware chunking — respects headers and code blocks.
+ * Markdown-aware chunking — respects H1-H6 headers, code blocks, and retains section hierarchy.
  */
 function chunkMarkdown(
   text: string,
   maxChunkSize: number,
-  overlap: number
+  overlap: number,
+  source?: string,
+  injectSectionHeader: boolean = true
 ): DocumentChunk[] {
   const chunks: DocumentChunk[] = [];
   const lines = text.split("\n");
   let currentChunk: string[] = [];
+  const headingStack: string[] = [];
   let currentSection = "";
   let charOffset = 0;
   let chunkIndex = 0;
 
   for (const line of lines) {
-    // Check if this is a header
     const headerMatch = line.match(/^(#{1,6})\s+(.+)/);
-    if (headerMatch && currentChunk.length > 0) {
-      // Flush current chunk before new section
-      const content = currentChunk.join("\n").trim();
-      if (content) {
-        chunks.push({
-          ...createChunk(content, chunkIndex, charOffset - content.length, charOffset),
-          metadata: {
-            ...createChunk(content, chunkIndex, 0, 0).metadata,
-            section: currentSection,
-          },
-        });
-        chunkIndex++;
-      }
-      currentChunk = [];
-    }
-
     if (headerMatch) {
-      currentSection = headerMatch[2];
+      const level = headerMatch[1].length;
+      const title = headerMatch[2].trim();
+
+      // Maintain heading stack
+      while (headingStack.length >= level) {
+        headingStack.pop();
+      }
+      headingStack.push(title);
+      currentSection = headingStack.join(" > ");
+
+      // Flush prior chunk before section change if it has content
+      if (currentChunk.length > 0) {
+        const content = currentChunk.join("\n").trim();
+        if (content) {
+          chunks.push(
+            createChunk(content, chunkIndex, charOffset - content.length, charOffset, source, currentSection, injectSectionHeader)
+          );
+          chunkIndex++;
+        }
+        currentChunk = [];
+      }
     }
 
     currentChunk.push(line);
-    charOffset += line.length + 1; // +1 for newline
+    charOffset += line.length + 1;
 
-    // Check if chunk is getting too large
     const currentSize = currentChunk.join("\n").length;
     if (currentSize >= maxChunkSize) {
       const content = currentChunk.join("\n").trim();
       if (content) {
-        chunks.push({
-          ...createChunk(content, chunkIndex, charOffset - currentSize, charOffset),
-          metadata: {
-            ...createChunk(content, chunkIndex, 0, 0).metadata,
-            section: currentSection,
-          },
-        });
+        chunks.push(
+          createChunk(content, chunkIndex, charOffset - currentSize, charOffset, source, currentSection, injectSectionHeader)
+        );
         chunkIndex++;
       }
 
-      // Keep last few lines for overlap
+      // Overlap lines
       const overlapLines: string[] = [];
       let overlapSize = 0;
       for (let i = currentChunk.length - 1; i >= 0; i--) {
@@ -228,52 +328,59 @@ function chunkMarkdown(
     }
   }
 
-  // Don't forget the last chunk
   const lastContent = currentChunk.join("\n").trim();
   if (lastContent) {
-    chunks.push({
-      ...createChunk(lastContent, chunkIndex, charOffset - lastContent.length, charOffset),
-      metadata: {
-        ...createChunk(lastContent, chunkIndex, 0, 0).metadata,
-        section: currentSection,
-      },
-    });
+    chunks.push(
+      createChunk(lastContent, chunkIndex, charOffset - lastContent.length, charOffset, source, currentSection, injectSectionHeader)
+    );
   }
 
   return chunks;
 }
 
 /**
- * Create a DocumentChunk with metadata.
+ * Create a DocumentChunk with full metadata and embedding context text.
  */
 function createChunk(
   content: string,
   index: number,
   startOffset: number,
-  endOffset: number
+  endOffset: number,
+  source?: string,
+  section?: string,
+  injectSectionHeader: boolean = false
 ): DocumentChunk {
   const words = content.split(/\s+/).filter(Boolean);
+  const tokenCount = estimateTokens(content);
+
+  const embeddingText =
+    injectSectionHeader && section
+      ? `[Section: ${section}]\n${content}`
+      : content;
 
   return {
     id: `chunk-${index}-${startOffset}`,
     content,
+    embeddingText,
     index,
-    startOffset,
-    endOffset,
+    startOffset: Math.max(0, startOffset),
+    endOffset: Math.max(startOffset, endOffset),
     metadata: {
+      source,
       charCount: content.length,
       wordCount: words.length,
+      tokenCount,
+      section: section || undefined,
     },
   };
 }
 
 /**
- * Merge small chunks to meet minimum size requirements.
- * Useful for avoiding too many tiny chunks.
+ * Merge small chunks that fall below the minimum threshold to avoid fragmented vectors.
  */
 export function mergeSmallChunks(
   chunks: DocumentChunk[],
-  minSize: number = 200
+  minSize: number = 150
 ): DocumentChunk[] {
   if (chunks.length <= 1) return chunks;
 
@@ -284,15 +391,17 @@ export function mergeSmallChunks(
     const next = chunks[i];
 
     if (current.content.length < minSize) {
-      // Merge current with next
+      const newContent = `${current.content}\n\n${next.content}`;
       current = {
         ...current,
-        content: `${current.content}\n\n${next.content}`,
+        content: newContent,
+        embeddingText: `${current.embeddingText}\n\n${next.embeddingText}`,
         endOffset: next.endOffset,
         metadata: {
           ...current.metadata,
-          charCount: current.content.length + next.content.length + 2,
+          charCount: newContent.length,
           wordCount: current.metadata.wordCount + next.metadata.wordCount,
+          tokenCount: estimateTokens(newContent),
         },
       };
     } else {
@@ -303,4 +412,36 @@ export function mergeSmallChunks(
 
   merged.push(current);
   return merged;
+}
+
+/**
+ * Fast accurate token estimator (1 token ≈ 4 English characters or 0.75 words).
+ */
+export function estimateTokens(text: string): number {
+  if (!text) return 0;
+  const words = text.trim().split(/\s+/).length;
+  const chars = text.length;
+  return Math.max(1, Math.round((words * 1.3 + chars / 4) / 2));
+}
+
+/**
+ * Chunk visualizer helper for UI inspection.
+ */
+export function previewChunks(document: string, options: ChunkingOptions = {}) {
+  const chunks = mergeSmallChunks(chunkDocument(document, options));
+  const totalTokens = chunks.reduce((acc, c) => acc + c.metadata.tokenCount, 0);
+  const totalChars = document.length;
+  const totalWords = document.split(/\s+/).filter(Boolean).length;
+
+  return {
+    chunks,
+    stats: {
+      chunkCount: chunks.length,
+      totalChars,
+      totalWords,
+      totalTokens,
+      avgChunkChars: chunks.length ? Math.round(totalChars / chunks.length) : 0,
+      avgChunkTokens: chunks.length ? Math.round(totalTokens / chunks.length) : 0,
+    },
+  };
 }

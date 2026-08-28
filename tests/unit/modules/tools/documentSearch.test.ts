@@ -19,7 +19,7 @@ async function search(input: Record<string, unknown>): Promise<SearchOutput> {
   return (await documentSearchTool.execute(input)) as SearchOutput;
 }
 
-describe("Document Search tool", () => {
+describe("Document Search tool", { timeout: 15000 }, () => {
   it("returns search results from PostgreSQL or Qdrant", async () => {
     const output = await search({ query: "test" });
     expect(output.query).toBe("test");

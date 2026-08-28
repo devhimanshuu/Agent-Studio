@@ -2784,7 +2784,6 @@ export class GraphInterpreter {
   private async runQdrantNode(ctx: WalkCtx, node: GraphNodeDefinition, outgoing: GraphEdgeDefinition[]) {
     const data = node.data;
     const host = (data.qdrantHost || "").trim().replace(/\/+$/, "");
-    if (!host) { throw new ExecutionError(`Qdrant node "${data.label}" has no host - set qdrantHost`, "GRAPH_FAILURE"); }
     const collection = data.qdrantCollection || "knowledge_base";
     const action = data.qdrantAction || "search";
     const rawQuery = data.qdrantQuery ?? "";
@@ -2795,24 +2794,40 @@ export class GraphInterpreter {
     this.emit(ctx, { type: "tool:call:start", nodeId: node.id, toolName: "qdrant_vector_memory", action, input: { collection, query: query.slice(0,100), topK } });
     let output: unknown;
     try {
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (apiKey) headers["api-key"] = apiKey;
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 15000);
-      const base = `${host}/collections/${encodeURIComponent(collection)}/points`;
-      let res: Response;
-      switch (action) {
-        case "search": res = await fetch(`${host}/collections/${encodeURIComponent(collection)}/points/scroll`, { method: "POST", headers, body: JSON.stringify({ limit: topK, with_payload: true, with_vector: false, filter: query ? { must: [{ key: "text", match: { text: query } }] } : undefined }), signal: controller.signal }); break;
-        case "upsert": { const ud = ctx.results[node.id] as Record<string,unknown> ?? {}; const points = (Array.isArray(ud) ? ud : [ud]).map((p:unknown) => { const pt=p as Record<string,unknown>; return { id: pt.id || `pt_${Date.now()}_${Math.random().toString(36).slice(2,8)}`, vector: pt.vector, payload: pt.payload ?? pt }; }); res = await fetch(base, { method: "PUT", headers, body: JSON.stringify({ points }), signal: controller.signal }); break; }
-        case "count": res = await fetch(`${host}/collections/${encodeURIComponent(collection)}/points/count`, { method: "GET", headers, signal: controller.signal }); break;
-        default: clearTimeout(timer); throw new ExecutionError(`Qdrant unknown action "${action}"`, "GRAPH_FAILURE");
+      if (host) {
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (apiKey) headers["api-key"] = apiKey;
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 15000);
+        const base = `${host}/collections/${encodeURIComponent(collection)}/points`;
+        let res: Response;
+        switch (action) {
+          case "search": res = await fetch(`${host}/collections/${encodeURIComponent(collection)}/points/scroll`, { method: "POST", headers, body: JSON.stringify({ limit: topK, with_payload: true, with_vector: false, filter: query ? { must: [{ key: "text", match: { text: query } }] } : undefined }), signal: controller.signal }); break;
+          case "upsert": { const ud = ctx.results[node.id] as Record<string,unknown> ?? {}; const points = (Array.isArray(ud) ? ud : [ud]).map((p:unknown) => { const pt=p as Record<string,unknown>; return { id: pt.id || `pt_${Date.now()}_${Math.random().toString(36).slice(2,8)}`, vector: pt.vector, payload: pt.payload ?? pt }; }); res = await fetch(base, { method: "PUT", headers, body: JSON.stringify({ points }), signal: controller.signal }); break; }
+          case "count": res = await fetch(`${host}/collections/${encodeURIComponent(collection)}/points/count`, { method: "GET", headers, signal: controller.signal }); break;
+          default: clearTimeout(timer); throw new ExecutionError(`Qdrant unknown action "${action}"`, "GRAPH_FAILURE");
+        }
+        clearTimeout(timer);
+        if (!res.ok) { const errText = await res.text().catch(() => ""); throw new ExecutionError(`Qdrant ${action} failed ${res.status}: ${errText.slice(0, 300)}`, "GRAPH_FAILURE"); }
+        const json = await res.json() as Record<string, unknown>;
+        if (action === "search") { const pts = (json.result as Array<Record<string,unknown>>) || []; output = { collection, action, query, topK, matches: pts.map(p => ({ id: p.id, score: p.score ?? null, payload: p.payload })), count: pts.length, status: "RECALLED" }; }
+        else if (action === "upsert") { output = { collection, action, status: json.status === "completed" ? "UPSERTED" : "PENDING", updateId: json.update_id ?? null }; }
+        else if (action === "count") { output = { collection, action, count: (json.result as Record<string,unknown>)?.count ?? json.count ?? 0, status: "COUNTED" }; }
+      } else {
+        // Native PostgreSQL pgvector execution
+        const { pgVectorStore } = await import("@/modules/rag/pgvectorStore");
+        if (action === "search") {
+          const results = await pgVectorStore.search(query, { collection, limit: topK });
+          output = { collection, action, query, topK, matches: results.map(r => ({ id: r.id, score: r.score, payload: { text: r.content, title: r.title, ...r.metadata } })), count: results.length, status: "RECALLED", storage: "pgvector" };
+        } else if (action === "upsert") {
+          const contentToIngest = query || JSON.stringify(ctx.results[node.id] || ctx.userInput);
+          const ingestRes = await pgVectorStore.ingestDocument({ content: contentToIngest, title: `Graph Node ${node.id}`, collection });
+          output = { collection, action, status: "UPSERTED", documentId: ingestRes.documentId, chunkCount: ingestRes.chunkCount, storage: "pgvector" };
+        } else {
+          const stats = await pgVectorStore.getStats(undefined, collection);
+          output = { collection, action, count: stats.chunkCount, status: "COUNTED", storage: "pgvector" };
+        }
       }
-      clearTimeout(timer);
-      if (!res.ok) { const errText = await res.text().catch(() => ""); throw new ExecutionError(`Qdrant ${action} failed ${res.status}: ${errText.slice(0, 300)}`, "GRAPH_FAILURE"); }
-      const json = await res.json() as Record<string, unknown>;
-      if (action === "search") { const pts = (json.result as Array<Record<string,unknown>>) || []; output = { collection, action, query, topK, matches: pts.map(p => ({ id: p.id, score: p.score ?? null, payload: p.payload })), count: pts.length, status: "RECALLED" }; }
-      else if (action === "upsert") { output = { collection, action, status: json.status === "completed" ? "UPSERTED" : "PENDING", updateId: json.update_id ?? null }; }
-      else if (action === "count") { output = { collection, action, count: (json.result as Record<string,unknown>)?.count ?? json.count ?? 0, status: "COUNTED" }; }
       const durationMs = Date.now() - started;
       this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "qdrant_vector_memory", status: "SUCCESS", output, durationMs });
       ctx.results[node.id] = output;
@@ -2820,10 +2835,10 @@ export class GraphInterpreter {
       const durationMs = Date.now() - started;
       this.emit(ctx, { type: "tool:call:end", nodeId: node.id, toolName: "qdrant_vector_memory", status: "FAILED", error: error instanceof Error ? error.message : String(error), durationMs });
       if (error instanceof ExecutionError) throw error;
-      throw new ExecutionError(`Qdrant ${action} failed: ${error instanceof Error ? error.message : String(error)}`, "GRAPH_FAILURE");
+      throw new ExecutionError(`Vector memory ${action} failed: ${error instanceof Error ? error.message : String(error)}`, "GRAPH_FAILURE");
     }
     await this.persistStep(ctx, node, "SUCCESS", { collection, action, query: query.slice(0,80), output: summarize(output) });
-    this.emitNodeEnd(ctx, node, "SUCCESS", `Qdrant [${action.toUpperCase()}] ${collection}`);
+    this.emitNodeEnd(ctx, node, "SUCCESS", `Vector Memory [${action.toUpperCase()}] ${collection}`);
     return this.firstSuccessor(outgoing, node);
   }
 
