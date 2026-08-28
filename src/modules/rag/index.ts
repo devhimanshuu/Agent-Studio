@@ -312,8 +312,14 @@ export const defaultRAGPipeline = new RAGPipeline();
 
 // Re-exports
 export { generateEmbedding, batchEmbed, cosineSimilarity, embedLocally } from "./embeddingService";
-export { chunkDocument, mergeSmallChunks, estimateTokens, previewChunks } from "./chunkingService";
+export { chunkDocument, chunkDocumentWithParent, mergeSmallChunks, estimateTokens, previewChunks } from "./chunkingService";
 export { PgVectorStore, pgVectorStore } from "./pgvectorStore";
 export { VectorStore, createVectorStore, createVectorStoreFromEnv } from "./vectorStore";
+export { rerankCandidates, generateHyDEQuery } from "./reranker";
+export { projectVectorsTo2D } from "./clusterVisualizer";
+export { evaluateRAGTriad } from "./evaluation";
 export type { DocumentChunk, ChunkingOptions } from "./chunkingService";
-export type { SemanticSearchResult, IngestDocumentInput, IngestDocumentOutput } from "./pgvectorStore";
+export type { SemanticSearchResult, IngestDocumentInput, IngestDocumentOutput, HybridSearchOptions } from "./pgvectorStore";
+export type { ReRankOptions, ReRankedResult } from "./reranker";
+export type { VectorClusterPoint, ClusterMapData } from "./clusterVisualizer";
+export type { RAGTriadEvaluationReport, RAGTriadScore } from "./evaluation";

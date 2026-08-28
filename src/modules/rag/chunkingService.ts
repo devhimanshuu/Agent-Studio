@@ -6,6 +6,7 @@
  * - Semantic / Sentence-Aware Chunking (sentence boundaries)
  * - Markdown-Aware Chunking (headings, code blocks, section hierarchy)
  * - Fixed-Size Chunking with configurable overlap
+ * - "Small-to-Big" Parent-Document Chunking (granular indexing chunks mapped to full context parents)
  */
 
 export interface ChunkingOptions {
@@ -21,6 +22,8 @@ export interface ChunkingOptions {
   source?: string;
   /** Whether to inject section breadcrumb into chunk embedding text */
   injectSectionHeader?: boolean;
+  /** Parent chunk size for Small-to-Big retrieval (default: 1500) */
+  parentChunkSize?: number;
 }
 
 export interface DocumentChunk {
@@ -48,6 +51,10 @@ export interface DocumentChunk {
     tokenCount: number;
     /** Section header / breadcrumb if found */
     section?: string;
+    /** Parent context text for Small-to-Big retrieval */
+    parentContent?: string;
+    /** Parent chunk ID */
+    parentId?: string;
   };
 }
 
@@ -91,6 +98,66 @@ export function chunkDocument(
   }
 
   return chunks;
+}
+
+/**
+ * "Small-to-Big" Parent-Document Chunking:
+ * Generates granular child chunks (e.g. 200-300 chars) for high-accuracy embedding search,
+ * with each child retaining its surrounding parent chunk (e.g. 1000-1500 chars) for LLM context expansion.
+ */
+export function chunkDocumentWithParent(
+  document: string,
+  options: ChunkingOptions = {}
+): DocumentChunk[] {
+  const childSize = options.maxChunkSize || 300;
+  const parentSize = options.parentChunkSize || 1200;
+  const overlap = options.overlap || 60;
+
+  const text = document ? document.trim() : "";
+  if (!text) return [];
+
+  // Generate parent chunks
+  const parents = chunkDocument(text, {
+    maxChunkSize: parentSize,
+    overlap: Math.round(overlap * 1.5),
+    strategy: options.strategy || "markdown",
+    source: options.source,
+  });
+
+  const allChildren: DocumentChunk[] = [];
+  let childIndex = 0;
+
+  for (let pIdx = 0; pIdx < parents.length; pIdx++) {
+    const parent = parents[pIdx];
+    const parentId = `parent_${pIdx}_${parent.startOffset}`;
+
+    // Sub-chunk the parent into granular children
+    const rawChildren = chunkDocument(parent.content, {
+      maxChunkSize: childSize,
+      overlap,
+      strategy: "recursive",
+      source: options.source,
+    });
+
+    for (const child of rawChildren) {
+      allChildren.push({
+        ...child,
+        id: `child_${childIndex}_${parent.startOffset + child.startOffset}`,
+        index: childIndex,
+        startOffset: parent.startOffset + child.startOffset,
+        endOffset: parent.startOffset + child.endOffset,
+        metadata: {
+          ...child.metadata,
+          section: parent.metadata.section,
+          parentId,
+          parentContent: parent.content,
+        },
+      });
+      childIndex++;
+    }
+  }
+
+  return allChildren;
 }
 
 /**
@@ -402,6 +469,8 @@ export function mergeSmallChunks(
           charCount: newContent.length,
           wordCount: current.metadata.wordCount + next.metadata.wordCount,
           tokenCount: estimateTokens(newContent),
+          parentContent: current.metadata.parentContent || next.metadata.parentContent,
+          parentId: current.metadata.parentId || next.metadata.parentId,
         },
       };
     } else {

@@ -4,7 +4,8 @@
  *
  * Capabilities:
  * - Native pgvector Cosine Distance (`<=>`) queries with IVFFlat / HNSW support
- * - Automatic extension bootstrapping (`CREATE EXTENSION IF NOT EXISTS vector;`)
+ * - Hybrid Search (Dense pgvector + Sparse Full-Text + Reciprocal Rank Fusion - RRF)
+ * - "Small-to-Big" Parent-Document Context Expansion
  * - Universal fallback cosine similarity engine for zero-configuration compatibility
  * - Transactional document ingestion with chunking & embedding
  * - Rich metadata filtering, collection isolation, and user multi-tenancy
@@ -12,7 +13,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { generateEmbedding, batchEmbed, cosineSimilarity, EmbeddingResult, DEFAULT_EMBEDDING_DIM } from "./embeddingService";
-import { chunkDocument, mergeSmallChunks, ChunkingOptions, DocumentChunk } from "./chunkingService";
+import { chunkDocument, chunkDocumentWithParent, mergeSmallChunks, ChunkingOptions, DocumentChunk } from "./chunkingService";
 import { logger } from "@/lib/logger";
 
 export interface PgVectorStoreConfig {
@@ -43,6 +44,8 @@ export interface IngestDocumentInput {
   chunking?: ChunkingOptions;
   /** Custom user/system metadata */
   metadata?: Record<string, unknown>;
+  /** Enable Small-to-Big parent-document chunking */
+  useParentChunking?: boolean;
 }
 
 export interface IngestDocumentOutput {
@@ -66,6 +69,9 @@ export interface SemanticSearchResult {
   collection: string;
   metadata: Record<string, unknown>;
   tokenCount?: number;
+  searchType?: "dense" | "sparse" | "hybrid";
+  denseScore?: number;
+  sparseScore?: number;
 }
 
 export interface SemanticSearchOptions {
@@ -79,6 +85,17 @@ export interface SemanticSearchOptions {
   userId?: string;
   /** Metadata key-value filters */
   metadataFilter?: Record<string, unknown>;
+  /** Whether to expand retrieved chunk to its parent document context */
+  expandToParent?: boolean;
+}
+
+export interface HybridSearchOptions extends SemanticSearchOptions {
+  /** Dense vector weight (default: 0.7) */
+  denseWeight?: number;
+  /** Sparse keyword weight (default: 0.3) */
+  sparseWeight?: number;
+  /** Reciprocal Rank Fusion constant k (default: 60) */
+  rrfK?: number;
 }
 
 export interface CollectionSummary {
@@ -129,7 +146,7 @@ export class PgVectorStore {
 
   /**
    * Ingests a document:
-   * 1. Splits text into optimized chunks (recursive / markdown / semantic).
+   * 1. Splits text into optimized chunks (recursive / markdown / semantic / parent-child).
    * 2. Generates dense vector embeddings via OpenAI, Open Models, or deterministic local vector engine.
    * 3. Stores document and vector chunks transactionally in PostgreSQL.
    */
@@ -145,6 +162,7 @@ export class PgVectorStore {
       mimeType = "text/plain",
       chunking = {},
       metadata = {},
+      useParentChunking = false,
     } = input;
 
     if (!content || !content.trim()) {
@@ -152,12 +170,23 @@ export class PgVectorStore {
     }
 
     // 1. Chunking
+    let rawChunks: DocumentChunk[];
     const strategy = chunking.strategy || (mimeType.includes("markdown") ? "markdown" : "recursive");
-    const rawChunks = chunkDocument(content, {
-      strategy,
-      source: title,
-      ...chunking,
-    });
+
+    if (useParentChunking || chunking.parentChunkSize) {
+      rawChunks = chunkDocumentWithParent(content, {
+        strategy,
+        source: title,
+        ...chunking,
+      });
+    } else {
+      rawChunks = chunkDocument(content, {
+        strategy,
+        source: title,
+        ...chunking,
+      });
+    }
+
     const chunks = mergeSmallChunks(rawChunks, 150);
 
     if (chunks.length === 0) {
@@ -190,6 +219,7 @@ export class PgVectorStore {
           embeddingModel,
           embeddingProvider,
           chunkStrategy: strategy,
+          useParentChunking,
         },
         chunkCount: chunks.length,
         tokenCount: totalTokens,
@@ -204,6 +234,8 @@ export class PgVectorStore {
             metadata: {
               ...chunk.metadata,
               section: chunk.metadata.section,
+              parentContent: chunk.metadata.parentContent,
+              parentId: chunk.metadata.parentId,
             },
           })),
         },
@@ -247,6 +279,7 @@ export class PgVectorStore {
       collection,
       userId,
       metadataFilter,
+      expandToParent = false,
     } = options;
 
     if (!query || !query.trim()) {
@@ -262,11 +295,254 @@ export class PgVectorStore {
     });
 
     // Query vectors from PostgreSQL
-    return this.searchVectorFallback(queryEmbedding, limit, minScore, collection, userId, metadataFilter);
+    const results = await this.searchVectorFallback(
+      queryEmbedding,
+      limit,
+      minScore,
+      collection,
+      userId,
+      metadataFilter
+    );
+
+    if (expandToParent) {
+      return this.expandResultsToParent(results);
+    }
+
+    return results;
   }
 
   /**
-   * Fallback & Universal vector search computation over stored Float[] embeddings.
+   * Hybrid Search: Combines Dense pgvector Cosine Search + Sparse Full-Text Keyword Search
+   * using Reciprocal Rank Fusion (RRF).
+   */
+  async hybridSearch(query: string, options: HybridSearchOptions = {}): Promise<SemanticSearchResult[]> {
+    await this.initialize();
+
+    const {
+      limit = 5,
+      minScore = 0.15,
+      collection,
+      userId,
+      metadataFilter,
+      denseWeight = 0.7,
+      sparseWeight = 0.3,
+      rrfK = 60,
+      expandToParent = false,
+    } = options;
+
+    if (!query || !query.trim()) {
+      return [];
+    }
+
+    const cleanQuery = query.trim();
+
+    // 1. Dense Semantic Vector Search (candidate pool: 3x limit)
+    const denseCandidates = await this.search(cleanQuery, {
+      limit: limit * 3,
+      minScore: 0.1,
+      collection,
+      userId,
+      metadataFilter,
+    });
+
+    // 2. Sparse Full-Text Keyword Search
+    const sparseCandidates = await this.searchSparse(cleanQuery, {
+      limit: limit * 3,
+      collection,
+      userId,
+      metadataFilter,
+    });
+
+    // 3. Reciprocal Rank Fusion (RRF)
+    const rrfScores = new Map<
+      string,
+      {
+        chunk: SemanticSearchResult;
+        denseRank?: number;
+        sparseRank?: number;
+        denseScore?: number;
+        sparseScore?: number;
+        rrfScore: number;
+      }
+    >();
+
+    // Rank dense items
+    denseCandidates.forEach((chunk, rank) => {
+      const denseScore = chunk.score;
+      const rrf = denseWeight / (rrfK + (rank + 1));
+      rrfScores.set(chunk.id, {
+        chunk,
+        denseRank: rank + 1,
+        denseScore,
+        rrfScore: rrf,
+      });
+    });
+
+    // Rank sparse items
+    sparseCandidates.forEach((chunk, rank) => {
+      const sparseScore = chunk.score;
+      const rrfSparse = sparseWeight / (rrfK + (rank + 1));
+      const existing = rrfScores.get(chunk.id);
+
+      if (existing) {
+        existing.sparseRank = rank + 1;
+        existing.sparseScore = sparseScore;
+        existing.rrfScore += rrfSparse;
+      } else {
+        rrfScores.set(chunk.id, {
+          chunk,
+          sparseRank: rank + 1,
+          sparseScore,
+          rrfScore: rrfSparse,
+        });
+      }
+    });
+
+    // Sort by RRF score descending
+    const combined = Array.from(rrfScores.values())
+      .sort((a, b) => b.rrfScore - a.rrfScore)
+      .slice(0, limit)
+      .map(({ chunk, denseScore, sparseScore, rrfScore }) => ({
+        ...chunk,
+        score: Math.round(rrfScore * 10000) / 10000,
+        searchType: "hybrid" as const,
+        denseScore: denseScore ? Math.round(denseScore * 1000) / 1000 : undefined,
+        sparseScore: sparseScore ? Math.round(sparseScore * 1000) / 1000 : undefined,
+      }))
+      .filter((c) => c.score >= minScore * 0.01);
+
+    if (expandToParent) {
+      return this.expandResultsToParent(combined);
+    }
+
+    return combined;
+  }
+
+  /**
+   * Sparse Keyword Search over chunk contents.
+   */
+  private async searchSparse(
+    query: string,
+    options: SemanticSearchOptions
+  ): Promise<SemanticSearchResult[]> {
+    const { limit = 15, collection, userId, metadataFilter } = options;
+    const queryTokens = query.toLowerCase().split(/\s+/).filter((t) => t.length > 1);
+    if (queryTokens.length === 0) return [];
+
+    const whereClause: Record<string, unknown> = {};
+    if (collection) whereClause.collection = collection;
+    if (userId) whereClause.userId = userId;
+
+    let candidateChunks: Array<{
+      id: string;
+      documentId: string;
+      chunkIndex: number;
+      content: string;
+      metadata: unknown;
+      tokenCount: number | null;
+      document: {
+        title: string;
+        collection: string;
+      };
+    }> = [];
+
+    try {
+      candidateChunks = await prisma.documentChunk.findMany({
+        where: {
+          document: whereClause,
+        },
+        select: {
+          id: true,
+          documentId: true,
+          chunkIndex: true,
+          content: true,
+          metadata: true,
+          tokenCount: true,
+          document: {
+            select: {
+              title: true,
+              collection: true,
+            },
+          },
+        },
+        take: 300,
+      });
+    } catch {
+      return [];
+    }
+
+    const scored: SemanticSearchResult[] = [];
+
+    for (const chunk of candidateChunks) {
+      if (metadataFilter) {
+        const chunkMeta = (chunk.metadata as Record<string, unknown>) || {};
+        let matches = true;
+        for (const [k, v] of Object.entries(metadataFilter)) {
+          if (chunkMeta[k] !== v) {
+            matches = false;
+            break;
+          }
+        }
+        if (!matches) continue;
+      }
+
+      const contentLower = chunk.content.toLowerCase();
+      let matchCount = 0;
+      let exactBonus = 0;
+
+      if (contentLower.includes(query.toLowerCase())) {
+        exactBonus = 0.5;
+      }
+
+      for (const token of queryTokens) {
+        if (contentLower.includes(token)) {
+          matchCount += 1;
+        }
+      }
+
+      if (matchCount > 0 || exactBonus > 0) {
+        const score = Math.min(1.0, (matchCount / queryTokens.length) * 0.5 + exactBonus);
+        scored.push({
+          id: chunk.id,
+          documentId: chunk.documentId,
+          chunkIndex: chunk.chunkIndex,
+          content: chunk.content,
+          score: Math.round(score * 1000) / 1000,
+          title: chunk.document.title,
+          collection: chunk.document.collection,
+          metadata: (chunk.metadata as Record<string, unknown>) || {},
+          tokenCount: chunk.tokenCount || undefined,
+          searchType: "sparse",
+        });
+      }
+    }
+
+    return scored.sort((a, b) => b.score - a.score).slice(0, limit);
+  }
+
+  /**
+   * Expands small chunk results to their parent document sections.
+   */
+  private expandResultsToParent(results: SemanticSearchResult[]): SemanticSearchResult[] {
+    return results.map((r) => {
+      const parent = (r.metadata.parentContent as string) || null;
+      if (parent) {
+        return {
+          ...r,
+          content: parent,
+          metadata: {
+            ...r.metadata,
+            isParentExpanded: true,
+            childContentSnippet: r.content.slice(0, 100),
+          },
+        };
+      }
+      return r;
+    });
+  }
+
+  /**
+   * Fallback vector search computation over stored Float[] embeddings.
    */
   private async searchVectorFallback(
     queryEmbedding: EmbeddingResult,
@@ -363,6 +639,7 @@ export class PgVectorStore {
           collection: chunk.document.collection,
           metadata: (chunk.metadata as Record<string, unknown>) || {},
           tokenCount: chunk.tokenCount || undefined,
+          searchType: "dense",
         });
       }
     }
@@ -386,30 +663,34 @@ export class PgVectorStore {
     if (userId) where.userId = userId;
     if (collection) where.collection = collection;
 
-    const [documents, total] = await Promise.all([
-      prisma.document.findMany({
-        where,
-        select: {
-          id: true,
-          userId: true,
-          title: true,
-          source: true,
-          mimeType: true,
-          collection: true,
-          chunkCount: true,
-          tokenCount: true,
-          metadata: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-        orderBy: { createdAt: "desc" },
-        take: limit,
-        skip: offset,
-      }),
-      prisma.document.count({ where }),
-    ]);
+    try {
+      const [documents, total] = await Promise.all([
+        prisma.document.findMany({
+          where,
+          select: {
+            id: true,
+            userId: true,
+            title: true,
+            source: true,
+            mimeType: true,
+            collection: true,
+            chunkCount: true,
+            tokenCount: true,
+            metadata: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+          orderBy: { createdAt: "desc" },
+          take: limit,
+          skip: offset,
+        }),
+        prisma.document.count({ where }),
+      ]);
 
-    return { documents, total };
+      return { documents, total };
+    } catch {
+      return { documents: [], total: 0 };
+    }
   }
 
   /**
@@ -419,24 +700,28 @@ export class PgVectorStore {
     const where: Record<string, unknown> = { id: documentId };
     if (userId) where.userId = userId;
 
-    return prisma.document.findFirst({
-      where,
-      include: {
-        chunks: {
-          orderBy: { chunkIndex: "asc" },
-          select: {
-            id: true,
-            chunkIndex: true,
-            content: true,
-            metadata: true,
-            tokenCount: true,
-            startOffset: true,
-            endOffset: true,
-            createdAt: true,
+    try {
+      return await prisma.document.findFirst({
+        where,
+        include: {
+          chunks: {
+            orderBy: { chunkIndex: "asc" },
+            select: {
+              id: true,
+              chunkIndex: true,
+              content: true,
+              metadata: true,
+              tokenCount: true,
+              startOffset: true,
+              endOffset: true,
+              createdAt: true,
+            },
           },
         },
-      },
-    });
+      });
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -446,11 +731,15 @@ export class PgVectorStore {
     const where: Record<string, unknown> = { id: documentId };
     if (userId) where.userId = userId;
 
-    const doc = await prisma.document.findFirst({ where, select: { id: true } });
-    if (!doc) return false;
+    try {
+      const doc = await prisma.document.findFirst({ where, select: { id: true } });
+      if (!doc) return false;
 
-    await prisma.document.delete({ where: { id: documentId } });
-    return true;
+      await prisma.document.delete({ where: { id: documentId } });
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -460,46 +749,50 @@ export class PgVectorStore {
     const where: Record<string, unknown> = {};
     if (userId) where.userId = userId;
 
-    const docs = await prisma.document.findMany({
-      where,
-      select: {
-        collection: true,
-        chunkCount: true,
-        tokenCount: true,
-        updatedAt: true,
-      },
-    });
+    try {
+      const docs = await prisma.document.findMany({
+        where,
+        select: {
+          collection: true,
+          chunkCount: true,
+          tokenCount: true,
+          updatedAt: true,
+        },
+      });
 
-    const collectionMap = new Map<
-      string,
-      { docCount: number; chunkCount: number; tokenCount: number; lastUpdated: Date }
-    >();
+      const collectionMap = new Map<
+        string,
+        { docCount: number; chunkCount: number; totalTokens: number; lastUpdated: Date }
+      >();
 
-    for (const d of docs) {
-      const existing = collectionMap.get(d.collection) || {
-        docCount: 0,
-        chunkCount: 0,
-        tokenCount: 0,
-        lastUpdated: new Date(0),
-      };
+      for (const d of docs) {
+        const existing = collectionMap.get(d.collection) || {
+          docCount: 0,
+          chunkCount: 0,
+          totalTokens: 0,
+          lastUpdated: new Date(0),
+        };
 
-      existing.docCount += 1;
-      existing.chunkCount += d.chunkCount;
-      existing.tokenCount += d.tokenCount || 0;
-      if (d.updatedAt > existing.lastUpdated) {
-        existing.lastUpdated = d.updatedAt;
+        existing.docCount += 1;
+        existing.chunkCount += d.chunkCount;
+        existing.totalTokens += d.tokenCount || 0;
+        if (d.updatedAt > existing.lastUpdated) {
+          existing.lastUpdated = d.updatedAt;
+        }
+
+        collectionMap.set(d.collection, existing);
       }
 
-      collectionMap.set(d.collection, existing);
+      return Array.from(collectionMap.entries()).map(([name, stats]) => ({
+        name,
+        documentCount: stats.docCount,
+        chunkCount: stats.chunkCount,
+        totalTokens: stats.totalTokens,
+        lastUpdated: stats.lastUpdated,
+      }));
+    } catch {
+      return [];
     }
-
-    return Array.from(collectionMap.entries()).map(([name, stats]) => ({
-      name,
-      documentCount: stats.docCount,
-      chunkCount: stats.chunkCount,
-      totalTokens: stats.tokenCount,
-      lastUpdated: stats.lastUpdated,
-    }));
   }
 
   /**
@@ -510,19 +803,28 @@ export class PgVectorStore {
     if (userId) where.userId = userId;
     if (collection) where.collection = collection;
 
-    const [docCount, chunkCount] = await Promise.all([
-      prisma.document.count({ where }),
-      prisma.documentChunk.count({
-        where: collection || userId ? { document: where } : undefined,
-      }),
-    ]);
+    try {
+      const [docCount, chunkCount] = await Promise.all([
+        prisma.document.count({ where }),
+        prisma.documentChunk.count({
+          where: collection || userId ? { document: where } : undefined,
+        }),
+      ]);
 
-    return {
-      documentCount: docCount,
-      chunkCount,
-      storageEngine: "PostgreSQL pgvector",
-      hasNativePgVector: this.hasNativePgVector,
-    };
+      return {
+        documentCount: docCount,
+        chunkCount,
+        storageEngine: "PostgreSQL pgvector (Hybrid RRF)",
+        hasNativePgVector: this.hasNativePgVector,
+      };
+    } catch {
+      return {
+        documentCount: 0,
+        chunkCount: 0,
+        storageEngine: "PostgreSQL pgvector (Hybrid RRF)",
+        hasNativePgVector: false,
+      };
+    }
   }
 }
 

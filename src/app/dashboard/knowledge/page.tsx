@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Database,
   UploadCloud,
@@ -13,18 +13,25 @@ import {
   RefreshCw,
   Sliders,
   Eye,
-  BookOpen,
   Zap,
   Cpu,
-  ArrowRight,
   ShieldCheck,
   Tag,
-  Hash,
-  AlertCircle,
   Copy,
   Check,
+  Activity,
+  Compass,
+  Maximize2,
+  Minimize2,
+  Flame,
+  BarChart3,
+  Scale,
+  GitMerge,
+  HelpCircle,
 } from "lucide-react";
 import { previewChunks } from "@/modules/rag/chunkingService";
+import { ClusterMapData } from "@/modules/rag/clusterVisualizer";
+import { RAGTriadEvaluationReport } from "@/modules/rag/evaluation";
 
 const SAMPLE_DOCUMENTS = [
   {
@@ -74,14 +81,17 @@ The Google Agent-to-Agent (A2A) Protocol provides a standardized communication l
 ];
 
 export default function KnowledgeBasePage() {
-  const [activeTab, setActiveTab] = useState<"ingest" | "search" | "documents" | "architecture">("ingest");
+  const [activeTab, setActiveTab] = useState<
+    "ingest" | "search" | "cluster_map" | "documents" | "architecture"
+  >("ingest");
 
   // Ingest State
   const [title, setTitle] = useState("Production RAG Architecture with pgvector");
   const [collection, setCollection] = useState("engineering");
   const [content, setContent] = useState(SAMPLE_DOCUMENTS[0].content);
   const [strategy, setStrategy] = useState<"recursive" | "markdown" | "semantic" | "fixed">("markdown");
-  const [maxChunkSize, setMaxChunkSize] = useState(600);
+  const [useParentChunking, setUseParentChunking] = useState(true);
+  const [maxChunkSize, setMaxChunkSize] = useState(500);
   const [overlap, setOverlap] = useState(120);
   const [isIngesting, setIsIngesting] = useState(false);
   const [ingestSuccess, setIngestSuccess] = useState<Record<string, unknown> | null>(null);
@@ -94,15 +104,31 @@ export default function KnowledgeBasePage() {
   const [searchCollection, setSearchCollection] = useState("");
   const [searchLimit, setSearchLimit] = useState(5);
   const [minScore, setMinScore] = useState(0.2);
+  const [useHybridSearch, setUseHybridSearch] = useState(true);
+  const [expandToParent, setExpandToParent] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<Array<Record<string, unknown>>>([]);
-  const [qaAnswer, setQaAnswer] = useState<{ answer: string; sources: Array<{ title: string; score: number; snippet: string }> } | null>(null);
+  const [qaAnswer, setQaAnswer] = useState<{
+    answer: string;
+    sources: Array<{ title: string; score: number; snippet: string; section?: string }>;
+  } | null>(null);
   const [isGeneratingQA, setIsGeneratingQA] = useState(false);
+  const [evaluationReport, setEvaluationReport] = useState<RAGTriadEvaluationReport | null>(null);
+
+  // Cluster Map State
+  const [clusterData, setClusterData] = useState<ClusterMapData | null>(null);
+  const [isLoadingCluster, setIsLoadingCluster] = useState(false);
+  const [hoveredPoint, setHoveredPoint] = useState<Record<string, unknown> | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Documents State
   const [documents, setDocuments] = useState<Array<Record<string, unknown>>>([]);
-  const [collections, setCollections] = useState<Array<{ name: string; documentCount: number; chunkCount: number; totalTokens: number }>>([]);
-  const [stats, setStats] = useState<{ documentCount: number; chunkCount: number; storageEngine: string } | null>(null);
+  const [collections, setCollections] = useState<
+    Array<{ name: string; documentCount: number; chunkCount: number; totalTokens: number }>
+  >([]);
+  const [stats, setStats] = useState<{ documentCount: number; chunkCount: number; storageEngine: string } | null>(
+    null
+  );
   const [isLoadingDocs, setIsLoadingDocs] = useState(false);
   const [selectedDocChunks, setSelectedDocChunks] = useState<Record<string, unknown> | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -117,7 +143,7 @@ export default function KnowledgeBasePage() {
     }
   }, [content, strategy, maxChunkSize, overlap]);
 
-  // Load documents
+  // Load documents and collections
   const fetchDocuments = async () => {
     setIsLoadingDocs(true);
     try {
@@ -135,9 +161,122 @@ export default function KnowledgeBasePage() {
     }
   };
 
+  // Load 2D Vector Cluster Data
+  const fetchClusterData = async (queryText?: string) => {
+    setIsLoadingCluster(true);
+    try {
+      const queryParam = queryText || searchQuery;
+      const res = await fetch(
+        `/api/rag/cluster?${queryParam ? `query=${encodeURIComponent(queryParam)}` : ""}${
+          searchCollection ? `&collection=${encodeURIComponent(searchCollection)}` : ""
+        }`
+      );
+      if (res.ok) {
+        const json = await res.json();
+        setClusterData(json);
+      }
+    } catch {
+      // Handled
+    } finally {
+      setIsLoadingCluster(false);
+    }
+  };
+
   useEffect(() => {
     fetchDocuments();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "cluster_map") {
+      fetchClusterData();
+    }
+  }, [activeTab]);
+
+  // Render 2D Vector Canvas
+  useEffect(() => {
+    if (activeTab !== "cluster_map" || !clusterData || !canvasRef.current) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const width = canvas.width;
+    const height = canvas.height;
+
+    // Clear background
+    ctx.clearRect(0, 0, width, height);
+
+    // Draw Grid & Axes
+    ctx.strokeStyle = "rgba(99, 102, 241, 0.15)";
+    ctx.lineWidth = 1;
+
+    for (let x = 0; x < width; x += 40) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, height);
+      ctx.stroke();
+    }
+    for (let y = 0; y < height; y += 40) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+    }
+
+    // Origin Axes
+    ctx.strokeStyle = "rgba(99, 102, 241, 0.4)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(width / 2, 0);
+    ctx.lineTo(width / 2, height);
+    ctx.moveTo(0, height / 2);
+    ctx.lineTo(width, height / 2);
+    ctx.stroke();
+
+    // Map color by collection
+    const colorMap = new Map<string, string>();
+    clusterData.collections.forEach((c) => colorMap.set(c.name, c.color));
+
+    // Draw Cluster Points
+    for (const pt of clusterData.points) {
+      const px = width / 2 + pt.x * (width * 0.42);
+      const py = height / 2 - pt.y * (height * 0.42);
+
+      const color = colorMap.get(pt.collection) || "#6366f1";
+
+      // Outer glow
+      ctx.beginPath();
+      ctx.arc(px, py, 6, 0, Math.PI * 2);
+      ctx.fillStyle = `${color}40`;
+      ctx.fill();
+
+      // Core point
+      ctx.beginPath();
+      ctx.arc(px, py, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
+
+    // Draw Query Point Pin (if available)
+    if (clusterData.queryPoint) {
+      const qx = width / 2 + clusterData.queryPoint.x * (width * 0.42);
+      const qy = height / 2 - clusterData.queryPoint.y * (height * 0.42);
+
+      ctx.beginPath();
+      ctx.arc(qx, qy, 9, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(239, 68, 68, 0.3)";
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(qx, qy, 5, 0, Math.PI * 2);
+      ctx.fillStyle = "#ef4444";
+      ctx.fill();
+
+      ctx.font = "bold 10px monospace";
+      ctx.fillStyle = "#ef4444";
+      ctx.fillText("QUERY PIN", qx + 8, qy - 8);
+    }
+  }, [clusterData, activeTab]);
 
   // Handle Ingest
   const handleIngest = async (e: React.FormEvent) => {
@@ -160,7 +299,9 @@ export default function KnowledgeBasePage() {
             strategy,
             maxChunkSize,
             overlap,
+            parentChunkSize: useParentChunking ? 1200 : undefined,
           },
+          useParentChunking,
         }),
       });
 
@@ -185,6 +326,7 @@ export default function KnowledgeBasePage() {
 
     setIsSearching(true);
     setQaAnswer(null);
+    setEvaluationReport(null);
 
     try {
       const res = await fetch("/api/rag/search", {
@@ -195,6 +337,8 @@ export default function KnowledgeBasePage() {
           collection: searchCollection || undefined,
           limit: searchLimit,
           minScore,
+          useHybridSearch,
+          expandToParent,
         }),
       });
 
@@ -209,11 +353,13 @@ export default function KnowledgeBasePage() {
     }
   };
 
-  // Handle Grounded QA
+  // Handle Grounded QA & Evaluation
   const handleGenerateQA = async () => {
     if (!searchQuery.trim()) return;
 
     setIsGeneratingQA(true);
+    setEvaluationReport(null);
+
     try {
       const res = await fetch("/api/rag/search", {
         method: "POST",
@@ -224,12 +370,29 @@ export default function KnowledgeBasePage() {
           limit: searchLimit,
           minScore,
           generateAnswer: true,
+          expandToParent,
         }),
       });
 
       const json = await res.json();
       if (res.ok && json.result) {
         setQaAnswer(json.result);
+
+        // Run automated RAG Triad Evaluation
+        const evalRes = await fetch("/api/rag/evaluate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: searchQuery,
+            contextChunks: searchResults.map((r) => ({ content: r.content as string, score: r.score as number })),
+            generatedAnswer: json.result.answer,
+          }),
+        });
+
+        if (evalRes.ok) {
+          const evalJson = await evalRes.json();
+          setEvaluationReport(evalJson.evaluation);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -281,20 +444,23 @@ export default function KnowledgeBasePage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-xl border border-indigo-200 dark:border-indigo-900/50 bg-gradient-to-r from-indigo-50/80 via-slate-50 to-indigo-50/50 dark:from-indigo-950/40 dark:via-black/60 dark:to-indigo-950/20 shadow-sm backdrop-blur-sm">
         <div>
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex flex-wrap items-center gap-2 mb-2">
             <span className="px-2.5 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700/50">
-              CORE AI ENGINE
+              ADVANCED RAG ARCHITECTURE
             </span>
             <span className="px-2.5 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700/50 flex items-center gap-1">
-              <ShieldCheck className="h-3 w-3" /> PGVECTOR ACTIVE
+              <ShieldCheck className="h-3 w-3" /> PGVECTOR (HYBRID RRF)
+            </span>
+            <span className="px-2.5 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 flex items-center gap-1">
+              <Sparkles className="h-3 w-3" /> SMALL-TO-BIG RETRIEVAL
             </span>
           </div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
             <Database className="h-7 w-7 text-indigo-600 dark:text-indigo-400" />
             Knowledge Base & pgvector RAG Engine
           </h1>
-          <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-2xl">
-            Complete document ingestion, hierarchical chunking, dense vector embeddings (1536D), PostgreSQL pgvector storage, and sub-millisecond semantic retrieval.
+          <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-3xl">
+            Hierarchical chunking, 1536D normalized embeddings, Hybrid Reciprocal Rank Fusion (RRF), Small-to-Big parent context expansion, 2D PCA cluster mapping, and RAG Triad observability.
           </p>
         </div>
 
@@ -302,11 +468,15 @@ export default function KnowledgeBasePage() {
         <div className="flex items-center gap-3 shrink-0">
           <div className="px-4 py-2.5 rounded-lg border border-indigo-200 dark:border-indigo-900/60 bg-white dark:bg-black/60 shadow-sm text-center min-w-[100px]">
             <div className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Documents</div>
-            <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400">{stats?.documentCount ?? documents.length}</div>
+            <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
+              {stats?.documentCount ?? documents.length}
+            </div>
           </div>
           <div className="px-4 py-2.5 rounded-lg border border-indigo-200 dark:border-indigo-900/60 bg-white dark:bg-black/60 shadow-sm text-center min-w-[100px]">
             <div className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Vector Chunks</div>
-            <div className="text-xl font-bold text-purple-600 dark:text-purple-400">{stats?.chunkCount ?? "0"}</div>
+            <div className="text-xl font-bold text-purple-600 dark:text-purple-400">
+              {stats?.chunkCount ?? "0"}
+            </div>
           </div>
         </div>
       </div>
@@ -315,7 +485,7 @@ export default function KnowledgeBasePage() {
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-indigo-900/40 pb-2 overflow-x-auto">
         <button
           onClick={() => setActiveTab("ingest")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold tracking-wider uppercase transition-all duration-150 ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold tracking-wider uppercase transition-all duration-150 shrink-0 ${
             activeTab === "ingest"
               ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
               : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-indigo-950/40"
@@ -325,48 +495,59 @@ export default function KnowledgeBasePage() {
         </button>
         <button
           onClick={() => setActiveTab("search")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold tracking-wider uppercase transition-all duration-150 ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold tracking-wider uppercase transition-all duration-150 shrink-0 ${
             activeTab === "search"
               ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
               : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-indigo-950/40"
           }`}
         >
-          <Search className="h-4 w-4" /> 2. Semantic Search & RAG
+          <Search className="h-4 w-4" /> 2. Hybrid Search & RAG
+        </button>
+        <button
+          onClick={() => setActiveTab("cluster_map")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold tracking-wider uppercase transition-all duration-150 shrink-0 ${
+            activeTab === "cluster_map"
+              ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
+              : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-indigo-950/40"
+          }`}
+        >
+          <Compass className="h-4 w-4" /> 3. 2D Vector Cluster Map (PCA)
         </button>
         <button
           onClick={() => setActiveTab("documents")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold tracking-wider uppercase transition-all duration-150 ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold tracking-wider uppercase transition-all duration-150 shrink-0 ${
             activeTab === "documents"
               ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
               : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-indigo-950/40"
           }`}
         >
-          <Layers className="h-4 w-4" /> 3. pgvector Collections ({documents.length})
+          <Layers className="h-4 w-4" /> 4. Collections ({documents.length})
         </button>
         <button
           onClick={() => setActiveTab("architecture")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold tracking-wider uppercase transition-all duration-150 ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold tracking-wider uppercase transition-all duration-150 shrink-0 ${
             activeTab === "architecture"
               ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
               : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-indigo-950/40"
           }`}
         >
-          <Cpu className="h-4 w-4" /> 4. Architecture & Benchmarks
+          <Cpu className="h-4 w-4" /> 5. Architecture & RRF Benchmarks
         </button>
       </div>
 
       {/* TAB 1: INGESTION & CHUNKING */}
       {activeTab === "ingest" && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Form */}
           <div className="lg:col-span-7 space-y-4">
-            <form onSubmit={handleIngest} className="p-6 rounded-xl border border-slate-200 dark:border-indigo-900/40 bg-white dark:bg-black/60 shadow-sm space-y-4">
+            <form
+              onSubmit={handleIngest}
+              className="p-6 rounded-xl border border-slate-200 dark:border-indigo-900/40 bg-white dark:bg-black/60 shadow-sm space-y-4"
+            >
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <FileText className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                  Document Ingestion Pipeline
+                  Document Ingestion & Chunking Studio
                 </h2>
-                {/* Sample document loader */}
                 <div className="flex items-center gap-1.5 text-xs">
                   <span className="text-slate-500 text-[11px]">Load Sample:</span>
                   {SAMPLE_DOCUMENTS.map((s, idx) => (
@@ -423,9 +604,15 @@ export default function KnowledgeBasePage() {
                     <Sliders className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
                     Chunking Engine Parameters
                   </span>
-                  <span className="text-[10px] text-indigo-700 dark:text-indigo-400 font-mono">
-                    Strategy: {strategy.toUpperCase()}
-                  </span>
+                  <label className="flex items-center gap-1.5 text-[11px] text-purple-700 dark:text-purple-300 cursor-pointer font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={useParentChunking}
+                      onChange={(e) => setUseParentChunking(e.target.checked)}
+                      className="rounded border-purple-400 text-purple-600"
+                    />
+                    Small-to-Big Parent Context
+                  </label>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -448,13 +635,13 @@ export default function KnowledgeBasePage() {
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div>
                     <div className="flex justify-between mb-1">
-                      <span className="text-slate-600 dark:text-slate-400">Max Chunk Size:</span>
+                      <span className="text-slate-600 dark:text-slate-400">Leaf Chunk Size:</span>
                       <span className="font-bold text-indigo-600 dark:text-indigo-400">{maxChunkSize} chars</span>
                     </div>
                     <input
                       type="range"
-                      min="200"
-                      max="1500"
+                      min="150"
+                      max="1200"
                       step="50"
                       value={maxChunkSize}
                       onChange={(e) => setMaxChunkSize(parseInt(e.target.value, 10))}
@@ -494,7 +681,6 @@ export default function KnowledgeBasePage() {
                 />
               </div>
 
-              {/* Ingest Button */}
               <button
                 type="submit"
                 disabled={isIngesting || !content.trim()}
@@ -514,7 +700,6 @@ export default function KnowledgeBasePage() {
               </button>
             </form>
 
-            {/* Success Banner */}
             {ingestSuccess && (
               <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200 animate-fadeIn space-y-2">
                 <div className="flex items-center gap-2 font-bold text-xs">
@@ -522,10 +707,18 @@ export default function KnowledgeBasePage() {
                   Document Successfully Ingested & Indexed in pgvector!
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] pt-1 border-t border-emerald-200/60 dark:border-emerald-800/60">
-                  <div>Document ID: <span className="font-mono font-bold">{(ingestSuccess.documentId as string)?.slice(0, 10)}...</span></div>
-                  <div>Chunks: <span className="font-bold">{ingestSuccess.chunkCount as number}</span></div>
-                  <div>Tokens: <span className="font-bold">{ingestSuccess.totalTokens as number}</span></div>
-                  <div>Embedding: <span className="font-bold">{ingestSuccess.embeddingModel as string}</span></div>
+                  <div>
+                    Doc ID: <span className="font-mono font-bold">{(ingestSuccess.documentId as string)?.slice(0, 10)}...</span>
+                  </div>
+                  <div>
+                    Chunks: <span className="font-bold">{ingestSuccess.chunkCount as number}</span>
+                  </div>
+                  <div>
+                    Tokens: <span className="font-bold">{ingestSuccess.totalTokens as number}</span>
+                  </div>
+                  <div>
+                    Embedding: <span className="font-bold">{ingestSuccess.embeddingModel as string}</span>
+                  </div>
                 </div>
               </div>
             )}
@@ -544,23 +737,27 @@ export default function KnowledgeBasePage() {
                 </span>
               </div>
 
-              {/* Stats Grid */}
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="p-2 rounded bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
                   <div className="text-[10px] text-slate-500">Characters</div>
-                  <div className="text-sm font-bold text-slate-800 dark:text-slate-200">{chunkPreview.stats.totalChars}</div>
+                  <div className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                    {chunkPreview.stats.totalChars}
+                  </div>
                 </div>
                 <div className="p-2 rounded bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
                   <div className="text-[10px] text-slate-500">Est. Tokens</div>
-                  <div className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{chunkPreview.stats.totalTokens}</div>
+                  <div className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                    {chunkPreview.stats.totalTokens}
+                  </div>
                 </div>
                 <div className="p-2 rounded bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
                   <div className="text-[10px] text-slate-500">Avg Chars/Chunk</div>
-                  <div className="text-sm font-bold text-purple-600 dark:text-purple-400">{chunkPreview.stats.avgChunkChars}</div>
+                  <div className="text-sm font-bold text-purple-600 dark:text-purple-400">
+                    {chunkPreview.stats.avgChunkChars}
+                  </div>
                 </div>
               </div>
 
-              {/* Visual Chunks List */}
               <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
                 {chunkPreview.chunks.map((chunk, idx) => (
                   <div
@@ -577,7 +774,9 @@ export default function KnowledgeBasePage() {
                             {chunk.metadata.section}
                           </span>
                         )}
-                        <span>{chunk.metadata.charCount} chars • {chunk.metadata.tokenCount} tokens</span>
+                        <span>
+                          {chunk.metadata.charCount} chars • {chunk.metadata.tokenCount} tokens
+                        </span>
                       </div>
                     </div>
                     <p className="text-[11px] leading-relaxed text-slate-700 dark:text-slate-300 font-mono whitespace-pre-wrap">
@@ -591,24 +790,45 @@ export default function KnowledgeBasePage() {
         </div>
       )}
 
-      {/* TAB 2: SEMANTIC SEARCH & RAG TESTER */}
+      {/* TAB 2: HYBRID SEARCH & RAG */}
       {activeTab === "search" && (
         <div className="space-y-6">
-          {/* Query Box */}
           <div className="p-6 rounded-xl border border-slate-200 dark:border-indigo-900/40 bg-white dark:bg-black/60 shadow-sm space-y-4">
-            <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Search className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-              Semantic Retrieval & Prompt Grounding Playground
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Search className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                Hybrid Semantic Retrieval (Dense + Sparse RRF) & RAG
+              </h2>
+              <div className="flex items-center gap-3 text-xs">
+                <label className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300 font-semibold cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useHybridSearch}
+                    onChange={(e) => setUseHybridSearch(e.target.checked)}
+                    className="rounded border-indigo-400 text-indigo-600"
+                  />
+                  <Scale className="h-3.5 w-3.5" /> Hybrid RRF Ranking
+                </label>
+                <label className="flex items-center gap-1.5 text-purple-700 dark:text-purple-300 font-semibold cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={expandToParent}
+                    onChange={(e) => setExpandToParent(e.target.checked)}
+                    className="rounded border-purple-400 text-purple-600"
+                  />
+                  <GitMerge className="h-3.5 w-3.5" /> Small-to-Big Context
+                </label>
+              </div>
+            </div>
 
-            {/* Quick Query suggestions */}
+            {/* Quick Queries */}
             <div className="flex flex-wrap items-center gap-2 text-xs">
               <span className="text-slate-500 text-[11px]">Quick Queries:</span>
               {[
                 "How does pgvector cosine distance search work?",
                 "Explain A2A protocol task delegation",
                 "What is hierarchical chunking with overlap?",
-                "What dense embedding models are supported?",
+                "How does Reciprocal Rank Fusion combine dense and sparse search?",
               ].map((q, idx) => (
                 <button
                   key={idx}
@@ -661,7 +881,7 @@ export default function KnowledgeBasePage() {
                   </select>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-slate-600 dark:text-slate-400">Top-K Chunks:</span>
+                  <span className="text-slate-600 dark:text-slate-400">Top-K:</span>
                   <select
                     value={searchLimit}
                     onChange={(e) => setSearchLimit(parseInt(e.target.value, 10))}
@@ -694,13 +914,72 @@ export default function KnowledgeBasePage() {
                     disabled={isGeneratingQA || !searchQuery.trim()}
                     className="px-3.5 py-1.5 rounded-lg border border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
                   >
-                    {isGeneratingQA ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                    {isGeneratingQA ? (
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3.5 w-3.5" />
+                    )}
                     Synthesize Grounded RAG Answer
                   </button>
                 </div>
               </div>
             </form>
           </div>
+
+          {/* RAG Triad Observability Card */}
+          {evaluationReport && (
+            <div className="p-6 rounded-xl border border-indigo-200 dark:border-indigo-900/50 bg-white dark:bg-black/60 shadow-md space-y-4 animate-fadeIn">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-indigo-900/30 pb-3">
+                <div className="flex items-center gap-2 font-bold text-sm text-indigo-950 dark:text-indigo-200">
+                  <Activity className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                  RAG Triad Observability & Grounding Audit
+                </div>
+                <span
+                  className={`px-2.5 py-0.5 rounded text-xs font-bold ${
+                    evaluationReport.overallGrade === "A"
+                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                      : evaluationReport.overallGrade === "B"
+                      ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300"
+                      : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                  }`}
+                >
+                  Grade {evaluationReport.overallGrade} ({Math.round(evaluationReport.overallScore * 100)}%)
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="p-3 rounded-lg border border-slate-200 dark:border-indigo-900/40 bg-slate-50 dark:bg-slate-950 space-y-1">
+                  <div className="flex justify-between font-bold">
+                    <span>1. Context Relevance</span>
+                    <span className="text-indigo-600">
+                      {Math.round(evaluationReport.contextRelevance.score * 100)}%
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">{evaluationReport.contextRelevance.details}</p>
+                </div>
+
+                <div className="p-3 rounded-lg border border-slate-200 dark:border-indigo-900/40 bg-slate-50 dark:bg-slate-950 space-y-1">
+                  <div className="flex justify-between font-bold">
+                    <span>2. Groundedness</span>
+                    <span className="text-emerald-600">
+                      {Math.round(evaluationReport.groundedness.score * 100)}%
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">{evaluationReport.groundedness.details}</p>
+                </div>
+
+                <div className="p-3 rounded-lg border border-slate-200 dark:border-indigo-900/40 bg-slate-50 dark:bg-slate-950 space-y-1">
+                  <div className="flex justify-between font-bold">
+                    <span>3. Answer Relevance</span>
+                    <span className="text-purple-600">
+                      {Math.round(evaluationReport.answerRelevance.score * 100)}%
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">{evaluationReport.answerRelevance.details}</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Grounded QA Answer Display */}
           {qaAnswer && (
@@ -711,28 +990,12 @@ export default function KnowledgeBasePage() {
                   Grounded AI Answer (Retrieved via pgvector)
                 </div>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
-                  Model: {qaAnswer.sources?.length} Sources Cited
+                  {qaAnswer.sources?.length} Sources Cited
                 </span>
               </div>
               <div className="prose dark:prose-invert max-w-none text-xs leading-relaxed font-sans whitespace-pre-wrap text-slate-800 dark:text-slate-200">
                 {qaAnswer.answer}
               </div>
-              {qaAnswer.sources && qaAnswer.sources.length > 0 && (
-                <div className="pt-3 border-t border-purple-200 dark:border-purple-900/40 space-y-2">
-                  <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Cited Sources:</div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {qaAnswer.sources.map((s, idx) => (
-                      <div key={idx} className="p-2 rounded border border-purple-200 dark:border-purple-900/30 bg-white/70 dark:bg-slate-900/70 text-[11px] space-y-1">
-                        <div className="flex items-center justify-between font-bold text-indigo-600 dark:text-indigo-400">
-                          <span>Source #{idx + 1}: {s.title}</span>
-                          <span className="text-emerald-600 dark:text-emerald-400">{Math.round(s.score * 100)}% match</span>
-                        </div>
-                        <p className="text-slate-600 dark:text-slate-400 text-[10px] line-clamp-2">{s.snippet}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
@@ -740,19 +1003,21 @@ export default function KnowledgeBasePage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                Semantic Matches ({searchResults.length})
+                Retrieved Vector Chunks ({searchResults.length})
               </h3>
             </div>
 
             {searchResults.length === 0 && !isSearching ? (
               <div className="p-12 text-center rounded-xl border border-dashed border-slate-300 dark:border-indigo-900/40 text-slate-500">
                 <Search className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                <p className="text-xs">No vector matches found for your query. Try lowering the similarity threshold or ingesting new documents.</p>
+                <p className="text-xs">No vector matches found. Ingest new documents or adjust threshold.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4">
                 {searchResults.map((result, idx) => {
                   const scorePct = Math.round(((result.score as number) || 0) * 100);
+                  const searchType = (result.searchType as string) || "dense";
+
                   return (
                     <div
                       key={idx}
@@ -771,9 +1036,12 @@ export default function KnowledgeBasePage() {
                               {result.section as string}
                             </span>
                           )}
+                          <span className="px-1.5 py-0.5 rounded text-[9px] uppercase font-semibold bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-900">
+                            {searchType}
+                          </span>
                         </div>
 
-                        {/* Similarity Score Meter */}
+                        {/* Similarity Meter */}
                         <div className="flex items-center gap-2">
                           <div className="w-24 bg-slate-200 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
                             <div
@@ -782,7 +1050,7 @@ export default function KnowledgeBasePage() {
                             />
                           </div>
                           <span className="font-bold text-xs text-emerald-600 dark:text-emerald-400">
-                            {scorePct}% Similarity
+                            {scorePct}% Relevance
                           </span>
                         </div>
                       </div>
@@ -792,7 +1060,9 @@ export default function KnowledgeBasePage() {
                       </p>
 
                       <div className="flex items-center justify-between text-[10px] text-slate-500">
-                        <span>Collection: <strong className="text-slate-700 dark:text-slate-300">{result.collection as string}</strong></span>
+                        <span>
+                          Collection: <strong className="text-slate-700 dark:text-slate-300">{result.collection as string}</strong>
+                        </span>
                         <button
                           type="button"
                           onClick={() => copyToClipboard(result.content as string, `result-${idx}`)}
@@ -811,7 +1081,61 @@ export default function KnowledgeBasePage() {
         </div>
       )}
 
-      {/* TAB 3: STORED DOCUMENTS & COLLECTIONS */}
+      {/* TAB 3: 2D VECTOR CLUSTER MAP (PCA) */}
+      {activeTab === "cluster_map" && (
+        <div className="space-y-6">
+          <div className="p-6 rounded-xl border border-slate-200 dark:border-indigo-900/40 bg-white dark:bg-black/60 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Compass className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                  2D Principal Component Analysis (PCA) Vector Space
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  1536-dimensional dense embedding vectors mathematically projected to 2D coordinates.
+                </p>
+              </div>
+              <button
+                onClick={() => fetchClusterData()}
+                disabled={isLoadingCluster}
+                className="px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 text-xs font-semibold flex items-center gap-1.5 hover:bg-indigo-50 dark:hover:bg-indigo-950 shrink-0"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isLoadingCluster ? "animate-spin" : ""}`} /> Recalculate PCA
+              </button>
+            </div>
+
+            {/* Collections Legend */}
+            {clusterData && clusterData.collections.length > 0 && (
+              <div className="flex flex-wrap items-center gap-3 pt-2 text-xs">
+                <span className="text-slate-500 text-[11px]">Collections:</span>
+                {clusterData.collections.map((coll) => (
+                  <div key={coll.name} className="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: coll.color }} />
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">{coll.name}</span>
+                    <span className="text-slate-500 text-[10px]">({coll.count})</span>
+                  </div>
+                ))}
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900">
+                  <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+                  <span className="font-semibold text-red-700 dark:text-red-300">Query Pin</span>
+                </div>
+              </div>
+            )}
+
+            {/* Canvas */}
+            <div className="relative border border-slate-200 dark:border-indigo-900/60 rounded-xl overflow-hidden bg-slate-950 flex items-center justify-center p-4">
+              <canvas
+                ref={canvasRef}
+                width={800}
+                height={500}
+                className="w-full max-w-[800px] h-[500px] rounded-lg cursor-crosshair"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: STORED DOCUMENTS */}
       {activeTab === "documents" && (
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 rounded-xl border border-slate-200 dark:border-indigo-900/40 bg-white dark:bg-black/60 shadow-sm">
@@ -833,7 +1157,6 @@ export default function KnowledgeBasePage() {
             </button>
           </div>
 
-          {/* Collections Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {collections.map((coll) => (
               <div
@@ -858,7 +1181,6 @@ export default function KnowledgeBasePage() {
             ))}
           </div>
 
-          {/* Documents Table */}
           <div className="rounded-xl border border-slate-200 dark:border-indigo-900/40 bg-white dark:bg-black/60 shadow-sm overflow-hidden">
             <div className="p-4 border-b border-slate-100 dark:border-indigo-900/30 font-bold text-xs">
               Ingested Documents ({documents.length})
@@ -866,7 +1188,7 @@ export default function KnowledgeBasePage() {
 
             {documents.length === 0 ? (
               <div className="p-12 text-center text-xs text-slate-500">
-                No documents ingested yet. Go to the "Ingestion & Chunking" tab to ingest your first document into pgvector.
+                No documents ingested yet. Go to the "Ingestion & Chunking" tab to ingest your first document.
               </div>
             ) : (
               <div className="divide-y divide-slate-100 dark:divide-indigo-900/20 text-xs">
@@ -911,7 +1233,6 @@ export default function KnowledgeBasePage() {
             )}
           </div>
 
-          {/* Inspect Chunks Modal */}
           {selectedDocChunks && (
             <div className="p-6 rounded-xl border border-indigo-200 dark:border-indigo-900 bg-white dark:bg-black/90 shadow-xl space-y-4 animate-fadeIn">
               <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
@@ -919,7 +1240,9 @@ export default function KnowledgeBasePage() {
                   <h3 className="font-bold text-sm text-slate-900 dark:text-white">
                     Chunks for: {selectedDocChunks.title as string}
                   </h3>
-                  <p className="text-xs text-slate-500">{selectedDocChunks.chunkCount as number} total vector chunks</p>
+                  <p className="text-xs text-slate-500">
+                    {selectedDocChunks.chunkCount as number} total vector chunks
+                  </p>
                 </div>
                 <button
                   onClick={() => setSelectedDocChunks(null)}
@@ -931,7 +1254,10 @@ export default function KnowledgeBasePage() {
 
               <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
                 {((selectedDocChunks.chunks as Array<Record<string, unknown>>) || []).map((chunk, idx) => (
-                  <div key={idx} className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs space-y-1">
+                  <div
+                    key={idx}
+                    className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs space-y-1"
+                  >
                     <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold">
                       <span>Chunk #{chunk.chunkIndex as number}</span>
                       <span>{chunk.tokenCount as number} tokens</span>
@@ -945,62 +1271,61 @@ export default function KnowledgeBasePage() {
         </div>
       )}
 
-      {/* TAB 4: ARCHITECTURE & BENCHMARKS */}
+      {/* TAB 5: ARCHITECTURE */}
       {activeTab === "architecture" && (
         <div className="space-y-6">
           <div className="p-6 rounded-xl border border-slate-200 dark:border-indigo-900/40 bg-white dark:bg-black/60 shadow-sm space-y-4">
             <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <Cpu className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-              Production RAG & pgvector Pipeline Architecture
+              Advanced RAG Architecture & Reciprocal Rank Fusion (RRF)
             </h2>
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              This end-to-end implementation satisfies the #1 qualification for AI Engineer screening roles: actual ingestion, chunking, dense vector embedding, transactional PostgreSQL pgvector storage, and cosine similarity retrieval.
+              This end-to-end implementation combines Hybrid Search (pgvector dense vector search + sparse keyword search), Reciprocal Rank Fusion, Small-to-Big parent chunk expansion, 2D PCA vector cluster mapping, and automated RAG Triad observability.
             </p>
 
-            {/* Architecture Steps Flow */}
             <div className="grid grid-cols-1 md:grid-cols-5 gap-3 pt-4">
               <div className="p-4 rounded-xl border border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/50 dark:bg-indigo-950/20 text-xs space-y-2">
                 <div className="font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
                   <FileText className="h-4 w-4" /> 1. Ingestion
                 </div>
                 <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                  Parses Markdown, PDF, plaintext, and HTML sources with source metadata preservation.
+                  Parses Markdown, PDF, plaintext with section metadata & parent context linking.
                 </p>
               </div>
 
               <div className="p-4 rounded-xl border border-purple-200 dark:border-purple-900/50 bg-purple-50/50 dark:bg-purple-950/20 text-xs space-y-2">
                 <div className="font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
-                  <Sliders className="h-4 w-4" /> 2. Chunking
+                  <Sliders className="h-4 w-4" /> 2. Small-to-Big
                 </div>
                 <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                  Recursive character & Markdown hierarchy splitter with configurable overlap and context headers.
+                  Indexes 200-char leaf chunks while preserving 1200-char parent section context.
                 </p>
               </div>
 
               <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/20 text-xs space-y-2">
                 <div className="font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
-                  <Zap className="h-4 w-4" /> 3. 1536D Embedding
+                  <Zap className="h-4 w-4" /> 3. 1536D Vectors
                 </div>
                 <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                  OpenAI text-embedding-3 / Open Models / Local normalized vectors with L2 unit-sphere projection.
+                  OpenAI text-embedding-3 / Open Models / Local normalized embeddings.
                 </p>
               </div>
 
               <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/50 dark:bg-emerald-950/20 text-xs space-y-2">
                 <div className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                  <Database className="h-4 w-4" /> 4. pgvector Store
+                  <Scale className="h-4 w-4" /> 4. Hybrid RRF
                 </div>
                 <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                  Transactional storage in PostgreSQL with native HNSW/IVFFlat index Cosine Distance queries (<code className="font-mono">&lt;=&gt;</code>).
+                  Combines pgvector cosine distance (<code className="font-mono">&lt;=&gt;</code>) with sparse full-text keyword ranking.
                 </p>
               </div>
 
               <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20 text-xs space-y-2">
                 <div className="font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                  <Sparkles className="h-4 w-4" /> 5. RAG Retrieval
+                  <Activity className="h-4 w-4" /> 5. RAG Triad Audit
                 </div>
                 <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                  Sub-millisecond top-K semantic retrieval, context window assembly, and grounded LLM generation with citations.
+                  Evaluates Context Relevance, Groundedness, and Answer Relevance on every query.
                 </p>
               </div>
             </div>

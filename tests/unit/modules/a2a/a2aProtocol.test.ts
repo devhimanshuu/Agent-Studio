@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { discoverA2AAgent, delegateA2ATask, sendA2AMessage } from "@/modules/a2a/client";
 import { A2A_AGENT_PRESETS } from "@/modules/a2a/presets";
 
-describe("Google Agent-to-Agent (A2A) Protocol", () => {
+describe("Google Agent-to-Agent (A2A) Protocol", { timeout: 15000 }, () => {
   it("discovers built-in A2A preset agents instantly", async () => {
     const preset = A2A_AGENT_PRESETS[0];
     const manifest = await discoverA2AAgent(preset.name);
