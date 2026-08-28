@@ -31,7 +31,7 @@ import { useExecutionStream, replayEvents } from "./useExecutionStream";
 import { computeLayout } from "./autoLayout";
 import { validateGraph } from "./graphValidation";
 import { collapseSelection } from "./subgraphUtils";
-import { Workflow, Play, Link2, X, Pause, Radio, Flame, LayoutTemplate, AlertTriangle, GitBranch, Keyboard, Copy, Boxes, CornerUpLeft, Maximize, Minimize, Undo2, Redo2, Search, Download, Upload, Package, Bug, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight, ChevronDown, ChevronUp, Check } from "lucide-react";
+import { Workflow, Play, Link2, X, Pause, Radio, Flame, LayoutTemplate, AlertTriangle, GitBranch, Keyboard, Copy, Boxes, CornerUpLeft, Maximize, Minimize, Undo2, Redo2, Search, Download, Upload, Package, Bug, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight, ChevronDown, ChevronUp, Check, Network } from "lucide-react";
 import { toast } from "@/stores/toastStore";
 import { QuickConnectSearch } from "./quickConnectSearch";
 import { AlignmentBar } from "./AlignmentBar";
@@ -40,6 +40,8 @@ import { ExportDialog } from "./ExportDialog";
 import { MacroLibrary } from "./MacroLibrary";
 import { DebuggerPanel } from "./DebuggerPanel";
 import { CollaborationOverlay } from "./CollaborationOverlay";
+import { A2ADirectoryModal } from "./A2ADirectoryModal";
+import type { A2AAgentManifest } from "@/types/a2a";
 import { clsx } from "clsx";
 
 const labelClass = "text-[9px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400/80 font-semibold";
@@ -107,6 +109,8 @@ function CanvasInner({
   const [showExportDialog, setShowExportDialog] = useState(false);
   // Macro library state
   const [showMacroLibrary, setShowMacroLibrary] = useState(false);
+  // A2A Agent Directory state
+  const [showA2ADirectory, setShowA2ADirectory] = useState(false);
   // Debugger state
   const [showDebugger, setShowDebugger] = useState(false);
   // Collaboration viewport
@@ -394,6 +398,30 @@ function CanvasInner({
     toast.success("Macro added", `Inserted ${newNodes.length} nodes onto the canvas.`);
   }, [nodes, edges, setNodes, setEdges, notifyChange]);
 
+  // ─── A2A Directory: Add Agent onto Canvas ───
+  const handleAddA2AAgentFromDirectory = useCallback((manifest: A2AAgentManifest) => {
+    const position = { x: 350, y: 240 };
+    const newNodeId = nextNodeId("a2a_delegate", nodes);
+    const firstCap = manifest.capabilities?.[0]?.id || "deep_research";
+    const newNode: CanvasNode = {
+      id: newNodeId,
+      type: "a2a_delegate",
+      position,
+      data: {
+        label: manifest.displayName || manifest.name.toUpperCase(),
+        a2aAgentUrl: manifest.endpoints.tasks,
+        a2aCapability: firstCap,
+        a2aTimeoutMs: 60000,
+        a2aFallbackStrategy: "retry",
+      },
+    };
+    const nextNodes = [...nodes, newNode];
+    setNodes(nextNodes);
+    setSelectedNodeId(newNode.id);
+    notifyChange(nextNodes, edges);
+    toast.success("A2A Agent Added", `Added ${manifest.displayName || manifest.name} to the canvas.`);
+  }, [nodes, edges, setNodes, notifyChange]);
+
   // ─── Canvas Copilot: Generate graph from NL prompt ───
   const handleCopilotGraphGenerated = useCallback((generatedGraph: AgentGraphDefinition) => {
     const flow = graphToFlow(generatedGraph);
@@ -468,6 +496,9 @@ function CanvasInner({
   const effLlmCalls = replayed?.llmCalls ?? trace.llmCalls;
   const effMcpCalls = replayed?.mcpCalls ?? trace.mcpCalls;
   const effApprovalState = replayed?.approvalState ?? trace.approvalState;
+  const effTokenStreams = replayed?.tokenStreams ?? trace.tokenStreams;
+  const effA2ADelegations = replayed?.a2aDelegations ?? trace.a2aDelegations;
+  const effA2AMessages = replayed?.a2aMessages ?? trace.a2aMessages;
 
   // Playback: step through events while playing; stop at the end.
   useEffect(() => {
@@ -587,10 +618,13 @@ function CanvasInner({
           traceLlmCall: effLlmCalls[n.id],
           traceMcpCall: effMcpCalls[n.id],
           traceApproval: effApprovalState[n.id],
+          traceTokenStream: effTokenStreams[n.id],
+          traceA2ADelegation: effA2ADelegations[n.id],
+          traceA2AMessages: effA2AMessages[n.id],
         },
       };
     });
-  }, [nodes, inTraceMode, heatmap, effStatuses, effDetails, nodeLatencies, maxLatency, effRouterDecisions, effLoopState, effToolCalls, effLlmCalls, effMcpCalls, effApprovalState]);
+  }, [nodes, inTraceMode, heatmap, effStatuses, effDetails, nodeLatencies, maxLatency, effRouterDecisions, effLoopState, effToolCalls, effLlmCalls, effMcpCalls, effApprovalState, effTokenStreams, effA2ADelegations, effA2AMessages]);
 
   // Animate + highlight edges as they are traversed during a live run.
   const traceEdges = useMemo(() => {
@@ -903,6 +937,10 @@ function CanvasInner({
                   <div className={toolbarDividerCls} />
                   <button onClick={() => setShowDebugger((p) => !p)} className={clsx("inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-bold uppercase transition-colors cursor-pointer", showDebugger ? (isPaper ? "text-indigo-700 bg-indigo-100/90 font-bold" : "text-indigo-400 bg-indigo-950/60") : toolbarBtnCls)} title="Debugger Panel">
                     <Bug className="h-3 w-3" /> DEBUG
+                  </button>
+                  <div className={toolbarDividerCls} />
+                  <button onClick={() => setShowA2ADirectory(true)} className={clsx("inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-bold uppercase transition-colors cursor-pointer text-purple-400 hover:text-purple-300", toolbarBtnCls)} title="Google A2A Agent Directory">
+                    <Network className="h-3 w-3 text-purple-400" /> A2A DIRECTORY
                   </button>
                   {coverage && coverage.length > 0 && (
                     <>
@@ -1727,6 +1765,15 @@ function CanvasInner({
                 >
                   <Bug className="h-3 w-3" /> DEBUG
                 </button>
+                <div className="w-px h-3.5 bg-slate-200 dark:bg-slate-700" />
+                <button
+                  type="button"
+                  onClick={() => setShowA2ADirectory(true)}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-[9px] font-bold uppercase tracking-wider transition-colors cursor-pointer text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/50"
+                  title="Open Google A2A Agent Directory"
+                >
+                  <Network className="h-3 w-3 text-purple-500" /> A2A DIRECTORY
+                </button>
                 {coverage && coverage.length > 0 && (
                   <>
                     <div className="w-px h-3.5 bg-slate-200 dark:bg-slate-700" />
@@ -2090,6 +2137,13 @@ function CanvasInner({
           />
         </div>
       )}
+
+      {/* ─── A2A Agent Directory Modal ─── */}
+      <A2ADirectoryModal
+        isOpen={showA2ADirectory}
+        onClose={() => setShowA2ADirectory(false)}
+        onSelectAgent={handleAddA2AAgentFromDirectory}
+      />
     </div>
   );
 }

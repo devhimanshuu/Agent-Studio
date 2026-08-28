@@ -229,6 +229,7 @@ export async function streamChatCompletion(
           try {
             const json = JSON.parse(payload) as {
               choices?: { delta?: { content?: unknown; tool_calls?: unknown[] } }[];
+              usage?: { prompt_tokens?: number; completion_tokens?: number };
             };
             const delta = json?.choices?.[0]?.delta;
             if (delta?.content) {
@@ -247,6 +248,15 @@ export async function streamChatCompletion(
                   },
                 };
               }
+            }
+            if (json?.usage) {
+              yield {
+                type: "done",
+                usage: {
+                  inputTokens: json.usage.prompt_tokens ?? 0,
+                  outputTokens: json.usage.completion_tokens ?? 0,
+                },
+              };
             }
           } catch {
             // Malformed SSE payload — skip and keep reading.

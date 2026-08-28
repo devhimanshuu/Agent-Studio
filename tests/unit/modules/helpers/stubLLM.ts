@@ -44,11 +44,15 @@ export class StubLLM implements LLMProvider {
     return this.complete(messages, options);
   }
 
-  async stream(_messages: LLMChatMessage[], _options?: LLMCompletionOptions): Promise<AsyncIterable<LLMStreamChunk>> {
+  async stream(messages: LLMChatMessage[], options?: LLMCompletionOptions): Promise<AsyncIterable<LLMStreamChunk>> {
+    const res = await this.complete(messages, options);
     const iter = {
       async *[Symbol.asyncIterator]() {
-        yield { type: "content" as const, content: "streamed" };
-        yield { type: "done" as const };
+        yield { type: "content" as const, content: res.content };
+        yield {
+          type: "done" as const,
+          usage: res.usage,
+        };
       },
     };
     return iter;

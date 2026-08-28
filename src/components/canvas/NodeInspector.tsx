@@ -1982,6 +1982,96 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
         </>
       )}
 
+      {/* ─── Google A2A Protocol: A2A Delegate Inspector ─── */}
+      {type === "a2a_delegate" && (
+        <>
+          <Field label="Remote A2A Agent Endpoint" hint="Google A2A compliant agent URL (supports /.well-known/agent.json)">
+            <input
+              value={node.data.a2aAgentUrl ?? ""}
+              onChange={(e) => onUpdate({ a2aAgentUrl: e.target.value })}
+              placeholder="https://a2a.agents.google.dev/v1/gemini-researcher/tasks"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Target Capability ID">
+            <input
+              value={node.data.a2aCapability ?? "deep_research"}
+              onChange={(e) => onUpdate({ a2aCapability: e.target.value })}
+              placeholder="deep_research, security_audit, sentiment_analysis"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Auth Token / API Key (Optional)">
+            <input
+              type="password"
+              value={node.data.a2aAuthToken ?? ""}
+              onChange={(e) => onUpdate({ a2aAuthToken: e.target.value })}
+              placeholder="Bearer a2a_sk_..."
+              className={inputClass}
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="SLA Timeout (ms)">
+              <input
+                type="number"
+                value={node.data.a2aTimeoutMs ?? 60000}
+                onChange={(e) => onUpdate({ a2aTimeoutMs: Number(e.target.value) })}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Fallback Strategy">
+              <select
+                value={node.data.a2aFallbackStrategy ?? "retry"}
+                onChange={(e) => onUpdate({ a2aFallbackStrategy: e.target.value as "retry" | "fail" | "skip" | "local_agent" })}
+                className={`${inputClass} cursor-pointer`}
+              >
+                <option value="retry">Retry (2x)</option>
+                <option value="fail">Fail Run</option>
+                <option value="skip">Skip Node</option>
+                <option value="local_agent">Local Fallback</option>
+              </select>
+            </Field>
+          </div>
+        </>
+      )}
+
+      {/* ─── Google A2A Protocol: A2A Channel / Swarm Inspector ─── */}
+      {type === "a2a_channel" && (
+        <>
+          <Field label="Swarm Coordination Mode">
+            <select
+              value={node.data.a2aChannelMode ?? "debate"}
+              onChange={(e) => onUpdate({ a2aChannelMode: e.target.value as "debate" | "round_robin" | "consensus" | "delegation" })}
+              className={`${inputClass} cursor-pointer`}
+            >
+              <option value="debate">Debate & Peer Review</option>
+              <option value="consensus">Consensus Voting</option>
+              <option value="round_robin">Round-Robin Turns</option>
+              <option value="delegation">Supervisor Delegation</option>
+            </select>
+          </Field>
+          <Field label="Channel Discussion Topic / Goal" hint="Supports dynamic templates {{ results.agent }}">
+            <textarea
+              value={node.data.a2aChannelTopic ?? ""}
+              onChange={(e) => onUpdate({ a2aChannelTopic: e.target.value })}
+              rows={3}
+              placeholder="Synthesize findings into strategic conclusion..."
+              className={`${inputClass} resize-y text-[9px]`}
+            />
+          </Field>
+          <Field label="Max Dialogue Turns">
+            <input
+              type="number"
+              min={1}
+              max={10}
+              value={node.data.a2aMaxTurns ?? 2}
+              onChange={(e) => onUpdate({ a2aMaxTurns: Number(e.target.value) })}
+              className={inputClass}
+            />
+          </Field>
+        </>
+      )}
+
       {/* Sticky Note Inspector */}
       {type === "sticky_note" && (
         <>

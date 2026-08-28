@@ -121,6 +121,16 @@ export interface CanvasNodeData {
   piperHost?: string;
   piperText?: string;
   piperVoice?: string;
+  // A2A Protocol
+  a2aAgentUrl?: string;
+  a2aCapability?: string;
+  a2aAuthToken?: string;
+  a2aTimeoutMs?: number;
+  a2aFallbackStrategy?: "fail" | "skip" | "retry" | "local_agent";
+  a2aChannelMode?: "round_robin" | "debate" | "consensus" | "delegation";
+  a2aChannelTopic?: string;
+  a2aMaxTurns?: number;
+  a2aParticipants?: Array<{ name: string; agentUrl: string; role: string; authToken?: string }>;
   // Visual & Notes
   noteContent?: string;
   noteColor?: string;
@@ -135,6 +145,31 @@ export interface CanvasNodeData {
   heatmapLatency?: number;
   /** Heatmap mode: max average latency across the graph (scale anchor). */
   heatmapMax?: number;
+  /** Real-time streaming LLM tokens on canvas. */
+  traceTokenStream?: {
+    text: string;
+    isThinking?: boolean;
+    tokensPerSec?: number;
+    totalTokens?: number;
+    active: boolean;
+  };
+  /** Live A2A Task delegation state. */
+  traceA2ADelegation?: {
+    agentUrl: string;
+    capability?: string;
+    status: string;
+    taskId: string;
+    durationMs?: number;
+    tokensUsed?: number;
+    error?: string;
+  };
+  /** Live A2A Swarm Messages. */
+  traceA2AMessages?: Array<{
+    sender: string;
+    content: string;
+    turn: number;
+    mode?: string;
+  }>;
   [key: string]: unknown;
 }
 

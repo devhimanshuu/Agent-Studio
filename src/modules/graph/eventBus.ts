@@ -160,6 +160,39 @@ export interface ParallelBranchEvent extends ExecutionEventBase {
   branchIndex?: number;
 }
 
+export interface TokenChunkEvent extends ExecutionEventBase {
+  type: "node:token_chunk";
+  nodeId: string;
+  chunk: string;
+  isThinking?: boolean;
+  totalTokens?: number;
+  tokensPerSec?: number;
+}
+
+export interface A2ATaskDelegatedEvent extends ExecutionEventBase {
+  type: "a2a:task:delegated";
+  nodeId: string;
+  agentUrl: string;
+  capability?: string;
+  taskId: string;
+  status: "DELEGATING" | "STREAMING" | "COMPLETED" | "FAILED";
+  inputSummary?: string;
+  resultSummary?: string;
+  durationMs?: number;
+  tokensUsed?: number;
+  error?: string;
+}
+
+export interface A2AMessageEvent extends ExecutionEventBase {
+  type: "a2a:message:exchange";
+  nodeId: string;
+  sender: string;
+  recipient?: string;
+  content: string;
+  turn: number;
+  mode?: string;
+}
+
 export type ExecutionEvent =
   | NodeStartedEvent
   | NodeCompletedEvent
@@ -170,8 +203,11 @@ export type ExecutionEvent =
   | ToolCallCompletedEvent
   | LlmCallStartedEvent
   | LlmCallCompletedEvent
+  | TokenChunkEvent
   | McpToolStartedEvent
   | McpToolCompletedEvent
+  | A2ATaskDelegatedEvent
+  | A2AMessageEvent
   | ApprovalRequestedEvent
   | ApprovalResolvedEvent
   | RouterDecisionEvent

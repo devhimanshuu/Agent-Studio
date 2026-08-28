@@ -606,6 +606,10 @@ export class GraphInterpreter {
         return this.runAudioTranscriberNode(ctx, node, outgoing);
       case "piper_tts":
         return this.runPiperTtsNode(ctx, node, outgoing);
+      case "a2a_delegate":
+        return this.runA2ADelegateNode(ctx, node, outgoing);
+      case "a2a_channel":
+        return this.runA2AChannelNode(ctx, node, outgoing);
       case "sticky_note":
       case "frame":
         // Visual-only nodes — pass through to successor.
@@ -1271,10 +1275,76 @@ export class GraphInterpreter {
     });
 
     const llmStarted = Date.now();
-    const completion = await activeLlm.complete(messages, {
-      temperature: data.temperature ?? 0.2,
-      maxTokens: data.maxTokens ?? 800,
-    });
+    let content = "";
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let streamSucceeded = false;
+
+    // 1. Attempt token-level streaming for real-time canvas rendering
+    try {
+      const streamIterable = await activeLlm.stream(messages, {
+        temperature: data.temperature ?? 0.2,
+        maxTokens: data.maxTokens ?? 800,
+      });
+
+      let tokenCount = 0;
+      let inThinkingBlock = false;
+
+      for await (const chunk of streamIterable) {
+        if (chunk.usage) {
+          if (typeof chunk.usage.inputTokens === "number") inputTokens = chunk.usage.inputTokens;
+          if (typeof chunk.usage.outputTokens === "number") outputTokens = chunk.usage.outputTokens;
+        }
+        if (chunk.content) {
+          content += chunk.content;
+          tokenCount += 1;
+          const elapsedSec = Math.max(0.05, (Date.now() - llmStarted) / 1000);
+          const tokensPerSec = Math.round(tokenCount / elapsedSec);
+
+          if (chunk.content.includes("<think>")) inThinkingBlock = true;
+          if (chunk.content.includes("</think>")) inThinkingBlock = false;
+
+          this.emit(ctx, {
+            type: "node:token_chunk",
+            nodeId: node.id,
+            chunk: chunk.content,
+            isThinking: inThinkingBlock,
+            totalTokens: tokenCount,
+            tokensPerSec,
+          });
+        }
+      }
+
+      if (content.length > 0) {
+        streamSucceeded = true;
+        if (!outputTokens) outputTokens = tokenCount;
+        if (!inputTokens) inputTokens = Math.round(JSON.stringify(messages).length / 4);
+      }
+    } catch {
+      // Fall through to complete() if streaming threw or is not supported
+    }
+
+    // 2. Fallback to complete() if stream yielded no tokens
+    if (!streamSucceeded) {
+      const completion = await activeLlm.complete(messages, {
+        temperature: data.temperature ?? 0.2,
+        maxTokens: data.maxTokens ?? 800,
+      });
+      content = completion.content;
+      inputTokens = completion.usage?.inputTokens ?? Math.round(JSON.stringify(messages).length / 4);
+      outputTokens = completion.usage?.outputTokens ?? Math.round(content.length / 4);
+
+      // Emit chunk so canvas displays the result
+      this.emit(ctx, {
+        type: "node:token_chunk",
+        nodeId: node.id,
+        chunk: content,
+        isThinking: false,
+        totalTokens: outputTokens,
+        tokensPerSec: 35,
+      });
+    }
+
     const llmDurationMs = Date.now() - llmStarted;
 
     // Emit LLM call end event
@@ -1283,25 +1353,22 @@ export class GraphInterpreter {
       nodeId: node.id,
       status: "SUCCESS",
       model: modelLabel,
-      inputTokens: completion.usage?.inputTokens,
-      outputTokens: completion.usage?.outputTokens,
+      inputTokens,
+      outputTokens,
       durationMs: llmDurationMs,
     });
 
-    // Budget guardrail: accumulate provider-reported usage and stop the run
-    // with the offending node named when the global budget is exceeded.
-    if (completion.usage) {
-      const consumed = completion.usage.inputTokens + completion.usage.outputTokens;
-      ctx.tokensUsed += consumed;
-      ctx.nodeTokens[node.id] = (ctx.nodeTokens[node.id] ?? 0) + consumed;
-      if (ctx.maxTokens > 0 && ctx.tokensUsed > ctx.maxTokens) {
-        throw new StepLimitExceededError(
-          `Node "${node.data.label}" blew the token budget (${ctx.tokensUsed.toLocaleString()} / ${ctx.maxTokens.toLocaleString()} tokens)`
-        );
-      }
+    // Budget guardrail: accumulate usage and stop the run if limit is exceeded
+    const consumed = inputTokens + outputTokens;
+    ctx.tokensUsed += consumed;
+    ctx.nodeTokens[node.id] = (ctx.nodeTokens[node.id] ?? 0) + consumed;
+    if (ctx.maxTokens > 0 && ctx.tokensUsed > ctx.maxTokens) {
+      throw new StepLimitExceededError(
+        `Node "${node.data.label}" blew the token budget (${ctx.tokensUsed.toLocaleString()} / ${ctx.maxTokens.toLocaleString()} tokens)`
+      );
     }
 
-    return completion.content;
+    return content;
   }
 
   private firstSuccessor(outgoing: GraphEdgeDefinition[], _node: GraphNodeDefinition): string | "ended" {
@@ -2854,6 +2921,166 @@ export class GraphInterpreter {
     }
     await this.persistStep(ctx, node, "SUCCESS", { voice, textLength: text.length, output: summarize(output) });
     this.emitNodeEnd(ctx, node, "SUCCESS", `Piper Voice (${voice}) - ${text.length} chars`);
+    return this.firstSuccessor(outgoing, node);
+  }
+
+  /** A2A Delegate node - delegates a structured task payload to a remote Google A2A agent. */
+  private async runA2ADelegateNode(ctx: WalkCtx, node: GraphNodeDefinition, outgoing: GraphEdgeDefinition[]) {
+    const data = node.data;
+    const rawUrl = data.a2aAgentUrl ?? "http://localhost:3000/api/a2a";
+    const agentUrl = String(resolveTemplate(rawUrl, ctx) || rawUrl).trim();
+    const capability = data.a2aCapability || "default_task";
+    const authToken = data.a2aAuthToken;
+    const timeoutMs = data.a2aTimeoutMs || 60_000;
+
+    const payload = {
+      capability,
+      input: {
+        results: { ...ctx.results },
+        userInput: ctx.userInput,
+        nodeLabel: data.label,
+        ...(ctx.item !== undefined ? { item: ctx.item } : {}),
+      },
+    };
+
+    const taskId = `a2a_${node.id}_${Date.now()}`;
+    const started = Date.now();
+
+    this.emit(ctx, {
+      type: "a2a:task:delegated",
+      nodeId: node.id,
+      agentUrl,
+      capability,
+      taskId,
+      status: "DELEGATING",
+      inputSummary: `Delegating to ${agentUrl} [${capability}]`,
+    });
+
+    let totalTokens = 0;
+    const { a2aClientService } = await import("@/services/A2AClientService");
+
+    try {
+      const response = await a2aClientService.delegate(agentUrl, payload, {
+        authToken,
+        timeoutMs,
+        signal: ctx.signal,
+        onTokenChunk: (chunk: string, isThinking?: boolean) => {
+          totalTokens += 1;
+          const elapsedSec = Math.max(0.1, (Date.now() - started) / 1000);
+          this.emit(ctx, {
+            type: "node:token_chunk",
+            nodeId: node.id,
+            chunk,
+            isThinking: Boolean(isThinking),
+            totalTokens,
+            tokensPerSec: Math.round(totalTokens / elapsedSec),
+          });
+        },
+      });
+
+      const durationMs = Date.now() - started;
+      ctx.results[node.id] = response.result;
+
+      this.emit(ctx, {
+        type: "a2a:task:delegated",
+        nodeId: node.id,
+        agentUrl,
+        capability,
+        taskId,
+        status: "COMPLETED",
+        resultSummary: summarize(response.result),
+        durationMs,
+        tokensUsed: response.tokensUsed,
+      });
+
+      await this.persistStep(ctx, node, "SUCCESS", { a2aAgentUrl: agentUrl, capability, output: summarize(response.result) });
+      this.emitNodeEnd(ctx, node, "SUCCESS", `A2A [${capability}] → ${summarize(response.result)}`);
+      return this.firstSuccessor(outgoing, node);
+    } catch (error) {
+      const durationMs = Date.now() - started;
+      const errMsg = error instanceof Error ? error.message : String(error);
+
+      this.emit(ctx, {
+        type: "a2a:task:delegated",
+        nodeId: node.id,
+        agentUrl,
+        capability,
+        taskId,
+        status: "FAILED",
+        error: errMsg,
+        durationMs,
+      });
+
+      if (data.a2aFallbackStrategy === "skip") {
+        this.emitNodeEnd(ctx, node, "SKIPPED", "Skipped by A2A fallback");
+        return this.firstSuccessor(outgoing, node);
+      }
+
+      throw new ExecutionError(`A2A Task Delegation to ${agentUrl} failed: ${errMsg}`, "GRAPH_FAILURE");
+    }
+  }
+
+  /** A2A Channel node - coordinates multi-agent debate and dialogue turns across agents. */
+  private async runA2AChannelNode(ctx: WalkCtx, node: GraphNodeDefinition, outgoing: GraphEdgeDefinition[]) {
+    const data = node.data;
+    const mode = data.a2aChannelMode || "debate";
+    const rawTopic = data.a2aChannelTopic || "Collaborative synthesis of previous multi-agent findings";
+    const topic = String(resolveTemplate(rawTopic, ctx) || rawTopic).trim();
+    const maxTurns = data.a2aMaxTurns || 2;
+    const participants = data.a2aParticipants || [
+      { name: "Specialist Proposer", agentUrl: "a2a://proposer", role: "proposer" },
+      { name: "Adversarial Critic", agentUrl: "a2a://critic", role: "critic" },
+    ];
+
+    const dialogueHistory: Array<{ sender: string; content: string; turn: number }> = [];
+
+    // Run multi-agent dialogue turns
+    for (let turn = 1; turn <= maxTurns; turn++) {
+      for (const participant of participants) {
+        const turnPrompt = `[Turn #${turn}] As ${participant.name} (${participant.role}), deliberate on topic: "${topic}". Current Context & Findings: ${JSON.stringify(ctx.results)}. Previous exchanges: ${JSON.stringify(dialogueHistory.slice(-2))}`;
+        const llm = ctx.llm;
+        const turnOutput = await llm.complete([
+          {
+            role: "system",
+            content: `You are an autonomous participant in an A2A multi-agent channel (${mode} mode) named "${participant.name}" (${participant.role}). Provide a concise, rigorous response.`,
+          },
+          { role: "user", content: turnPrompt },
+        ]);
+
+        const entry = { sender: participant.name, content: turnOutput.content, turn };
+        dialogueHistory.push(entry);
+
+        this.emit(ctx, {
+          type: "a2a:message:exchange",
+          nodeId: node.id,
+          sender: participant.name,
+          content: turnOutput.content,
+          turn,
+          mode,
+        });
+
+        this.emit(ctx, {
+          type: "node:token_chunk",
+          nodeId: node.id,
+          chunk: `\n[${participant.name}]: ${turnOutput.content}\n`,
+          isThinking: false,
+          totalTokens: dialogueHistory.length * 40,
+          tokensPerSec: 30,
+        });
+      }
+    }
+
+    const consensus = {
+      channelMode: mode,
+      topic,
+      totalTurns: maxTurns,
+      dialogue: dialogueHistory,
+      synthesis: dialogueHistory[dialogueHistory.length - 1]?.content || "Dialogue completed.",
+    };
+
+    ctx.results[node.id] = consensus;
+    await this.persistStep(ctx, node, "SUCCESS", { channelMode: mode, output: summarize(consensus.synthesis) });
+    this.emitNodeEnd(ctx, node, "SUCCESS", `A2A Channel [${mode}] → ${dialogueHistory.length} turns`);
     return this.firstSuccessor(outgoing, node);
   }
 

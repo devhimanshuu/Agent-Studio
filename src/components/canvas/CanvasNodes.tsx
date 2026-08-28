@@ -38,6 +38,8 @@ import {
   BrainCircuit,
   Mic,
   Volume2,
+  Network,
+  MessagesSquare,
   Check,
   X,
   Loader2,
@@ -166,6 +168,24 @@ function BaseShell({
         {data.traceDetail && (
           <div className="text-[8px] text-slate-600 dark:text-slate-400 leading-tight truncate" title={data.traceDetail}>
             {data.traceDetail}
+          </div>
+        )}
+        {data.traceTokenStream && data.traceTokenStream.text && (
+          <div className="mt-1.5 p-1.5 rounded bg-slate-900/90 dark:bg-black/95 border border-indigo-500/30 font-mono text-[8px] space-y-1 shadow-inner">
+            <div className="flex items-center justify-between text-[7px] text-slate-400 border-b border-slate-800 pb-1">
+              <span className="flex items-center gap-1 text-indigo-400 font-semibold">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
+                {data.traceTokenStream.isThinking ? "💭 THINKING" : "⚡ STREAMING"}
+              </span>
+              <span className="text-[7px] text-slate-400">
+                {data.traceTokenStream.tokensPerSec ? `${data.traceTokenStream.tokensPerSec} tok/s` : "live"}
+                {data.traceTokenStream.totalTokens ? ` · ${data.traceTokenStream.totalTokens} tok` : ""}
+              </span>
+            </div>
+            <div className="max-h-24 overflow-y-auto break-words whitespace-pre-wrap leading-tight scrollbar-none text-slate-200 font-mono text-[7.5px]">
+              {data.traceTokenStream.text}
+              {data.traceTokenStream.active && <span className="inline-block w-1.5 h-2.5 bg-indigo-400 animate-pulse ml-0.5 align-middle" />}
+            </div>
           </div>
         )}
       </div>
@@ -1003,6 +1023,84 @@ function FrameNode({ data, selected }: NodePropsShape) {
   );
 }
 
+function A2ADelegateNode({ data, selected }: NodePropsShape) {
+  const meta = CANVAS_NODE_TYPE_MAP.a2a_delegate;
+  const delegation = data.traceA2ADelegation as {
+    agentUrl: string;
+    capability?: string;
+    status: string;
+    durationMs?: number;
+    tokensUsed?: number;
+    error?: string;
+  } | undefined;
+
+  const urlDisplay = (data.a2aAgentUrl ?? "https://a2a.agents.google.dev").replace(/^https?:\/\//, "");
+
+  return (
+    <BaseShell
+      data={data}
+      icon={<Network className="h-3.5 w-3.5 text-purple-500" />}
+      accentClass={meta.accent}
+      badgeClass={meta.badgeClass}
+      badge={meta.tag}
+      selected={selected}
+    >
+      <div className="text-[9px] text-purple-700 dark:text-purple-300 font-semibold truncate" title={data.a2aAgentUrl}>
+        🌐 {urlDisplay}
+      </div>
+      <div className="text-[8px] text-slate-500 dark:text-slate-400 truncate">
+        cap · <span className="font-semibold text-purple-600 dark:text-purple-400">{data.a2aCapability ?? "default_task"}</span>
+      </div>
+
+      {delegation && (
+        <div className="mt-1 flex items-center justify-between text-[7px] text-slate-400 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20">
+          <span className="font-bold text-purple-400">{delegation.status}</span>
+          {delegation.durationMs !== undefined && <span>{delegation.durationMs}ms</span>}
+        </div>
+      )}
+    </BaseShell>
+  );
+}
+
+function A2AChannelNode({ data, selected }: NodePropsShape) {
+  const meta = CANVAS_NODE_TYPE_MAP.a2a_channel;
+  const messages = (data.traceA2AMessages ?? []) as Array<{ sender: string; content: string; turn: number; mode?: string }>;
+
+  return (
+    <BaseShell
+      data={data}
+      icon={<MessagesSquare className="h-3.5 w-3.5 text-cyan-500" />}
+      accentClass={meta.accent}
+      badgeClass={meta.badgeClass}
+      badge={meta.tag}
+      selected={selected}
+      sourceCount={2}
+    >
+      <div className="text-[9px] text-cyan-700 dark:text-cyan-300 font-semibold truncate">
+        Swarm Mode: <span className="uppercase text-cyan-500">{data.a2aChannelMode ?? "debate"}</span>
+      </div>
+      <div className="text-[8px] text-slate-500 dark:text-slate-400 truncate" title={data.a2aChannelTopic}>
+        🎯 {data.a2aChannelTopic ?? "Consensus Discussion"}
+      </div>
+
+      {messages.length > 0 && (
+        <div className="mt-1 space-y-1">
+          <div className="text-[7px] font-bold text-cyan-400 uppercase tracking-wider">
+            Exchanges ({messages.length} turns):
+          </div>
+          <div className="max-h-16 overflow-y-auto text-[7px] text-slate-300 space-y-0.5 bg-cyan-950/20 p-1 rounded border border-cyan-500/20">
+            {messages.slice(-3).map((m, idx) => (
+              <div key={idx} className="truncate">
+                <span className="font-semibold text-cyan-400">{m.sender}:</span> {m.content}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </BaseShell>
+  );
+}
+
 export const canvasNodeTypes = {
   start: memo(StartNode),
   end: memo(EndNode),
@@ -1038,6 +1136,8 @@ export const canvasNodeTypes = {
   qdrant_vector_memory: memo(QdrantNode),
   audio_transcriber: memo(AudioTranscriberNode),
   piper_tts: memo(PiperTtsNode),
+  a2a_delegate: memo(A2ADelegateNode),
+  a2a_channel: memo(A2AChannelNode),
   sticky_note: memo(StickyNoteNode),
   frame: memo(FrameNode),
 };

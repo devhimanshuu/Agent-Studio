@@ -41,6 +41,8 @@ import {
   BrainCircuit,
   Mic,
   Volume2,
+  Network,
+  MessagesSquare,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -78,6 +80,8 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   qdrant_vector_memory: BrainCircuit,
   audio_transcriber: Mic,
   piper_tts: Volume2,
+  a2a_delegate: Network,
+  a2a_channel: MessagesSquare,
   sticky_note: StickyNote,
   frame: Frame,
 };

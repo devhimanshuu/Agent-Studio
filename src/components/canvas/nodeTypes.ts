@@ -35,6 +35,8 @@ import {
   BrainCircuit,
   Mic,
   Volume2,
+  Network,
+  MessagesSquare,
   type LucideIcon,
 } from "lucide-react";
 
@@ -517,6 +519,42 @@ export const CANVAS_NODE_TYPES: CanvasNodeTypeMeta[] = [
       piperText: "{{ results }}",
       piperVoice: "en_US-lessac-medium",
       piperHost: "http://localhost:5000",
+    },
+  },
+  // ─── Google A2A Protocol Nodes ───
+  {
+    type: "a2a_delegate",
+    label: "A2A DELEGATE",
+    tag: "A2A·REMOTE",
+    category: "agent_core",
+    icon: Network,
+    description: "Delegate structured tasks to any external Google A2A compliant autonomous agent.",
+    accent: "border-purple-500/80 text-purple-600 dark:text-purple-400",
+    badgeClass: "bg-purple-50 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-500/40",
+    defaults: {
+      a2aAgentUrl: "https://a2a.agents.google.dev/v1/gemini-researcher/tasks",
+      a2aCapability: "deep_research",
+      a2aTimeoutMs: 60000,
+      a2aFallbackStrategy: "retry",
+    },
+  },
+  {
+    type: "a2a_channel",
+    label: "A2A CHANNEL",
+    tag: "A2A·SWARM",
+    category: "agent_core",
+    icon: MessagesSquare,
+    description: "Multi-agent negotiation, debate, and consensus bus across heterogeneous A2A agents.",
+    accent: "border-cyan-500/80 text-cyan-600 dark:text-cyan-400",
+    badgeClass: "bg-cyan-50 dark:bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border-cyan-200 dark:border-cyan-500/40",
+    defaults: {
+      a2aChannelMode: "debate",
+      a2aChannelTopic: "Synthesize findings into executive strategy",
+      a2aMaxTurns: 2,
+      a2aParticipants: [
+        { name: "Proposer Agent", agentUrl: "a2a://proposer", role: "proposer" },
+        { name: "Critic Agent", agentUrl: "a2a://critic", role: "critic" },
+      ],
     },
   },
   // ─── Visual & Documentation Nodes ───

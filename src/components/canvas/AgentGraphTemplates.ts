@@ -22,6 +22,73 @@ function _positions(count: number): { x: number; y: number }[] {
 
 export const CANVAS_TEMPLATES: CanvasTemplate[] = [
   {
+    id: "google_a2a_cross_swarm",
+    name: "Google A2A Cross-Company Agent Swarm",
+    badge: "GOOGLE A2A PROTOCOL",
+    category: "ORCHESTRATION",
+    description:
+      "Visual orchestration of Google A2A Protocol: A local supervisor analyzes task requirements, delegates deep research to a remote Gemini A2A agent, executes an A2A debate channel, and synthesizes output.",
+    graph: {
+      version: 1,
+      nodes: [
+        { id: "start", type: "start", position: { x: 40, y: GRID_Y }, data: { label: "START" } },
+        {
+          id: "supervisor",
+          type: "supervisor",
+          position: { x: NODE_X, y: GRID_Y - 50 },
+          data: {
+            label: "LOCAL SUPERVISOR",
+            prompt: "You are the local orchestrator. Analyze the incoming user task, structure delegation parameters, and route execution to the remote A2A Gemini research agent.",
+          },
+        },
+        {
+          id: "a2a_gemini_researcher",
+          type: "a2a_delegate",
+          position: { x: NODE_X * 2, y: GRID_Y - 120 },
+          data: {
+            label: "GEMINI 2.0 A2A AGENT",
+            a2aAgentUrl: "https://a2a.agents.google.dev/v1/gemini-researcher/tasks",
+            a2aCapability: "deep_research",
+            a2aTimeoutMs: 60000,
+            a2aFallbackStrategy: "retry",
+          },
+        },
+        {
+          id: "a2a_debate_channel",
+          type: "a2a_channel",
+          position: { x: NODE_X * 3, y: GRID_Y - 50 },
+          data: {
+            label: "A2A SWARM DEBATE",
+            a2aChannelMode: "debate",
+            a2aChannelTopic: "Evaluate research findings and synthesize strategic recommendations",
+            a2aMaxTurns: 2,
+            a2aParticipants: [
+              { name: "Strategic Proposer", agentUrl: "a2a://proposer", role: "proposer" },
+              { name: "Adversarial Risk Auditor", agentUrl: "a2a://critic", role: "critic" },
+            ],
+          },
+        },
+        {
+          id: "synthesizer",
+          type: "agent",
+          position: { x: NODE_X * 4, y: GRID_Y - 50 },
+          data: {
+            label: "EXECUTIVE PUBLISHER",
+            prompt: "Synthesize the cross-agent A2A dialogue and research briefs into an executive final presentation with actionable deliverables.",
+          },
+        },
+        { id: "end", type: "end", position: { x: NODE_X * 5, y: GRID_Y }, data: { label: "END" } },
+      ],
+      edges: [
+        { id: "e1", source: "start", target: "supervisor", label: "" },
+        { id: "e2", source: "supervisor", target: "a2a_gemini_researcher", label: "delegate" },
+        { id: "e3", source: "a2a_gemini_researcher", target: "a2a_debate_channel", label: "" },
+        { id: "e4", source: "a2a_debate_channel", target: "synthesizer", label: "" },
+        { id: "e5", source: "synthesizer", target: "end", label: "" },
+      ],
+    },
+  },
+  {
     id: "supervisor_research_code_review",
     name: "Supervisor → Researcher → Coder → Critic",
     badge: "FULL MULTI-AGENT LOOP",

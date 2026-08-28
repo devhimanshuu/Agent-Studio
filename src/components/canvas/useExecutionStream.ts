@@ -35,6 +35,12 @@ export interface TraceState {
   mcpCalls: Record<string, { serverId: string; toolName: string; durationMs?: number; status: string }>;
   /** Approval state per node: { nodeId -> { reason, action, decision } } */
   approvalState: Record<string, { reason?: string; action?: string; decision?: string }>;
+  /** Live Token Streaming per node: { nodeId -> { text, isThinking, tokensPerSec, totalTokens, active } } */
+  tokenStreams: Record<string, { text: string; isThinking?: boolean; tokensPerSec?: number; totalTokens?: number; active: boolean }>;
+  /** A2A Task delegation trace per node */
+  a2aDelegations: Record<string, { agentUrl: string; capability?: string; status: string; taskId: string; durationMs?: number; tokensUsed?: number; error?: string }>;
+  /** A2A Channel messages per node */
+  a2aMessages: Record<string, Array<{ sender: string; content: string; turn: number; mode?: string }>>;
 }
 
 const initialTrace: TraceState = {
@@ -52,6 +58,9 @@ const initialTrace: TraceState = {
   llmCalls: {},
   mcpCalls: {},
   approvalState: {},
+  tokenStreams: {},
+  a2aDelegations: {},
+  a2aMessages: {},
 };
 
 /** Replay a prefix of the event log into the derived trace state (time-scrub). */
@@ -68,6 +77,9 @@ export function replayEvents(events: ExecutionEvent[]): {
   llmCalls: TraceState["llmCalls"];
   mcpCalls: TraceState["mcpCalls"];
   approvalState: TraceState["approvalState"];
+  tokenStreams: TraceState["tokenStreams"];
+  a2aDelegations: TraceState["a2aDelegations"];
+  a2aMessages: TraceState["a2aMessages"];
 } {
   const state: ReturnType<typeof replayEvents> = {
     nodeStatuses: {},
@@ -82,6 +94,9 @@ export function replayEvents(events: ExecutionEvent[]): {
     llmCalls: {},
     mcpCalls: {},
     approvalState: {},
+    tokenStreams: {},
+    a2aDelegations: {},
+    a2aMessages: {},
   };
   for (const event of events) {
     switch (event.type) {
@@ -185,6 +200,37 @@ export function replayEvents(events: ExecutionEvent[]): {
           decision: event.decision,
         };
         break;
+      case "node:token_chunk": {
+        const prevStream = state.tokenStreams[event.nodeId] ?? { text: "", active: true };
+        state.tokenStreams[event.nodeId] = {
+          text: (prevStream.text || "") + event.chunk,
+          isThinking: event.isThinking,
+          tokensPerSec: event.tokensPerSec,
+          totalTokens: event.totalTokens,
+          active: true,
+        };
+        break;
+      }
+      case "a2a:task:delegated": {
+        state.a2aDelegations[event.nodeId] = {
+          agentUrl: event.agentUrl,
+          capability: event.capability,
+          status: event.status,
+          taskId: event.taskId,
+          durationMs: event.durationMs,
+          tokensUsed: event.tokensUsed,
+          error: event.error,
+        };
+        break;
+      }
+      case "a2a:message:exchange": {
+        const msgs = state.a2aMessages[event.nodeId] ?? [];
+        state.a2aMessages[event.nodeId] = [
+          ...msgs,
+          { sender: event.sender, content: event.content, turn: event.turn, mode: event.mode },
+        ];
+        break;
+      }
       default:
         break;
     }
@@ -227,6 +273,10 @@ export function useExecutionStream(
           case "node:start": {
             next.nodeStatuses = { ...prev.nodeStatuses, [event.nodeId]: "RUNNING" };
             next.nodeDetails = { ...prev.nodeDetails, [event.nodeId]: "executing…" };
+            next.tokenStreams = {
+              ...prev.tokenStreams,
+              [event.nodeId]: { text: "", active: true },
+            };
             break;
           }
           case "node:end": {
@@ -237,6 +287,12 @@ export function useExecutionStream(
               next.nodeDurations = {
                 ...prev.nodeDurations,
                 [event.nodeId]: { total: prevDur.total + event.durationMs, count: prevDur.count + 1 },
+              };
+            }
+            if (prev.tokenStreams[event.nodeId]) {
+              next.tokenStreams = {
+                ...prev.tokenStreams,
+                [event.nodeId]: { ...prev.tokenStreams[event.nodeId], active: false },
               };
             }
             break;
@@ -358,6 +414,46 @@ export function useExecutionStream(
             };
             break;
           }
+          case "node:token_chunk": {
+            const current = prev.tokenStreams[event.nodeId] ?? { text: "", active: true };
+            next.tokenStreams = {
+              ...prev.tokenStreams,
+              [event.nodeId]: {
+                text: current.text + event.chunk,
+                isThinking: event.isThinking,
+                tokensPerSec: event.tokensPerSec,
+                totalTokens: event.totalTokens,
+                active: true,
+              },
+            };
+            break;
+          }
+          case "a2a:task:delegated": {
+            next.a2aDelegations = {
+              ...prev.a2aDelegations,
+              [event.nodeId]: {
+                agentUrl: event.agentUrl,
+                capability: event.capability,
+                status: event.status,
+                taskId: event.taskId,
+                durationMs: event.durationMs,
+                tokensUsed: event.tokensUsed,
+                error: event.error,
+              },
+            };
+            break;
+          }
+          case "a2a:message:exchange": {
+            const msgs = prev.a2aMessages[event.nodeId] ?? [];
+            next.a2aMessages = {
+              ...prev.a2aMessages,
+              [event.nodeId]: [
+                ...msgs,
+                { sender: event.sender, content: event.content, turn: event.turn, mode: event.mode },
+              ],
+            };
+            break;
+          }
           default:
             break;
         }
@@ -371,7 +467,9 @@ export function useExecutionStream(
       "router:decision", "loop:iteration", "parallel:branch",
       "tool:call:start", "tool:call:end",
       "llm:call:start", "llm:call:end",
+      "node:token_chunk",
       "mcp:tool:start", "mcp:tool:end",
+      "a2a:task:delegated", "a2a:message:exchange",
       "approval:requested", "approval:resolved",
     ] as const;
     for (const type of eventTypes) {

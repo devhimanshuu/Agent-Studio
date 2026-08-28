@@ -57,6 +57,10 @@ export interface LLMStreamChunk {
   type: "content" | "tool_call" | "done";
   content?: string;
   toolCall?: LLMToolCall;
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+  };
 }
 
 export interface LLMProvider {

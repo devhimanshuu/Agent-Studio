@@ -39,6 +39,8 @@ export type GraphNodeType =
   | "qdrant_vector_memory"
   | "audio_transcriber"
   | "piper_tts"
+  | "a2a_delegate"
+  | "a2a_channel"
   | "sticky_note"
   | "frame";
 
@@ -305,6 +307,26 @@ export interface GraphNodeData {
   frameOpacity?: number;
   /** IDs of nodes contained within this frame (visual grouping). */
   containedNodeIds?: string[];
+  // a2a_delegate
+  /** Target A2A Agent Endpoint URL (e.g. 'https://agent.google.com/a2a' or 'http://localhost:3000/api/a2a'). */
+  a2aAgentUrl?: string;
+  /** Specific capability ID requested from the remote agent. */
+  a2aCapability?: string;
+  /** Authentication token / API key for the remote A2A agent. */
+  a2aAuthToken?: string;
+  /** SLA timeout for delegated task in milliseconds. */
+  a2aTimeoutMs?: number;
+  /** Fallback strategy if remote agent is unreachable or fails. */
+  a2aFallbackStrategy?: "fail" | "skip" | "retry" | "local_agent";
+  // a2a_channel
+  /** Dialogue & orchestration mode for the A2A channel. */
+  a2aChannelMode?: "round_robin" | "debate" | "consensus" | "delegation";
+  /** Discussion topic or shared objective for the channel. */
+  a2aChannelTopic?: string;
+  /** Maximum number of dialogue turns before synthesizing group conclusion. */
+  a2aMaxTurns?: number;
+  /** Array of participant agent endpoints / names. */
+  a2aParticipants?: Array<{ name: string; agentUrl: string; role: string; authToken?: string }>;
   // breakpoint
   /** Whether this node has a breakpoint set (debug mode). */
   breakpoint?: boolean;
