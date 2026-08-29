@@ -16,6 +16,7 @@ import {
   Brain,
   X,
   Layers,
+  Activity,
 } from "lucide-react";
 import { useModels } from "@/hooks/useModels";
 import { ModelEntry } from "@/providers/llm";
@@ -123,20 +124,21 @@ export function ModelDropdown({
   const filteredORPopular = useMemo(() => filterList(openRouterPopular), [openRouterPopular, searchQuery, activeFilter]);
   const filteredOpenAI = useMemo(() => filterList(openaiModels), [openaiModels, searchQuery, activeFilter]);
 
-  const getCategoryIcon = (category?: string) => {
+  const getCategoryIcon = (category?: string, isSelected?: boolean) => {
+    const iconClass = `h-3.5 w-3.5 shrink-0 ${isSelected ? "text-white" : ""}`;
     switch (category) {
       case "reasoning":
-        return <Brain className="h-3 w-3 text-purple-400" />;
+        return <Brain className={`${iconClass} ${!isSelected ? "text-purple-400" : ""}`} />;
       case "code":
-        return <Code2 className="h-3 w-3 text-emerald-400" />;
+        return <Code2 className={`${iconClass} ${!isSelected ? "text-emerald-400" : ""}`} />;
       case "vision":
-        return <Eye className="h-3 w-3 text-cyan-400" />;
+        return <Eye className={`${iconClass} ${!isSelected ? "text-cyan-400" : ""}`} />;
       case "audio":
-        return <Volume2 className="h-3 w-3 text-amber-400" />;
+        return <Volume2 className={`${iconClass} ${!isSelected ? "text-amber-400" : ""}`} />;
       case "safety":
-        return <ShieldAlert className="h-3 w-3 text-rose-400" />;
+        return <ShieldAlert className={`${iconClass} ${!isSelected ? "text-rose-400" : ""}`} />;
       default:
-        return <Bot className="h-3 w-3 text-indigo-400" />;
+        return <Bot className={`${iconClass} ${!isSelected ? "text-indigo-400" : ""}`} />;
     }
   };
 
@@ -156,7 +158,7 @@ export function ModelDropdown({
   };
 
   return (
-    <div ref={dropdownRef} className={`relative w-full font-mono ${className}`}>
+    <div ref={dropdownRef} className={`relative w-full font-mono select-none ${className}`}>
       {/* Trigger Button */}
       <button
         type="button"
@@ -164,49 +166,49 @@ export function ModelDropdown({
         onClick={() => setIsOpen(!isOpen)}
         className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-left text-xs transition-all shadow-sm cursor-pointer ${
           isOpen
-            ? "border-indigo-500 ring-2 ring-indigo-500/20 bg-white dark:bg-[#0d0f17]"
-            : "border-slate-300 dark:border-indigo-900/60 bg-white dark:bg-[#0a0a0c] hover:border-indigo-400 dark:hover:border-indigo-700"
+            ? "border-indigo-500 ring-2 ring-indigo-500/30 bg-slate-100 dark:bg-black/90 text-slate-900 dark:text-slate-100"
+            : "border-slate-300 dark:border-indigo-900/60 bg-slate-50 dark:bg-black/60 hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-slate-100 dark:hover:bg-indigo-950/40 text-slate-900 dark:text-slate-100"
         } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
       >
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {value === "openrouter/free" ? (
-            <div className="flex items-center gap-1.5 min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
               <Sparkles className="h-3.5 w-3.5 text-amber-400 shrink-0 animate-pulse" />
-              <span className="font-bold text-slate-900 dark:text-slate-100 truncate">
-                [Auto-Router] OpenRouter: Free Models (Recommended)
+              <span className="font-bold text-slate-900 dark:text-slate-100 truncate text-[11px]">
+                [Auto-Router] OpenRouter: Free Models
               </span>
-              <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-300 border border-amber-500/20 shrink-0 font-bold">
+              <span className="text-[8.5px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-500/30 shrink-0 font-bold font-mono">
                 $0 FREE
               </span>
             </div>
           ) : value === "" || value === "auto-failover" ? (
-            <div className="flex items-center gap-1.5 min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
               <Layers className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
-              <span className="font-bold text-slate-900 dark:text-slate-100 truncate">
+              <span className="font-bold text-slate-900 dark:text-slate-100 truncate text-[11px]">
                 [Failover Router] Multi-Provider (Groq + OpenRouter)
               </span>
-              <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 shrink-0 font-bold">
+              <span className="text-[8.5px] px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 shrink-0 font-bold font-mono">
                 AUTO
               </span>
             </div>
           ) : value === "__custom__" ? (
-            <div className="flex items-center gap-1.5 min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
               <Cpu className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
-              <span className="font-bold text-cyan-600 dark:text-cyan-300 truncate">
+              <span className="font-bold text-cyan-600 dark:text-cyan-300 truncate text-[11px]">
                 Custom Model & API Endpoint
               </span>
             </div>
           ) : selectedModelEntry ? (
             <div className="flex items-center gap-2 min-w-0 flex-1">
-              <span className="shrink-0">{getCategoryIcon(selectedModelEntry.category)}</span>
-              <span className="font-bold text-slate-900 dark:text-slate-100 truncate">
+              {getCategoryIcon(selectedModelEntry.category)}
+              <span className="font-bold text-slate-900 dark:text-slate-100 truncate text-[11px]">
                 {selectedModelEntry.label}
               </span>
-              <span className="text-[8px] font-mono px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 uppercase shrink-0">
+              <span className="text-[8.5px] font-mono px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 uppercase shrink-0 font-bold">
                 {selectedModelEntry.provider}
               </span>
               {selectedModelEntry.throughput && (
-                <span className="text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
+                <span className="text-[8.5px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30 shrink-0 font-bold font-mono">
                   {selectedModelEntry.throughput}
                 </span>
               )}
@@ -214,25 +216,25 @@ export function ModelDropdown({
           ) : value ? (
             <div className="flex items-center gap-1.5 min-w-0">
               <Bot className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-              <span className="font-medium text-slate-800 dark:text-slate-200 truncate">{value}</span>
+              <span className="font-medium text-slate-800 dark:text-slate-200 truncate text-[11px]">{value}</span>
             </div>
           ) : (
-            <span className="text-slate-400 italic">{placeholder}</span>
+            <span className="text-slate-400 italic text-[11px]">{placeholder}</span>
           )}
         </div>
 
         <ChevronDown
           className={`h-4 w-4 text-slate-400 shrink-0 transition-transform duration-200 ${
-            isOpen ? "rotate-180 text-indigo-500" : ""
+            isOpen ? "rotate-180 text-indigo-400" : ""
           }`}
         />
       </button>
 
       {/* Floating Dropdown Panel */}
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 rounded-xl border border-indigo-500/40 bg-white dark:bg-[#0c0d14] shadow-2xl overflow-hidden animate-fadeIn backdrop-blur-md">
+        <div className="absolute left-0 right-0 top-full mt-1.5 z-[100] rounded-xl border border-indigo-500/40 bg-white dark:bg-slate-950 shadow-2xl dark:shadow-[0_20px_60px_rgba(0,0,0,0.95)] overflow-hidden animate-fadeIn backdrop-blur-xl">
           {/* Search Box Header */}
-          <div className="p-2.5 border-b border-slate-200 dark:border-indigo-950/80 bg-slate-50/80 dark:bg-black/40 space-y-2">
+          <div className="p-2.5 border-b border-slate-200 dark:border-indigo-950/90 bg-slate-50/90 dark:bg-black/60 space-y-2">
             <div className="relative flex items-center">
               <Search className="absolute left-2.5 h-3.5 w-3.5 text-slate-400" />
               <input
@@ -240,8 +242,8 @@ export function ModelDropdown({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search models by name, ID, or capability..."
-                className="w-full pl-8 pr-7 py-1.5 text-xs rounded-md border border-slate-300 dark:border-indigo-900/60 bg-white dark:bg-black/60 text-slate-900 dark:text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 font-mono"
+                placeholder="Search 400+ provider models by name or tag..."
+                className="w-full pl-8 pr-7 py-1.5 text-xs rounded-md border border-slate-300 dark:border-indigo-900/70 bg-white dark:bg-black/80 text-slate-900 dark:text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/40 font-mono"
               />
               {searchQuery && (
                 <button
@@ -255,7 +257,7 @@ export function ModelDropdown({
             </div>
 
             {/* Quick Filter Chips */}
-            <div className="flex items-center gap-1 overflow-x-auto pb-0.5 custom-scrollbar text-[9px]">
+            <div className="flex items-center gap-1 overflow-x-auto pb-0.5 custom-scrollbar text-[8.5px]">
               {[
                 { id: "all", label: "ALL" },
                 { id: "free", label: "FREE $0" },
@@ -269,10 +271,10 @@ export function ModelDropdown({
                   key={chip.id}
                   type="button"
                   onClick={() => setActiveFilter(chip.id)}
-                  className={`px-2 py-0.5 rounded-full whitespace-nowrap font-bold transition-colors cursor-pointer ${
+                  className={`px-2.5 py-1 rounded-full whitespace-nowrap font-bold transition-all cursor-pointer ${
                     activeFilter === chip.id
-                      ? "bg-indigo-600 text-white"
-                      : "bg-slate-200/70 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                      ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/40"
+                      : "bg-slate-200/80 dark:bg-slate-900 dark:border dark:border-indigo-950/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 dark:hover:bg-indigo-950/70"
                   }`}
                 >
                   {chip.label}
@@ -282,63 +284,67 @@ export function ModelDropdown({
           </div>
 
           {/* Model Options List */}
-          <div className="max-h-72 overflow-y-auto p-1.5 space-y-3 custom-scrollbar text-xs">
+          <div className="max-h-72 overflow-y-auto p-2 space-y-3 custom-scrollbar text-xs">
             {isLoading && (
               <div className="p-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-                <Zap className="h-3.5 w-3.5 text-indigo-400 animate-spin" /> Fetching latest provider models...
+                <Activity className="h-3.5 w-3.5 text-indigo-400 animate-spin" /> Fetching live provider models...
               </div>
             )}
 
             {/* 1. Auto-Routers & Platform Defaults */}
             {showAutoRouter && (!searchQuery || "router auto failover".includes(searchQuery.toLowerCase())) && (
               <div className="space-y-1">
-                <div className="px-2 py-0.5 text-[9px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkles className="h-3 w-3" /> Auto-Routers & Intelligent Failover
+                <div className="px-2.5 py-1 text-[9px] font-mono font-bold tracking-wider uppercase text-indigo-600 dark:text-indigo-300 bg-indigo-50/80 dark:bg-indigo-950/40 rounded border border-indigo-200 dark:border-indigo-900/50 flex items-center gap-1.5">
+                  <Sparkles className="h-3 w-3 text-amber-400" /> Auto-Routers & Failover Engine
                 </div>
 
                 <div
                   onClick={() => handleSelect("openrouter/free")}
-                  className={`px-2.5 py-2 rounded-lg flex items-center justify-between gap-2 cursor-pointer transition-colors ${
+                  className={`px-2.5 py-2 rounded-lg flex items-center justify-between gap-2 cursor-pointer transition-all border ${
                     value === "openrouter/free"
-                      ? "bg-indigo-600 text-white"
-                      : "hover:bg-indigo-50/70 dark:hover:bg-indigo-950/40 text-slate-800 dark:text-slate-200"
+                      ? "bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30"
+                      : "border-transparent hover:border-indigo-300 dark:hover:border-indigo-800/60 hover:bg-indigo-50/80 dark:hover:bg-indigo-950/50 text-slate-800 dark:text-slate-200"
                   }`}
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <Sparkles className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                    <Sparkles className="h-3.5 w-3.5 text-amber-400 shrink-0 animate-pulse" />
                     <div>
                       <div className="font-bold text-xs">OpenRouter: Free Models Auto-Router</div>
-                      <div className="text-[9px] opacity-75">Auto-picks best available 0-cost reasoning model</div>
+                      <div className={`text-[9px] ${value === "openrouter/free" ? "text-indigo-100" : "text-slate-500 dark:text-slate-400"}`}>
+                        Auto-picks best available 0-cost reasoning model
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    <span className="text-[8.5px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono">
                       $0 FREE
                     </span>
-                    {value === "openrouter/free" && <Check className="h-3.5 w-3.5" />}
+                    {value === "openrouter/free" && <Check className="h-3.5 w-3.5 text-white" />}
                   </div>
                 </div>
 
                 <div
                   onClick={() => handleSelect("")}
-                  className={`px-2.5 py-2 rounded-lg flex items-center justify-between gap-2 cursor-pointer transition-colors ${
+                  className={`px-2.5 py-2 rounded-lg flex items-center justify-between gap-2 cursor-pointer transition-all border ${
                     value === "" || value === "auto-failover"
-                      ? "bg-indigo-600 text-white"
-                      : "hover:bg-indigo-50/70 dark:hover:bg-indigo-950/40 text-slate-800 dark:text-slate-200"
+                      ? "bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30"
+                      : "border-transparent hover:border-indigo-300 dark:hover:border-indigo-800/60 hover:bg-indigo-50/80 dark:hover:bg-indigo-950/50 text-slate-800 dark:text-slate-200"
                   }`}
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <Layers className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
                     <div>
                       <div className="font-bold text-xs">Multi-Provider Failover Router</div>
-                      <div className="text-[9px] opacity-75">Groq LPU first, falls back to OpenRouter</div>
+                      <div className={`text-[9px] ${value === "" || value === "auto-failover" ? "text-indigo-100" : "text-slate-500 dark:text-slate-400"}`}>
+                        Groq LPU first, falls back to OpenRouter
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    <span className="text-[8.5px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-mono">
                       MULTI
                     </span>
-                    {(value === "" || value === "auto-failover") && <Check className="h-3.5 w-3.5" />}
+                    {(value === "" || value === "auto-failover") && <Check className="h-3.5 w-3.5 text-white" />}
                   </div>
                 </div>
               </div>
@@ -347,9 +353,9 @@ export function ModelDropdown({
             {/* 2. Groq LPU Models */}
             {filteredGroq.length > 0 && (
               <div className="space-y-1">
-                <div className="px-2 py-0.5 text-[9px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center justify-between">
+                <div className="px-2.5 py-1 text-[9px] font-mono font-bold tracking-wider uppercase text-indigo-600 dark:text-indigo-300 bg-indigo-50/80 dark:bg-indigo-950/40 rounded border border-indigo-200 dark:border-indigo-900/50 flex items-center justify-between">
                   <span>Groq Ultra-Fast LPU Models ({filteredGroq.length})</span>
-                  <span className="text-[8px] text-emerald-500 font-normal">Sub-100ms Inference</span>
+                  <span className="text-[8px] text-emerald-500 dark:text-emerald-400 font-normal">Sub-100ms Inference</span>
                 </div>
                 {filteredGroq.map((m) => {
                   const isSelected = value === m.model;
@@ -357,29 +363,39 @@ export function ModelDropdown({
                     <div
                       key={`groq-${m.model}`}
                       onClick={() => handleSelect(m.model)}
-                      className={`px-2.5 py-1.5 rounded-md flex items-center justify-between gap-2 cursor-pointer transition-colors ${
+                      className={`px-2.5 py-2 rounded-lg flex items-center justify-between gap-2 cursor-pointer transition-all border ${
                         isSelected
-                          ? "bg-indigo-600 text-white"
-                          : "hover:bg-indigo-50/70 dark:hover:bg-indigo-950/40 text-slate-800 dark:text-slate-200"
+                          ? "bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30 font-semibold"
+                          : "border-transparent hover:border-indigo-300 dark:hover:border-indigo-800/60 hover:bg-indigo-50/80 dark:hover:bg-indigo-950/50 text-slate-800 dark:text-slate-200"
                       }`}
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        {getCategoryIcon(m.category)}
+                        {getCategoryIcon(m.category, isSelected)}
                         <div className="truncate">
-                          <span className="font-semibold text-xs">{m.label}</span>
-                          <span className="text-[9px] opacity-60 ml-2 font-mono">{m.model}</span>
+                          <div className="font-semibold text-xs leading-tight">{m.label}</div>
+                          <div className={`text-[9px] font-mono leading-tight mt-0.5 truncate ${isSelected ? "text-indigo-100" : "text-slate-500 dark:text-slate-400"}`}>
+                            {m.model}
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0 text-[8px]">
                         {m.throughput && (
-                          <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
+                          <span className={`px-1.5 py-0.5 rounded border font-bold font-mono ${
+                            isSelected
+                              ? "bg-white/20 text-white border-white/30"
+                              : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                          }`}>
                             {m.throughput}
                           </span>
                         )}
-                        <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
+                        <span className={`px-1.5 py-0.5 rounded border font-mono ${
+                          isSelected
+                            ? "bg-white/20 text-white border-white/30"
+                            : "bg-slate-100 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700/60"
+                        }`}>
                           {m.contextLength ? `${(m.contextLength / 1000).toFixed(0)}k` : "128k"} ctx
                         </span>
-                        {isSelected && <Check className="h-3.5 w-3.5" />}
+                        {isSelected && <Check className="h-3.5 w-3.5 text-white" />}
                       </div>
                     </div>
                   );
@@ -390,9 +406,9 @@ export function ModelDropdown({
             {/* 3. OpenRouter Free Tier Models */}
             {filteredORFree.length > 0 && (
               <div className="space-y-1">
-                <div className="px-2 py-0.5 text-[9px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center justify-between">
+                <div className="px-2.5 py-1 text-[9px] font-mono font-bold tracking-wider uppercase text-indigo-600 dark:text-indigo-300 bg-indigo-50/80 dark:bg-indigo-950/40 rounded border border-indigo-200 dark:border-indigo-900/50 flex items-center justify-between">
                   <span>OpenRouter Free Tier Models ({filteredORFree.length})</span>
-                  <span className="text-[8px] text-amber-400 font-normal">$0 Cost</span>
+                  <span className="text-[8px] text-amber-500 dark:text-amber-400 font-bold">$0 Cost</span>
                 </div>
                 {filteredORFree.map((m) => {
                   const isSelected = value === m.model;
@@ -400,27 +416,37 @@ export function ModelDropdown({
                     <div
                       key={`or-free-${m.model}`}
                       onClick={() => handleSelect(m.model)}
-                      className={`px-2.5 py-1.5 rounded-md flex items-center justify-between gap-2 cursor-pointer transition-colors ${
+                      className={`px-2.5 py-2 rounded-lg flex items-center justify-between gap-2 cursor-pointer transition-all border ${
                         isSelected
-                          ? "bg-indigo-600 text-white"
-                          : "hover:bg-indigo-50/70 dark:hover:bg-indigo-950/40 text-slate-800 dark:text-slate-200"
+                          ? "bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30 font-semibold"
+                          : "border-transparent hover:border-indigo-300 dark:hover:border-indigo-800/60 hover:bg-indigo-50/80 dark:hover:bg-indigo-950/50 text-slate-800 dark:text-slate-200"
                       }`}
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        {getCategoryIcon(m.category)}
+                        {getCategoryIcon(m.category, isSelected)}
                         <div className="truncate">
-                          <span className="font-semibold text-xs">{m.label}</span>
-                          <span className="text-[9px] opacity-60 ml-2 font-mono truncate">{m.model}</span>
+                          <div className="font-semibold text-xs leading-tight">{m.label}</div>
+                          <div className={`text-[9px] font-mono leading-tight mt-0.5 truncate ${isSelected ? "text-indigo-100" : "text-slate-500 dark:text-slate-400"}`}>
+                            {m.model}
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0 text-[8px]">
-                        <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold">
+                        <span className={`px-1.5 py-0.5 rounded border font-bold font-mono ${
+                          isSelected
+                            ? "bg-white/20 text-white border-white/30"
+                            : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                        }`}>
                           FREE
                         </span>
-                        <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
+                        <span className={`px-1.5 py-0.5 rounded border font-mono ${
+                          isSelected
+                            ? "bg-white/20 text-white border-white/30"
+                            : "bg-slate-100 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700/60"
+                        }`}>
                           {m.contextLength ? `${(m.contextLength / 1000).toFixed(0)}k` : "128k"} ctx
                         </span>
-                        {isSelected && <Check className="h-3.5 w-3.5" />}
+                        {isSelected && <Check className="h-3.5 w-3.5 text-white" />}
                       </div>
                     </div>
                   );
@@ -431,8 +457,8 @@ export function ModelDropdown({
             {/* 4. OpenRouter Flagship Models */}
             {filteredORPopular.length > 0 && (
               <div className="space-y-1">
-                <div className="px-2 py-0.5 text-[9px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center justify-between">
-                  <span>OpenRouter Flagship & Extended Catalog ({filteredORPopular.length})</span>
+                <div className="px-2.5 py-1 text-[9px] font-mono font-bold tracking-wider uppercase text-indigo-600 dark:text-indigo-300 bg-indigo-50/80 dark:bg-indigo-950/40 rounded border border-indigo-200 dark:border-indigo-900/50 flex items-center justify-between">
+                  <span>OpenRouter Flagship Catalog ({filteredORPopular.length})</span>
                 </div>
                 {filteredORPopular.slice(0, 40).map((m) => {
                   const isSelected = value === m.model;
@@ -440,24 +466,30 @@ export function ModelDropdown({
                     <div
                       key={`or-pop-${m.model}`}
                       onClick={() => handleSelect(m.model)}
-                      className={`px-2.5 py-1.5 rounded-md flex items-center justify-between gap-2 cursor-pointer transition-colors ${
+                      className={`px-2.5 py-2 rounded-lg flex items-center justify-between gap-2 cursor-pointer transition-all border ${
                         isSelected
-                          ? "bg-indigo-600 text-white"
-                          : "hover:bg-indigo-50/70 dark:hover:bg-indigo-950/40 text-slate-800 dark:text-slate-200"
+                          ? "bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30 font-semibold"
+                          : "border-transparent hover:border-indigo-300 dark:hover:border-indigo-800/60 hover:bg-indigo-50/80 dark:hover:bg-indigo-950/50 text-slate-800 dark:text-slate-200"
                       }`}
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        {getCategoryIcon(m.category)}
+                        {getCategoryIcon(m.category, isSelected)}
                         <div className="truncate">
-                          <span className="font-semibold text-xs">{m.label}</span>
-                          <span className="text-[9px] opacity-60 ml-2 font-mono truncate">{m.model}</span>
+                          <div className="font-semibold text-xs leading-tight">{m.label}</div>
+                          <div className={`text-[9px] font-mono leading-tight mt-0.5 truncate ${isSelected ? "text-indigo-100" : "text-slate-500 dark:text-slate-400"}`}>
+                            {m.model}
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0 text-[8px]">
-                        <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
+                        <span className={`px-1.5 py-0.5 rounded border font-mono ${
+                          isSelected
+                            ? "bg-white/20 text-white border-white/30"
+                            : "bg-slate-100 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700/60"
+                        }`}>
                           {m.contextLength ? `${(m.contextLength / 1000).toFixed(0)}k` : "128k"} ctx
                         </span>
-                        {isSelected && <Check className="h-3.5 w-3.5" />}
+                        {isSelected && <Check className="h-3.5 w-3.5 text-white" />}
                       </div>
                     </div>
                   );
@@ -468,8 +500,8 @@ export function ModelDropdown({
             {/* 5. OpenAI Direct Models */}
             {filteredOpenAI.length > 0 && (
               <div className="space-y-1">
-                <div className="px-2 py-0.5 text-[9px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
-                  OpenAI Direct Models ({filteredOpenAI.length})
+                <div className="px-2.5 py-1 text-[9px] font-mono font-bold tracking-wider uppercase text-indigo-600 dark:text-indigo-300 bg-indigo-50/80 dark:bg-indigo-950/40 rounded border border-indigo-200 dark:border-indigo-900/50 flex items-center justify-between">
+                  <span>OpenAI Direct Models ({filteredOpenAI.length})</span>
                 </div>
                 {filteredOpenAI.map((m) => {
                   const isSelected = value === m.model;
@@ -477,17 +509,17 @@ export function ModelDropdown({
                     <div
                       key={`oa-${m.model}`}
                       onClick={() => handleSelect(m.model)}
-                      className={`px-2.5 py-1.5 rounded-md flex items-center justify-between gap-2 cursor-pointer transition-colors ${
+                      className={`px-2.5 py-2 rounded-lg flex items-center justify-between gap-2 cursor-pointer transition-all border ${
                         isSelected
-                          ? "bg-indigo-600 text-white"
-                          : "hover:bg-indigo-50/70 dark:hover:bg-indigo-950/40 text-slate-800 dark:text-slate-200"
+                          ? "bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30 font-semibold"
+                          : "border-transparent hover:border-indigo-300 dark:hover:border-indigo-800/60 hover:bg-indigo-50/80 dark:hover:bg-indigo-950/50 text-slate-800 dark:text-slate-200"
                       }`}
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <Bot className="h-3 w-3 text-emerald-400" />
+                        <Bot className={`h-3.5 w-3.5 ${isSelected ? "text-white" : "text-emerald-400"}`} />
                         <span className="font-semibold text-xs truncate">{m.label}</span>
                       </div>
-                      {isSelected && <Check className="h-3.5 w-3.5 shrink-0" />}
+                      {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-white" />}
                     </div>
                   );
                 })}
@@ -499,35 +531,35 @@ export function ModelDropdown({
               filteredORFree.length === 0 &&
               filteredORPopular.length === 0 &&
               filteredOpenAI.length === 0 && (
-                <div className="p-4 text-center text-xs text-slate-400 space-y-1">
+                <div className="p-4 text-center text-xs text-slate-400 space-y-1.5">
                   <div>No provider models matching &ldquo;{searchQuery}&rdquo;</div>
                   <button
                     type="button"
                     onClick={() => handleSelect(searchQuery)}
-                    className="text-[10px] text-indigo-400 underline hover:text-indigo-300 cursor-pointer"
+                    className="inline-block px-3 py-1 rounded bg-indigo-600 text-white text-[10px] font-bold hover:bg-indigo-500 cursor-pointer shadow-sm"
                   >
-                    Use custom model ID &ldquo;{searchQuery}&rdquo;
+                    Select &ldquo;{searchQuery}&rdquo; as Custom Model
                   </button>
                 </div>
               )}
 
             {/* 6. Custom BYOM Option */}
             {showCustomOption && (
-              <div className="pt-2 border-t border-slate-200 dark:border-indigo-950/80">
+              <div className="pt-2 border-t border-slate-200 dark:border-indigo-950/90">
                 <div
                   onClick={handleCustom}
-                  className="px-2.5 py-2 rounded-lg flex items-center justify-between gap-2 cursor-pointer hover:bg-indigo-50/70 dark:hover:bg-indigo-950/40 text-cyan-600 dark:text-cyan-300 font-bold transition-colors"
+                  className="px-2.5 py-2 rounded-lg flex items-center justify-between gap-2 cursor-pointer hover:bg-indigo-50/80 dark:hover:bg-indigo-950/50 text-cyan-600 dark:text-cyan-300 font-bold transition-all border border-transparent hover:border-cyan-500/40"
                 >
                   <div className="flex items-center gap-2">
-                    <Cpu className="h-3.5 w-3.5" />
+                    <Cpu className="h-3.5 w-3.5 text-cyan-400" />
                     <div>
                       <div className="text-xs">Custom Model & API Endpoint (BYOM)...</div>
-                      <div className="text-[9px] font-normal text-slate-400">
-                        Ollama, Local vLLM, custom OpenAI endpoint
+                      <div className="text-[9px] font-normal text-slate-500 dark:text-slate-400">
+                        Ollama, Local vLLM, custom OpenAI compatible endpoint
                       </div>
                     </div>
                   </div>
-                  <ChevronDown className="h-3.5 w-3.5 -rotate-90 opacity-60" />
+                  <ChevronDown className="h-3.5 w-3.5 -rotate-90 opacity-60 text-cyan-400" />
                 </div>
               </div>
             )}
