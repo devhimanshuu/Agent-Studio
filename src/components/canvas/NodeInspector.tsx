@@ -20,7 +20,9 @@ import {
   Check,
   AlertCircle,
   Play,
-  Server,
+  Brain,
+  Zap,
+  BrainCircuit,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { BUILT_IN_TOOL_CATALOG } from "@/modules/tools";
@@ -705,6 +707,78 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
           className={inputClass}
         />
       </Field>
+
+      {/* ─── Real-Time Token Streaming & Trace Monitor ─── */}
+      {node.data.traceTokenStream && (node.data.traceTokenStream.text || node.data.traceStatus === "RUNNING") && (
+        <div className="p-3 rounded-lg border border-cyan-500/40 bg-slate-950/95 dark:bg-black/95 font-mono space-y-2 shadow-lg shadow-cyan-950/40">
+          <div className="flex items-center justify-between border-b border-indigo-950/80 pb-1.5">
+            <div className="flex items-center gap-1.5">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500" />
+              </span>
+              <span className="flex items-center gap-1 text-[9px] font-pixel text-cyan-300 uppercase tracking-wide">
+                {node.data.traceTokenStream.isThinking ? (
+                  <>
+                    <Brain className="h-3 w-3 text-violet-400" /> REASONING ACTIVE
+                  </>
+                ) : (
+                  <>
+                    <Zap className="h-3 w-3 text-cyan-400" /> LIVE TOKEN STREAM
+                  </>
+                )}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 text-[8px] font-mono">
+              {node.data.traceTokenStream.tokensPerSec ? (
+                <span className="px-1.5 py-0.5 rounded bg-cyan-950/80 border border-cyan-800/60 text-cyan-300 font-bold">
+                  {node.data.traceTokenStream.tokensPerSec} tok/s
+                </span>
+              ) : (
+                <span className="text-cyan-400 font-bold">STREAMING</span>
+              )}
+              {node.data.traceTokenStream.totalTokens !== undefined && (
+                <span className="text-slate-400">
+                  {node.data.traceTokenStream.totalTokens} tokens
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Stream Buffer Display */}
+          <div className="p-2 rounded bg-[#070709] border border-slate-800/80 max-h-48 overflow-y-auto font-mono text-[9px] text-slate-200 leading-relaxed custom-scrollbar whitespace-pre-wrap select-text break-words">
+            {node.data.traceTokenStream.text ? (
+              <>
+                {node.data.traceTokenStream.text.includes("<think>") ? (
+                  (() => {
+                    const parts = node.data.traceTokenStream.text.split(/<\/?think>/);
+                    return (
+                      <>
+                        {parts[1] && (
+                          <div className="p-2 rounded bg-violet-950/40 border border-violet-800/40 text-violet-300 text-[8px] mb-2 font-mono">
+                            <span className="text-[7.5px] font-bold uppercase text-violet-400 flex items-center gap-1 mb-1">
+                              <BrainCircuit className="h-3 w-3 text-violet-400" /> Chain-of-Thought / Deep Reasoning:
+                            </span>
+                            {parts[1]}
+                          </div>
+                        )}
+                        <span>{parts.slice(2).join("") || parts[0]}</span>
+                      </>
+                    );
+                  })()
+                ) : (
+                  <span>{node.data.traceTokenStream.text}</span>
+                )}
+                {node.data.traceTokenStream.active && (
+                  <span className="inline-block w-1.5 h-3.5 bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.8)] animate-pulse ml-0.5 align-middle" />
+                )}
+              </>
+            ) : (
+              <span className="text-slate-500 italic">Waiting for initial token chunk from provider...</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {type === "agent" && (
         <>

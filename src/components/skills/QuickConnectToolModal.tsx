@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   Layers,
   Wrench,
+  Info,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { OPENAPI_PRESETS, OpenApiPreset } from "@/modules/openapi/presets";
@@ -304,8 +305,9 @@ export function QuickConnectToolModal({
 
         {/* Modal Footer */}
         <div className="p-3 border-t border-slate-200 dark:border-indigo-900/60 bg-slate-50 dark:bg-[#0a0a0e] flex items-center justify-between text-xs">
-          <span className="text-[11px] text-slate-500 font-serif">
-            💡 Need full custom Swagger/OpenAPI URLs? Import them anytime via the <strong>Tool Registry</strong>.
+          <span className="text-[11px] text-slate-500 font-serif flex items-center gap-1">
+            <Info className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+            <span>Need full custom Swagger/OpenAPI URLs? Import them anytime via the <strong>Tool Registry</strong>.</span>
           </span>
           <button
             type="button"

@@ -1024,7 +1024,10 @@ function ServerCard(props: {
           </p>
 
           {server.lastError && server.status === "ERROR" && (
-            <p className="text-[9px] font-mono text-red-700 dark:text-red-400 font-semibold break-all">⚠ {server.lastError}</p>
+            <p className="flex items-center gap-1 text-[9px] font-mono text-red-700 dark:text-red-400 font-semibold break-all">
+              <CircleAlert className="h-3 w-3 shrink-0" />
+              <span>{server.lastError}</span>
+            </p>
           )}
         </div>
 

@@ -36,7 +36,7 @@ export class DashboardStatsService {
       // Executions
       rangeExecutions,
       liveExecutionsRaw,
-      allExecutionsCount,
+      rangeExecutionsCount,
       providerGroups,
       // Tool Calls
       rangeToolCalls,
@@ -93,7 +93,12 @@ export class DashboardStatsService {
         take: 5,
       }),
 
-      prisma.execution.count({ where: { userId } }),
+      prisma.execution.count({
+        where: {
+          userId,
+          ...(rangeDate ? { startedAt: { gte: rangeDate } } : {}),
+        },
+      }),
 
       prisma.execution.groupBy({
         by: ["provider"],
@@ -128,7 +133,10 @@ export class DashboardStatsService {
       }),
 
       prisma.auditLog.findMany({
-        where: { userId },
+        where: {
+          userId,
+          ...(rangeDate ? { timestamp: { gte: rangeDate } } : {}),
+        },
         orderBy: { timestamp: "desc" },
         take: 6,
       }),
@@ -203,7 +211,7 @@ export class DashboardStatsService {
     }));
 
     const telemetry: TelemetryMetricsDTO = {
-      totalExecutions: totalRangeExecs > 0 ? totalRangeExecs : allExecutionsCount,
+      totalExecutions: rangeExecutionsCount,
       completed: completedCount,
       failed: failedCount,
       cancelled: statusCounts["CANCELLED"] ?? 0,

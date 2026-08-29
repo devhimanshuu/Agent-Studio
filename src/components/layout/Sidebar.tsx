@@ -21,6 +21,7 @@ import {
   Network,
   Database,
   Bot,
+  Award,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { SignOutModal } from "@/components/feedback/SignOutModal";
@@ -32,6 +33,7 @@ const navItems = [
   { name: "Agent Canvas", href: "/dashboard/canvas", icon: Network, tag: "GRAPH_V1" },
   { name: "Knowledge Base", href: "/dashboard/knowledge", icon: Database, tag: "PG_RAG" },
   { name: "A2A Protocol", href: "/dashboard/a2a", icon: Bot, tag: "A2A_V1" },
+  { name: "Benchmarks", href: "/dashboard/benchmarks", icon: Award, tag: "EVAL_V1" },
   { name: "Executions", href: "/dashboard/executions", icon: Play, tag: "TRACE_LOG" },
   { name: "Observability", href: "/dashboard/history", icon: Gauge, tag: "OBS_07" },
   { name: "Audit Log", href: "/dashboard/audit", icon: ScrollText, tag: "AUDIT" },

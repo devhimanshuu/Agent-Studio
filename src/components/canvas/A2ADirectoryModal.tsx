@@ -181,10 +181,11 @@ export function A2ADirectoryModal({ isOpen, onClose, onSelectAgent }: A2ADirecto
                     {agent.capabilities.map((cap) => (
                       <span
                         key={cap.id}
-                        className="px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/50 text-[7.5px] text-slate-300"
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/50 text-[7.5px] text-slate-300"
                         title={cap.description}
                       >
-                        ⚡ {cap.name}
+                        <Zap className="h-2 w-2 text-cyan-400 shrink-0" />
+                        <span>{cap.name}</span>
                       </span>
                     ))}
                   </div>

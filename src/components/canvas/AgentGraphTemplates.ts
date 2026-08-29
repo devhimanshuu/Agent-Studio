@@ -976,7 +976,7 @@ export const CANVAS_TEMPLATES: CanvasTemplate[] = [
           data: {
             label: "TELEGRAM/DISCORD DISPATCH",
             dispatchDestination: "telegram",
-            dispatchMessage: "🪙 **Crypto Momentum & Arbitrage Alert:**\n\n{{ results.quant_agent }}",
+            dispatchMessage: "[ALERT] **Crypto Momentum & Arbitrage Alert:**\n\n{{ results.quant_agent }}",
           },
         },
         { id: "end", type: "end", position: { x: NODE_X * 5 + 40, y: GRID_Y }, data: { label: "END" } },

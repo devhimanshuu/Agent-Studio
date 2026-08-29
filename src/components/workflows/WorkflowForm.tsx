@@ -13,6 +13,7 @@ import {
   FileText,
   Layers,
   Loader2,
+  Check,
 } from "lucide-react";
 import { createSkillSchema } from "@/validators/skillSchema";
 import { BUILT_IN_TOOL_CATALOG } from "@/modules/tools";
@@ -429,14 +430,14 @@ export function WorkflowForm({
                     type="button"
                     onClick={() => toggleApproval(action)}
                     className={clsx(
-                      "px-2 py-1 rounded border text-[10px] font-mono transition-all cursor-pointer font-medium",
+                      "inline-flex items-center gap-1 px-2 py-1 rounded border text-[10px] font-mono transition-all cursor-pointer font-medium",
                       isSelected
                         ? "border-amber-500 bg-amber-200 dark:bg-amber-900 text-amber-950 dark:text-amber-100 font-bold shadow-sm"
                         : "border-amber-300/80 dark:border-amber-900/50 bg-white/80 dark:bg-black/40 text-amber-900 dark:text-amber-300 hover:border-amber-400"
                     )}
                   >
-                    {isSelected ? "✓ " : "+ "}
-                    {action}
+                    {isSelected ? <Check className="h-2.5 w-2.5 shrink-0" /> : <Plus className="h-2.5 w-2.5 shrink-0" />}
+                    <span>{action}</span>
                   </button>
                 );
               })}

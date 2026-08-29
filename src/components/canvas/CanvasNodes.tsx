@@ -43,6 +43,8 @@ import {
   Check,
   X,
   Loader2,
+  Brain,
+  Zap,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { CANVAS_NODE_TYPE_MAP } from "./nodeTypes";
@@ -97,6 +99,83 @@ function statusDot(status: CanvasNodeData["traceStatus"]) {
           : "bg-indigo-400";
   return (
     <span className={clsx("inline-block h-2 w-2 rounded-full", color, status === "RUNNING" && "animate-ping")} />
+  );
+}
+
+function NodeLiveTokenStream({
+  stream,
+}: {
+  stream: { text: string; isThinking?: boolean; tokensPerSec?: number; totalTokens?: number; active: boolean };
+}) {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    }
+  }, [stream.text]);
+
+  const hasThinking = stream.text.includes("<think>") || stream.isThinking;
+  const parts = stream.text.split(/<\/?think>/);
+
+  return (
+    <div className="mt-1.5 p-2 rounded-lg bg-slate-950/95 dark:bg-black/95 border border-cyan-500/40 font-mono text-[8px] space-y-1.5 shadow-lg shadow-cyan-950/30">
+      <div className="flex items-center justify-between text-[7.5px] border-b border-indigo-950/80 pb-1">
+        <span className="flex items-center gap-1.5 font-bold tracking-wider">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500" />
+          </span>
+          <span className={clsx("flex items-center gap-1 font-pixel text-[7px]", stream.isThinking ? "text-violet-300" : "text-cyan-300")}>
+            {stream.isThinking ? (
+              <>
+                <Brain className="h-2.5 w-2.5 text-violet-400" /> REASONING
+              </>
+            ) : (
+              <>
+                <Zap className="h-2.5 w-2.5 text-cyan-400" /> LIVE STREAM
+              </>
+            )}
+          </span>
+        </span>
+        <div className="flex items-center gap-1.5 text-slate-400 font-mono text-[7px]">
+          {stream.tokensPerSec ? (
+            <span className="px-1 py-0.5 rounded bg-cyan-950/80 border border-cyan-800/50 text-cyan-300 font-bold">
+              {stream.tokensPerSec} tok/s
+            </span>
+          ) : (
+            <span className="text-cyan-400 font-semibold">SSE LIVE</span>
+          )}
+          {stream.totalTokens !== undefined && stream.totalTokens > 0 && (
+            <span className="text-slate-400">
+              {stream.totalTokens} tok
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div
+        ref={containerRef}
+        className="max-h-28 overflow-y-auto break-words whitespace-pre-wrap leading-relaxed custom-scrollbar text-slate-100 font-mono text-[7.5px] select-text"
+      >
+        {hasThinking && parts.length > 1 ? (
+          <>
+            <div className="p-1 rounded bg-violet-950/40 border border-violet-800/30 text-violet-300 text-[7px] italic mb-1">
+              <span className="font-bold uppercase text-[6.5px] text-violet-400 flex items-center gap-1 mb-0.5">
+                <BrainCircuit className="h-2.5 w-2.5 text-violet-400" /> Chain-of-Thought:
+              </span>
+              {parts[1]}
+            </div>
+            <span>{parts.slice(2).join("") || parts[0]}</span>
+          </>
+        ) : (
+          <span>{stream.text}</span>
+        )}
+        {stream.active && (
+          <span className="inline-block w-1.5 h-3 bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.8)] animate-pulse ml-0.5 align-middle" />
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -161,8 +240,8 @@ function BaseShell({
         </div>
         {children}
         {data.heatmapLatency !== undefined && data.heatmapMax !== undefined && data.heatmapMax > 0 && (
-          <div className="text-[8px] font-bold text-slate-500 dark:text-slate-400 truncate">
-            ⏱ {formatMs(data.heatmapLatency)}
+          <div className="flex items-center gap-1 text-[8px] font-bold text-slate-500 dark:text-slate-400 truncate">
+            <Clock className="h-2.5 w-2.5 text-indigo-400" /> {formatMs(data.heatmapLatency)}
           </div>
         )}
         {data.traceDetail && (
@@ -171,22 +250,7 @@ function BaseShell({
           </div>
         )}
         {data.traceTokenStream && data.traceTokenStream.text && (
-          <div className="mt-1.5 p-1.5 rounded bg-slate-900/90 dark:bg-black/95 border border-indigo-500/30 font-mono text-[8px] space-y-1 shadow-inner">
-            <div className="flex items-center justify-between text-[7px] text-slate-400 border-b border-slate-800 pb-1">
-              <span className="flex items-center gap-1 text-indigo-400 font-semibold">
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
-                {data.traceTokenStream.isThinking ? "💭 THINKING" : "⚡ STREAMING"}
-              </span>
-              <span className="text-[7px] text-slate-400">
-                {data.traceTokenStream.tokensPerSec ? `${data.traceTokenStream.tokensPerSec} tok/s` : "live"}
-                {data.traceTokenStream.totalTokens ? ` · ${data.traceTokenStream.totalTokens} tok` : ""}
-              </span>
-            </div>
-            <div className="max-h-24 overflow-y-auto break-words whitespace-pre-wrap leading-tight scrollbar-none text-slate-200 font-mono text-[7.5px]">
-              {data.traceTokenStream.text}
-              {data.traceTokenStream.active && <span className="inline-block w-1.5 h-2.5 bg-indigo-400 animate-pulse ml-0.5 align-middle" />}
-            </div>
-          </div>
+          <NodeLiveTokenStream stream={data.traceTokenStream} />
         )}
       </div>
     </div>
@@ -1045,8 +1109,9 @@ function A2ADelegateNode({ data, selected }: NodePropsShape) {
       badge={meta.tag}
       selected={selected}
     >
-      <div className="text-[9px] text-purple-700 dark:text-purple-300 font-semibold truncate" title={data.a2aAgentUrl}>
-        🌐 {urlDisplay}
+      <div className="flex items-center gap-1 text-[9px] text-purple-700 dark:text-purple-300 font-semibold truncate" title={data.a2aAgentUrl}>
+        <Globe className="h-2.5 w-2.5 text-purple-500 shrink-0" />
+        <span className="truncate">{urlDisplay}</span>
       </div>
       <div className="text-[8px] text-slate-500 dark:text-slate-400 truncate">
         cap · <span className="font-semibold text-purple-600 dark:text-purple-400">{data.a2aCapability ?? "default_task"}</span>
@@ -1079,8 +1144,9 @@ function A2AChannelNode({ data, selected }: NodePropsShape) {
       <div className="text-[9px] text-cyan-700 dark:text-cyan-300 font-semibold truncate">
         Swarm Mode: <span className="uppercase text-cyan-500">{data.a2aChannelMode ?? "debate"}</span>
       </div>
-      <div className="text-[8px] text-slate-500 dark:text-slate-400 truncate" title={data.a2aChannelTopic}>
-        🎯 {data.a2aChannelTopic ?? "Consensus Discussion"}
+      <div className="flex items-center gap-1 text-[8px] text-slate-500 dark:text-slate-400 truncate" title={data.a2aChannelTopic}>
+        <Target className="h-2.5 w-2.5 text-cyan-500 shrink-0" />
+        <span className="truncate">{data.a2aChannelTopic ?? "Consensus Discussion"}</span>
       </div>
 
       {messages.length > 0 && (

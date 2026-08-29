@@ -30,13 +30,16 @@ export function DashboardClientView({ initialStats }: DashboardClientViewProps) 
   const {
     data: stats,
     isRefetching,
+    isFetching,
     refetch,
   } = useQuery({
     queryKey: ["dashboardStats", timeRange],
     queryFn: () => dashboardApi.getStats(timeRange),
-    initialData: initialStats,
+    initialData: timeRange === initialStats.timeRange ? initialStats : undefined,
     refetchInterval: 12000, // 12-second live pulse auto-refresh
   });
+
+  const currentStats = stats || initialStats;
 
   const handleOpenQuickRun = (skillId?: string) => {
     setSelectedSkillForRun(skillId);
@@ -51,7 +54,7 @@ export function DashboardClientView({ initialStats }: DashboardClientViewProps) 
   ];
 
   return (
-    <div className="space-y-6 sm:space-y-8 w-full max-w-[1600px] mx-auto pb-12">
+    <div className="space-y-6 sm:space-y-8 w-full max-w-[1600px] mx-auto pb-12 font-mono">
       {/* 1. Header with Controls & Action Hub */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-200 dark:border-indigo-950/80 pb-5">
         <Reveal delay={0}>
@@ -95,10 +98,10 @@ export function DashboardClientView({ initialStats }: DashboardClientViewProps) 
               type="button"
               onClick={() => refetch()}
               title="Refresh telemetry"
-              disabled={isRefetching}
+              disabled={isRefetching || isFetching}
               className="p-2 rounded-lg border border-slate-300 dark:border-indigo-900/60 bg-white/80 dark:bg-black/50 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-400 transition-all cursor-pointer shadow-sm"
             >
-              <RotateCw className={`h-4 w-4 ${isRefetching ? "animate-spin text-indigo-500" : ""}`} />
+              <RotateCw className={`h-4 w-4 ${isRefetching || isFetching ? "animate-spin text-indigo-500" : ""}`} />
             </button>
 
             {/* Quick Action Hub */}
@@ -109,52 +112,52 @@ export function DashboardClientView({ initialStats }: DashboardClientViewProps) 
 
       {/* 2. System Health & Integration Strip */}
       <Reveal delay={100}>
-        <SystemHealthStrip health={stats.systemHealth} />
+        <SystemHealthStrip health={currentStats.systemHealth} />
       </Reveal>
 
       {/* 3. Live Active In-flight Executions Monitor */}
       <Reveal delay={150}>
-        <LiveExecutionTracker liveExecutions={stats.liveExecutions} />
+        <LiveExecutionTracker liveExecutions={currentStats.liveExecutions} />
       </Reveal>
 
       {/* 4. High-Level Telemetry & Operational Metrics */}
       <Reveal delay={200}>
         <TelemetryMetricsGrid
-          telemetry={stats.telemetry}
-          activeSkillsCount={stats.totalSkillsCount}
-          publishedSkillsCount={stats.publishedSkillsCount}
-          agentGraphsCount={stats.agentGraphs.length}
-          pendingApprovalsCount={stats.pendingApprovals.length}
+          telemetry={currentStats.telemetry}
+          activeSkillsCount={currentStats.totalSkillsCount}
+          publishedSkillsCount={currentStats.publishedSkillsCount}
+          agentGraphsCount={currentStats.agentGraphs.length}
+          pendingApprovalsCount={currentStats.pendingApprovals.length}
         />
       </Reveal>
 
       {/* 5. Pinned Skills & 1-Click Launchpad */}
       <Reveal delay={250}>
         <PinnedSkillsLaunchpad
-          skills={stats.pinnedSkills}
+          skills={currentStats.pinnedSkills}
           onQuickRun={(skillId) => handleOpenQuickRun(skillId)}
         />
       </Reveal>
 
       {/* 6. Multi-Agent Canvas Architectures Showcase */}
       <Reveal delay={300}>
-        <MultiAgentCanvasShowcase agentGraphs={stats.agentGraphs} />
+        <MultiAgentCanvasShowcase agentGraphs={currentStats.agentGraphs} />
       </Reveal>
 
       {/* 7. Knowledge Base (RAG) & Tool Performance Leaderboard */}
       <Reveal delay={350}>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <KnowledgeBaseCard insights={stats.ragInsights} />
-          <ToolPerformanceLeaderboard tools={stats.toolLeaderboard} />
+          <KnowledgeBaseCard insights={currentStats.ragInsights} />
+          <ToolPerformanceLeaderboard tools={currentStats.toolLeaderboard} />
         </div>
       </Reveal>
 
       {/* 8. Human Review Queue, Recent Executions & System Audit (Equal 3-Column Grid) */}
       <Reveal delay={400}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <EnhancedApprovalQueue approvals={stats.pendingApprovals} />
-          <RecentExecutionsCard executions={stats.recentExecutions} />
-          <SystemAuditActivityCard activity={stats.recentActivity} />
+          <EnhancedApprovalQueue approvals={currentStats.pendingApprovals} />
+          <RecentExecutionsCard executions={currentStats.recentExecutions} />
+          <SystemAuditActivityCard activity={currentStats.recentActivity} />
         </div>
       </Reveal>
 
@@ -162,7 +165,7 @@ export function DashboardClientView({ initialStats }: DashboardClientViewProps) 
       <QuickRunSkillModal
         isOpen={quickRunModalOpen}
         onClose={() => setQuickRunModalOpen(false)}
-        skills={stats.pinnedSkills}
+        skills={currentStats.pinnedSkills}
         initialSkillId={selectedSkillForRun}
       />
     </div>
