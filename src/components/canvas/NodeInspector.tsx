@@ -37,6 +37,8 @@ import {
   AUDIO_MODELS,
   VISION_MODELS,
 } from "@/providers/llm";
+import { useModels } from "@/hooks/useModels";
+import { ModelDropdown } from "@/components/common/ModelDropdown";
 
 interface NodeInspectorProps {
   node: CanvasNode;
@@ -93,10 +95,13 @@ function ModelSelectField({
   customApiProvider,
   onUpdate,
 }: ModelSelectFieldProps) {
+  const { groqModels, openRouterModels, openaiModels, allModels } = useModels();
+
   const [isCustom, setIsCustom] = useState(() => {
     if (customApiBaseUrl || customApiKey) return true;
     if (!value || value === "openrouter/free" || value === "") return false;
     const isKnown =
+      allModels.some((m) => m.model === value) ||
       GROQ_FREE_MODELS.some((m) => m.model === value) ||
       GROQ_SAFETY_MODELS.some((m) => m.model === value) ||
       OPENROUTER_CHAT_MODELS.some((m) => m.model === value);
@@ -145,45 +150,20 @@ function ModelSelectField({
     }
   };
 
+  const effectiveGroq = groqModels.length > 0 ? groqModels : GROQ_FREE_MODELS;
+  const effectiveOpenRouter = openRouterModels.length > 0 ? openRouterModels : OPENROUTER_CHAT_MODELS;
+
   return (
     <div className="space-y-2">
       <Field label="LLM Model" hint="Select a curated model, auto-failover router, or configure custom API endpoint">
-        <select
+        <ModelDropdown
           value={isCustom ? "__custom__" : (value ?? "openrouter/free")}
-          onChange={(e) => handleSelectChange(e.target.value)}
-          className={`${inputClass} cursor-pointer`}
-        >
-          <option value="openrouter/free">[Auto-Router] OpenRouter: Free Models (Recommended)</option>
-          <option value="">[Failover Router] Multi-Provider (Groq + OpenRouter)</option>
-
-          <optgroup label="Groq Ultra-Fast Free Models (LPU Hardware)">
-            {GROQ_FREE_MODELS.map((m) => (
-              <option key={m.model} value={m.model}>
-                {m.label} ({m.throughput || "fast"}) · $0
-              </option>
-            ))}
-          </optgroup>
-
-          <optgroup label="Groq Safety & Guardrail Models">
-            {GROQ_SAFETY_MODELS.map((m) => (
-              <option key={m.model} value={m.model}>
-                [Safety] {m.label} ({m.throughput || "fast"}) · $0
-              </option>
-            ))}
-          </optgroup>
-
-          <optgroup label="OpenRouter Flagship Reasoning & Coding">
-            {OPENROUTER_CHAT_MODELS.filter((m) => m.model !== "openrouter/free").map((m) => (
-              <option key={m.model} value={m.model}>
-                {m.label} {m.contextLength ? `· ${(m.contextLength / 1000).toFixed(0)}k ctx` : ""} · $0
-              </option>
-            ))}
-          </optgroup>
-
-          <optgroup label="Custom / Bring Your Own Model (BYOM)">
-            <option value="__custom__">Custom Model & API Endpoint (Ollama, OpenAI, Groq, vLLM)...</option>
-          </optgroup>
-        </select>
+          onChange={handleSelectChange}
+          onSelectCustom={() => {
+            setIsCustom(true);
+            setShowApiConfig(true);
+          }}
+        />
       </Field>
 
       {/* Model Name Input for Custom Model */}
@@ -347,17 +327,13 @@ function EmbeddingModelSelectField({
 }) {
   return (
     <Field label="Vector Embedding Model" hint="Dense embedding model used to compute vector embeddings for RAG">
-      <select
+      <ModelDropdown
         value={value ?? "nvidia/nemotron-3-embed-1b:free"}
-        onChange={(e) => onChange(e.target.value)}
-        className={`${inputClass} cursor-pointer`}
-      >
-        {EMBEDDING_MODELS.map((m) => (
-          <option key={m.model} value={m.model}>
-            {m.label} ({m.contextLength ? `${m.contextLength} ctx` : "dense vector"})
-          </option>
-        ))}
-      </select>
+        onChange={onChange}
+        filterCategory="embedding"
+        showAutoRouter={false}
+        showCustomOption={false}
+      />
     </Field>
   );
 }
@@ -371,17 +347,13 @@ function AudioModelSelectField({
 }) {
   return (
     <Field label="Audio Speech & STT Model" hint="Cloud Groq LPU transcription or local Faster-Whisper">
-      <select
+      <ModelDropdown
         value={value ?? "whisper-large-v3-turbo"}
-        onChange={(e) => onChange(e.target.value)}
-        className={`${inputClass} cursor-pointer`}
-      >
-        {AUDIO_MODELS.map((m) => (
-          <option key={m.model} value={m.model}>
-            {m.label} ({m.throughput || "fast"}) · $0
-          </option>
-        ))}
-      </select>
+        onChange={onChange}
+        filterCategory="audio"
+        showAutoRouter={false}
+        showCustomOption={false}
+      />
     </Field>
   );
 }
@@ -395,17 +367,13 @@ function VisionModelSelectField({
 }) {
   return (
     <Field label="Document Vision & OCR Model" hint="Multimodal vision model used to parse charts, figures and tables">
-      <select
+      <ModelDropdown
         value={value ?? "nvidia/nemotron-nano-12b-v2-vl:free"}
-        onChange={(e) => onChange(e.target.value)}
-        className={`${inputClass} cursor-pointer`}
-      >
-        {VISION_MODELS.map((m) => (
-          <option key={m.model} value={m.model}>
-            {m.label} ({m.contextLength ? `${(m.contextLength / 1000).toFixed(0)}k ctx` : "fast"}) · $0
-          </option>
-        ))}
-      </select>
+        onChange={onChange}
+        filterCategory="vision"
+        showAutoRouter={false}
+        showCustomOption={false}
+      />
     </Field>
   );
 }

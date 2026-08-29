@@ -204,6 +204,29 @@
   color: #64748b !important;
 }
 
+select option,
+select optgroup {
+  background-color: #0d0f17;
+  color: #f1f5f9;
+  font-family: inherit;
+}
+
+select optgroup {
+  font-weight: 700;
+  color: #818cf8;
+  padding: 4px 0;
+}
+
+.light select option,
+.light select optgroup {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+.light select optgroup {
+  color: #4f46e5 !important;
+}
+
 .light input,
 .light textarea,
 .light select {

@@ -43,6 +43,12 @@ export {
   getFreeModelsByCategory,
   type ModelEntry,
 } from "./modelLists";
+export {
+  getLiveProviderModels,
+  fetchLiveGroqModels,
+  fetchLiveOpenRouterModels,
+  fetchLiveOpenAIModels,
+} from "./modelProviderService";
 
 /**
  * Builds the failover router from every model that has an API key configured.

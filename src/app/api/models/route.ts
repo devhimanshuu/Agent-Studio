@@ -1,24 +1,51 @@
-import { NextResponse } from "next/server";
-import {
-  ALL_FALLBACK_MODELS,
-  GROQ_FREE_MODELS,
-  OPENROUTER_FREE_MODELS,
-  getFreeModelsByCategory,
-} from "@/providers/llm";
+import { NextRequest, NextResponse } from "next/server";
+import { getLiveProviderModels } from "@/providers/llm";
 
 /**
  * GET /api/models
- * Returns the catalog of free LLM models available on Groq and OpenRouter.
+ * Returns the dynamic list of LLM models fetched directly from providers (Groq, OpenRouter, OpenAI).
+ * Supports query params: ?provider=groq|openrouter|openai|all & ?category=general|reasoning|code|... & ?refresh=true
  */
-export async function GET() {
-  const byCategory = getFreeModelsByCategory();
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const providerFilter = searchParams.get("provider")?.toLowerCase();
+    const categoryFilter = searchParams.get("category")?.toLowerCase();
+    const forceRefresh = searchParams.get("refresh") === "true";
 
-  return NextResponse.json({
-    success: true,
-    totalCount: ALL_FALLBACK_MODELS.length,
-    groqCount: GROQ_FREE_MODELS.length,
-    openRouterCount: OPENROUTER_FREE_MODELS.length,
-    models: ALL_FALLBACK_MODELS,
-    categories: byCategory,
-  });
+    const data = await getLiveProviderModels(forceRefresh);
+
+    let filteredModels = data.models;
+
+    if (providerFilter && providerFilter !== "all") {
+      filteredModels = filteredModels.filter((m) => m.provider.toLowerCase() === providerFilter);
+    }
+
+    if (categoryFilter && categoryFilter !== "all") {
+      filteredModels = filteredModels.filter((m) => (m.category || "general").toLowerCase() === categoryFilter);
+    }
+
+    return NextResponse.json({
+      success: true,
+      totalCount: data.totalCount,
+      groqCount: data.groqCount,
+      openRouterCount: data.openRouterCount,
+      openaiCount: data.openaiCount,
+      liveFetched: data.liveFetched,
+      models: filteredModels,
+      allModels: data.models,
+      categories: data.byCategory,
+      byProvider: data.byProvider,
+    });
+  } catch (error) {
+    console.error("[Models API] Error serving models:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to fetch provider models",
+      },
+      { status: 500 }
+    );
+  }
 }
+

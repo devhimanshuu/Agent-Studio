@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import { X, Play, Loader2, Award, CheckCircle2 } from "lucide-react";
 import { BenchmarkSuite, BenchmarkScorecard } from "@/types/benchmark";
+import { useModels } from "@/hooks/useModels";
+import { ModelDropdown } from "@/components/common/ModelDropdown";
 
 interface RunBenchmarkModalProps {
   isOpen: boolean;
@@ -11,14 +13,6 @@ interface RunBenchmarkModalProps {
   initialSuite?: BenchmarkSuite;
   onScorecardGenerated: (scorecard: BenchmarkScorecard) => void;
 }
-
-const AVAILABLE_MODELS = [
-  { id: "meta-llama/llama-3.3-70b-versatile", label: "Llama 3.3 70B (Groq Fast LPU)" },
-  { id: "gpt-4o", label: "GPT-4o (OpenAI)" },
-  { id: "google/gemma-4-26b-a4b-it:free", label: "Gemma 4 26B (OpenRouter Free)" },
-  { id: "groq/compound", label: "Groq Compound Autonomous Planner" },
-  { id: "groq/llama-guard-3-8b", label: "Llama Guard 3 8B (Safety Specialization)" },
-];
 
 export function RunBenchmarkModal({
   isOpen,
@@ -31,7 +25,7 @@ export function RunBenchmarkModal({
     initialSuite?.id || suites[0]?.id || ""
   );
   const [selectedModel, setSelectedModel] = useState<string>(
-    initialSuite?.recommendedModel || AVAILABLE_MODELS[0].id
+    initialSuite?.recommendedModel || "meta-llama/llama-3.3-70b-versatile"
   );
   const [skillName, setSkillName] = useState("Agent Mission Control Graph");
   const [running, setRunning] = useState(false);
@@ -115,18 +109,13 @@ export function RunBenchmarkModal({
             <label className="text-[10px] text-slate-400 uppercase font-bold">
               Target Evaluation Model:
             </label>
-            <select
+            <ModelDropdown
               value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
+              onChange={(m) => setSelectedModel(m)}
               disabled={running}
-              className="w-full p-2.5 rounded border border-slate-300 dark:border-indigo-900/60 bg-slate-50 dark:bg-black/60 text-slate-900 dark:text-slate-100 font-mono"
-            >
-              {AVAILABLE_MODELS.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
+              showAutoRouter={false}
+              showCustomOption={false}
+            />
           </div>
 
           <div className="space-y-1.5">

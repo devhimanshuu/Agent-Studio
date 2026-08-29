@@ -22,6 +22,7 @@ import {
   Database,
   Bot,
   Award,
+  Scale,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { SignOutModal } from "@/components/feedback/SignOutModal";
@@ -34,6 +35,7 @@ const navItems = [
   { name: "Knowledge Base", href: "/dashboard/knowledge", icon: Database, tag: "PG_RAG" },
   { name: "A2A Protocol", href: "/dashboard/a2a", icon: Bot, tag: "A2A_V1" },
   { name: "Benchmarks", href: "/dashboard/benchmarks", icon: Award, tag: "EVAL_V1" },
+  { name: "MLOps Evals", href: "/dashboard/evals", icon: Scale, tag: "EVAL_ML" },
   { name: "Executions", href: "/dashboard/executions", icon: Play, tag: "TRACE_LOG" },
   { name: "Observability", href: "/dashboard/history", icon: Gauge, tag: "OBS_07" },
   { name: "Audit Log", href: "/dashboard/audit", icon: ScrollText, tag: "AUDIT" },

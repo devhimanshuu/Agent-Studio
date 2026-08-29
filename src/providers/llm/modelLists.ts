@@ -11,8 +11,8 @@
  */
 
 export interface ModelEntry {
-  /** Vendor used by the router factory: "groq" | "openrouter". */
-  provider: "groq" | "openrouter";
+  /** Vendor used by the router factory: "groq" | "openrouter" | "openai" | "custom_openai" | string. */
+  provider: "groq" | "openrouter" | "openai" | "custom_openai" | string;
   /** Exact model ID for the chat completions API. */
   model: string;
   /** Human-readable label (for logs/UI). */
