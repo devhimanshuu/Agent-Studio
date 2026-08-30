@@ -100,6 +100,7 @@ model User {
   vaultEntries  VaultEntry[]
   tasks         Task[]
   documents     Document[]
+  evalRunReports EvalRunReport[]
 
   @@map("users")
 }
@@ -133,6 +134,7 @@ model SkillVersion {
   examples                 Json           // Array of input/output examples
   allowedTools             Json           // String array of permitted tool names
   actionsRequiringApproval Json           // String array of tool actions requiring human approval
+  approvalPolicy           Json?          // Optional ApprovalPolicy override (always/never/tool-based/skill-based) — see src/modules/approval/approval-policy
   maxExecutionSteps        Int            @default(10)
   graphDefinition          Json?          // Visual multi-agent graph (nodes + edges) — drives the graph interpreter when present
   changelog                String?
@@ -481,5 +483,31 @@ model DocumentChunk {
   @@index([documentId])
   @@index([chunkIndex])
   @@map("document_chunks")
+}
+
+model EvalRunReport {
+  id           String    @id
+  userId       String?
+  datasetId    String
+  datasetName  String
+  targetType   String
+  targetId     String
+  targetName   String
+  name         String
+  status       String
+  startedAt    DateTime
+  completedAt  DateTime?
+  durationMs   Int
+  overallScore Int
+  passRate     Int
+  /// Full EvalRunReport payload (judgeConfig, summary, verdicts, regressionAlerts).
+  data         Json
+  createdAt    DateTime  @default(now())
+
+  user         User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([startedAt])
+  @@map("eval_run_reports")
 }
 

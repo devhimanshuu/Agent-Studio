@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { defaultRAGPipeline } from "@/modules/rag";
+import { ensureUserExists } from "@/lib/user";
 import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +11,11 @@ export const dynamic = "force-dynamic";
  * Ingests a document: performs chunking, vector embedding, and pgvector storage.
  */
 export async function POST(request: Request) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const {
@@ -19,7 +26,6 @@ export async function POST(request: Request) {
       mimeType = "text/plain",
       chunking = {},
       metadata = {},
-      userId,
     } = body;
 
     if (!content || typeof content !== "string" || !content.trim()) {
@@ -32,6 +38,8 @@ export async function POST(request: Request) {
     const docTitle = title && typeof title === "string" ? title.trim() : "Untitled Document";
 
     logger.info({ title: docTitle, collection, length: content.length }, "Ingesting document into pgvector");
+
+    await ensureUserExists(userId);
 
     const result = await defaultRAGPipeline.ingest({
       content,

@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { listEvalReports } from "@/modules/evals/evalRunner";
 
 export async function GET() {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
-    const runs = listEvalReports();
+    const runs = await listEvalReports(userId);
     return NextResponse.json({
       success: true,
       data: runs,

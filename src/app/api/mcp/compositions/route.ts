@@ -88,8 +88,11 @@ async function fetchCompositionsFromAwesomeMcp(): Promise<ServerComposition[]> {
         updatedAt: new Date().toISOString(),
         isPublished: true,
         tags: pattern.categories.map((c) => c.toLowerCase()),
-        usedBy: Math.floor(Math.random() * 200 + 10),
-        rating: Number((4 + Math.random()).toFixed(1)),
+        // These are freshly-derived templates, not compositions anyone has actually
+        // used or rated yet — 0 is the honest value. There is no persistence layer
+        // tracking real composition usage/ratings (POST below doesn't save either).
+        usedBy: 0,
+        rating: 0,
       });
     }
 

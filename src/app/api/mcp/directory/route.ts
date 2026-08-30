@@ -281,7 +281,9 @@ function parseAwesomeMcpMarkdown(markdown: string): PublicMcpServer[] {
         description,
         owner,
         repoUrl,
-        stars: Math.floor(Math.random() * 400 + 50),
+        // No real star count is present in the awesome-mcp-servers markdown for
+        // most entries — leave undefined rather than fabricating one. A fabricated
+        // number here previously misinformed which servers looked most popular.
         tags,
         transport,
         command,

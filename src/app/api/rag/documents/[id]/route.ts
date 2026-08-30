@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { pgVectorStore } from "@/modules/rag";
 import { logger } from "@/lib/logger";
 
@@ -6,15 +7,20 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/rag/documents/[id]
- * Fetch document detail with all chunks.
+ * Fetch document detail with all chunks. Scoped to the authenticated user's own documents.
  */
 export async function GET(
   request: Request,
   props: { params: Promise<{ id: string }> }
 ) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const { id } = await props.params;
-    const document = await pgVectorStore.getDocument(id);
+    const document = await pgVectorStore.getDocument(id, userId);
 
     if (!document) {
       return NextResponse.json({ error: "Document not found" }, { status: 404 });
@@ -35,14 +41,20 @@ export async function GET(
 
 /**
  * DELETE /api/rag/documents/[id]
+ * Scoped to the authenticated user's own documents.
  */
 export async function DELETE(
   request: Request,
   props: { params: Promise<{ id: string }> }
 ) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const { id } = await props.params;
-    const deleted = await pgVectorStore.deleteDocument(id);
+    const deleted = await pgVectorStore.deleteDocument(id, userId);
 
     if (!deleted) {
       return NextResponse.json({ error: "Document not found" }, { status: 404 });

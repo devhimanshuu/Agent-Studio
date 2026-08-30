@@ -27,11 +27,12 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     return NextResponse.json({
-      reply: "Acknowledged A2A message.",
-      sender: "Agent-Studio-Node",
       error: error instanceof Error ? error.message : String(error),
       timestamp: Date.now(),
-    }, { status: 200 });
+    }, {
+      status: 502,
+      headers: { "Access-Control-Allow-Origin": "*" },
+    });
   }
 }
 

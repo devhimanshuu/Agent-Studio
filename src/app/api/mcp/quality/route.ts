@@ -170,9 +170,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: "servers array required" }, { status: 400 });
   }
 
-  const scores: ServerQualityScore[] = servers.map((server) => {
+  const scores: ServerQualityScore[] = await Promise.all(servers.map(async (server) => {
     const schema = scoreSchemaQuality(server.cachedTools || []);
-    const latencyScore = { score: 75, grade: computeGrade(75) as QualityGrade, avgMs: 0 }; // Placeholder for STDIO
+    // STDIO servers have no HTTP endpoint to probe — score them neutrally rather
+    // than pretending a measurement was taken. SSE/HTTP servers get a real probe.
+    const latencyScore =
+      server.transport === "STDIO" || !server.endpointUrl
+        ? { score: 70, grade: computeGrade(70) as QualityGrade, avgMs: 0 }
+        : await _scoreLatency(server.endpointUrl);
     const docs = scoreDocumentation(server.repoUrl, server.description);
     const community = scoreCommunity(server.stars);
     const uptime = scoreUptime(server.isVerified);
@@ -210,7 +215,7 @@ export async function POST(req: Request) {
       badges,
       lastScored: new Date().toISOString(),
     };
-  });
+  }));
 
   return NextResponse.json({ success: true, data: scores });
 }

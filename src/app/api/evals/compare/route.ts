@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { getEvalReportById, compareEvaluationRuns } from "@/modules/evals/evalRunner";
 
 export async function GET(req: NextRequest) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const runAId = searchParams.get("runA");
@@ -14,8 +20,8 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const runA = getEvalReportById(runAId);
-    const runB = getEvalReportById(runBId);
+    const runA = await getEvalReportById(runAId, userId);
+    const runB = await getEvalReportById(runBId, userId);
 
     if (!runA || !runB) {
       return NextResponse.json(

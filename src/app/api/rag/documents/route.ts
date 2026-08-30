@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { pgVectorStore } from "@/modules/rag";
 import { logger } from "@/lib/logger";
 
@@ -6,13 +7,17 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/rag/documents
- * List stored documents, collections, and stats.
+ * List stored documents, collections, and stats — scoped to the authenticated user.
  */
 export async function GET(request: Request) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const url = new URL(request.url);
     const collection = url.searchParams.get("collection") || undefined;
-    const userId = url.searchParams.get("userId") || undefined;
     const limit = parseInt(url.searchParams.get("limit") || "50", 10);
     const offset = parseInt(url.searchParams.get("offset") || "0", 10);
     const includeCollections = url.searchParams.get("includeCollections") === "true";
@@ -45,9 +50,14 @@ export async function GET(request: Request) {
 
 /**
  * DELETE /api/rag/documents?id=...
- * Delete document and cascade chunks.
+ * Delete document and cascade chunks. Scoped to the authenticated user's own documents.
  */
 export async function DELETE(request: Request) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const url = new URL(request.url);
     const id = url.searchParams.get("id");
@@ -56,7 +66,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Query param 'id' is required" }, { status: 400 });
     }
 
-    const deleted = await pgVectorStore.deleteDocument(id);
+    const deleted = await pgVectorStore.deleteDocument(id, userId);
     if (!deleted) {
       return NextResponse.json({ error: "Document not found" }, { status: 404 });
     }

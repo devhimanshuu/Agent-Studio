@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { projectVectorsTo2D } from "@/modules/rag/clusterVisualizer";
 import { generateEmbedding } from "@/modules/rag/embeddingService";
@@ -7,15 +8,20 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/rag/cluster?collection=...&query=...
- * Computes 2D PCA projection for stored document embeddings.
+ * Computes 2D PCA projection for the authenticated user's stored document embeddings.
  */
 export async function GET(request: Request) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const url = new URL(request.url);
     const collection = url.searchParams.get("collection") || undefined;
     const query = url.searchParams.get("query") || undefined;
 
-    const whereClause: Record<string, unknown> = {};
+    const whereClause: Record<string, unknown> = { userId };
     if (collection) whereClause.collection = collection;
 
     let chunks: Array<{
