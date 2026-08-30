@@ -15,11 +15,11 @@ export function ModelComparisonMatrix({ models }: ModelComparisonMatrixProps) {
         <div className="flex items-center gap-2">
           <Layers className="h-4 w-4 text-indigo-400" />
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
-            FRONTIER MODEL BENCHMARK COMPARISON MATRIX
+            CONFIGURED MODEL COMPARISON MATRIX
           </h3>
         </div>
         <span className="text-[10px] text-slate-400 font-sans">
-          Standardized Evaluator across 5 core dimensions
+          Live-measured by actually running the suite against each model
         </span>
       </div>
 
@@ -45,11 +45,10 @@ export function ModelComparisonMatrix({ models }: ModelComparisonMatrixProps) {
                 </td>
                 <td className="py-3 pr-4 text-center">
                   <span
-                    className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold font-pixel border ${
-                      m.grade === "A+" || m.grade === "A"
+                    className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold font-pixel border ${m.grade === "A+" || m.grade === "A"
                         ? "bg-emerald-950/80 text-emerald-300 border-emerald-700/50"
                         : "bg-cyan-950/80 text-cyan-300 border-cyan-700/50"
-                    }`}
+                      }`}
                   >
                     {m.grade}
                   </span>

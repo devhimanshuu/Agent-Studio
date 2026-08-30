@@ -17,9 +17,12 @@ import {
   X,
   Layers,
   Activity,
+  Coins,
 } from "lucide-react";
 import { useModels } from "@/hooks/useModels";
 import { ModelEntry } from "@/providers/llm";
+import { formatPricePerMillion, isModelFree } from "@/lib/utils/pricing";
+import { GroqOfficialLogo, OpenRouterOfficialLogo } from "@/components/common/BrandLogos";
 
 export interface ModelDropdownProps {
   value?: string;
@@ -200,16 +203,33 @@ export function ModelDropdown({
             </div>
           ) : selectedModelEntry ? (
             <div className="flex items-center gap-2 min-w-0 flex-1">
-              {getCategoryIcon(selectedModelEntry.category)}
+              {selectedModelEntry.provider === "groq" ? (
+                <GroqOfficialLogo className="h-4 w-4 shrink-0" />
+              ) : selectedModelEntry.provider === "openrouter" ? (
+                <OpenRouterOfficialLogo className="h-4 w-4 shrink-0 text-indigo-600 dark:text-indigo-400" />
+              ) : (
+                getCategoryIcon(selectedModelEntry.category)
+              )}
               <span className="font-bold text-slate-900 dark:text-slate-100 truncate text-[11px]">
                 {selectedModelEntry.label}
               </span>
               <span className="text-[8.5px] font-mono px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 uppercase shrink-0 font-bold">
                 {selectedModelEntry.provider}
               </span>
-              {selectedModelEntry.throughput && (
-                <span className="text-[8.5px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30 shrink-0 font-bold font-mono">
-                  {selectedModelEntry.throughput}
+              {isModelFree(selectedModelEntry.model, selectedModelEntry.inputPrice, selectedModelEntry.outputPrice) ? (
+                selectedModelEntry.throughput ? (
+                  <span className="text-[8.5px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30 shrink-0 font-bold font-mono">
+                    {selectedModelEntry.throughput}
+                  </span>
+                ) : (
+                  <span className="text-[8.5px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30 shrink-0 font-bold font-mono">
+                    $0 FREE
+                  </span>
+                )
+              ) : (
+                <span className="text-[8.5px] px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 shrink-0 font-bold font-mono flex items-center gap-1">
+                  <Coins className="h-2.5 w-2.5 text-indigo-400" />
+                  {formatPricePerMillion(selectedModelEntry.inputPrice)}/M in
                 </span>
               )}
             </div>
@@ -354,7 +374,10 @@ export function ModelDropdown({
             {filteredGroq.length > 0 && (
               <div className="space-y-1">
                 <div className="px-2.5 py-1 text-[9px] font-mono font-bold tracking-wider uppercase text-indigo-600 dark:text-indigo-300 bg-indigo-50/80 dark:bg-indigo-950/40 rounded border border-indigo-200 dark:border-indigo-900/50 flex items-center justify-between">
-                  <span>Groq Ultra-Fast LPU Models ({filteredGroq.length})</span>
+                  <span className="flex items-center gap-1.5">
+                    <GroqOfficialLogo className="h-3.5 w-3.5 rounded-xs shrink-0" />
+                    Groq Ultra-Fast LPU Models ({filteredGroq.length})
+                  </span>
                   <span className="text-[8px] text-emerald-500 dark:text-emerald-400 font-normal">Sub-100ms Inference</span>
                 </div>
                 {filteredGroq.map((m) => {
@@ -407,7 +430,10 @@ export function ModelDropdown({
             {filteredORFree.length > 0 && (
               <div className="space-y-1">
                 <div className="px-2.5 py-1 text-[9px] font-mono font-bold tracking-wider uppercase text-indigo-600 dark:text-indigo-300 bg-indigo-50/80 dark:bg-indigo-950/40 rounded border border-indigo-200 dark:border-indigo-900/50 flex items-center justify-between">
-                  <span>OpenRouter Free Tier Models ({filteredORFree.length})</span>
+                  <span className="flex items-center gap-1.5">
+                    <OpenRouterOfficialLogo className="h-3.5 w-3.5 rounded-xs shrink-0" />
+                    OpenRouter Free Tier Models ({filteredORFree.length})
+                  </span>
                   <span className="text-[8px] text-amber-500 dark:text-amber-400 font-bold">$0 Cost</span>
                 </div>
                 {filteredORFree.map((m) => {
@@ -458,7 +484,10 @@ export function ModelDropdown({
             {filteredORPopular.length > 0 && (
               <div className="space-y-1">
                 <div className="px-2.5 py-1 text-[9px] font-mono font-bold tracking-wider uppercase text-indigo-600 dark:text-indigo-300 bg-indigo-50/80 dark:bg-indigo-950/40 rounded border border-indigo-200 dark:border-indigo-900/50 flex items-center justify-between">
-                  <span>OpenRouter Flagship Catalog ({filteredORPopular.length})</span>
+                  <span className="flex items-center gap-1.5">
+                    <OpenRouterOfficialLogo className="h-3.5 w-3.5 rounded-xs shrink-0" />
+                    OpenRouter Flagship Catalog ({filteredORPopular.length})
+                  </span>
                 </div>
                 {filteredORPopular.slice(0, 40).map((m) => {
                   const isSelected = value === m.model;
@@ -482,6 +511,17 @@ export function ModelDropdown({
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0 text-[8px]">
+                        <span
+                          title={`Input: ${formatPricePerMillion(m.inputPrice)}/M · Output: ${formatPricePerMillion(m.outputPrice)}/M`}
+                          className={`px-1.5 py-0.5 rounded border font-mono font-bold flex items-center gap-1 ${
+                            isSelected
+                              ? "bg-white/20 text-white border-white/30"
+                              : "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30"
+                          }`}
+                        >
+                          <Coins className="h-2 w-2 text-indigo-400 shrink-0" />
+                          {formatPricePerMillion(m.inputPrice)}/M in
+                        </span>
                         <span className={`px-1.5 py-0.5 rounded border font-mono ${
                           isSelected
                             ? "bg-white/20 text-white border-white/30"

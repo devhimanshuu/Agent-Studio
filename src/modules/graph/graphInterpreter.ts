@@ -672,7 +672,47 @@ export class GraphInterpreter {
     });
 
     const started = Date.now();
-    const output = await this.deps.toolRegistry.executeTool(toolName, executionInput);
+    let output: unknown;
+    try {
+      output = await this.deps.toolRegistry.executeTool(toolName, executionInput);
+    } catch (error) {
+      const durationMs = Date.now() - started;
+      const message = error instanceof Error ? error.message : String(error);
+
+      this.emit(ctx, {
+        type: "tool:call:end",
+        nodeId: node.id,
+        toolName,
+        status: "FAILED",
+        error: message,
+        durationMs,
+      });
+
+      const record: ToolCallRecord = {
+        stepNumber: ctx.stepCounter,
+        toolName,
+        action: data.action ?? "run",
+        input: executionInput,
+        status: "ERROR",
+        error: message,
+        requiresApproval: false,
+        durationMs,
+      };
+      ctx.toolCalls.push(record);
+      if (!ctx.dryRun) {
+        await this.deps.executionRepo.addToolCall(ctx.executionId, {
+          toolName,
+          action: data.action ?? "run",
+          inputArgs: executionInput,
+          status: "ERROR",
+          errorMessage: message,
+          durationMs,
+        });
+      }
+      await this.persistStep(ctx, node, "FAILED", { tool: toolName, error: message });
+      this.emitNodeEnd(ctx, node, "FAILED", `${toolName} failed: ${message}`);
+      throw new ExecutionError(`Tool "${toolName}" failed on node "${node.data.label}": ${message}`, "GRAPH_FAILURE");
+    }
     const durationMs = Date.now() - started;
 
     // Emit tool call end event
@@ -1525,7 +1565,48 @@ export class GraphInterpreter {
     });
 
     const started = Date.now();
-    const output = await this.deps.toolRegistry.executeTool(registryName, resolvedInput as Record<string, unknown>);
+    let output: unknown;
+    try {
+      output = await this.deps.toolRegistry.executeTool(registryName, resolvedInput as Record<string, unknown>);
+    } catch (error) {
+      const durationMs = Date.now() - started;
+      const message = error instanceof Error ? error.message : String(error);
+
+      this.emit(ctx, {
+        type: "mcp:tool:end",
+        nodeId: node.id,
+        serverId,
+        toolName,
+        status: "FAILED",
+        error: message,
+        durationMs,
+      });
+
+      const record: ToolCallRecord = {
+        stepNumber: ctx.stepCounter,
+        toolName: registryName,
+        action: "mcp_call",
+        input: resolvedInput as Record<string, unknown>,
+        status: "ERROR",
+        error: message,
+        requiresApproval: false,
+        durationMs,
+      };
+      ctx.toolCalls.push(record);
+      if (!ctx.dryRun) {
+        await this.deps.executionRepo.addToolCall(ctx.executionId, {
+          toolName: registryName,
+          action: "mcp_call",
+          inputArgs: resolvedInput as Record<string, unknown>,
+          status: "ERROR",
+          errorMessage: message,
+          durationMs,
+        });
+      }
+      await this.persistStep(ctx, node, "FAILED", { tool: registryName, mcp: true, error: message });
+      this.emitNodeEnd(ctx, node, "FAILED", `${toolName} failed: ${message}`);
+      throw new ExecutionError(`MCP tool "${toolName}" failed on node "${node.data.label}": ${message}`, "GRAPH_FAILURE");
+    }
     const durationMs = Date.now() - started;
 
     this.emit(ctx, {
@@ -3047,29 +3128,62 @@ export class GraphInterpreter {
       { name: "Adversarial Critic", agentUrl: "a2a://critic", role: "critic" },
     ];
 
-    const dialogueHistory: Array<{ sender: string; content: string; turn: number }> = [];
+    const dialogueHistory: Array<{ sender: string; content: string; turn: number; simulatedPersona: boolean }> = [];
+    const { a2aClientService } = await import("@/services/A2AClientService");
 
-    // Run multi-agent dialogue turns
+    // Run multi-agent dialogue turns. A participant with a real http(s) agentUrl is
+    // genuinely delegated to over the A2A protocol; one without (e.g. the default
+    // placeholder "a2a://proposer") falls back to a locally-run persona so canvas
+    // templates keep working without every participant needing a real endpoint —
+    // but that fallback is disclosed in dialogueHistory/results, never silently
+    // presented as a distinct remote agent.
     for (let turn = 1; turn <= maxTurns; turn++) {
       for (const participant of participants) {
         const turnPrompt = `[Turn #${turn}] As ${participant.name} (${participant.role}), deliberate on topic: "${topic}". Current Context & Findings: ${JSON.stringify(ctx.results)}. Previous exchanges: ${JSON.stringify(dialogueHistory.slice(-2))}`;
-        const llm = ctx.llm;
-        const turnOutput = await llm.complete([
-          {
-            role: "system",
-            content: `You are an autonomous participant in an A2A multi-agent channel (${mode} mode) named "${participant.name}" (${participant.role}). Provide a concise, rigorous response.`,
-          },
-          { role: "user", content: turnPrompt },
-        ]);
+        const isRemoteAgent = /^https?:\/\//i.test(participant.agentUrl || "");
 
-        const entry = { sender: participant.name, content: turnOutput.content, turn };
+        let replyContent: string;
+        let isSimulatedPersona = false;
+
+        if (isRemoteAgent) {
+          try {
+            const response = await a2aClientService.sendMessage(
+              participant.agentUrl,
+              {
+                sender: data.label || "Agent Studio Channel",
+                role: "agent",
+                turn,
+                content: turnPrompt,
+                metadata: { channelMode: mode, participantRole: participant.role },
+              },
+              participant.authToken
+            );
+            replyContent = response.reply;
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            replyContent = `[Remote agent at ${participant.agentUrl} unreachable: ${message}]`;
+          }
+        } else {
+          const llm = ctx.llm;
+          const turnOutput = await llm.complete([
+            {
+              role: "system",
+              content: `You are simulating a persona named "${participant.name}" (${participant.role}) in an A2A multi-agent channel (${mode} mode) because no real agent URL was configured for this participant. Provide a concise, rigorous response.`,
+            },
+            { role: "user", content: turnPrompt },
+          ]);
+          replyContent = turnOutput.content;
+          isSimulatedPersona = true;
+        }
+
+        const entry = { sender: participant.name, content: replyContent, turn, simulatedPersona: isSimulatedPersona };
         dialogueHistory.push(entry);
 
         this.emit(ctx, {
           type: "a2a:message:exchange",
           nodeId: node.id,
           sender: participant.name,
-          content: turnOutput.content,
+          content: replyContent,
           turn,
           mode,
         });
@@ -3077,7 +3191,7 @@ export class GraphInterpreter {
         this.emit(ctx, {
           type: "node:token_chunk",
           nodeId: node.id,
-          chunk: `\n[${participant.name}]: ${turnOutput.content}\n`,
+          chunk: `\n[${participant.name}]: ${replyContent}\n`,
           isThinking: false,
           totalTokens: dialogueHistory.length * 40,
           tokensPerSec: 30,

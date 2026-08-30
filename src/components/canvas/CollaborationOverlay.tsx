@@ -211,10 +211,13 @@ export function CollaborationOverlay({
 
       {/* Presence indicator bar */}
       <div className="absolute top-2 right-2 z-20 flex items-center gap-1.5">
-        <div className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700/60 bg-[#0a0a14]/95 backdrop-blur-sm px-2 py-1">
+        <div
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700/60 bg-[#0a0a14]/95 backdrop-blur-sm px-2 py-1"
+          title="Presence syncs across tabs of this browser only — it does not show other devices or users."
+        >
           <Users className="h-3 w-3 text-indigo-400" />
           <span className="text-[9px] font-bold text-indigo-300">
-            {peerList.length + 1} online
+            {peerList.length + 1} tab{peerList.length + 1 === 1 ? "" : "s"} open here
           </span>
           <div className="flex -space-x-1">
             {/* Self indicator */}

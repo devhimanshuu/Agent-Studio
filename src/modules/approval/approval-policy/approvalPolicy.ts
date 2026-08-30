@@ -2,6 +2,8 @@ import { ApprovalPolicy } from "@/types/approval";
 import { SkillVersionDTO } from "@/types/skill";
 import { PlannedStep } from "@/modules/execution/state/agentState";
 
+type ApprovalPolicyStep = Pick<PlannedStep, "toolName" | "action" | "requiresApproval">;
+
 /**
  * Evaluates all active approval policies against a planned step.
  * Returns true when the step MUST pause for human review before execution.
@@ -15,7 +17,7 @@ import { PlannedStep } from "@/modules/execution/state/agentState";
  * 6. The tool's own requiresApproval contract (WRITE tools)
  */
 export function evaluateApprovalPolicy(
-  step: PlannedStep,
+  step: ApprovalPolicyStep,
   tool: { requiresApproval: boolean } | null,
   version: SkillVersionDTO | null,
   policy: ApprovalPolicy,

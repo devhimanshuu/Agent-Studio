@@ -5,7 +5,6 @@ import {
   BenchmarkGrade,
   TestCaseResult,
   AssertionEvaluationResult,
-  ModelBenchmarkComparisonItem,
 } from "@/types/benchmark";
 
 export const BUILT_IN_BENCHMARK_SUITES: BenchmarkSuite[] = [
@@ -194,64 +193,6 @@ export const BUILT_IN_BENCHMARK_SUITES: BenchmarkSuite[] = [
         ],
       },
     ],
-  },
-];
-
-export const BASELINE_MODEL_COMPARISONS: ModelBenchmarkComparisonItem[] = [
-  {
-    modelName: "Llama 3.3 70B (Groq LPU)",
-    provider: "Groq",
-    overallScore: 94.2,
-    passRate: 98.0,
-    avgLatencyMs: 420,
-    costPer1kRuns: 0.08,
-    grade: "A+",
-    strengths: ["Ultra-high token throughput (300+ tok/s)", "Precise tool routing", "Low cost"],
-    weaknesses: ["Occasional verbose output on unconstrained prompts"],
-  },
-  {
-    modelName: "GPT-4o (OpenAI)",
-    provider: "OpenAI",
-    overallScore: 93.8,
-    passRate: 97.5,
-    avgLatencyMs: 1150,
-    costPer1kRuns: 2.5,
-    grade: "A+",
-    strengths: ["Superior multi-turn reasoning", "Strict JSON schema adherence"],
-    weaknesses: ["Higher API cost", "Higher latency than LPU hardware"],
-  },
-  {
-    modelName: "Claude 3.5 Sonnet (Anthropic)",
-    provider: "Anthropic",
-    overallScore: 95.1,
-    passRate: 98.5,
-    avgLatencyMs: 1220,
-    costPer1kRuns: 3.0,
-    grade: "A+",
-    strengths: ["Outstanding code synthesis", "Deep multi-agent debate coordination"],
-    weaknesses: ["Higher cost per token"],
-  },
-  {
-    modelName: "Gemini 2.0 Flash (Google)",
-    provider: "Google Cloud",
-    overallScore: 91.5,
-    passRate: 95.0,
-    avgLatencyMs: 650,
-    costPer1kRuns: 0.15,
-    grade: "A",
-    strengths: ["1M+ context window", "Native A2A protocol integration", "Cost-effective"],
-    weaknesses: ["Slightly looser tool parameter constraints on edge cases"],
-  },
-  {
-    modelName: "DeepSeek V3 (OpenRouter)",
-    provider: "OpenRouter",
-    overallScore: 89.2,
-    passRate: 92.0,
-    avgLatencyMs: 1450,
-    costPer1kRuns: 0.28,
-    grade: "B",
-    strengths: ["Strong math/logic reasoning", "Chain-of-thought visibility"],
-    weaknesses: ["Higher TTFT under high global demand"],
   },
 ];
 

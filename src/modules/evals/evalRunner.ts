@@ -13,18 +13,25 @@ import {
 import { getEvalDatasetById } from "./datasetStore";
 import { evaluateMetricWithJudge } from "./llmJudge";
 import { getProviderForModel, getLLMProvider } from "@/providers/llm";
+import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
+import { ensureUserExists } from "@/lib/user";
 
-// In-memory evaluation report history store
-const evalReportsStore: Map<string, EvalRunReport> = new Map();
-
-export function listEvalReports(): EvalRunReport[] {
-  return Array.from(evalReportsStore.values()).sort(
-    (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
-  );
+/**
+ * Persisted evaluation run history (Postgres via Prisma) — previously an
+ * in-memory Map, so run history vanished on every server restart/cold start.
+ */
+export async function listEvalReports(userId?: string): Promise<EvalRunReport[]> {
+  const rows = await prisma.evalRunReport.findMany({
+    where: userId ? { userId } : undefined,
+    orderBy: { startedAt: "desc" },
+  });
+  return rows.map((r) => r.data as unknown as EvalRunReport);
 }
 
-export function getEvalReportById(id: string): EvalRunReport | undefined {
-  return evalReportsStore.get(id);
+export async function getEvalReportById(id: string, userId?: string): Promise<EvalRunReport | undefined> {
+  const row = await prisma.evalRunReport.findFirst({ where: userId ? { id, userId } : { id } });
+  return row ? (row.data as unknown as EvalRunReport) : undefined;
 }
 
 export async function runAutomatedEvaluation(params: {
@@ -34,6 +41,7 @@ export async function runAutomatedEvaluation(params: {
   targetName: string;
   targetModel?: string;
   judgeConfig: EvalJudgeConfig;
+  userId?: string;
 }): Promise<EvalRunReport> {
   const dataset = getEvalDatasetById(params.datasetId);
   if (!dataset) {
@@ -206,7 +214,30 @@ export async function runAutomatedEvaluation(params: {
     regressionAlerts,
   };
 
-  evalReportsStore.set(runId, report);
+  if (params.userId) {
+    await ensureUserExists(params.userId);
+  }
+
+  await prisma.evalRunReport.create({
+    data: {
+      id: runId,
+      userId: params.userId ?? null,
+      datasetId: dataset.id,
+      datasetName: dataset.name,
+      targetType: params.targetType,
+      targetId: params.targetId,
+      targetName: params.targetName,
+      name: report.name,
+      status: report.status,
+      startedAt: new Date(startedAt),
+      completedAt: new Date(completedAt),
+      durationMs,
+      overallScore,
+      passRate,
+      data: report as unknown as Prisma.InputJsonValue,
+    },
+  });
+
   return report;
 }
 

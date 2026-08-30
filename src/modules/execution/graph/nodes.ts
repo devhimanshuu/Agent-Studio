@@ -5,20 +5,29 @@ import { errorMessage, ExecutionCancelledError, ExecutionError, StepLimitExceede
 import { ToolValidationError, ToolTimeoutError } from "@/modules/tools";
 import { withRetries } from "../executor/retry";
 import { resolveStepReferences } from "../executor/stepReferences";
+import { evaluateApprovalPolicy, DEFAULT_APPROVAL_POLICY } from "@/modules/approval";
 
 export type GraphNode = (state: AgentState, config: unknown) => Promise<Partial<AgentState>>;
 
-/** True when the given step must pause for human approval — the plan flag, the
- * version's action list, OR the tool's own requiresApproval contract (WRITE
- * tools always pause regardless of what the plan said). */
+/** True when the given step must pause for human approval. Delegates to the
+ * full approval policy (always/never/tool-based/skill-based overrides, then
+ * the plan flag / version's action list / tool's own requiresApproval
+ * contract) — the version's `approvalPolicy` when set, DEFAULT_APPROVAL_POLICY
+ * (no overrides) otherwise, which preserves prior behavior for versions that
+ * never configured one. */
 export function stepRequiresApproval(
   step: { action: string; requiresApproval: boolean; toolName?: string },
   version: SkillVersionDTO | null,
-  tool?: { requiresApproval: boolean } | null
+  tool?: { requiresApproval: boolean } | null,
+  skillId?: string
 ): boolean {
-  if (step.requiresApproval) return true;
-  if (version?.actionsRequiringApproval?.includes(step.action)) return true;
-  return Boolean(tool?.requiresApproval);
+  return evaluateApprovalPolicy(
+    { action: step.action, requiresApproval: step.requiresApproval, toolName: step.toolName ?? "" },
+    tool ?? null,
+    version,
+    version?.approvalPolicy ?? DEFAULT_APPROVAL_POLICY,
+    skillId ?? ""
+  );
 }
 
 /** Decides whether a tool failure deserves one retry. Domain errors and
@@ -116,7 +125,7 @@ export const permissionNode: GraphNode = async (state, config) => {
  */
 export const toolSelectionNode: GraphNode = async (state, config) => {
   const runtime = requireRuntime(config);
-  const { plan, currentStep, version } = state;
+  const { plan, currentStep, version, skill } = state;
   if (!plan) throw new ExecutionError("No plan to execute", "GRAPH_FAILURE");
 
   // Cooperative cancellation: bail out at node boundaries when aborted so the
@@ -134,7 +143,7 @@ export const toolSelectionNode: GraphNode = async (state, config) => {
   const tool = step.toolName && step.toolName !== "none" ? runtime.toolRegistry.getTool(step.toolName) : null;
   // Stamp the merged approval decision into state so the conditional edge can
   // route to the approval node WITHOUT needing registry access.
-  let approvalPending = stepRequiresApproval(step, version, tool);
+  let approvalPending = stepRequiresApproval(step, version, tool, skill?.id);
   if (approvalPending) {
     // Resume path: this execution+step may already have an APPROVED request
     // (the run was paused, reviewed, and is being re-invoked). If so, do NOT
@@ -161,7 +170,7 @@ export const toolSelectionNode: GraphNode = async (state, config) => {
  */
 export const toolExecutionNode: GraphNode = async (state, config) => {
   const runtime = requireRuntime(config);
-  const { plan, version, currentStep, executionId } = state;
+  const { plan, version, currentStep, executionId, skill } = state;
   if (!plan) throw new ExecutionError("No plan to execute", "GRAPH_FAILURE");
 
   const step = plan.steps[currentStep - 1];
@@ -169,7 +178,7 @@ export const toolExecutionNode: GraphNode = async (state, config) => {
 
   const isNoneTool = !step.toolName || step.toolName === "none" || step.toolName === "null";
   const tool = !isNoneTool ? runtime.toolRegistry.getTool(step.toolName) : null;
-  const requiresApproval = stepRequiresApproval(step, version, tool);
+  const requiresApproval = stepRequiresApproval(step, version, tool, skill?.id);
   const resolvedInput = resolveStepReferences(step.input, {
     results: state.results,
     userInput: state.input,

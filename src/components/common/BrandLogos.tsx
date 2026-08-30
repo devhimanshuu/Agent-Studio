@@ -125,3 +125,65 @@ export function McpProtocolLogo({ className = "h-5 w-5" }: { className?: string 
     </svg>
   );
 }
+
+export function GroqOfficialLogo({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 100 100"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-label="Groq Official Logo"
+    >
+      <rect width="100" height="100" rx="22" fill="#F55036" />
+      <path
+        d="M26 36C26 27.1634 33.1634 20 42 20H58C66.8366 20 74 27.1634 74 36V46C74 54.8366 66.8366 62 58 62H44L34 78V58H42C48.6274 58 54 52.6274 54 46V36C54 29.3726 48.6274 24 42 24C35.3726 24 30 29.3726 30 36V64C30 72.8366 37.1634 80 46 80H70"
+        stroke="white"
+        strokeWidth="9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function OpenRouterOfficialLogo({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 100 100"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-label="OpenRouter Official Logo"
+    >
+      <rect width="100" height="100" rx="22" fill="url(#openrouter-grad-bg)" />
+      <path
+        d="M50 20L78 36.5V69.5L50 86L22 69.5V36.5L50 20Z"
+        stroke="white"
+        strokeWidth="6"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M50 20V53M50 53L78 69.5M50 53L22 69.5"
+        stroke="white"
+        strokeWidth="6"
+        strokeLinecap="round"
+      />
+      <circle cx="50" cy="53" r="7" fill="#67E8F9" />
+      <circle cx="50" cy="20" r="5" fill="white" />
+      <circle cx="78" cy="36.5" r="5" fill="white" />
+      <circle cx="78" cy="69.5" r="5" fill="white" />
+      <circle cx="50" cy="86" r="5" fill="white" />
+      <circle cx="22" cy="69.5" r="5" fill="white" />
+      <circle cx="22" cy="36.5" r="5" fill="white" />
+      <defs>
+        <linearGradient id="openrouter-grad-bg" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#4F46E5" />
+          <stop offset="0.5" stopColor="#6366F1" />
+          <stop offset="1" stopColor="#06B6D4" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+

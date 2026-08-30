@@ -96,6 +96,14 @@ export function projectVectorsTo2D(
   });
   const pc2 = powerIteration(deflated, dim, 25);
 
+  // Eigenvalues of PC1/PC2 (Rayleigh quotient against the covariance matrix X^T X) and
+  // total variance (trace of X^T X) give the true cumulative variance explained by PC1+PC2.
+  const eigenvalue1 = computeEigenvalue(centered, pc1, dim);
+  const eigenvalue2 = computeEigenvalue(deflated, pc2, dim);
+  const totalVariance = sumOfSquares(centered);
+  const varianceExplainedPct =
+    totalVariance > 0 ? Math.round(((eigenvalue1 + eigenvalue2) / totalVariance) * 1000) / 10 : 0;
+
   // 5. Project items onto (PC1, PC2)
   const rawPoints = validItems.map((item, idx) => {
     const row = centered[idx];
@@ -156,7 +164,7 @@ export function projectVectorsTo2D(
     stats: {
       totalPoints: points.length,
       dimensions: dim,
-      varianceExplainedPct: 74.2, // Statistical estimate
+      varianceExplainedPct,
     },
     collections,
   };
@@ -181,6 +189,25 @@ function powerIteration(matrix: number[][], dim: number, maxIter: number): numbe
   }
 
   return vector;
+}
+
+function computeEigenvalue(matrix: number[][], vector: number[], dim: number): number {
+  const Av = new Array(dim).fill(0);
+  for (const row of matrix) {
+    const dot = dotProduct(row, vector);
+    for (let d = 0; d < dim; d++) {
+      Av[d] += dot * row[d];
+    }
+  }
+  return dotProduct(Av, vector);
+}
+
+function sumOfSquares(matrix: number[][]): number {
+  let sum = 0;
+  for (const row of matrix) {
+    for (const v of row) sum += v * v;
+  }
+  return sum;
 }
 
 function dotProduct(a: number[], b: number[]): number {

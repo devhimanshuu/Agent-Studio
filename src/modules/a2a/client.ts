@@ -71,38 +71,13 @@ export async function discoverA2AAgent(agentUrl: string): Promise<A2AAgentManife
     }
   }
 
-  // If unreachable, fallback to dynamic synthetic manifest so canvas graph design never blocks
-  logger.warn({ agentUrl, err: lastError }, "A2A agent discovery fallback to synthetic manifest");
-  const parsedHost = (() => {
-    try {
-      return new URL(cleanUrl).hostname;
-    } catch {
-      return cleanUrl;
-    }
-  })();
-
-  return {
-    name: `a2a-${parsedHost.replace(/[^a-zA-Z0-9_-]/g, "-")}`,
-    displayName: `Remote A2A Agent (${parsedHost})`,
-    description: `Dynamic Google A2A protocol endpoint at ${cleanUrl}`,
-    version: "1.0.0",
-    protocolVersion: "1.0.0",
-    endpoints: {
-      tasks: cleanUrl.includes("/tasks") ? cleanUrl : `${cleanUrl}/tasks`,
-      messages: `${cleanUrl}/messages`,
-      health: `${cleanUrl}/health`,
-    },
-    capabilities: [
-      {
-        id: "default_task",
-        name: "Autonomous Task Execution",
-        description: "Executes delegated multi-step tasks under Google A2A protocol specification.",
-        tags: ["a2a", "remote-execution"],
-      },
-    ],
-    auth: { type: "none" },
-    tags: ["a2a", "remote"],
-  };
+  // Genuinely unreachable — surface the failure instead of fabricating a manifest
+  // that would make an unreachable agent look discovered and capability-complete.
+  logger.warn({ agentUrl, err: lastError }, "A2A agent discovery failed — no manifest found at any candidate URL");
+  throw new Error(
+    `Could not discover an A2A agent at "${agentUrl}" (tried .well-known/agent.json, agent.json, /api/a2a/manifest, and the URL itself)` +
+      (lastError ? `: ${lastError.message}` : "")
+  );
 }
 
 /**
@@ -217,16 +192,13 @@ export async function delegateA2ATask(
     };
   } catch (error) {
     const durationMs = Date.now() - started;
-    logger.warn({ endpoint, err: error }, "Direct A2A task delegation network call failed, falling back to agent synthesis simulation");
+    const message = error instanceof Error ? error.message : String(error);
+    logger.warn({ endpoint, err: error }, "A2A task delegation failed");
 
-    // Simulation / Mock execution for disconnected or demo environments
-    const mockOutput = simulateA2AExecution(agentUrl, taskRequest, options.onTokenChunk);
-    return {
-      taskId,
-      status: "completed",
-      result: mockOutput,
-      durationMs,
-    };
+    // Surface the real failure rather than fabricating a successful result —
+    // callers (runA2ADelegateNode, the task auction) already handle a thrown
+    // error or a "failed" status and decide whether to skip/retry/fail the run.
+    throw new Error(`A2A task delegation to ${endpoint} failed after ${durationMs}ms: ${message}`);
   }
 }
 
@@ -242,61 +214,32 @@ export async function sendA2AMessage(
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 15000);
     const res = await fetch(endpoint, {
       method: "POST",
       headers,
       body: JSON.stringify(message),
       signal: controller.signal,
     });
+
+    if (!res.ok) {
+      const bodyText = await res.text().catch(() => "");
+      throw new Error(`Remote A2A agent returned HTTP ${res.status}${bodyText ? `: ${bodyText.slice(0, 200)}` : ""}`);
+    }
+
+    const json = (await res.json()) as { reply?: string; content?: string; response?: string };
+    const reply = json.reply || json.content || json.response;
+    if (!reply) {
+      throw new Error("Remote A2A agent responded without a 'reply', 'content', or 'response' field");
+    }
+    return { reply, timestamp: Date.now() };
+  } catch (error) {
+    // Surface the real failure — no scripted "Consensus proposal accepted" stand-in.
+    const message2 = error instanceof Error ? error.message : String(error);
+    throw new Error(`A2A message to ${endpoint} failed: ${message2}`);
+  } finally {
     clearTimeout(timer);
-
-    if (res.ok) {
-      const json = (await res.json()) as { reply?: string; content?: string; response?: string };
-      return {
-        reply: json.reply || json.content || json.response || "Acknowledged.",
-        timestamp: Date.now(),
-      };
-    }
-  } catch {
-    // Graceful fallback
   }
-
-  return {
-    reply: `[A2A Agent at ${agentUrl}]: Processed turn #${message.turn ?? 1} for topic. Consensus proposal accepted.`,
-    timestamp: Date.now(),
-  };
-}
-
-function simulateA2AExecution(
-  agentUrl: string,
-  taskRequest: A2ATaskRequest,
-  onTokenChunk?: (chunk: string, isThinking?: boolean) => void
-): Record<string, unknown> {
-  const inputKeys = Object.keys(taskRequest.input || {});
-  const summary = `Executed A2A task [${taskRequest.capability || "standard_delegation"}] across inputs: (${inputKeys.join(", ") || "context"})`;
-
-  if (onTokenChunk) {
-    const streamTokens = [
-      "Initiating Google A2A protocol handshake... ",
-      "Verifying agent capabilities and input schema... ",
-      "Synthesizing delegated task artifacts... ",
-      "Task verification complete.",
-    ];
-    for (const tok of streamTokens) {
-      onTokenChunk(tok, false);
-    }
-  }
-
-  return {
-    a2aProtocol: "Google-A2A/1.0",
-    remoteAgent: agentUrl,
-    capability: taskRequest.capability || "autonomous_delegation",
-    status: "SUCCESS",
-    summary,
-    output: summary,
-    delegatedAt: new Date().toISOString(),
-  };
 }

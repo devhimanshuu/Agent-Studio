@@ -74,14 +74,15 @@ export function A2ADirectoryModal({ isOpen, onClose, onSelectAgent }: A2ADirecto
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-bold tracking-wider text-slate-100 uppercase">
-                  Google A2A Agent Directory
+                  A2A Agent Directory
                 </h2>
                 <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">
                   A2A Protocol v1.0
                 </span>
               </div>
               <p className="text-[10px] text-slate-400">
-                Discover, inspect, and drag-and-drop external A2A agents onto your multi-agent canvas.
+                Discover any real A2A-compliant agent by URL and drag it onto your multi-agent canvas.
+                This app has no external agent registry — the list below is only agents you've added.
               </p>
             </div>
           </div>

@@ -151,7 +151,7 @@ export function QuickConnectToolModal({
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 )}
               >
-                12 Free Public APIs ({OPENAPI_PRESETS.length})
+                Free Public APIs ({OPENAPI_PRESETS.length})
               </button>
               <button
                 type="button"

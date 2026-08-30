@@ -64,10 +64,8 @@ export async function runTaskAuction(
     );
 
     if (hasCapability) {
-      // Simulate/Compute agent self-assessment bid
       const confidence = computeAgentConfidence(agent, task);
-      const estTokens = Math.round(150 + Math.random() * 250);
-      const estDuration = Math.round(400 + Math.random() * 800);
+      const { estTokens, estDuration } = estimateTaskCost(task);
 
       bids.push({
         agentName: agent.displayName || agent.name || "Agent",
@@ -139,8 +137,32 @@ export async function runTaskAuction(
   };
 }
 
+/**
+ * Confidence reflects how directly the agent's advertised capabilities match the
+ * task, not a randomized "self-assessment" — an agent that exactly declares the
+ * required capability is more trustworthy than one only offering a generic
+ * `default_task` fallback or a tag-level match.
+ */
 function computeAgentConfidence(agent: A2AAgentManifest, task: TaskSpecification): number {
-  const match = agent.capabilities.find((c) => c.id === task.requiredCapability);
-  if (match) return Math.round((0.85 + Math.random() * 0.14) * 100) / 100;
-  return Math.round((0.65 + Math.random() * 0.2) * 100) / 100;
+  const exactMatch = agent.capabilities.find((c) => c.id === task.requiredCapability);
+  if (exactMatch) return 0.9;
+  const tagMatch = agent.capabilities.find((c) => c.tags?.includes(task.requiredCapability));
+  if (tagMatch) return 0.75;
+  return 0.6; // only qualified via the generic default_task capability
+}
+
+/**
+ * Deterministic cost estimate derived from the task's own text length — not a
+ * measurement of anything the agent will actually do, and not randomized.
+ * Longer/richer task specs proxy for more input+output tokens and more latency.
+ */
+function estimateTaskCost(task: TaskSpecification): { estTokens: number; estDuration: number } {
+  const wordCount = `${task.title} ${task.description}`.trim().split(/\s+/).filter(Boolean).length;
+  const inputDataSize = task.inputData ? JSON.stringify(task.inputData).length : 0;
+  const priorityFactor = task.priority === "urgent" ? 0.7 : task.priority === "high" ? 0.85 : 1;
+
+  const estTokens = Math.round((wordCount * 6 + inputDataSize / 4 + 120) * priorityFactor);
+  const estDuration = Math.round((wordCount * 25 + inputDataSize / 2 + 300) * priorityFactor);
+
+  return { estTokens, estDuration };
 }
