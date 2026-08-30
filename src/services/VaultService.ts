@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import { logger } from "@/lib/logger";
 import {
   encrypt as encryptPayload,
   decryptWithFallback,

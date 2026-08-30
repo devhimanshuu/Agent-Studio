@@ -4,12 +4,20 @@ import { SkillService } from "@/services/SkillService";
 import { SkillRepository } from "@/repositories/SkillRepository";
 import { AuditLogRepository } from "@/repositories/AuditLogRepository";
 import { auth } from "@clerk/nextjs/server";
-import { unauthorized, badRequest, serverError } from "@/lib/api/handlers";
+import { unauthorized, forbidden, badRequest, serverError } from "@/lib/api/handlers";
+import { RBACService, ForbiddenError } from "@/services/RBACService";
+import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 const skillRepo = new SkillRepository();
 const auditRepo = new AuditLogRepository();
 const skillService = new SkillService(skillRepo, auditRepo);
+const rbacService = new RBACService();
 
+/**
+ * GET /api/skills — List skills
+ * Supports optional organization context via X-Organization-Id header
+ */
 export async function GET(request: Request) {
   const { userId } = await auth();
   if (!userId) return unauthorized();
@@ -24,21 +32,66 @@ export async function GET(request: Request) {
     });
     if (!parsed.success) return badRequest(parsed.error);
 
-    const result = await skillService.listSkills(userId, parsed.data);
+    // Get organization context if provided
+    const organizationId = request.headers.get("X-Organization-Id") || searchParams.get("organizationId") || undefined;
+
+    let result;
+    if (organizationId) {
+      // Verify membership
+      const membership = await rbacService.getOrgMembership(userId, organizationId);
+      if (!membership) return forbidden();
+
+      // List skills for organization
+      result = await prisma.skill.findMany({
+        where: { organizationId, ...this.buildSearchFilter(parsed.data.search) },
+        orderBy: this.buildSortClause(parsed.data.sortBy, parsed.data.sortOrder),
+        include: { versions: { where: { status: "DRAFT" }, take: 1 } },
+      });
+    } else {
+      // List user's personal skills
+      result = await skillService.listSkills(userId, parsed.data);
+    }
+
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
+    logger.error({ error }, "Failed to list skills");
     return serverError(error);
   }
 }
 
+/**
+ * POST /api/skills — Create skill
+ * Supports optional organization context via X-Organization-Id header
+ */
 export async function POST(request: Request) {
   const { userId } = await auth();
   if (!userId) return unauthorized();
 
   try {
     const body = await request.json();
+    
+    // Get organization context if provided
+    const organizationId = request.headers.get("X-Organization-Id") || body.organizationId || undefined;
+
+    // Check permission if organization context
+    if (organizationId) {
+      const membership = await rbacService.getOrgMembership(userId, organizationId);
+      if (!membership) return forbidden();
+
+      const permissions = await rbacService.getUserOrgPermissions(userId, organizationId);
+      if (!permissions.canCreateSkill) {
+        return forbidden();
+      }
+    }
+
     const validated = createSkillSchema.parse({ ...body, userId });
-    const skill = await skillService.createSkill(validated);
+    
+    // Add organizationId if provided
+    const skillData = organizationId
+      ? { ...validated, organizationId }
+      : validated;
+
+    const skill = await skillService.createSkill(skillData);
     return NextResponse.json({ success: true, data: skill }, { status: 201 });
   } catch (error) {
     if (error instanceof SyntaxError) {
@@ -47,6 +100,10 @@ export async function POST(request: Request) {
     if (error instanceof Error && "issues" in error) {
       return badRequest(error); // Zod validation failure → 400
     }
+    if (error instanceof ForbiddenError) {
+      return forbidden();
+    }
+    logger.error({ error }, "Failed to create skill");
     return serverError(error); // service/DB failure → 500
   }
 }

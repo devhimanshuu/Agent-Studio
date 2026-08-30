@@ -233,14 +233,12 @@ describe("/api/executions – integration", () => {
       expect(res.status).toBe(400);
     });
 
-    // NOTE: The executions route handler does not catch SyntaxError for
-    // malformed JSON (unlike the skills route). This is a known gap that
-    // should be fixed to return 400 instead of 500.
-    it("returns 500 for invalid JSON body (known: should be 400)", async () => {
+    it("returns 400 for invalid JSON body", async () => {
       const res = await POST(new Request("http://localhost/api/executions", { method: "POST", body: "{invalid json", headers: { "content-type": "application/json" } }));
-      // Currently returns 500 because the route doesn't catch SyntaxError.
-      // When fixed, this should be expect(res.status).toBe(400);
-      expect(res.status).toBeGreaterThanOrEqual(400);
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.code).toBe("BAD_REQUEST");
+      expect(body.error).toBe("Invalid JSON body");
     });
   });
 });

@@ -2,13 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { VaultService, VaultEntryInput, VaultCategory } from "@/services/VaultService";
 import { logger } from "@/lib/logger";
+import { RBACService, ForbiddenError } from "@/services/RBACService";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 const vaultService = new VaultService();
+const rbacService = new RBACService();
 
 /**
  * GET /api/vault — List all vault entries (values masked)
+ * Supports optional organization context via X-Organization-Id header
  */
 export async function GET(request: Request) {
   const { userId } = await auth();
@@ -19,10 +23,26 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const search = url.searchParams.get("q");
+    const organizationId = request.headers.get("X-Organization-Id") || url.searchParams.get("organizationId") || undefined;
 
-    const entries = search
-      ? await vaultService.search(userId, search)
-      : await vaultService.list(userId);
+    let entries;
+    if (organizationId) {
+      // Verify membership
+      const membership = await rbacService.getOrgMembership(userId, organizationId);
+      if (!membership) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
+      // List vault entries for organization
+      entries = await prisma.vaultEntry.findMany({
+        where: { organizationId },
+        orderBy: { updatedAt: "desc" },
+      });
+    } else {
+      entries = search
+        ? await vaultService.search(userId, search)
+        : await vaultService.list(userId);
+    }
 
     return NextResponse.json({ success: true, data: entries });
   } catch (error) {
@@ -36,6 +56,7 @@ export async function GET(request: Request) {
 
 /**
  * POST /api/vault — Create a new vault entry
+ * Requires create permission in organization context
  */
 export async function POST(request: NextRequest) {
   const { userId } = await auth();
@@ -44,7 +65,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = (await request.json()) as VaultEntryInput & { category?: string };
+    const body = (await request.json()) as VaultEntryInput & { category?: string; organizationId?: string };
 
     if (!body.name || !body.key || !body.value) {
       return NextResponse.json(
@@ -61,6 +82,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get organization context
+    const organizationId = request.headers.get("X-Organization-Id") || body.organizationId || undefined;
+
+    // Check permission if organization context
+    if (organizationId) {
+      const membership = await rbacService.getOrgMembership(userId, organizationId);
+      if (!membership) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
+      const permissions = await rbacService.getUserOrgPermissions(userId, organizationId);
+      if (!permissions.canCreateSkill) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
+
     const entry = await vaultService.create(userId, {
       name: body.name,
       category: (body.category as VaultCategory) || "API_KEY",
@@ -69,6 +106,14 @@ export async function POST(request: NextRequest) {
       description: body.description,
       tags: body.tags,
     });
+
+    // Link to organization if provided
+    if (organizationId) {
+      await prisma.vaultEntry.update({
+        where: { id: entry.id },
+        data: { organizationId },
+      });
+    }
 
     return NextResponse.json({ success: true, data: entry }, { status: 201 });
   } catch (error) {
@@ -95,7 +140,29 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "id is required" }, { status: 400 });
     }
 
-    const entry = await vaultService.update(userId, body.id, {
+    // Check ownership or admin permission
+    const entry = await prisma.vaultEntry.findUnique({
+      where: { id: body.id },
+      select: { userId: true, organizationId: true },
+    });
+
+    if (!entry) {
+      return NextResponse.json({ error: "Vault entry not found" }, { status: 404 });
+    }
+
+    if (entry.userId !== userId) {
+      // Check organization admin permission
+      if (entry.organizationId) {
+        const membership = await rbacService.getOrgMembership(userId, entry.organizationId);
+        if (!membership || (membership.role !== "OWNER" && membership.role !== "ADMIN")) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+      } else {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
+
+    const updated = await vaultService.update(userId, body.id, {
       name: body.name,
       category: body.category as VaultCategory | undefined,
       key: body.key,
@@ -104,7 +171,7 @@ export async function PUT(request: NextRequest) {
       tags: body.tags,
     });
 
-    return NextResponse.json({ success: true, data: entry });
+    return NextResponse.json({ success: true, data: updated });
   } catch (error) {
     logger.error({ error }, "Failed to update vault entry");
     const message = error instanceof Error ? error.message : "Internal error";
@@ -128,6 +195,28 @@ export async function DELETE(request: Request) {
 
     if (!id) {
       return NextResponse.json({ error: "id is required" }, { status: 400 });
+    }
+
+    // Check ownership or admin permission
+    const entry = await prisma.vaultEntry.findUnique({
+      where: { id },
+      select: { userId: true, organizationId: true },
+    });
+
+    if (!entry) {
+      return NextResponse.json({ error: "Vault entry not found" }, { status: 404 });
+    }
+
+    if (entry.userId !== userId) {
+      // Check organization admin permission
+      if (entry.organizationId) {
+        const membership = await rbacService.getOrgMembership(userId, entry.organizationId);
+        if (!membership || (membership.role !== "OWNER" && membership.role !== "ADMIN")) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+      } else {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
     }
 
     await vaultService.delete(userId, id);

@@ -68,6 +68,26 @@ vi.mock("@/lib/api/rateLimit", () => ({
 vi.mock("@/repositories/ApprovalRepository", () => ({ ApprovalRepository: vi.fn(() => fakeApprovalRepo) }));
 vi.mock("@/repositories/ApprovalHistoryRepository", () => ({ ApprovalHistoryRepository: vi.fn(() => fakeHistoryRepo) }));
 
+// Mock prisma for approval ownership check
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    approvalRequest: {
+      findUnique: vi.fn(async ({ where, include }: any) => {
+        const req = fakeApprovalRepo.requests.get(where.id);
+        if (!req) return null;
+        // Return with execution relation if requested
+        if (include?.execution) {
+          return { ...req, execution: { organizationId: null } };
+        }
+        return req;
+      }),
+    },
+    organizationMember: {
+      findUnique: vi.fn(() => null),
+    },
+  },
+}));
+
 vi.mock("@/lib/api/services", () => ({
   apiServices: vi.fn(() => ({
     approvalRepo: fakeApprovalRepo,

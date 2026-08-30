@@ -284,14 +284,14 @@ describe("Vault Crypto", () => {
 
   describe("Production Safety", () => {
     it("throws in production without VAULT_MASTER_KEY", () => {
-      process.env.NODE_ENV = "production";
+      (process.env as Record<string, string | undefined>).NODE_ENV = "production";
       delete process.env.VAULT_MASTER_KEY;
 
       expect(() => deriveKey()).toThrow("VAULT_MASTER_KEY is required in production");
     });
 
     it("uses fallback in development without VAULT_MASTER_KEY", () => {
-      process.env.NODE_ENV = "development";
+      (process.env as Record<string, string | undefined>).NODE_ENV = "development";
       delete process.env.VAULT_MASTER_KEY;
 
       // Should not throw

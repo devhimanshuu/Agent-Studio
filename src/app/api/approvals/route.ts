@@ -5,24 +5,59 @@ import { respondApprovalSchema } from "@/validators/approvalSchema";
 import { unauthorized, forbidden, notFound, badRequest, serverError } from "@/lib/api/handlers";
 import { rateLimit } from "@/lib/api/rateLimit";
 import { apiServices } from "@/lib/api/services";
+import { RBACService, ForbiddenError } from "@/services/RBACService";
+import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 const { approvalRepo, approvalEngine, approvalHistoryService } = apiServices();
+const rbacService = new RBACService();
 
-export async function GET(_request: Request) {
+/**
+ * GET /api/approvals — List approval requests
+ * Supports optional organization context via X-Organization-Id header
+ */
+export async function GET(request: Request) {
   const { userId } = await auth();
   if (!userId) return unauthorized();
 
   try {
-    // Eventually-consistent escalation sweep: expire stale PENDING requests
-    // whose in-process escalateAfterMin timer was lost to a deploy/freeze.
-    await approvalRepo.expireStaleForUser(userId).catch(() => 0);
+    // Get organization context if provided
+    const organizationId = request.headers.get("X-Organization-Id") || undefined;
 
-    // Return ALL approvals for the user (not just pending) — the review UI needs
-    // both the pending queue and history. Single query, ownership-scoped.
+    if (organizationId) {
+      // Verify membership
+      const membership = await rbacService.getOrgMembership(userId, organizationId);
+      if (!membership) return forbidden();
+
+      const permissions = await rbacService.getUserOrgPermissions(userId, organizationId);
+      
+      // Only admins/owners can see all org approvals
+      if (!permissions.canManageMembers) {
+        return forbidden();
+      }
+
+      // Get approvals for organization's executions
+      const requests = await prisma.approvalRequest.findMany({
+        where: {
+          execution: { organizationId },
+        },
+        orderBy: { requestedAt: "desc" },
+      });
+
+      const requestsWithHistory = await Promise.all(
+        requests.map(async (r) => ({
+          ...r,
+          history: await approvalHistoryService.getTimeline(r.id),
+        }))
+      );
+
+      return NextResponse.json({ success: true, data: requestsWithHistory });
+    }
+
+    // Personal approvals
+    await approvalRepo.expireStaleForUser(userId).catch(() => 0);
     const requests = await approvalRepo.findByUserId(userId);
 
-    // Attach each request's audit timeline (requested/approved/rejected/resumed)
-    // so the review UI can show a real history, not just the current status.
     const requestsWithHistory = await Promise.all(
       requests.map(async (r) => ({
         ...r,
@@ -32,26 +67,47 @@ export async function GET(_request: Request) {
 
     return NextResponse.json({ success: true, data: requestsWithHistory });
   } catch (error) {
+    logger.error({ error }, "Failed to list approvals");
     return serverError(error);
   }
 }
 
+/**
+ * POST /api/approvals — Respond to approval request
+ */
 export async function POST(request: Request) {
-  // Auth first — Clerk errors are never business-logic errors.
   const { userId } = await auth();
   if (!userId) return unauthorized();
 
-  // Approval responses resume executions (expensive) — rate limit.
   const limited = rateLimit(`approval:respond:${userId}`);
   if (limited) return limited;
 
   try {
     const body = await request.json();
-    // Never trust a client-supplied userId — the authenticated session wins.
     const validated = respondApprovalSchema.parse({ ...body, userId });
 
+    // Check if approval belongs to user or user is org admin
+    const approval = await prisma.approvalRequest.findUnique({
+      where: { id: validated.approvalId },
+      include: { execution: { select: { organizationId: true } } },
+    });
+
+    if (!approval) return notFound("Approval request not found");
+
+    // Check ownership or admin permission
+    if (approval.userId !== userId) {
+      const organizationId = approval.execution?.organizationId;
+      if (organizationId) {
+        const membership = await rbacService.getOrgMembership(userId, organizationId);
+        if (!membership || (membership.role !== "OWNER" && membership.role !== "ADMIN")) {
+          return forbidden();
+        }
+      } else {
+        return forbidden();
+      }
+    }
+
     if (validated.approved) {
-      // Route through the ApprovalEngine for proper approve + resume flow.
       const result = await approvalEngine.approve(
         validated.approvalId,
         userId,
@@ -59,7 +115,6 @@ export async function POST(request: Request) {
       );
       return NextResponse.json({ success: true, data: result });
     } else {
-      // Reject or cancel — route through the engine.
       const result = await approvalEngine.reject(
         validated.approvalId,
         userId,
@@ -70,18 +125,17 @@ export async function POST(request: Request) {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
-    // Ownership violations → 403 (authenticated user touching someone else's
-    // review request). Genuinely missing requests → 404, NOT 403 — a 403 for a
-    // nonexistent id would be indistinguishable from an ownership error.
     if (message.includes("access")) return forbidden();
     if (message.includes("not found")) return notFound(message);
     if (error instanceof z.ZodError) return badRequest(error);
     if (error instanceof Error && "issues" in error) {
-      return badRequest(error); // Zod validation failure → 400
+      return badRequest(error);
     }
     if (error instanceof Error) {
-      return badRequest(new Error(error.message)); // business rule (already responded) → 400
+      return badRequest(new Error(error.message));
     }
+    if (error instanceof ForbiddenError) return forbidden();
+    logger.error({ error }, "Failed to respond to approval");
     return serverError(error);
   }
 }

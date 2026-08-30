@@ -9,7 +9,7 @@
  * Run: vitest run tests/performance/api-loads.test.ts
  * Or:  vitest run --project performance
  */
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 
 const BASE_URL = process.env.PERF_BASE_URL ?? "http://localhost:3000";
 const CONCURRENCY = 10;

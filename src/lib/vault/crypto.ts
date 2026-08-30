@@ -30,7 +30,7 @@ import { logger } from "@/lib/logger";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;
-const AUTH_TAG_LENGTH = 16;
+export const AUTH_TAG_LENGTH = 16;
 
 /** PBKDF2 iteration count (OWASP 2023 recommendation for SHA-512) */
 const PBKDF2_ITERATIONS = 600_000;
