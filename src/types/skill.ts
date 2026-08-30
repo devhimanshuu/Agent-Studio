@@ -1,4 +1,5 @@
 import { AgentGraphDefinition } from "./graph";
+import { ApprovalPolicy } from "./approval";
 
 export type SkillStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 
@@ -19,6 +20,9 @@ export interface SkillVersionDTO {
   examples: SkillExampleDTO[];
   allowedTools: string[];
   actionsRequiringApproval: string[];
+  /** Optional policy overrides (always/never/tool-based/skill-based) evaluated
+   * before the plan flag / tool contract. Absent means DEFAULT_APPROVAL_POLICY. */
+  approvalPolicy?: ApprovalPolicy | null;
   maxExecutionSteps: number;
   /** Visual multi-agent graph — when present the version runs through the graph interpreter. */
   graphDefinition?: AgentGraphDefinition | null;
@@ -53,6 +57,7 @@ export interface CreateSkillInput {
   examples?: SkillExampleDTO[];
   allowedTools?: string[];
   actionsRequiringApproval?: string[];
+  approvalPolicy?: ApprovalPolicy;
   maxExecutionSteps?: number;
   graphDefinition?: AgentGraphDefinition;
   notes?: string;
@@ -67,6 +72,8 @@ export interface UpdateSkillInput {
   examples?: SkillExampleDTO[];
   allowedTools?: string[];
   actionsRequiringApproval?: string[];
+  /** Null clears the policy override (falls back to DEFAULT_APPROVAL_POLICY); undefined leaves it unchanged. */
+  approvalPolicy?: ApprovalPolicy | null;
   maxExecutionSteps?: number;
   /** Null clears the graph; undefined leaves it unchanged. */
   graphDefinition?: AgentGraphDefinition | null;

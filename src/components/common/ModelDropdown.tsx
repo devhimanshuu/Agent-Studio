@@ -431,7 +431,7 @@ export function ModelDropdown({
               <div className="space-y-1">
                 <div className="px-2.5 py-1 text-[9px] font-mono font-bold tracking-wider uppercase text-indigo-600 dark:text-indigo-300 bg-indigo-50/80 dark:bg-indigo-950/40 rounded border border-indigo-200 dark:border-indigo-900/50 flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
-                    <OpenRouterOfficialLogo className="h-3.5 w-3.5 rounded-xs shrink-0" />
+                    <OpenRouterOfficialLogo className="h-3.5 w-3.5 shrink-0 text-indigo-600 dark:text-indigo-400" />
                     OpenRouter Free Tier Models ({filteredORFree.length})
                   </span>
                   <span className="text-[8px] text-amber-500 dark:text-amber-400 font-bold">$0 Cost</span>
@@ -485,7 +485,7 @@ export function ModelDropdown({
               <div className="space-y-1">
                 <div className="px-2.5 py-1 text-[9px] font-mono font-bold tracking-wider uppercase text-indigo-600 dark:text-indigo-300 bg-indigo-50/80 dark:bg-indigo-950/40 rounded border border-indigo-200 dark:border-indigo-900/50 flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
-                    <OpenRouterOfficialLogo className="h-3.5 w-3.5 rounded-xs shrink-0" />
+                    <OpenRouterOfficialLogo className="h-3.5 w-3.5 shrink-0 text-indigo-600 dark:text-indigo-400" />
                     OpenRouter Flagship Catalog ({filteredORPopular.length})
                   </span>
                 </div>

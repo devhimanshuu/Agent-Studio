@@ -1,11 +1,15 @@
 /**
  * RAG Triad Evaluation & Grounding Observability Engine.
  *
- * Implements the industry-standard RAG Triad evaluation metrics:
+ * Implements the industry-standard RAG Triad evaluation metrics using an LLM-as-a-Judge
+ * for each leg (falls back to a token-overlap heuristic only if the judge call itself fails):
  * 1. Context Relevance: How relevant were the retrieved pgvector chunks to the query?
  * 2. Groundedness (Faithfulness): Is the generated answer 100% supported by the retrieved context?
  * 3. Answer Relevance: Does the generated answer directly address the user's question?
  */
+
+import { evaluateMetricWithJudge } from "@/modules/evals/llmJudge";
+import { EvalJudgeConfig } from "@/types/evals";
 
 export interface RAGTriadEvaluationInput {
   query: string;
@@ -30,77 +34,38 @@ export interface RAGTriadEvaluationReport {
   timestamp: string;
 }
 
-const STOP_WORDS = new Set([
-  "how", "does", "what", "which", "when", "where", "why", "who", "whom",
-  "this", "that", "these", "those", "have", "has", "had", "with", "from",
-  "into", "during", "including", "until", "against", "among", "throughout",
-  "despite", "towards", "upon", "concerning", "to", "in", "for", "on", "by",
-  "about", "like", "through", "over", "before", "between", "after", "since",
-  "without", "under", "within", "along", "following", "across", "behind",
-  "beyond", "plus", "except", "but", "up", "out", "around", "down", "off",
-  "above", "near", "perform", "show", "tell", "explain", "give", "is", "are"
-]);
-
 /**
- * Evaluates the RAG Triad across Context Relevance, Groundedness, and Answer Relevance.
+ * Evaluates the RAG Triad across Context Relevance, Groundedness, and Answer Relevance
+ * using an LLM-as-a-Judge for each leg (see src/modules/evals/llmJudge.ts). Each call
+ * degrades to a token-overlap heuristic internally if the judge model itself errors,
+ * and that fallback is always disclosed in the returned `details` string.
  */
-export function evaluateRAGTriad(input: RAGTriadEvaluationInput): RAGTriadEvaluationReport {
+export async function evaluateRAGTriad(input: RAGTriadEvaluationInput): Promise<RAGTriadEvaluationReport> {
   const { query, contextChunks, generatedAnswer } = input;
 
-  const rawTerms = query.toLowerCase().split(/\s+/).filter((t) => t.length > 2);
-  const queryTerms = rawTerms.filter((t) => !STOP_WORDS.has(t));
-  const effectiveQueryTerms = queryTerms.length > 0 ? queryTerms : rawTerms;
+  const contextFullText = contextChunks.map((c) => c.content).join("\n\n---\n\n");
+  const judgeConfig: EvalJudgeConfig = { judgeModel: "", metrics: [], temperature: 0, passThreshold: 0.7 };
 
-  const answerSentences = generatedAnswer
-    .split(/[.!?]+/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 10);
-  const contextFullText = contextChunks.map((c) => c.content).join(" ").toLowerCase();
+  const [contextResult, groundednessResult, relevanceResult] = await Promise.all([
+    evaluateMetricWithJudge("CONTEXT_PRECISION", { query }, generatedAnswer, {
+      context: contextFullText,
+      groundTruth: generatedAnswer,
+      judgeConfig,
+    }),
+    evaluateMetricWithJudge("FAITHFULNESS", { query }, generatedAnswer, {
+      context: contextFullText,
+      judgeConfig,
+    }),
+    evaluateMetricWithJudge("ANSWER_RELEVANCE", { query }, generatedAnswer, {
+      judgeConfig,
+    }),
+  ]);
 
-  // 1. Context Relevance Score
-  let contextMatchScore = 0;
-  if (contextChunks.length > 0) {
-    let termHits = 0;
-    for (const term of effectiveQueryTerms) {
-      if (contextFullText.includes(term)) termHits += 1;
-    }
-    const termCoverage = effectiveQueryTerms.length > 0 ? termHits / effectiveQueryTerms.length : 1;
-    const avgVectorScore =
-      contextChunks.reduce((acc, c) => acc + (c.score || 0.7), 0) / contextChunks.length;
-    contextMatchScore = Math.min(1.0, termCoverage * 0.5 + avgVectorScore * 0.5);
-  }
+  const contextMatchScore = contextResult.score;
+  const groundednessScore = groundednessResult.score;
+  const answerRelevanceScore = relevanceResult.score;
 
-  // 2. Groundedness (Faithfulness) Score
-  let groundedSentences = 0;
-  if (answerSentences.length > 0 && contextFullText.length > 0) {
-    for (const sentence of answerSentences) {
-      const sentenceWords = sentence
-        .toLowerCase()
-        .split(/\s+/)
-        .filter((w) => w.length > 3);
-      let matchCount = 0;
-      for (const word of sentenceWords) {
-        if (contextFullText.includes(word)) matchCount += 1;
-      }
-      const matchRatio = sentenceWords.length > 0 ? matchCount / sentenceWords.length : 1;
-      if (matchRatio >= 0.4) {
-        groundedSentences += 1;
-      }
-    }
-  }
-  const groundednessScore =
-    answerSentences.length > 0 ? Math.min(1.0, (groundedSentences / answerSentences.length) * 0.9 + 0.1) : 0.8;
-
-  // 3. Answer Relevance Score
-  let answerQueryHits = 0;
-  const answerLower = generatedAnswer.toLowerCase();
-  for (const term of queryTerms) {
-    if (answerLower.includes(term)) answerQueryHits += 1;
-  }
-  const answerRelevanceScore =
-    queryTerms.length > 0 ? Math.min(1.0, (answerQueryHits / queryTerms.length) * 0.6 + 0.4) : 0.9;
-
-  // 4. Overall Weighted Score
+  // Overall Weighted Score
   const overallScore = Math.round((contextMatchScore * 0.3 + groundednessScore * 0.4 + answerRelevanceScore * 0.3) * 100) / 100;
 
   const hallucinationRisk: "LOW" | "MODERATE" | "HIGH" =
@@ -113,17 +78,17 @@ export function evaluateRAGTriad(input: RAGTriadEvaluationInput): RAGTriadEvalua
     contextRelevance: {
       score: Math.round(contextMatchScore * 100) / 100,
       grade: getGrade(contextMatchScore),
-      details: `${contextChunks.length} context chunks retrieved with ${Math.round(contextMatchScore * 100)}% query alignment.`,
+      details: contextResult.reasoning,
     },
     groundedness: {
       score: Math.round(groundednessScore * 100) / 100,
       grade: getGrade(groundednessScore),
-      details: `${groundedSentences} of ${answerSentences.length} sentences substantiated by retrieved context.`,
+      details: groundednessResult.reasoning,
     },
     answerRelevance: {
       score: Math.round(answerRelevanceScore * 100) / 100,
       grade: getGrade(answerRelevanceScore),
-      details: `Answer addresses core query terms directly with ${Math.round(answerRelevanceScore * 100)}% intent coverage.`,
+      details: relevanceResult.reasoning,
     },
     overallScore,
     overallGrade: getGrade(overallScore),

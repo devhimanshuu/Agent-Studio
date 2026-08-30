@@ -15,24 +15,29 @@ import {
   Bot,
 } from "lucide-react";
 import { Reveal } from "@/components/Reveal";
-import { BUILT_IN_BENCHMARK_SUITES, BASELINE_MODEL_COMPARISONS, generateScorecard, evaluateTestCase } from "@/modules/benchmarks/benchmarkEngine";
-import { BenchmarkSuite, BenchmarkScorecard } from "@/types/benchmark";
+import { BUILT_IN_BENCHMARK_SUITES } from "@/modules/benchmarks/benchmarkEngine";
+import { BenchmarkSuite, BenchmarkScorecard, ModelBenchmarkComparisonItem } from "@/types/benchmark";
 import { BenchmarkSuiteCard } from "@/components/benchmarks/BenchmarkSuiteCard";
 import { BenchmarkScorecardView } from "@/components/benchmarks/BenchmarkScorecardView";
 import { ModelComparisonMatrix } from "@/components/benchmarks/ModelComparisonMatrix";
 import { RunBenchmarkModal } from "@/components/benchmarks/RunBenchmarkModal";
 
+// Real, currently-configured free-tier models (see src/providers/llm/modelLists.ts)
+// this app can actually call. The comparison below runs a real suite against each.
+const COMPARISON_MODEL_IDS = [
+  "llama-3.3-70b-versatile",
+  "openai/gpt-oss-120b",
+  "groq/compound-mini",
+  "llama-3.1-8b-instant",
+];
+
 export default function BenchmarksPage() {
   const [selectedSuiteForRun, setSelectedSuiteForRun] = useState<BenchmarkSuite | undefined>(undefined);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [activeScorecard, setActiveScorecard] = useState<BenchmarkScorecard | null>(() => {
-    // Generate initial baseline scorecard for immediate interactive inspection
-    const defaultSuite = BUILT_IN_BENCHMARK_SUITES[0];
-    const initialResults = defaultSuite.testCases.map((tc) =>
-      evaluateTestCase(tc, `Successfully parsed and validated Tokyo request parameters.`, 320, 85)
-    );
-    return generateScorecard(defaultSuite, initialResults, "Active Agent Architecture", "Llama 3.3 70B (Groq LPU)", 1250);
-  });
+  const [activeScorecard, setActiveScorecard] = useState<BenchmarkScorecard | null>(null);
+  const [comparisonModels, setComparisonModels] = useState<ModelBenchmarkComparisonItem[] | null>(null);
+  const [isComparing, setIsComparing] = useState(false);
+  const [comparisonError, setComparisonError] = useState<string | null>(null);
 
   const { data: suitesData, isLoading, refetch } = useQuery({
     queryKey: ["benchmarkSuites"],
@@ -44,18 +49,35 @@ export default function BenchmarksPage() {
     },
     initialData: {
       suites: BUILT_IN_BENCHMARK_SUITES,
-      baselineModels: BASELINE_MODEL_COMPARISONS,
       totalSuites: BUILT_IN_BENCHMARK_SUITES.length,
       totalTestCases: BUILT_IN_BENCHMARK_SUITES.reduce((acc, s) => acc + s.testCases.length, 0),
     },
   });
 
   const suites: BenchmarkSuite[] = suitesData?.suites || BUILT_IN_BENCHMARK_SUITES;
-  const baselineModels = suitesData?.baselineModels || BASELINE_MODEL_COMPARISONS;
 
   const handleOpenRun = (suite?: BenchmarkSuite) => {
     setSelectedSuiteForRun(suite);
     setIsModalOpen(true);
+  };
+
+  const handleRunComparison = async () => {
+    setIsComparing(true);
+    setComparisonError(null);
+    try {
+      const res = await fetch("/api/benchmarks/compare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ suiteId: suites[0]?.id, models: COMPARISON_MODEL_IDS }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || "Comparison failed");
+      setComparisonModels(json.data);
+    } catch (err) {
+      setComparisonError(err instanceof Error ? err.message : "Comparison failed");
+    } finally {
+      setIsComparing(false);
+    }
   };
 
   return (
@@ -111,13 +133,15 @@ export default function BenchmarksPage() {
             </span>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-bold font-pixel text-slate-900 dark:text-slate-100">
-                {activeScorecard?.overallScore ?? 94}
+                {activeScorecard?.overallScore ?? "—"}
               </span>
-              <span className="text-xs font-bold text-emerald-500 font-pixel">
-                [{activeScorecard?.grade ?? "A+"}]
-              </span>
+              {activeScorecard && (
+                <span className="text-xs font-bold text-emerald-500 font-pixel">[{activeScorecard.grade}]</span>
+              )}
             </div>
-            <span className="text-[9px] text-slate-400">Weighted across 6 evaluation axes</span>
+            <span className="text-[9px] text-slate-400">
+              {activeScorecard ? "Weighted across 6 evaluation axes" : "Run a benchmark suite to measure this"}
+            </span>
           </div>
 
           <div className="p-4 rounded-lg border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-1 shadow-sm">
@@ -126,43 +150,49 @@ export default function BenchmarksPage() {
             </span>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-bold font-pixel text-emerald-500">
-                {activeScorecard?.passRate ?? 100}%
+                {activeScorecard ? `${activeScorecard.passRate}%` : "—"}
               </span>
-              <span className="text-[10px] text-slate-400">
-                ({activeScorecard?.passedTests ?? 3}/{activeScorecard?.totalTests ?? 3})
-              </span>
+              {activeScorecard && (
+                <span className="text-[10px] text-slate-400">
+                  ({activeScorecard.passedTests}/{activeScorecard.totalTests})
+                </span>
+              )}
             </div>
-            <span className="text-[9px] text-slate-400">Zero false-positive verification</span>
+            <span className="text-[9px] text-slate-400">Measured from actual assertion results</span>
           </div>
 
           <div className="p-4 rounded-lg border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-1 shadow-sm">
             <span className="text-[10px] text-slate-500 uppercase flex items-center gap-1.5 font-semibold">
-              <Clock className="h-3.5 w-3.5 text-cyan-400" /> Mean Latency SLA
+              <Clock className="h-3.5 w-3.5 text-cyan-400" /> Mean Latency
             </span>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-bold font-pixel text-cyan-400">
-                {activeScorecard?.durationMs ? Math.round(activeScorecard.durationMs / Math.max(1, activeScorecard.totalTests)) : 420}ms
+                {activeScorecard ? `${Math.round(activeScorecard.durationMs / Math.max(1, activeScorecard.totalTests))}ms` : "—"}
               </span>
-              <span className="text-[10px] text-slate-400">p95 &lt; 850ms</span>
             </div>
-            <span className="text-[9px] text-slate-400">High-throughput token velocity</span>
+            <span className="text-[9px] text-slate-400">Wall-clock time from the real LLM calls</span>
           </div>
 
           <div className="p-4 rounded-lg border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-1 shadow-sm">
             <span className="text-[10px] text-slate-500 uppercase flex items-center gap-1.5 font-semibold">
-              <Shield className="h-3.5 w-3.5 text-yellow-400" /> Safety & Guardrails
+              <Shield className="h-3.5 w-3.5 text-yellow-400" /> Safety Compliance
             </span>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold font-pixel text-yellow-400">100%</span>
-              <span className="text-[10px] text-slate-400">HITL Active</span>
+              <span className="text-2xl font-bold font-pixel text-yellow-400">
+                {activeScorecard ? `${activeScorecard.radar.safetyComplianceScore}%` : "—"}
+              </span>
             </div>
-            <span className="text-[9px] text-slate-400">Zero prompt injection leakage</span>
+            <span className="text-[9px] text-slate-400">
+              {activeScorecard?.category === "SAFETY_GUARDRAILS"
+                ? "Directly measured by this suite"
+                : "Extrapolated from overall accuracy — run the Safety suite to measure directly"}
+            </span>
           </div>
         </div>
       </Reveal>
 
       {/* 3. Active Benchmark Scorecard View */}
-      {activeScorecard && (
+      {activeScorecard ? (
         <Reveal delay={200}>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -174,6 +204,12 @@ export default function BenchmarksPage() {
               </span>
             </div>
             <BenchmarkScorecardView scorecard={activeScorecard} />
+          </div>
+        </Reveal>
+      ) : (
+        <Reveal delay={200}>
+          <div className="p-6 rounded-lg border border-dashed border-slate-300 dark:border-indigo-900/50 text-center text-xs text-slate-500 dark:text-slate-400">
+            No benchmark has been run yet. Click "RUN BENCHMARK SUITE" above to execute real test cases against a live model.
           </div>
         </Reveal>
       )}
@@ -205,9 +241,37 @@ export default function BenchmarksPage() {
         </div>
       </Reveal>
 
-      {/* 5. Frontier Model Comparison Leaderboard */}
+      {/* 5. Live-Measured Model Comparison */}
       <Reveal delay={300}>
-        <ModelComparisonMatrix models={baselineModels} />
+        {comparisonModels ? (
+          <div className="space-y-2">
+            <ModelComparisonMatrix models={comparisonModels} />
+            <button
+              type="button"
+              onClick={() => void handleRunComparison()}
+              disabled={isComparing}
+              className="text-[10px] font-mono text-indigo-500 hover:text-indigo-400 disabled:opacity-50 cursor-pointer"
+            >
+              {isComparing ? "Re-running…" : "Re-run comparison"}
+            </button>
+          </div>
+        ) : (
+          <div className="p-6 rounded-lg border border-dashed border-slate-300 dark:border-indigo-900/50 text-center space-y-3">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Compare your configured models by actually running a benchmark suite against each of them —
+              no static data, every score below will be freshly measured.
+            </p>
+            <button
+              type="button"
+              onClick={() => void handleRunComparison()}
+              disabled={isComparing}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-indigo-400 bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition-all shadow-md disabled:opacity-50 cursor-pointer"
+            >
+              <Play className="h-3.5 w-3.5" /> {isComparing ? "RUNNING COMPARISON…" : "RUN MODEL COMPARISON"}
+            </button>
+            {comparisonError && <p className="text-[10px] text-red-500">{comparisonError}</p>}
+          </div>
+        )}
       </Reveal>
 
       {/* 6. Interactive Run Modal */}

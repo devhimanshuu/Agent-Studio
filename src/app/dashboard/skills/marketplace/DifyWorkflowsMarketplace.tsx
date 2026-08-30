@@ -225,7 +225,7 @@ export function DifyWorkflowsMarketplace() {
               </h2>
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              Explore 290+ production-grade AI workflows, RAG agents, chatflows, and multi-model pipelines created by the Dify community. Import and run directly on Agent Studio Canvas with zero friction.
+              Explore {totalWorkflows > 0 ? `${totalWorkflows.toLocaleString()}+ ` : ""}production-grade AI workflows, RAG agents, chatflows, and multi-model pipelines created by the Dify community. Import and run directly on Agent Studio Canvas with zero friction.
             </p>
           </div>
 

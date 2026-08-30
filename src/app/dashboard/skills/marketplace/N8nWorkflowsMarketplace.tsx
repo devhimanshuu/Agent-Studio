@@ -253,7 +253,7 @@ export function N8nWorkflowsMarketplace() {
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full border border-rose-500/30 bg-rose-500/10 text-rose-300 text-[10px] font-bold tracking-wider">
               <N8nOfficialLogo className="h-3.5 w-3.5" />
-              N8N COMMUNITY WORKFLOW REPOSITORY · 11,600+ WORKFLOWS
+              N8N COMMUNITY WORKFLOW REPOSITORY{totalWorkflows > 0 ? ` · ${totalWorkflows.toLocaleString()} WORKFLOWS` : ""}
             </div>
             <div className="flex items-center gap-3">
               <N8nOfficialLogo className="h-7 w-7" />
@@ -295,7 +295,7 @@ export function N8nWorkflowsMarketplace() {
                 setSearch(e.target.value);
                 if (activeTag) setActiveTag(null);
               }}
-              placeholder="Search 11,600+ workflows by keywords, node types, tools..."
+              placeholder={`Search ${totalWorkflows > 0 ? `${totalWorkflows.toLocaleString()}+ ` : ""}workflows by keywords, node types, tools...`}
               className="w-full pl-10 pr-10 py-2.5 rounded-lg border border-slate-200 dark:border-indigo-950/80 bg-white/80 dark:bg-black/50 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500 transition-colors"
             />
             {search && (

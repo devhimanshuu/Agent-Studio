@@ -27,6 +27,8 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
+  Coins,
+  Sparkles,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { EmptyState } from "@/components/feedback/EmptyState";
@@ -34,6 +36,8 @@ import { Skeleton } from "@/components/feedback/Skeleton";
 import { ProviderStatus, ModelRosterItem } from "@/types/settings";
 import { usePixelThemeTransition } from "@/components/effects/PixelThemeTransition";
 import { SecretVault } from "@/components/vault/SecretVault";
+import { formatPricePerMillion, isModelFree } from "@/lib/utils/pricing";
+import { GroqOfficialLogo, OpenRouterOfficialLogo } from "@/components/common/BrandLogos";
 
 async function fetchProviderStatus(): Promise<ProviderStatus> {
   const res = await fetch("/api/settings/providers");
@@ -48,15 +52,21 @@ function ProviderModelPanel({
   modelCount,
   models,
   apiKeyEnvName,
+  providerType = "groq",
+  defaultOpen = true,
 }: {
   title: string;
   configured: boolean;
   modelCount: number;
   models: ModelRosterItem[];
   apiKeyEnvName: string;
+  providerType?: "groq" | "openrouter" | string;
+  defaultOpen?: boolean;
 }) {
+  const [isOpen, setIsOpen] = React.useState(defaultOpen);
   const [search, setSearch] = React.useState("");
   const [categoryFilter, setCategoryFilter] = React.useState<string>("all");
+  const [pricingFilter, setPricingFilter] = React.useState<"all" | "free" | "paid">("all");
   const [copiedModel, setCopiedModel] = React.useState<string | null>(null);
 
   const copyToClipboard = (text: string) => {
@@ -65,18 +75,29 @@ function ProviderModelPanel({
     setTimeout(() => setCopiedModel(null), 1500);
   };
 
+  const freeCount = React.useMemo(
+    () => models.filter((m) => isModelFree(m.model, m.inputPrice, m.outputPrice)).length,
+    [models]
+  );
+  const paidCount = models.length - freeCount;
+
   const filtered = React.useMemo(() => {
     const q = search.toLowerCase().trim();
     return models.filter((m) => {
+      const isFree = isModelFree(m.model, m.inputPrice, m.outputPrice);
+      if (pricingFilter === "free" && !isFree) return false;
+      if (pricingFilter === "paid" && isFree) return false;
       if (categoryFilter !== "all" && m.category !== categoryFilter) return false;
       if (!q) return true;
+      if (q === "free" && isFree) return true;
+      if (q === "paid" && !isFree) return true;
       return (
         m.label.toLowerCase().includes(q) ||
         m.model.toLowerCase().includes(q) ||
         (m.category && m.category.toLowerCase().includes(q))
       );
     });
-  }, [models, search, categoryFilter]);
+  }, [models, search, categoryFilter, pricingFilter]);
 
   const categories = React.useMemo(() => {
     const set = new Set<string>();
@@ -86,29 +107,71 @@ function ProviderModelPanel({
     return Array.from(set);
   }, [models]);
 
+  const isGroq = providerType === "groq";
+
   return (
     <div
       className={clsx(
-        "p-4 sm:p-5 rounded-xl border flex flex-col justify-between shadow-sm transition-all",
+        "rounded-xl border shadow-sm transition-all overflow-hidden",
         configured
-          ? "border-emerald-500/40 bg-emerald-50/30 dark:bg-[#0c0e18]/90"
+          ? "border-emerald-500/40 bg-emerald-50/20 dark:bg-[#0c0e18]/90"
           : "border-slate-200 dark:border-indigo-950/80 bg-slate-50/80 dark:bg-[#0a0a0f]/80"
       )}
     >
-      <div className="flex flex-col h-full space-y-3">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-200 dark:border-indigo-950">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono font-bold tracking-wider text-slate-900 dark:text-slate-100">
-              {title}
-            </span>
-            <span className="text-[10px] font-mono font-bold text-slate-500">
-              ({models.length} {models.length === 1 ? "MODEL" : "MODELS"})
-            </span>
+      {/* Dropdown Header Trigger */}
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={clsx(
+          "w-full px-4 sm:px-5 py-3.5 flex items-center justify-between gap-3 text-left transition-colors cursor-pointer select-none",
+          isOpen
+            ? "border-b border-slate-200 dark:border-indigo-950/80 bg-slate-100/60 dark:bg-black/40 hover:bg-slate-100 dark:hover:bg-black/60"
+            : "hover:bg-slate-100/80 dark:hover:bg-indigo-950/30"
+        )}
+      >
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          {/* Official Provider Logo */}
+          <div className="shrink-0 p-1 rounded-lg border border-slate-200 dark:border-indigo-900/60 bg-white dark:bg-black/80 shadow-xs flex items-center justify-center">
+            {isGroq ? (
+              <GroqOfficialLogo className="h-6 w-6" />
+            ) : (
+              <OpenRouterOfficialLogo className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+            )}
           </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-mono font-bold tracking-wider text-slate-900 dark:text-slate-100">
+                {title}
+              </span>
+              <span className="text-[10px] font-mono font-bold text-slate-500">
+                ({models.length} {models.length === 1 ? "MODEL" : "MODELS"})
+              </span>
+              <span
+                className={clsx(
+                  "text-[8.5px] font-mono px-1.5 py-0.2 rounded font-bold uppercase border",
+                  isGroq
+                    ? "border-orange-500/30 bg-orange-500/10 text-orange-600 dark:text-orange-400"
+                    : "border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
+                )}
+              >
+                {isGroq ? "FREE LPU TIER" : "LIVE PRICING CATALOG"}
+              </span>
+            </div>
+            <p className="text-[10px] font-mono text-slate-500 dark:text-slate-400 truncate mt-0.5">
+              {configured
+                ? isGroq
+                  ? `${models.length} ultra-fast models with sub-100ms inference on LPU hardware`
+                  : `${freeCount} Free models ($0) + ${paidCount} Pay-As-You-Go models with live OpenRouter pricing`
+                : `Requires ${apiKeyEnvName} configured in environment variables`}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
           <span
             className={clsx(
-              "text-[9px] font-mono px-2 py-0.5 rounded-full font-bold border",
+              "text-[9px] font-mono px-2 py-0.5 rounded-full font-bold border shrink-0",
               configured
                 ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-400 dark:border-emerald-700"
                 : "bg-slate-200 dark:bg-indigo-950/60 text-slate-700 dark:text-slate-400 border-slate-300 dark:border-indigo-900"
@@ -116,158 +179,240 @@ function ProviderModelPanel({
           >
             {configured ? "● ACTIVE" : "○ NOT CONFIGURED"}
           </span>
-        </div>
 
-        <p className="text-[11px] font-mono text-slate-600 dark:text-slate-400 font-medium">
-          {configured
-            ? `${modelCount} models active in failover roster with $0/token tier:`
-            : `Set ${apiKeyEnvName} in environment variables to activate:`}
-        </p>
-
-        {/* Search & Category Filter Bar */}
-        <div className="space-y-2">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={`Search ${models.length} models (e.g. reasoning, code, 256k)...`}
-              className="w-full pl-7 pr-6 py-1.5 text-[10px] rounded bg-white dark:bg-black/60 border border-slate-200 dark:border-indigo-950 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 font-mono transition-colors shadow-inner"
-            />
-            {search && (
-              <button
-                onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 text-xs font-bold"
-              >
-                ×
-              </button>
+          <div
+            className={clsx(
+              "p-1 rounded-md text-slate-400 dark:text-slate-400 transition-transform duration-200",
+              isOpen && "rotate-180 text-indigo-500 dark:text-indigo-400"
             )}
+          >
+            <ChevronDown className="h-4 w-4" />
           </div>
-
-          {/* Category Chips */}
-          {categories.length > 1 && (
-            <div className="flex flex-wrap gap-1">
-              <button
-                type="button"
-                onClick={() => setCategoryFilter("all")}
-                className={clsx(
-                  "px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase transition-colors cursor-pointer",
-                  categoryFilter === "all"
-                    ? "bg-indigo-600 text-white"
-                    : "bg-slate-200/80 dark:bg-black/40 text-slate-600 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-indigo-950"
-                )}
-              >
-                ALL ({models.length})
-              </button>
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => setCategoryFilter(cat)}
-                  className={clsx(
-                    "px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase transition-colors cursor-pointer",
-                    categoryFilter === cat
-                      ? "bg-indigo-600 text-white"
-                      : "bg-slate-200/80 dark:bg-black/40 text-slate-600 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-indigo-950"
-                  )}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
+      </button>
 
-        {/* Scrollable Model List Container with Clean Isolated Scroll */}
-        <div className="flex-1 min-h-0 h-[380px] max-h-[460px] overflow-y-auto space-y-2 pr-1 scrollbar-thin">
-          {filtered.map((item, idx) => {
-            const isCopied = copiedModel === item.model;
-            return (
-              <div
-                key={idx}
-                className="p-2.5 rounded-lg bg-white dark:bg-[#07080f] border border-slate-200 dark:border-indigo-950/80 hover:border-indigo-500/50 space-y-1.5 shadow-xs transition-all"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1 space-y-0.5">
-                    <div className="text-[11px] font-mono font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5 truncate">
-                      <span className="text-indigo-600 dark:text-indigo-400">▸</span>
-                      <span className="truncate">{item.label}</span>
-                    </div>
-                    <div className="text-[9px] font-mono text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                      <code className="text-indigo-600 dark:text-indigo-300 font-semibold truncate select-all">
-                        {item.model}
-                      </code>
-                      <button
-                        type="button"
-                        onClick={() => copyToClipboard(item.model)}
-                        title="Copy model ID"
-                        className="text-slate-400 hover:text-indigo-400 transition-colors p-0.5 cursor-pointer shrink-0"
-                      >
-                        {isCopied ? <Check className="h-2.5 w-2.5 text-emerald-400" /> : <Copy className="h-2.5 w-2.5" />}
-                      </button>
-                    </div>
-                  </div>
+      {/* Collapsible Dropdown Content Body */}
+      {isOpen ? (
+        <div className="p-4 sm:p-5 flex flex-col space-y-3 animate-fadeIn">
+          {/* Search & Category Filter Bar */}
+          <div className="space-y-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={`Search ${models.length} models by name, category, 'free', or 'paid'...`}
+                className="w-full pl-7 pr-6 py-1.5 text-[10px] rounded bg-white dark:bg-black/60 border border-slate-200 dark:border-indigo-950 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 font-mono transition-colors shadow-inner"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 text-xs font-bold"
+                >
+                  ×
+                </button>
+              )}
+            </div>
 
-                  {/* Category Pill */}
-                  {item.category && (
-                    <span
+            {/* Pricing Tabs & Category Filter Row */}
+            <div className="flex flex-wrap items-center justify-between gap-1.5 pt-0.5">
+              {paidCount > 0 && (
+                <div className="inline-flex rounded-md p-0.5 bg-slate-200/80 dark:bg-black/60 border border-slate-300/80 dark:border-indigo-950 text-[8px] font-mono font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setPricingFilter("all")}
+                    className={clsx(
+                      "px-2 py-0.5 rounded transition-all cursor-pointer",
+                      pricingFilter === "all"
+                        ? "bg-white dark:bg-indigo-600 text-slate-900 dark:text-white shadow-xs"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    )}
+                  >
+                    ALL ({models.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPricingFilter("free")}
+                    className={clsx(
+                      "px-2 py-0.5 rounded transition-all cursor-pointer flex items-center gap-1",
+                      pricingFilter === "free"
+                        ? "bg-emerald-600 text-white shadow-xs"
+                        : "text-slate-600 dark:text-slate-400 hover:text-emerald-500"
+                    )}
+                  >
+                    <Sparkles className="h-2 w-2" />
+                    FREE ({freeCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPricingFilter("paid")}
+                    className={clsx(
+                      "px-2 py-0.5 rounded transition-all cursor-pointer flex items-center gap-1",
+                      pricingFilter === "paid"
+                        ? "bg-indigo-600 text-white shadow-xs"
+                        : "text-slate-600 dark:text-slate-400 hover:text-indigo-400"
+                    )}
+                  >
+                    <Coins className="h-2 w-2" />
+                    PAID ({paidCount})
+                  </button>
+                </div>
+              )}
+
+              {/* Category Chips */}
+              {categories.length > 1 && (
+                <div className="flex flex-wrap gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setCategoryFilter("all")}
+                    className={clsx(
+                      "px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase transition-colors cursor-pointer",
+                      categoryFilter === "all"
+                        ? "bg-indigo-600 text-white"
+                        : "bg-slate-200/80 dark:bg-black/40 text-slate-600 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-indigo-950"
+                    )}
+                  >
+                    {paidCount > 0 ? "ALL CATS" : `ALL (${models.length})`}
+                  </button>
+                  {categories.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setCategoryFilter(cat)}
                       className={clsx(
-                        "px-1.5 py-0.5 rounded text-[7.5px] font-bold uppercase tracking-wider shrink-0 border",
-                        item.category === "code"
-                          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                          : item.category === "reasoning"
-                          ? "border-purple-500/40 bg-purple-500/10 text-purple-400"
-                          : item.category === "vision"
-                          ? "border-sky-500/40 bg-sky-500/10 text-sky-400"
-                          : item.category === "audio"
-                          ? "border-pink-500/40 bg-pink-500/10 text-pink-400"
-                          : item.category === "safety"
-                          ? "border-amber-500/40 bg-amber-500/10 text-amber-400"
-                          : item.category === "embedding"
-                          ? "border-teal-500/40 bg-teal-500/10 text-teal-400"
-                          : "border-indigo-500/40 bg-indigo-500/10 text-indigo-400"
+                        "px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase transition-colors cursor-pointer",
+                        categoryFilter === cat
+                          ? "bg-indigo-600 text-white"
+                          : "bg-slate-200/80 dark:bg-black/40 text-slate-600 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-indigo-950"
                       )}
                     >
-                      {item.category}
-                    </span>
-                  )}
+                      {cat}
+                    </button>
+                  ))}
                 </div>
-
-                {/* Specs & Performance Pill Strip */}
-                <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-indigo-950/50 text-[8px] font-mono text-slate-500 dark:text-slate-400">
-                  {item.contextLength && (
-                    <span className="px-1 py-0.2 rounded bg-slate-100 dark:bg-black/50 border border-slate-200 dark:border-indigo-950">
-                      {(item.contextLength / 1000).toFixed(0)}k ctx
-                    </span>
-                  )}
-                  {item.throughput && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-black/50 border border-slate-200 dark:border-indigo-950 text-emerald-600 dark:text-emerald-400 font-bold">
-                      <Zap className="h-2.5 w-2.5" />
-                      {item.throughput}
-                    </span>
-                  )}
-                  {item.latency && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-black/50 border border-slate-200 dark:border-indigo-950">
-                      <Clock className="h-2.5 w-2.5" />
-                      {item.latency}
-                    </span>
-                  )}
-                  <span className="px-1 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-bold ml-auto">
-                    $0 / FREE
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-
-          {filtered.length === 0 && (
-            <div className="text-center py-8 text-[10px] text-slate-500 font-mono">
-              No models match &ldquo;{search}&rdquo;
+              )}
             </div>
-          )}
+          </div>
+
+          {/* Scrollable Model List Container */}
+          <div className="flex-1 min-h-0 h-[380px] max-h-[460px] overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+            {filtered.map((item, idx) => {
+              const isCopied = copiedModel === item.model;
+              const isFree = isModelFree(item.model, item.inputPrice, item.outputPrice);
+              const promptFormatted = formatPricePerMillion(item.inputPrice);
+              const completionFormatted = formatPricePerMillion(item.outputPrice);
+
+              return (
+                <div
+                  key={idx}
+                  className="p-2.5 rounded-lg bg-white dark:bg-[#07080f] border border-slate-200 dark:border-indigo-950/80 hover:border-indigo-500/50 space-y-1.5 shadow-xs transition-all"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <div className="text-[11px] font-mono font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5 truncate">
+                        <span className="text-indigo-600 dark:text-indigo-400">▸</span>
+                        <span className="truncate">{item.label}</span>
+                      </div>
+                      <div className="text-[9px] font-mono text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                        <code className="text-indigo-600 dark:text-indigo-300 font-semibold truncate select-all">
+                          {item.model}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(item.model)}
+                          title="Copy model ID"
+                          className="text-slate-400 hover:text-indigo-400 transition-colors p-0.5 cursor-pointer shrink-0"
+                        >
+                          {isCopied ? <Check className="h-2.5 w-2.5 text-emerald-400" /> : <Copy className="h-2.5 w-2.5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Category Pill */}
+                    {item.category && (
+                      <span
+                        className={clsx(
+                          "px-1.5 py-0.5 rounded text-[7.5px] font-bold uppercase tracking-wider shrink-0 border",
+                          item.category === "code"
+                            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                            : item.category === "reasoning"
+                            ? "border-purple-500/40 bg-purple-500/10 text-purple-400"
+                            : item.category === "vision"
+                            ? "border-sky-500/40 bg-sky-500/10 text-sky-400"
+                            : item.category === "audio"
+                            ? "border-pink-500/40 bg-pink-500/10 text-pink-400"
+                            : item.category === "safety"
+                            ? "border-amber-500/40 bg-amber-500/10 text-amber-400"
+                            : item.category === "embedding"
+                            ? "border-teal-500/40 bg-teal-500/10 text-teal-400"
+                            : "border-indigo-500/40 bg-indigo-500/10 text-indigo-400"
+                        )}
+                      >
+                        {item.category}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Specs & Performance & Pricing Strip */}
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-indigo-950/50 text-[8px] font-mono text-slate-500 dark:text-slate-400">
+                    {item.contextLength && (
+                      <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-black/50 border border-slate-200 dark:border-indigo-950">
+                        {(item.contextLength / 1000).toFixed(0)}k ctx
+                      </span>
+                    )}
+                    {item.throughput && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-black/50 border border-slate-200 dark:border-indigo-950 text-emerald-600 dark:text-emerald-400 font-bold">
+                        <Zap className="h-2.5 w-2.5" />
+                        {item.throughput}
+                      </span>
+                    )}
+                    {item.latency && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-black/50 border border-slate-200 dark:border-indigo-950">
+                        <Clock className="h-2.5 w-2.5" />
+                        {item.latency}
+                      </span>
+                    )}
+
+                    {/* Live Pricing Tag */}
+                    {isFree ? (
+                      <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-bold ml-auto flex items-center gap-1">
+                        <Sparkles className="h-2.5 w-2.5 text-emerald-500" />
+                        $0 FREE TIER
+                      </span>
+                    ) : (
+                      <span
+                        title={`Input: ${promptFormatted}/M tokens\nOutput: ${completionFormatted}/M tokens\nLive pricing from OpenRouter API`}
+                        className="px-1.5 py-0.5 rounded bg-indigo-500/10 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 font-bold ml-auto flex items-center gap-1 cursor-help hover:border-indigo-400 transition-colors"
+                      >
+                        <Coins className="h-2.5 w-2.5 text-indigo-500 dark:text-indigo-400 shrink-0" />
+                        <span className="text-slate-900 dark:text-slate-100 font-bold">{promptFormatted}/M in</span>
+                        <span className="text-indigo-400 dark:text-indigo-600 font-normal">•</span>
+                        <span className="text-slate-900 dark:text-slate-100 font-bold">{completionFormatted}/M out</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {filtered.length === 0 && (
+              <div className="text-center py-8 text-[10px] text-slate-500 font-mono">
+                No models match &ldquo;{search}&rdquo;
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div
+          onClick={() => setIsOpen(true)}
+          className="px-5 py-2.5 bg-slate-50/50 dark:bg-black/20 text-[10px] font-mono text-slate-500 dark:text-slate-400 flex items-center justify-between cursor-pointer hover:bg-slate-100/60 dark:hover:bg-indigo-950/20 transition-colors"
+        >
+          <span>▸ Click dropdown header to expand and search {models.length} models</span>
+          <span className="text-indigo-600 dark:text-indigo-400 font-semibold text-[9px]">EXPAND ▾</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -275,42 +420,59 @@ function ProviderModelPanel({
 function ProviderCard({ status }: { status: ProviderStatus }) {
   const groqList = (status.groqConfigured ? status.roster.groq : status.availableModels?.groq || []) as ModelRosterItem[];
   const openRouterList = (status.openRouterConfigured ? status.roster.openRouter : status.availableModels?.openRouter || []) as ModelRosterItem[];
+  const [expandAll, setExpandAll] = React.useState(true);
 
   return (
     <div className="p-6 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-5 shadow-sm">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-200 flex items-center gap-2 font-mono">
           <Cpu className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-          AI PROVIDER STATUS & FREE MODEL ROSTER
+          AI PROVIDER STATUS & MODEL ROSTERS
         </h3>
-        <span
-          className={`text-[10px] font-mono px-2 py-1 rounded border font-semibold ${
-            status.runtimeReady
-              ? "border-emerald-400 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300"
-              : "border-amber-400 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300"
-          }`}
-        >
-          {status.runtimeReady ? "● SYSTEM HEALTHY" : "▲ DEGRADED"}
-        </span>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setExpandAll(!expandAll)}
+            className="text-[10px] font-mono px-2.5 py-1 rounded border border-slate-200 dark:border-indigo-950 bg-slate-100/70 dark:bg-black/60 text-slate-600 dark:text-slate-300 hover:border-indigo-400 dark:hover:border-indigo-600 transition-all cursor-pointer font-semibold flex items-center gap-1"
+          >
+            {expandAll ? "COLLAPSE PANELS" : "EXPAND PANELS"}
+          </button>
+          <span
+            className={`text-[10px] font-mono px-2.5 py-1 rounded border font-semibold ${
+              status.runtimeReady
+                ? "border-emerald-400 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300"
+                : "border-amber-400 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300"
+            }`}
+          >
+            {status.runtimeReady ? "● SYSTEM HEALTHY" : "▲ DEGRADED"}
+          </span>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Groq Panel */}
         <ProviderModelPanel
+          key={`groq-${expandAll}`}
           title="GROQ PROVIDER"
           configured={status.groqConfigured}
           modelCount={status.groqModels}
           models={groqList}
           apiKeyEnvName="GROQ_API_KEY"
+          providerType="groq"
+          defaultOpen={expandAll}
         />
 
         {/* OpenRouter Panel */}
         <ProviderModelPanel
+          key={`openrouter-${expandAll}`}
           title="OPENROUTER PROVIDER"
           configured={status.openRouterConfigured}
           modelCount={status.openRouterModels}
           models={openRouterList}
           apiKeyEnvName="OPENROUTER_API_KEY"
+          providerType="openrouter"
+          defaultOpen={expandAll}
         />
       </div>
     </div>

@@ -30,6 +30,7 @@ export const aiExtractionOutputSchema: Record<string, unknown> = {
     confidenceScore: { type: "number", description: "Confidence score between 0 and 1" },
     sourceDocument: { type: "string" },
     extractedFieldCount: { type: "number" },
+    method: { type: "string", description: "'llm' when the LLM extractor was used, 'regex_heuristic_fallback' if the LLM call failed" },
   },
   required: ["extractedData", "confidenceScore", "extractedFieldCount"],
 };

@@ -129,15 +129,24 @@ export class PgVectorStore {
     }
 
     try {
-      const execPromise = prisma.$executeRawUnsafe(`CREATE EXTENSION IF NOT EXISTS vector;`);
+      const setupPromise = (async () => {
+        await prisma.$executeRawUnsafe(`CREATE EXTENSION IF NOT EXISTS vector;`);
+        await prisma.$executeRawUnsafe(
+          `ALTER TABLE "document_chunks" ADD COLUMN IF NOT EXISTS embedding_vector vector(${this.config.dimensions});`
+        );
+        await prisma.$executeRawUnsafe(
+          `CREATE INDEX IF NOT EXISTS document_chunks_embedding_vector_idx ON "document_chunks" USING ivfflat (embedding_vector vector_cosine_ops) WITH (lists = 100);`
+        );
+      })();
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Database connection timeout")), 800)
+        setTimeout(() => reject(new Error("Database connection timeout")), 3000)
       );
-      await Promise.race([execPromise, timeoutPromise]);
+      await Promise.race([setupPromise, timeoutPromise]);
       this.hasNativePgVector = true;
-      logger.info("PostgreSQL pgvector extension verified and ready");
-    } catch {
+      logger.info("PostgreSQL pgvector extension verified — native vector column + IVFFlat index active");
+    } catch (err) {
       this.hasNativePgVector = false;
+      logger.warn({ err }, "pgvector extension unavailable — using JS cosine-similarity fallback");
     }
 
     this.isPgVectorExtensionChecked = true;
@@ -241,9 +250,30 @@ export class PgVectorStore {
         },
       },
       include: {
-        chunks: { select: { id: true } },
+        chunks: { select: { id: true, chunkIndex: true } },
       },
     });
+
+    // Dual-write into the native pgvector column (best-effort) so native <=> queries
+    // can serve this document immediately. Falls back silently to the Float[] column
+    // (already written above) if the extension is unavailable or dimensions mismatch.
+    if (this.hasNativePgVector) {
+      const chunkIndexToId = new Map(createdDoc.chunks.map((c) => [c.chunkIndex, c.id]));
+      for (let i = 0; i < chunks.length; i++) {
+        const chunkId = chunkIndexToId.get(chunks[i].index);
+        const vector = embeddingResults[i]?.vector;
+        if (!chunkId || !vector || vector.length !== this.config.dimensions) continue;
+        try {
+          await prisma.$executeRawUnsafe(
+            `UPDATE "document_chunks" SET embedding_vector = $1::vector WHERE id = $2`,
+            `[${vector.join(",")}]`,
+            chunkId
+          );
+        } catch (err) {
+          logger.warn({ err, chunkId }, "Failed to write native pgvector column for chunk");
+        }
+      }
+    }
 
     logger.info(
       {
@@ -294,21 +324,117 @@ export class PgVectorStore {
       dimensions: this.config.dimensions,
     });
 
-    // Query vectors from PostgreSQL
-    const results = await this.searchVectorFallback(
-      queryEmbedding,
-      limit,
-      minScore,
-      collection,
-      userId,
-      metadataFilter
-    );
+    // Prefer a native pgvector <=> query; fall back to in-process cosine similarity
+    // only when the extension/column is unavailable or the native query errors.
+    let results: SemanticSearchResult[] | null = null;
+    if (this.hasNativePgVector) {
+      results = await this.searchVectorNative(queryEmbedding, limit, minScore, collection, userId, metadataFilter);
+    }
+    if (!results) {
+      results = await this.searchVectorFallback(queryEmbedding, limit, minScore, collection, userId, metadataFilter);
+    }
 
     if (expandToParent) {
       return this.expandResultsToParent(results);
     }
 
     return results;
+  }
+
+  /**
+   * Native pgvector cosine-distance search using the `<=>` operator against the
+   * `embedding_vector` column. Returns null (not an empty array) on any failure so
+   * callers can distinguish "no native results" from "native query unavailable".
+   */
+  private async searchVectorNative(
+    queryEmbedding: EmbeddingResult,
+    limit: number,
+    minScore: number,
+    collection?: string,
+    userId?: string,
+    metadataFilter?: Record<string, unknown>
+  ): Promise<SemanticSearchResult[] | null> {
+    try {
+      const vectorLiteral = `[${queryEmbedding.vector.join(",")}]`;
+      const conditions: string[] = [`dc."embedding_vector" IS NOT NULL`];
+      const params: unknown[] = [vectorLiteral];
+      let idx = 2;
+
+      if (collection) {
+        conditions.push(`d."collection" = $${idx++}`);
+        params.push(collection);
+      }
+      if (userId) {
+        conditions.push(`d."userId" = $${idx++}`);
+        params.push(userId);
+      }
+
+      // Over-fetch so post-filtering (minScore, metadataFilter) still yields `limit` results.
+      const fetchLimit = Math.max(limit * 4, 50);
+      params.push(fetchLimit);
+      const limitIdx = idx;
+
+      const rows = await prisma.$queryRawUnsafe<
+        Array<{
+          id: string;
+          documentId: string;
+          chunkIndex: number;
+          content: string;
+          metadata: unknown;
+          tokenCount: number | null;
+          title: string;
+          collection: string;
+          distance: number;
+        }>
+      >(
+        `SELECT dc.id, dc."documentId", dc."chunkIndex", dc.content, dc.metadata, dc."tokenCount",
+                d.title, d.collection, (dc."embedding_vector" <=> $1::vector) as distance
+         FROM "document_chunks" dc
+         JOIN "documents" d ON d.id = dc."documentId"
+         WHERE ${conditions.join(" AND ")}
+         ORDER BY dc."embedding_vector" <=> $1::vector
+         LIMIT $${limitIdx}`,
+        ...params
+      );
+
+      const results: SemanticSearchResult[] = [];
+      for (const row of rows) {
+        const score = 1 - row.distance;
+        if (score < minScore) continue;
+
+        if (metadataFilter) {
+          const meta = (row.metadata as Record<string, unknown>) || {};
+          let matches = true;
+          for (const [k, v] of Object.entries(metadataFilter)) {
+            if (meta[k] !== v) {
+              matches = false;
+              break;
+            }
+          }
+          if (!matches) continue;
+        }
+
+        results.push({
+          id: row.id,
+          documentId: row.documentId,
+          chunkIndex: row.chunkIndex,
+          content: row.content,
+          score: Math.round(score * 10000) / 10000,
+          title: row.title,
+          collection: row.collection,
+          metadata: (row.metadata as Record<string, unknown>) || {},
+          tokenCount: row.tokenCount || undefined,
+          searchType: "dense",
+        });
+
+        if (results.length >= limit) break;
+      }
+
+      return results;
+    } catch (err) {
+      logger.warn({ err }, "Native pgvector query failed — falling back to JS cosine similarity");
+      return null;
+    }
   }
 
   /**

@@ -1,10 +1,11 @@
 /**
- * Cross-Encoder Semantic Re-Ranker & HyDE (Hypothetical Document Embeddings) Engine.
+ * Multi-Signal Re-Ranker & HyDE (Hypothetical Document Embeddings) Engine.
  *
  * Capabilities:
- * - Two-stage RAG retrieval re-ranking (cross-entropy scoring across query-document pairs)
- * - Hypothetical Document Embeddings (HyDE) query expansion
- * - Contextual compression and redundant chunk de-duplication
+ * - Two-stage RAG retrieval re-ranking: fuses the original vector score with lexical
+ *   term-coverage, exact-phrase, and length signals (not a trained cross-encoder model —
+ *   there is no ML scoring pass here, just a deterministic weighted blend of those signals)
+ * - Hypothetical Document Embeddings (HyDE) query expansion via a real LLM call
  */
 
 import { SemanticSearchResult } from "./pgvectorStore";
@@ -26,9 +27,9 @@ export interface ReRankedResult extends SemanticSearchResult {
 }
 
 /**
- * Cross-Encoder Semantic Re-ranking:
- * Scores and re-orders candidate chunks based on full query-document semantic relevance,
- * token co-occurrence density, and structural section proximity.
+ * Multi-signal re-ranking:
+ * Scores and re-orders candidate chunks by blending the original vector score with
+ * term co-occurrence density and structural section proximity.
  */
 export async function rerankCandidates(
   query: string,

@@ -217,9 +217,32 @@ export default function A2APage() {
       await new Promise((r) => setTimeout(r, 600));
     }
 
-    setDebateConsensus(
-      `Synthesized Consensus: Standardize on PostgreSQL with pgvector for unified transactional storage, while implementing modular adapter interfaces so high-scale specialized workloads can route to dedicated vector clusters if throughput demands exceed 100k queries/sec.`
-    );
+    // Synthesize the consensus from the actual transcript via a real LLM call —
+    // previously this was a hardcoded string returned regardless of what was said.
+    try {
+      const transcript = messages.map((m) => `${m.sender} (${m.role}): ${m.content}`).join("\n");
+      const res = await fetch("/api/a2a/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sender: "Consensus Synthesizer",
+          role: "moderator",
+          turn: debateRounds + 1,
+          content: `Debate topic: "${debateTopic}"\n\nFull transcript:\n${transcript || "(no agent responses were recorded)"}\n\nSynthesize one concrete consensus recommendation that reconciles the strongest points raised by each participant above. Respond with only the consensus paragraph, no preamble.`,
+        }),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        setDebateConsensus(json.reply);
+      } else {
+        setDebateConsensus("Consensus synthesis failed (LLM call errored) — review the transcript above manually.");
+      }
+    } catch (err) {
+      setDebateConsensus(
+        `Consensus synthesis failed (${err instanceof Error ? err.message : "network error"}) — review the transcript above manually.`
+      );
+    }
     setIsDebating(false);
   };
 

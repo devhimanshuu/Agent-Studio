@@ -12,6 +12,7 @@
 import { PgVectorStore, pgVectorStore, IngestDocumentInput, SemanticSearchResult, SemanticSearchOptions } from "./pgvectorStore";
 import { ChunkingOptions } from "./chunkingService";
 import { getLLMProvider } from "@/providers/llm";
+import { rerankCandidates } from "./reranker";
 
 export interface RAGPipelineConfig {
   /** Maximum context tokens for LLM grounding (default: 4000) */
@@ -58,6 +59,12 @@ export interface RetrieveOptions {
   minScore?: number;
   /** Metadata key-value filters */
   metadataFilter?: Record<string, unknown>;
+  /** Use Hybrid Search (dense pgvector + sparse full-text, fused via RRF) instead of dense-only */
+  useHybridSearch?: boolean;
+  /** Expand each retrieved chunk to its parent document section ("Small-to-Big") */
+  expandToParent?: boolean;
+  /** Apply the multi-signal re-ranker to the candidate pool before truncating to `limit` */
+  useReranking?: boolean;
 }
 
 export interface RAGResult {
@@ -151,15 +158,35 @@ export class RAGPipeline {
       limit = this.config.retrievalLimit,
       minScore = this.config.minScore,
       metadataFilter,
+      useHybridSearch = false,
+      expandToParent = false,
+      useReranking = false,
     } = options;
 
-    const searchResults = await this.vectorStore.search(query, {
-      limit,
-      minScore,
-      collection,
-      userId,
-      metadataFilter,
-    });
+    // Over-fetch when re-ranking so the reranker has a real candidate pool to reorder.
+    const fetchLimit = useReranking ? Math.max(limit * 3, limit + 10) : limit;
+
+    const candidates = useHybridSearch
+      ? await this.vectorStore.hybridSearch(query, {
+          limit: fetchLimit,
+          minScore,
+          collection,
+          userId,
+          metadataFilter,
+          expandToParent,
+        })
+      : await this.vectorStore.search(query, {
+          limit: fetchLimit,
+          minScore,
+          collection,
+          userId,
+          metadataFilter,
+          expandToParent,
+        });
+
+    const searchResults: SemanticSearchResult[] = useReranking
+      ? (await rerankCandidates(query, candidates, { topN: limit })).map((r) => ({ ...r, score: r.rerankScore }))
+      : candidates.slice(0, limit);
 
     const formattedContext = this.formatContext(searchResults);
 

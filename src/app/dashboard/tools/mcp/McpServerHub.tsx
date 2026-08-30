@@ -2127,6 +2127,49 @@ function ProgressTab({ server }: { server: McpServerDTO }) {
 
 /* ────────────── Connect Modal ────────────── */
 
+/**
+ * Builds the exact header/env entry a server needs from the raw token the user typed.
+ *
+ * STDIO presets encode which single env var the underlying package expects in their
+ * header template, e.g. `{ Authorization: "Bearer ${NOTION_API_KEY}" }` means "set
+ * NOTION_API_KEY". We key the outgoing header by that variable name directly (STDIO
+ * headers are injected as process env vars — see connection.ts) instead of always
+ * sending "Authorization", which previously forced the backend to guess the real
+ * target by fanning one token out into half a dozen unrelated provider env vars.
+ * SSE/HTTP presets keep the real wire header name/format since those are genuine
+ * HTTP headers, not env vars.
+ */
+function buildAuthHeaders(
+  rawToken: string,
+  transport: "SSE" | "STDIO",
+  preset: McpPreset | null
+): Record<string, string> | undefined {
+  if (!rawToken) return undefined;
+
+  const templateEntry = preset?.headers ? Object.entries(preset.headers)[0] : undefined;
+  if (!templateEntry) {
+    // No preset metadata (custom/manual server) — send a conventional Authorization
+    // header. connection.ts maps this to a small set of generic env var names only,
+    // never to a specific third-party provider's secret name.
+    return { Authorization: rawToken.startsWith("Bearer ") ? rawToken : `Bearer ${rawToken}` };
+  }
+
+  const [headerKey, template] = templateEntry;
+  const varMatch = template.match(/\$\{([A-Z0-9_]+)\}/);
+
+  if (transport === "STDIO") {
+    const varName = varMatch?.[1] ?? headerKey;
+    return { [varName]: rawToken };
+  }
+
+  // SSE/HTTP: reproduce the template's literal header format (e.g. "Bearer <token>"
+  // vs a bare API key) under the preset's real header name.
+  if (varMatch) {
+    return { [headerKey]: template.replace(varMatch[0], rawToken) };
+  }
+  return { [headerKey]: rawToken };
+}
+
 function ConnectModal({
   initialPreset,
   presets,
@@ -2168,9 +2211,7 @@ function ConnectModal({
     setSubmitting(true);
     setError(null);
     try {
-      const headers: Record<string, string> | undefined = authToken.trim()
-        ? { Authorization: authToken.trim().startsWith("Bearer ") ? authToken.trim() : `Bearer ${authToken.trim()}` }
-        : undefined;
+      const headers = buildAuthHeaders(authToken.trim(), transport, activePreset);
       const body =
         transport === "SSE"
           ? { name: name.trim(), transport, endpointUrl: endpointUrl.trim(), headers, connectOnCreate: true }

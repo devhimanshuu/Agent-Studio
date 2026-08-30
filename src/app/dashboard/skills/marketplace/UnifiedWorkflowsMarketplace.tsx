@@ -33,7 +33,7 @@ export type WorkflowProvider = "all" | "n8n" | "dify" | "studio";
 const PROVIDERS: Array<{
   id: WorkflowProvider;
   name: string;
-  count: string;
+  statsKey: "total" | "n8n" | "dify" | "studio";
   icon: any;
   colorClass: string;
   activeClass: string;
@@ -42,7 +42,7 @@ const PROVIDERS: Array<{
   {
     id: "all",
     name: "ALL PROVIDERS",
-    count: "11.9K+",
+    statsKey: "total",
     icon: Layers,
     colorClass: "text-slate-300",
     activeClass: "bg-slate-800 text-white border-slate-700 shadow-sm",
@@ -51,7 +51,7 @@ const PROVIDERS: Array<{
   {
     id: "n8n",
     name: "N8N WORKFLOWS",
-    count: "11.6K+",
+    statsKey: "n8n",
     icon: N8nOfficialLogo,
     colorClass: "text-rose-400",
     activeClass: "bg-rose-600 text-white border-rose-500 shadow-sm shadow-rose-500/30",
@@ -60,7 +60,7 @@ const PROVIDERS: Array<{
   {
     id: "dify",
     name: "DIFY.AI WORKFLOWS",
-    count: "290+",
+    statsKey: "dify",
     icon: DifyOfficialLogo,
     colorClass: "text-blue-400",
     activeClass: "bg-blue-600 text-white border-blue-500 shadow-sm shadow-blue-500/30",
@@ -69,13 +69,20 @@ const PROVIDERS: Array<{
   {
     id: "studio",
     name: "STUDIO BLUEPRINTS",
-    count: "24+",
+    statsKey: "studio",
     icon: Zap,
     colorClass: "text-indigo-400",
     activeClass: "bg-indigo-600 text-white border-indigo-500 shadow-sm shadow-indigo-500/30",
     pillClass: "border-indigo-500/40 bg-indigo-500/10 text-indigo-300",
   },
 ];
+
+/** Formats a live-fetched count for the provider tab pills (e.g. 11950 -> "12.0K+"). */
+function formatProviderCount(n: number): string {
+  if (n <= 0) return "—";
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}K+`;
+  return `${n}+`;
+}
 
 const UNIFIED_CATEGORIES = [
   { id: "ALL", label: "ALL CATEGORIES" },
@@ -126,7 +133,7 @@ export function UnifiedWorkflowsMarketplace() {
   const [detailWorkflow, setDetailWorkflow] = useState<any | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [stats, setStats] = useState({ total: 11950, n8n: 11620, dify: 292, studio: 24 });
+  const [stats, setStats] = useState({ total: 0, n8n: 0, dify: 0, studio: 0 });
   const gridRef = useRef<HTMLDivElement>(null);
 
   // In-memory page cache for instant pagination & prefetching
@@ -339,7 +346,7 @@ export function UnifiedWorkflowsMarketplace() {
                     : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
                 )}
               >
-                {p.count}
+                {formatProviderCount(stats[p.statsKey])}
               </span>
             </button>
           );
@@ -354,7 +361,7 @@ export function UnifiedWorkflowsMarketplace() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
             <input
               type="text"
-              placeholder={`Search ${activeProvider === "all" ? "11.9K+ workflows" : activeProvider.toUpperCase()} (e.g. RAG, Slack, OpenAI, Stripe, Scraper)...`}
+              placeholder={`Search ${activeProvider === "all" ? `${formatProviderCount(stats.total)} workflows` : activeProvider.toUpperCase()} (e.g. RAG, Slack, OpenAI, Stripe, Scraper)...`}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-8 py-2 rounded border border-slate-300 dark:border-indigo-950/80 bg-white/90 dark:bg-[#0c0d12]/90 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all shadow-inner"

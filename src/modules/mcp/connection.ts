@@ -239,18 +239,18 @@ export class McpConnection implements McpRpcClient {
       for (const [key, value] of Object.entries(this.server.headers)) {
         if (typeof value === "string" && value.trim()) {
           const val = value.trim();
+          // Preset-originated headers are already keyed by the exact env var name
+          // the target package expects (e.g. "NOTION_API_KEY") — see
+          // McpServerHub.tsx's buildAuthHeaders. Only a generic "Authorization"
+          // header (custom/manual servers with no preset metadata) needs a
+          // fallback, and only to genuinely provider-agnostic names — never
+          // guessed into a specific third-party provider's secret env var.
           env[key] = val;
           if (key.toLowerCase() === "authorization") {
             const token = val.replace(/^bearer\s+/i, "");
             env["AUTH_TOKEN"] = token;
             env["BEARER_TOKEN"] = token;
             env["API_KEY"] = token;
-            env["GITHUB_PERSONAL_ACCESS_TOKEN"] = token;
-            env["GITHUB_TOKEN"] = token;
-            env["BRAVE_API_KEY"] = token;
-            env["OPENAI_API_KEY"] = token;
-            env["SUPABASE_API_KEY"] = token;
-            env["STRIPE_SECRET_KEY"] = token;
           }
         }
       }
