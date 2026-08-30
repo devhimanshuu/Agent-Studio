@@ -12,6 +12,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { ensureUserExists } from "@/lib/user";
 import { AgentGraphDefinition } from "@/types/graph";
+import { ApprovalPolicy } from "@/types/approval";
 
 export class SkillRepository implements ISkillRepository {
   async findById(id: string): Promise<SkillDTO | null> {
@@ -95,6 +96,7 @@ export class SkillRepository implements ISkillRepository {
                 examples: (input.examples ?? []) as unknown as Prisma.InputJsonValue,
                 allowedTools: (input.allowedTools ?? []) as unknown as Prisma.InputJsonValue,
                 actionsRequiringApproval: (input.actionsRequiringApproval ?? []) as unknown as Prisma.InputJsonValue,
+                approvalPolicy: (input.approvalPolicy ?? Prisma.DbNull) as unknown as Prisma.InputJsonValue,
                 maxExecutionSteps: input.maxExecutionSteps ?? 10,
                 graphDefinition: (input.graphDefinition ?? Prisma.DbNull) as unknown as Prisma.InputJsonValue,
                 notes: input.notes ?? null,
@@ -161,6 +163,7 @@ export class SkillRepository implements ISkillRepository {
               examples: (latest?.examples ?? []) as unknown as Prisma.InputJsonValue,
               allowedTools: (latest?.allowedTools ?? []) as unknown as Prisma.InputJsonValue,
               actionsRequiringApproval: (latest?.actionsRequiringApproval ?? []) as unknown as Prisma.InputJsonValue,
+              approvalPolicy: (latest?.approvalPolicy ?? Prisma.DbNull) as unknown as Prisma.InputJsonValue,
               maxExecutionSteps: latest?.maxExecutionSteps ?? 10,
               graphDefinition: (latest?.graphDefinition ?? Prisma.DbNull) as unknown as Prisma.InputJsonValue,
               notes: latest?.notes ?? null,
@@ -183,6 +186,11 @@ export class SkillRepository implements ISkillRepository {
             ...(input.allowedTools && { allowedTools: input.allowedTools as unknown as Prisma.InputJsonValue }),
             ...(input.actionsRequiringApproval && {
               actionsRequiringApproval: input.actionsRequiringApproval as unknown as Prisma.InputJsonValue,
+            }),
+            // approvalPolicy supports explicit null (clear the override, fall back
+            // to DEFAULT_APPROVAL_POLICY) unlike other fields which only update when truthy.
+            ...(input.approvalPolicy !== undefined && {
+              approvalPolicy: (input.approvalPolicy ?? Prisma.DbNull) as unknown as Prisma.InputJsonValue,
             }),
             ...(input.maxExecutionSteps !== undefined && { maxExecutionSteps: input.maxExecutionSteps }),
             // graphDefinition supports explicit null (clear the graph) unlike
@@ -238,6 +246,7 @@ export class SkillRepository implements ISkillRepository {
                 examples: (source?.examples ?? []) as unknown as Prisma.InputJsonValue,
                 allowedTools: (source?.allowedTools ?? []) as unknown as Prisma.InputJsonValue,
                 actionsRequiringApproval: (source?.actionsRequiringApproval ?? []) as unknown as Prisma.InputJsonValue,
+                approvalPolicy: (source?.approvalPolicy ?? Prisma.DbNull) as unknown as Prisma.InputJsonValue,
                 maxExecutionSteps: source?.maxExecutionSteps ?? 10,
                 graphDefinition: (source?.graphDefinition ?? Prisma.DbNull) as unknown as Prisma.InputJsonValue,
                 notes: source?.notes ?? null,
@@ -368,6 +377,7 @@ export class SkillRepository implements ISkillRepository {
       examples: v.examples as unknown as SkillExampleDTO[],
       allowedTools: v.allowedTools as string[],
       actionsRequiringApproval: v.actionsRequiringApproval as string[],
+      approvalPolicy: (v.approvalPolicy as unknown as ApprovalPolicy | null) ?? null,
       maxExecutionSteps: v.maxExecutionSteps,
       graphDefinition: (v.graphDefinition as AgentGraphDefinition | null) ?? null,
       changelog: v.changelog,

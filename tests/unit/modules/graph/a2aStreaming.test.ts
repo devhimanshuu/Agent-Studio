@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { GraphInterpreter } from "@/modules/graph/graphInterpreter";
 import { AgentGraphDefinition } from "@/types/graph";
 import { SkillDTO, SkillVersionDTO } from "@/types/skill";
@@ -51,6 +51,10 @@ function makeVersion(): SkillVersionDTO {
 }
 
 describe("A2A Protocol & Token Streaming in Graph Interpreter", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("streams LLM token chunks and emits node:token_chunk events", async () => {
     const executionRepo = new FakeExecutionRepo();
     const approvalRepo = new FakeApprovalRepo();
@@ -105,6 +109,18 @@ describe("A2A Protocol & Token Streaming in Graph Interpreter", () => {
   });
 
   it("executes A2A Delegate node and emits a2a:task:delegated lifecycle events", async () => {
+    // delegateA2ATask now surfaces real network failures instead of fabricating a
+    // successful result, so this test mocks a reachable remote agent explicitly.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ result: { output: "Deep research complete." } }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        })
+      )
+    );
+
     const executionRepo = new FakeExecutionRepo();
     const approvalRepo = new FakeApprovalRepo();
     const logRepo = new FakeLogRepo();
@@ -128,8 +144,8 @@ describe("A2A Protocol & Token Streaming in Graph Interpreter", () => {
           type: "a2a_delegate",
           position: { x: 100, y: 0 },
           data: {
-            label: "REMOTE GEMINI",
-            a2aAgentUrl: "https://a2a.agents.google.dev/v1/gemini-researcher/tasks",
+            label: "REMOTE RESEARCH AGENT",
+            a2aAgentUrl: "https://example-a2a-agent.test/tasks",
             a2aCapability: "deep_research",
           },
         },

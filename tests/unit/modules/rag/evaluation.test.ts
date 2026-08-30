@@ -1,9 +1,20 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { evaluateRAGTriad } from "@/modules/rag/evaluation";
 
+// evaluateRAGTriad now delegates each leg to the real LLM-as-a-Judge (see llmJudge.ts).
+// Mock the judge here so this stays a fast, deterministic unit test of the report
+// wiring/grading logic rather than a live network test against an LLM provider.
+vi.mock("@/modules/evals/llmJudge", () => ({
+  evaluateMetricWithJudge: vi.fn(async (metric: string, _input: unknown, output: string) => {
+    const isHallucinated = /paris|eiffel|louvre/i.test(output);
+    const score = isHallucinated ? 0.1 : 0.9;
+    return { metric, score, passed: score >= 0.7, reasoning: `mock judge score for ${metric}` };
+  }),
+}));
+
 describe("RAG Triad Evaluation & Grounding Observability", () => {
-  it("evaluates high grounding and context relevance for well-substantiated answers", () => {
-    const report = evaluateRAGTriad({
+  it("evaluates high grounding and context relevance for well-substantiated answers", async () => {
+    const report = await evaluateRAGTriad({
       query: "How does pgvector perform cosine similarity search in PostgreSQL?",
       contextChunks: [
         {
@@ -24,8 +35,8 @@ describe("RAG Triad Evaluation & Grounding Observability", () => {
     expect(report.overallGrade).toMatch(/A|B/);
   });
 
-  it("detects hallucination when answer is not supported by context", () => {
-    const report = evaluateRAGTriad({
+  it("detects hallucination when answer is not supported by context", async () => {
+    const report = await evaluateRAGTriad({
       query: "What is the capital of France?",
       contextChunks: [
         {

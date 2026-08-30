@@ -167,10 +167,12 @@ export async function fetchLiveOpenRouterModels(apiKey?: string): Promise<ModelE
       return OPENROUTER_CHAT_MODELS;
     }
 
-    // Include all free models (:free suffix or zero price) and curated popular models
+    // Include all free models (:free suffix or zero price) and paid models with live pricing
     const parsedModels: ModelEntry[] = data.map((m) => {
       const known = ALL_MODELS_CATALOG.find((k) => k.model === m.id);
-      const isFree = m.id.endsWith(":free") || (m.pricing?.prompt === "0" && m.pricing?.completion === "0");
+      const promptCost = m.pricing?.prompt != null ? parseFloat(String(m.pricing.prompt)) : 0;
+      const completionCost = m.pricing?.completion != null ? parseFloat(String(m.pricing.completion)) : 0;
+      const isFree = m.id.endsWith(":free") || (promptCost === 0 && completionCost === 0);
       const category = known?.category || inferModelCategory(m.id, m.name, m.description, m.architecture?.modality);
 
       return {
@@ -179,8 +181,8 @@ export async function fetchLiveOpenRouterModels(apiKey?: string): Promise<ModelE
         label: known?.label || formatModelLabel(m.id, m.name),
         category,
         contextLength: m.context_length || known?.contextLength || 128000,
-        inputPrice: isFree ? 0 : parseFloat(m.pricing?.prompt || "0"),
-        outputPrice: isFree ? 0 : parseFloat(m.pricing?.completion || "0"),
+        inputPrice: isFree ? 0 : promptCost,
+        outputPrice: isFree ? 0 : completionCost,
         latency: known?.latency,
         throughput: known?.throughput,
       };
@@ -197,11 +199,15 @@ export async function fetchLiveOpenRouterModels(apiKey?: string): Promise<ModelE
       outputPrice: 0,
     };
 
-    // Prioritize free models, then other models
-    const freeModels = parsedModels.filter((m) => m.model !== "openrouter/free" && (m.model.endsWith(":free") || m.inputPrice === 0));
-    const paidPopularModels = parsedModels.filter((m) => !m.model.endsWith(":free") && m.inputPrice !== 0);
+    // Prioritize free models, then paid models with accurate pricing
+    const freeModels = parsedModels.filter(
+      (m) => m.model !== "openrouter/free" && (m.model.endsWith(":free") || ((m.inputPrice ?? 0) === 0 && (m.outputPrice ?? 0) === 0))
+    );
+    const paidModels = parsedModels.filter(
+      (m) => m.model !== "openrouter/free" && !m.model.endsWith(":free") && ((m.inputPrice ?? 0) > 0 || (m.outputPrice ?? 0) > 0)
+    );
 
-    return [autoRouterEntry, ...freeModels, ...paidPopularModels];
+    return [autoRouterEntry, ...freeModels, ...paidModels];
   } catch (err) {
     console.warn("[OpenRouter Models API] Failed to fetch live models, using fallback catalog:", err instanceof Error ? err.message : String(err));
     return OPENROUTER_CHAT_MODELS;
