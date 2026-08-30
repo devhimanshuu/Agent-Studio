@@ -19,7 +19,11 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
-    "test": "vitest run",
+    "test": "vitest run --exclude tests/performance/**",
+    "test:unit": "vitest run tests/unit/**",
+    "test:integration": "vitest run tests/integration/**",
+    "test:performance": "PERF_BASE_URL=http://localhost:3000 vitest run tests/performance/**",
+    "test:all": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "prepare": "husky"
