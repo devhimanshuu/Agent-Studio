@@ -12,7 +12,7 @@ import {
 } from "../errors";
 import { ToolCategory } from "@/types/tool";
 
-export interface ToolRegistryOptions {
+interface ToolRegistryOptions {
   /** Default per-invocation wall-clock budget in ms. Default 30s. */
   timeoutMs?: number;
 }

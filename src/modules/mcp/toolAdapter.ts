@@ -13,7 +13,7 @@ export interface McpRpcClient {
   ping(): Promise<number>;
 }
 
-export interface CreateMcpToolOptions {
+interface CreateMcpToolOptions {
   /** Server id — used to namespace the tool name and identify health probes. */
   serverId: string;
   /** Human label for the owning server (display only). */

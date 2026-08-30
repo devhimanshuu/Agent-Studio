@@ -29,7 +29,7 @@ import { GraphInterpreter, GraphRunResult, GraphState } from "@/modules/graph/gr
 import { isValidGraph } from "@/types/graph";
 import { logger } from "@/lib/logger";
 
-export interface ExecutionServiceDeps {
+interface ExecutionServiceDeps {
   /** Injected LLM (router) — defaults to the env-configured failover router. */
   llm?: LLMProvider;
   /** Injected engine (tests) — defaults to a graph-first ExecutionEngine. */

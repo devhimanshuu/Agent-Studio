@@ -12,7 +12,7 @@ async function handle<T>(res: Response): Promise<T> {
   return json.data;
 }
 
-export interface AuditExportPayload {
+interface AuditExportPayload {
   exportedAt: string;
   count: number;
   entries: AuditLogDTO[];

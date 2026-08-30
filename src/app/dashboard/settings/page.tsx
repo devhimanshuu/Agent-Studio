@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 import { useTheme } from "next-themes";
 import { UserProfile, useUser } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
@@ -49,7 +50,7 @@ async function fetchProviderStatus(): Promise<ProviderStatus> {
 function ProviderModelPanel({
   title,
   configured,
-  modelCount,
+  modelCount: _modelCount,
   models,
   apiKeyEnvName,
   providerType = "groq",
@@ -57,7 +58,7 @@ function ProviderModelPanel({
 }: {
   title: string;
   configured: boolean;
-  modelCount: number;
+  modelCount?: number;
   models: ModelRosterItem[];
   apiKeyEnvName: string;
   providerType?: "groq" | "openrouter" | string;
@@ -692,9 +693,12 @@ function AccountProfileCard({ theme }: { theme?: string }) {
       <div className="p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           {user?.imageUrl ? (
-            <img
+            <Image
               src={user.imageUrl}
               alt={user.fullName || "User Avatar"}
+              width={36}
+              height={36}
+              unoptimized
               className="h-9 w-9 rounded-full border border-indigo-500/40 object-cover shadow-sm shrink-0"
             />
           ) : (

@@ -1,7 +1,7 @@
 import { IApprovalHistoryRepository } from "@/repositories/interfaces/IApprovalHistoryRepository";
 import { ApprovalHistoryDTO } from "@/types/approval";
 
-export interface TimelineEntry {
+interface TimelineEntry {
   action: ApprovalHistoryDTO["action"];
   timestamp: Date;
   summary: string;

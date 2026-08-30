@@ -6,7 +6,7 @@ import {
   ALL_FALLBACK_MODELS,
 } from "@/providers/llm";
 
-export interface LLMProviderConfig {
+interface LLMProviderConfig {
   groqApiKey?: string;
   openRouterApiKey?: string;
 }

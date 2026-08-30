@@ -2,7 +2,7 @@ import type { Edge } from "@xyflow/react";
 import { AgentGraphDefinition, GraphEdgeDefinition, GraphNodeDefinition, GraphNodeType } from "@/types/graph";
 import { CanvasNode, CanvasNodeData } from "./graphUtils";
 
-export interface CollapseResult {
+interface CollapseResult {
   nodes: CanvasNode[];
   edges: Edge[];
   subgraphNode: CanvasNode;

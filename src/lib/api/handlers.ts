@@ -3,7 +3,7 @@ import { logger } from "@/lib/logger";
 
 export { isValidIsoDate } from "./dates";
 
-export type ApiError = {
+type ApiError = {
   success: false;
   error: string;
   code?: string;

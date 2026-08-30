@@ -6,13 +6,10 @@ import {
   Award,
   CheckCircle2,
   Clock,
-  Zap,
   Play,
   RotateCw,
-  Sparkles,
   Layers,
   Shield,
-  Bot,
 } from "lucide-react";
 import { Reveal } from "@/components/Reveal";
 import { BUILT_IN_BENCHMARK_SUITES } from "@/modules/benchmarks/benchmarkEngine";

@@ -1,32 +1,20 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Network,
   Radio,
   Send,
-  Sparkles,
   Bot,
-  MessageSquare,
   Users,
   CheckCircle2,
   RefreshCw,
-  Sliders,
   Copy,
   Check,
-  Zap,
-  Terminal,
-  Activity,
-  Layers,
   Search,
-  ExternalLink,
-  Cpu,
   Flame,
   Gavel,
-  Pause,
-  Play,
   HandMetal,
-  ShieldCheck,
 } from "lucide-react";
 import { A2A_AGENT_PRESETS } from "@/modules/a2a/presets";
 import { A2AAgentManifest } from "@/types/a2a";
@@ -48,7 +36,7 @@ export default function A2APage() {
     "Synthesize an executive architecture review for deploying PostgreSQL pgvector vs standalone Qdrant vector database."
   );
   const [isDelegating, setIsDelegating] = useState(false);
-  const [taskTokens, setTaskTokens] = useState<string[]>([]);
+  const [_taskTokens, setTaskTokens] = useState<string[]>([]);
   const [taskResponse, setTaskResponse] = useState<Record<string, unknown> | null>(null);
 
   // Task Auction & Bidding State
@@ -70,7 +58,7 @@ export default function A2APage() {
     Array<{ sender: string; role: string; content: string; turn: number; isHuman?: boolean }>
   >([]);
   const [debateConsensus, setDebateConsensus] = useState<string | null>(null);
-  const [isDebatePaused, setIsDebatePaused] = useState(false);
+  const [_isDebatePaused, setIsDebatePaused] = useState(false);
   const [humanInterventionText, setHumanInterventionText] = useState("");
 
   const copyToClipboard = (text: string, key: string) => {

@@ -94,19 +94,3 @@ export interface A2AMessage {
   metadata?: Record<string, unknown>;
 }
 
-export interface A2AChannelParticipant {
-  agentUrl: string;
-  name: string;
-  role: string;
-  systemPrompt?: string;
-  authToken?: string;
-}
-
-export type A2AChannelMode = "round_robin" | "debate" | "consensus" | "delegation";
-
-export interface A2AChannelConfig {
-  mode: A2AChannelMode;
-  topic?: string;
-  maxTurns?: number;
-  participants: A2AChannelParticipant[];
-}

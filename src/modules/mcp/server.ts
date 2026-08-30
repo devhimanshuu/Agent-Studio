@@ -5,8 +5,8 @@ import { ISkillRepository } from "@/repositories/interfaces/ISkillRepository";
 import { IExecutionService } from "@/services/interfaces/IExecutionService";
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
+import { createSession, updateSessionStatus } from "./sessionStore";
 import { jsonSchemaToZod } from "./toolAdapter";
-import { createSession, getSession, updateSessionStatus, deleteSession } from "./sessionStore";
 
 const MCP_SERVER_NAME = "agent-studio";
 const MCP_SERVER_VERSION = "1.0.0";

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Database,
   UploadCloud,
@@ -21,13 +21,8 @@ import {
   Check,
   Activity,
   Compass,
-  Maximize2,
-  Minimize2,
-  Flame,
-  BarChart3,
   Scale,
   GitMerge,
-  HelpCircle,
 } from "lucide-react";
 import { previewChunks } from "@/modules/rag/chunkingService";
 import { ClusterMapData } from "@/modules/rag/clusterVisualizer";
@@ -118,7 +113,6 @@ export default function KnowledgeBasePage() {
   // Cluster Map State
   const [clusterData, setClusterData] = useState<ClusterMapData | null>(null);
   const [isLoadingCluster, setIsLoadingCluster] = useState(false);
-  const [hoveredPoint, setHoveredPoint] = useState<Record<string, unknown> | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Documents State
@@ -162,7 +156,7 @@ export default function KnowledgeBasePage() {
   };
 
   // Load 2D Vector Cluster Data
-  const fetchClusterData = async (queryText?: string) => {
+  const fetchClusterData = useCallback(async (queryText?: string) => {
     setIsLoadingCluster(true);
     try {
       const queryParam = queryText || searchQuery;
@@ -180,7 +174,7 @@ export default function KnowledgeBasePage() {
     } finally {
       setIsLoadingCluster(false);
     }
-  };
+  }, [searchQuery, searchCollection]);
 
   useEffect(() => {
     fetchDocuments();
@@ -190,7 +184,7 @@ export default function KnowledgeBasePage() {
     if (activeTab === "cluster_map") {
       fetchClusterData();
     }
-  }, [activeTab]);
+  }, [activeTab, fetchClusterData]);
 
   // Render 2D Vector Canvas
   useEffect(() => {

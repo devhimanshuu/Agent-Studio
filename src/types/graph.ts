@@ -45,10 +45,10 @@ export type GraphNodeType =
   | "frame";
 
 /** Router node evaluation modes. */
-export type RouterMode = "deterministic" | "ai";
+type RouterMode = "deterministic" | "ai";
 
 /** Parallel (map-reduce) node modes. */
-export type ParallelMode = "map" | "reduce";
+type ParallelMode = "map" | "reduce";
 
 /** Per-type configuration stored in a node's `data`. */
 export interface GraphNodeData {

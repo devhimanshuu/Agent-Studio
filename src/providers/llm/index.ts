@@ -6,12 +6,11 @@ import { LLMRouter, LLMRouterOptions } from "./LLMRouter";
 import { ALL_FALLBACK_MODELS, getFallbackChainForModel } from "./modelLists";
 import { env } from "@/lib/config/env";
 
-export type { LLMProvider, LLMChatMessage, LLMCompletionOptions, LLMCompletionResult, LLMStreamChunk, LLMTool, LLMToolCall } from "./LLMProvider";
+export type { LLMProvider, LLMChatMessage, LLMCompletionOptions, LLMCompletionResult, LLMStreamChunk } from "./LLMProvider";
 export { LLMError } from "./LLMProvider";
 export { GroqProvider } from "./GroqProvider";
 export { OpenRouterProvider } from "./OpenRouterProvider";
-export type { CustomProviderConfig } from "./CustomOpenAICompatibleProvider";
-export { LLMRouter, type LLMRouterOptions } from "./LLMRouter";
+export { LLMRouter } from "./LLMRouter";
 export {
   GROQ_FREE_MODELS,
   GROQ_SAFETY_MODELS,
@@ -20,7 +19,6 @@ export {
   AUDIO_MODELS,
   VISION_MODELS,
   ALL_FALLBACK_MODELS,
-  type ModelCategory,
   getCategoryFallbackModels,
   getFallbackChainForModel,
   type ModelEntry,
@@ -54,7 +52,7 @@ export function getLLMProvider(): LLMProvider {
   return buildLLMRouter();
 }
 
-export interface ProviderOverrideOptions extends LLMRouterOptions {
+interface ProviderOverrideOptions extends LLMRouterOptions {
   customApiKey?: string;
   customApiBaseUrl?: string;
   customApiProvider?: string;

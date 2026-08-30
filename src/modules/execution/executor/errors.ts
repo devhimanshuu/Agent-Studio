@@ -2,7 +2,7 @@
  * Error taxonomy for the execution runtime. The ExecutionEngine maps these to
  * persisted execution statuses + error messages.
  */
-export type ExecutionErrorCode =
+type ExecutionErrorCode =
   | "INVALID_SKILL"
   | "INVALID_INPUT"
   | "UNAUTHORIZED_TOOL"

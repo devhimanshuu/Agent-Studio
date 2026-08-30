@@ -11,7 +11,7 @@ import { requestStructuredOutput } from "./structuredOutput";
 
 const DEFAULT_TIMEOUT_MS = 120_000;
 
-export interface CustomProviderConfig {
+interface CustomProviderConfig {
   model: string;
   apiKey?: string;
   baseUrl?: string;

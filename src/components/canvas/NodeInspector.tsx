@@ -33,9 +33,6 @@ import {
   GROQ_FREE_MODELS,
   GROQ_SAFETY_MODELS,
   OPENROUTER_CHAT_MODELS,
-  EMBEDDING_MODELS,
-  AUDIO_MODELS,
-  VISION_MODELS,
 } from "@/providers/llm";
 import { useModels } from "@/hooks/useModels";
 import { ModelDropdown } from "@/components/common/ModelDropdown";
@@ -95,7 +92,7 @@ function ModelSelectField({
   customApiProvider,
   onUpdate,
 }: ModelSelectFieldProps) {
-  const { groqModels, openRouterModels, openaiModels, allModels } = useModels();
+  const { allModels } = useModels();
 
   const [isCustom, setIsCustom] = useState(() => {
     if (customApiBaseUrl || customApiKey) return true;
@@ -149,9 +146,6 @@ function ModelSelectField({
       setTesting(false);
     }
   };
-
-  const effectiveGroq = groqModels.length > 0 ? groqModels : GROQ_FREE_MODELS;
-  const effectiveOpenRouter = openRouterModels.length > 0 ? openRouterModels : OPENROUTER_CHAT_MODELS;
 
   return (
     <div className="space-y-2">
@@ -1490,7 +1484,7 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
           <Field label="HTTP Method">
             <select
               value={node.data.webhookMethod ?? "POST"}
-              onChange={(e) => onUpdate({ webhookMethod: e.target.value as any })}
+              onChange={(e) => onUpdate({ webhookMethod: e.target.value as "GET" | "POST" | "PUT" })}
               className={`${inputClass} cursor-pointer`}
             >
               <option value="POST">POST (Standard Event Body)</option>
@@ -1565,7 +1559,7 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
           <Field label="Reader Format Mode">
             <select
               value={node.data.readerFormat ?? "markdown"}
-              onChange={(e) => onUpdate({ readerFormat: e.target.value as any })}
+              onChange={(e) => onUpdate({ readerFormat: e.target.value as "markdown" | "text" | "html" })}
               className={`${inputClass} cursor-pointer`}
             >
               <option value="markdown">Clean Markdown (Recommended for LLMs)</option>
@@ -1590,7 +1584,7 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
           <Field label="Destination Platform">
             <select
               value={node.data.dispatchDestination ?? "discord"}
-              onChange={(e) => onUpdate({ dispatchDestination: e.target.value as any })}
+              onChange={(e) => onUpdate({ dispatchDestination: e.target.value as "discord" | "slack" | "telegram" | "webhook" })}
               className={`${inputClass} cursor-pointer`}
             >
               <option value="discord">Discord Webhook</option>
@@ -1751,7 +1745,7 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
           <Field label="Output Format">
             <select
               value={node.data.doclingOutputFormat ?? "markdown"}
-              onChange={(e) => onUpdate({ doclingOutputFormat: e.target.value as any })}
+              onChange={(e) => onUpdate({ doclingOutputFormat: e.target.value as "markdown" | "json" | "html" })}
               className={`${inputClass} cursor-pointer`}
             >
               <option value="markdown">Structured Markdown with Tables</option>
@@ -1785,7 +1779,7 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
             <div className="grid grid-cols-2 gap-2">
               <select
                 value={node.data.gotenbergPaperSize ?? "A4"}
-                onChange={(e) => onUpdate({ gotenbergPaperSize: e.target.value as any })}
+                onChange={(e) => onUpdate({ gotenbergPaperSize: e.target.value as "A4" | "Letter" | "Legal" })}
                 className={`${inputClass} cursor-pointer`}
               >
                 <option value="A4">A4 Standard</option>
@@ -1838,7 +1832,7 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
           <Field label="Database Operation">
             <select
               value={node.data.nocodbOperation ?? "create"}
-              onChange={(e) => onUpdate({ nocodbOperation: e.target.value as any })}
+              onChange={(e) => onUpdate({ nocodbOperation: e.target.value as "create" | "list" | "find" | "update" })}
               className={`${inputClass} cursor-pointer`}
             >
               <option value="create">CREATE (Insert New Record)</option>
@@ -1884,7 +1878,7 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
           <Field label="Store Action">
             <select
               value={node.data.pocketbaseAction ?? "create"}
-              onChange={(e) => onUpdate({ pocketbaseAction: e.target.value as any })}
+              onChange={(e) => onUpdate({ pocketbaseAction: e.target.value as "create" | "get" | "list" | "update" })}
               className={`${inputClass} cursor-pointer`}
             >
               <option value="create">CREATE (Insert Document)</option>

@@ -6,7 +6,7 @@ import { fetchWithRetry } from "@/lib/fetch-utils";
 export const revalidate = 300;
 
 interface CacheEntry {
-  data: any;
+  data: Record<string, unknown>;
   timestamp: number;
 }
 
@@ -64,7 +64,7 @@ async function fetchN8nRawPage(
 
   const json = await res.json();
   const totalWorkflows = json.totalWorkflows || json.total || (json.workflows || []).length;
-  const rawWorkflows: any[] = json.workflows || json.templates || json.data || [];
+  const rawWorkflows: Record<string, unknown>[] = json.workflows || json.templates || json.data || [];
   return { totalWorkflows, rawWorkflows };
 }
 
@@ -93,7 +93,7 @@ async function fetchAndCacheSearch(
     const u2 = Math.floor((startIndex + perPage - 1) / upstreamPageSize) + 1;
     const offset = startIndex % upstreamPageSize;
 
-    const fetches: Promise<{ rawWorkflows: any[] }>[] = [];
+    const fetches: Promise<{ rawWorkflows: Record<string, unknown>[] }>[] = [];
     for (let u = u1; u <= u2; u++) {
       fetches.push(fetchN8nRawPage(u, q, category, collection, upstreamPageSize));
     }
@@ -107,13 +107,15 @@ async function fetchAndCacheSearch(
     }
   }
 
-  const normalizedWorkflows = rawWorkflows.map((wf: any) => {
-    const nodes = Array.isArray(wf.nodes) ? wf.nodes : [];
-    const nodeIcons = nodes.slice(0, 6).map((n: any) => ({
-      name: n.displayName || n.name || "Node",
-      icon: n.iconData?.fileBuffer || null,
-      type: n.name || n.type,
+  const normalizedWorkflows = rawWorkflows.map((wf: Record<string, unknown>) => {
+    const nodes = Array.isArray(wf.nodes) ? (wf.nodes as Record<string, unknown>[]) : [];
+    const nodeIcons = nodes.slice(0, 6).map((n: Record<string, unknown>) => ({
+      name: String(n.displayName || n.name || "Node"),
+      icon: (n.iconData as Record<string, unknown>)?.fileBuffer ? String((n.iconData as Record<string, unknown>).fileBuffer) : null,
+      type: String(n.name || n.type || "unknown"),
     }));
+
+    const userObj = (wf.user as Record<string, unknown>) || {};
 
     return {
       id: wf.id,
@@ -122,14 +124,14 @@ async function fetchAndCacheSearch(
       totalViews: wf.totalViews || wf.views || 0,
       createdAt: wf.createdAt,
       user: {
-        name: wf.user?.name || "Community",
-        username: wf.user?.username || "n8n",
-        avatar: wf.user?.avatar || null,
-        verified: Boolean(wf.user?.verified),
+        name: userObj.name || "Community",
+        username: userObj.username || "n8n",
+        avatar: userObj.avatar || null,
+        verified: Boolean(userObj.verified),
       },
       nodeCount: nodes.length,
       nodeIcons,
-      nodeTypes: Array.from(new Set(nodes.map((n: any) => n.name || n.displayName))).slice(0, 8),
+      nodeTypes: Array.from(new Set(nodes.map((n: Record<string, unknown>) => String(n.name || n.displayName || "")))).slice(0, 8),
       url: `https://n8n.io/workflows/${wf.id}`,
     };
   });
@@ -167,7 +169,7 @@ export async function GET(request: Request) {
     const responsePayload = await fetchAndCacheSearch(page, perPage, q, category, collection);
 
     // Background prefetch next page into cache if more pages exist
-    if (page < responsePayload.pagination.totalPages) {
+    if (page < (responsePayload.pagination as { totalPages: number }).totalPages) {
       const nextPage = page + 1;
       const nextCacheKey = `n8n-search:${nextPage}:${perPage}:${q}:${category}:${collection}`;
       if (!searchCache.has(nextCacheKey)) {
@@ -179,12 +181,13 @@ export async function GET(request: Request) {
       success: true,
       ...responsePayload,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[n8n search API error]:", error);
+    const message = error instanceof Error ? error.message : "Failed to fetch n8n workflows";
     return NextResponse.json(
       {
         success: false,
-        error: error?.message || "Failed to fetch n8n workflows",
+        error: message,
         workflows: [],
         pagination: { page, perPage, totalWorkflows: 0, totalPages: 0 },
       },

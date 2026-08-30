@@ -50,7 +50,7 @@ function replaceEmbeddedInputRefs(value: string, userInput: Record<string, unkno
 }
 
 /** Context available to reference resolution. */
-export interface StepReferenceContext {
+interface StepReferenceContext {
   /** Step outputs keyed `step_<n>`. */
   results: Record<string, unknown>;
   /** The skill's validated user input. */

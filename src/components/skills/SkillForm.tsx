@@ -12,7 +12,6 @@ import {
   Loader2,
   Workflow,
   HelpCircle,
-  Info,
   ChevronDown,
   ChevronUp,
   Cpu,

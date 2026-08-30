@@ -48,7 +48,7 @@ export interface IngestDocumentInput {
   useParentChunking?: boolean;
 }
 
-export interface IngestDocumentOutput {
+interface IngestDocumentOutput {
   documentId: string;
   title: string;
   collection: string;
@@ -89,7 +89,7 @@ export interface SemanticSearchOptions {
   expandToParent?: boolean;
 }
 
-export interface HybridSearchOptions extends SemanticSearchOptions {
+interface HybridSearchOptions extends SemanticSearchOptions {
   /** Dense vector weight (default: 0.7) */
   denseWeight?: number;
   /** Sparse keyword weight (default: 0.3) */

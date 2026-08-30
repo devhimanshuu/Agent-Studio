@@ -2,31 +2,20 @@ import React from "react";
 import Link from "next/link";
 import {
   Check,
-  CheckSquare,
   GitCompare,
   Lock,
-  Wrench,
-  Shield,
   ShieldCheck,
   Database,
   Zap,
   HelpCircle,
   ChevronDown,
-  GitBranch,
   RefreshCw,
-  ListChecks,
   Braces,
-  Flag,
   Activity,
-  FileText,
   Search,
   Workflow,
   Cpu,
   Layers,
-  Bot,
-  Users,
-  GitFork,
-  Repeat,
   Boxes,
   Eye,
   Gauge,
@@ -37,21 +26,13 @@ import {
   Palette,
   Link2,
   Network,
-  Webhook,
   Globe,
   Package,
-  Clock,
-  Radio,
-  Rss,
-  Mic,
-  Volume2,
   Sparkles,
   HardDrive,
-  FileSpreadsheet,
   FileCheck,
   BrainCircuit,
   Terminal,
-  Code2,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Reveal } from "@/components/Reveal";
@@ -745,7 +726,7 @@ export default function LandingPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-indigo-950/60">
-                {comparisonRows.map((row, i) => (
+                {comparisonRows.map((row) => (
                   <tr key={row.feature} className="hover:bg-slate-50/50 dark:hover:bg-indigo-950/20 transition-colors">
                     <td className="p-3.5 font-semibold text-slate-900 dark:text-slate-100">{row.feature}</td>
                     <td className="p-3.5 font-bold text-emerald-700 dark:text-emerald-400 bg-indigo-50/40 dark:bg-indigo-950/20">{row.studio}</td>

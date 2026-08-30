@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Database, Play, ChevronDown, ChevronUp, Plus, X, Upload } from "lucide-react";
+import { Database, Play, ChevronDown, ChevronUp, Plus, X } from "lucide-react";
 import { EvalDataset } from "@/types/evals";
 import { toast } from "@/stores/toastStore";
 

@@ -1,10 +1,9 @@
 import {
-  EvalDataset,
-  EvalDatasetItem,
   EvalRunReport,
   EvalJudgeConfig,
   EvalItemVerdict,
   EvalMetricType,
+  EvalMetricJudgeResult,
   EvalMetricSummary,
   EvalRunSummary,
   EvalRunComparisonReport,
@@ -94,7 +93,7 @@ export async function runAutomatedEvaluation(params: {
     totalTokens += itemTokens;
 
     // Evaluate metrics with LLM-as-a-Judge
-    const metricResults: Record<EvalMetricType, any> = {} as any;
+    const metricResults: Record<string, EvalMetricJudgeResult> = {};
     let itemWeightedScoreSum = 0;
     let itemPassed = true;
 
@@ -152,7 +151,7 @@ export async function runAutomatedEvaluation(params: {
   const estimatedCostUsd = Math.round((totalTokens / 1_000_000) * 0.4 * 1000) / 1000;
 
   // Aggregate Metrics Summary
-  const metricSummaries: Record<EvalMetricType, EvalMetricSummary> = {} as any;
+  const metricSummaries: Record<string, EvalMetricSummary> = {};
   for (const metric of params.judgeConfig.metrics) {
     const metricScores = verdicts.map((v) => v.metrics[metric]?.score ?? 1.0);
     const metricPassCount = verdicts.filter((v) => v.metrics[metric]?.passed).length;
@@ -246,7 +245,7 @@ export function compareEvaluationRuns(runA: EvalRunReport, runB: EvalRunReport):
   const passRateDelta = runB.summary.passRate - runA.summary.passRate;
   const latencyDeltaMs = runB.summary.avgLatencyMs - runA.summary.avgLatencyMs;
 
-  const metricDeltas: Record<EvalMetricType, number> = {} as any;
+  const metricDeltas: Record<string, number> = {};
   for (const m of Object.keys(runB.summary.metricSummaries) as EvalMetricType[]) {
     const scoreA = runA.summary.metricSummaries[m]?.averageScore ?? 0;
     const scoreB = runB.summary.metricSummaries[m]?.averageScore ?? 0;

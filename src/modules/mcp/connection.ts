@@ -8,7 +8,7 @@ import { logger } from "@/lib/logger";
 import { McpRpcClient } from "./toolAdapter";
 import { mapToolsList } from "./protocol";
 
-export interface McpConnectionOptions {
+interface McpConnectionOptions {
   /** Wall-clock budget for the initialize handshake. Default 15s. */
   connectTimeoutMs?: number;
   /** Wall-clock budget for tool calls. Default 15s. */

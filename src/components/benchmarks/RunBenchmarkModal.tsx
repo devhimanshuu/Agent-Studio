@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import { X, Play, Loader2, Award, CheckCircle2 } from "lucide-react";
 import { BenchmarkSuite, BenchmarkScorecard } from "@/types/benchmark";
-import { useModels } from "@/hooks/useModels";
 import { ModelDropdown } from "@/components/common/ModelDropdown";
 
 interface RunBenchmarkModalProps {

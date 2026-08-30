@@ -1,7 +1,6 @@
 import { ToolRegistry } from "./registry/ToolRegistry";
 
 export { ToolRegistry } from "./registry/ToolRegistry";
-export type { ToolRegistryOptions } from "./registry/ToolRegistry";
 export type { Tool, ToolHealth } from "./interfaces/Tool";
 export {
   ToolNotFoundError,
@@ -12,7 +11,6 @@ export {
 } from "./errors";
 export { BUILT_IN_TOOL_CATALOG } from "./toolCatalog";
 export { TOOL_CATEGORIES, getToolCategory, isToolCategory, toolCategoryLabel } from "./categories";
-export type { ToolCategoryDef } from "./categories";
 export { calculatorTool } from "./calculator/calculatorTool";
 export { documentSearchTool } from "./document-search/documentSearchTool";
 export { recordLookupTool } from "./record-lookup/recordLookupTool";

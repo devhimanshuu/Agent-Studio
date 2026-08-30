@@ -21,7 +21,7 @@ const envSchema = z.object({
   ARCADE_API_KEY: z.string().optional(),
 });
 
-export type Env = z.infer<typeof envSchema>;
+type Env = z.infer<typeof envSchema>;
 
 function parseEnv(): Env {
   const result = envSchema.safeParse(process.env);

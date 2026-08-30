@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { GET as getManifest } from "@/app/api/a2a/manifest/route";
 
 export const dynamic = "force-dynamic";

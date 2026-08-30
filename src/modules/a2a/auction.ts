@@ -20,7 +20,7 @@ export interface TaskSpecification {
   inputData?: Record<string, unknown>;
 }
 
-export interface AgentBid {
+interface AgentBid {
   agentName: string;
   agentUrl: string;
   capabilityId: string;
@@ -31,7 +31,7 @@ export interface AgentBid {
   bidTimestamp: number;
 }
 
-export interface AuctionResult {
+interface AuctionResult {
   taskId: string;
   taskTitle: string;
   winningBid: AgentBid;

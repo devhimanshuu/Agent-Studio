@@ -6,10 +6,10 @@ export interface N8nNode {
   name: string;
   type: string;
   position: [number, number];
-  parameters?: Record<string, any>;
+  parameters?: Record<string, unknown>;
   typeVersion?: number;
   webhookId?: string;
-  credentials?: Record<string, any>;
+  credentials?: Record<string, unknown>;
   disabled?: boolean;
 }
 
@@ -25,9 +25,22 @@ export interface N8nWorkflowData {
   description?: string;
   nodes: N8nNode[];
   connections?: Record<string, Record<string, N8nConnectionTarget[][]>>;
-  settings?: Record<string, any>;
-  staticData?: any;
+  settings?: Record<string, unknown>;
+  staticData?: unknown;
   tags?: Array<{ id?: string; name: string } | string>;
+}
+
+/**
+ * Robust JSON parser for n8n workflow files.
+ */
+export function parseN8nWorkflowJson(jsonText: string): N8nWorkflowData | null {
+  if (!jsonText || typeof jsonText !== "string") return null;
+  try {
+    const parsed = JSON.parse(jsonText);
+    return parsed && typeof parsed === "object" ? (parsed as N8nWorkflowData) : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -112,6 +125,9 @@ function mapN8nNodeType(n8nType: string): GraphNodeType {
  */
 function extractPromptOrDescription(node: N8nNode): { prompt?: string; description?: string; allowedTools?: string[] } {
   const p = node.parameters || {};
+  const messages = p.messages as Record<string, unknown> | undefined;
+  const messageValues = messages?.messageValues as Array<Record<string, unknown>> | undefined;
+  const options = p.options as Record<string, unknown> | undefined;
 
   // Check common prompt locations
   const prompt =
@@ -119,8 +135,8 @@ function extractPromptOrDescription(node: N8nNode): { prompt?: string; descripti
     p.systemMessage ||
     p.text ||
     p.jsCode ||
-    p.messages?.messageValues?.[0]?.message ||
-    p.options?.systemMessage;
+    messageValues?.[0]?.message ||
+    options?.systemMessage;
 
   const desc =
     p.details ||
@@ -199,6 +215,12 @@ export function convertN8nToAgentGraph(n8nWorkflow: N8nWorkflowData): AgentGraph
     const cleanDesc = description ? description.slice(0, 900) : undefined;
     const cleanPrompt = prompt ? prompt.slice(0, 9000) : undefined;
 
+    const httpUrl = String(n.parameters?.url || n.parameters?.path || "");
+    const rawMethod = String(n.parameters?.httpMethod || "GET").toUpperCase();
+    const validMethods: Array<"GET" | "POST" | "PUT" | "PATCH" | "DELETE"> = ["GET", "POST", "PUT", "PATCH", "DELETE"];
+    const httpMethod = validMethods.find((m) => m === rawMethod) || "GET";
+    const noteContent = String(n.parameters?.content || "");
+
     studioNodes.push({
       id: safeId,
       type: mappedType,
@@ -209,9 +231,9 @@ export function convertN8nToAgentGraph(n8nWorkflow: N8nWorkflowData): AgentGraph
         prompt: cleanPrompt,
         allowedTools: allowedTools ? allowedTools.slice(0, 20) : undefined,
         toolName: mappedType === "tool" ? n.type.replace(/^n8n-nodes-base\./, "").slice(0, 100) : undefined,
-        httpUrl: mappedType === "http" ? (n.parameters?.url || n.parameters?.path || "").slice(0, 1000) : undefined,
-        httpMethod: mappedType === "http" ? (n.parameters?.httpMethod || "GET") : undefined,
-        noteContent: mappedType === "sticky_note" ? (n.parameters?.content || "").slice(0, 9000) : undefined,
+        httpUrl: mappedType === "http" ? httpUrl.slice(0, 1000) : undefined,
+        httpMethod: mappedType === "http" ? httpMethod : undefined,
+        noteContent: mappedType === "sticky_note" ? noteContent.slice(0, 9000) : undefined,
       },
     });
   });
@@ -321,21 +343,25 @@ export function convertN8nToAgentGraph(n8nWorkflow: N8nWorkflowData): AgentGraph
 /**
  * Converts an n8n workflow into an Agent Studio WorkflowTemplate.
  */
-export function convertN8nToWorkflowTemplate(n8nWorkflow: any): WorkflowTemplate {
-  const name = (n8nWorkflow.name || "Untitled n8n Workflow").slice(0, 95);
-  const desc = n8nWorkflow.description || "";
-  const rawNodes = n8nWorkflow.nodes || n8nWorkflow.workflow?.nodes || [];
+export function convertN8nToWorkflowTemplate(n8nWorkflow: N8nWorkflowData | Record<string, unknown>): WorkflowTemplate {
+  const name = String(n8nWorkflow.name || "Untitled n8n Workflow").slice(0, 95);
+  const desc = String(n8nWorkflow.description || "");
+  const rawNodes: N8nNode[] = Array.isArray(n8nWorkflow.nodes)
+    ? n8nWorkflow.nodes
+    : Array.isArray((n8nWorkflow as Record<string, unknown>).workflow && ((n8nWorkflow as Record<string, unknown>).workflow as Record<string, unknown>).nodes)
+    ? (((n8nWorkflow as Record<string, unknown>).workflow as Record<string, unknown>).nodes as N8nNode[])
+    : [];
 
   const stepsSummary: string[] = rawNodes
-    .filter((n: any) => !n.type?.includes("stickyNote"))
-    .map((n: any) => (n.name || "Step").slice(0, 80))
+    .filter((n) => !n.type?.includes("stickyNote"))
+    .map((n) => (n.name || "Step").slice(0, 80))
     .slice(0, 10);
 
   const tools: string[] = (
     Array.from(
       new Set(
         rawNodes
-          .map((n: any) => {
+          .map((n) => {
             const t = n.type || "";
             return t.replace(/^n8n-nodes-base\./, "").replace(/^@n8n\/n8n-nodes-langchain\./, "").replace(/[^a-zA-Z0-9_-]/g, "");
           })

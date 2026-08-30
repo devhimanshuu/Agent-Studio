@@ -1,6 +1,6 @@
 import { AgentGraphDefinition } from "@/types/graph";
 
-export interface CanvasTemplate {
+interface CanvasTemplate {
   id: string;
   name: string;
   badge: string;

@@ -6,7 +6,7 @@ import { fetchWithRetry } from "@/lib/fetch-utils";
 export const revalidate = 300;
 
 interface CacheEntry {
-  data: any;
+  data: Record<string, unknown>;
   timestamp: number;
 }
 
@@ -44,7 +44,7 @@ async function fetchDifyRawPage(
   }
 
   const json = await res.json();
-  const rawTemplates: any[] = json.data?.templates || json.templates || [];
+  const rawTemplates: Record<string, unknown>[] = json.data?.templates || json.templates || [];
   const total = json.data?.total ?? json.total ?? rawTemplates.length;
 
   return { total, rawTemplates };
@@ -69,10 +69,10 @@ async function fetchAndCacheDifySearch(
   if (q && rawTemplates.length > 0) {
     const qLower = q.toLowerCase().trim();
     const filtered = rawTemplates.filter((t) => {
-      const name = (t.template_name || t.name || "").toLowerCase();
-      const overview = (t.overview || t.description || "").toLowerCase();
-      const tags = (t.categories || []).map((c: string) => c.toLowerCase());
-      const plugins = (t.deps_plugins || []).map((p: string) => p.toLowerCase());
+      const name = String(t.template_name || t.name || "").toLowerCase();
+      const overview = String(t.overview || t.description || "").toLowerCase();
+      const tags = Array.isArray(t.categories) ? (t.categories as string[]).map((c: string) => c.toLowerCase()) : [];
+      const plugins = Array.isArray(t.deps_plugins) ? (t.deps_plugins as string[]).map((p: string) => p.toLowerCase()) : [];
       return (
         name.includes(qLower) ||
         overview.includes(qLower) ||
@@ -89,7 +89,7 @@ async function fetchAndCacheDifySearch(
   if (category && category !== "ALL" && rawTemplates.length > 0) {
     const catLower = category.toLowerCase().trim();
     const catFiltered = rawTemplates.filter((t) => {
-      const cats = (t.categories || []).map((c: string) => c.toLowerCase());
+      const cats = Array.isArray(t.categories) ? (t.categories as string[]).map((c: string) => c.toLowerCase()) : [];
       return cats.includes(catLower);
     });
     if (catFiltered.length > 0) {
@@ -97,8 +97,8 @@ async function fetchAndCacheDifySearch(
     }
   }
 
-  const normalizedWorkflows = rawTemplates.map((t: any) => {
-    const plugins = Array.isArray(t.deps_plugins) ? t.deps_plugins : [];
+  const normalizedWorkflows = rawTemplates.map((t: Record<string, unknown>) => {
+    const plugins = Array.isArray(t.deps_plugins) ? (t.deps_plugins as string[]) : [];
     const pluginTags = plugins.map((p: string) => {
       const parts = p.split("/");
       return parts[parts.length - 1] || p;
@@ -160,7 +160,7 @@ export async function GET(request: Request) {
     const responsePayload = await fetchAndCacheDifySearch(page, perPage, q, category);
 
     // Background prefetch next page into cache if more pages exist
-    if (page < responsePayload.pagination.totalPages) {
+    if (page < (responsePayload.pagination as { totalPages: number }).totalPages) {
       const nextPage = page + 1;
       const nextCacheKey = `dify-search:${nextPage}:${perPage}:${q}:${category}`;
       if (!difySearchCache.has(nextCacheKey)) {
@@ -172,12 +172,13 @@ export async function GET(request: Request) {
       success: true,
       ...responsePayload,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[Dify templates search API error]:", error);
+    const message = error instanceof Error ? error.message : "Failed to fetch Dify workflow templates";
     return NextResponse.json(
       {
         success: false,
-        error: error?.message || "Failed to fetch Dify workflow templates",
+        error: message,
         workflows: [],
         pagination: { page, perPage, totalWorkflows: 0, totalPages: 0 },
       },

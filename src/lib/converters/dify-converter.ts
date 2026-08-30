@@ -1,32 +1,32 @@
-import yaml from "js-yaml";
+import * as yaml from "js-yaml";
 import { AgentGraphDefinition, GraphEdgeDefinition, GraphNodeDefinition, GraphNodeType } from "@/types/graph";
 import { WorkflowTemplate } from "@/components/workflows/WorkflowTemplates";
 
 export interface DifyNodeData {
   title?: string;
   type?: string;
-  variables?: any[];
-  outputs?: any[];
+  variables?: unknown[];
+  outputs?: unknown[];
   model?: {
     name?: string;
     provider?: string;
     mode?: string;
   };
-  prompt_template?: any;
+  prompt_template?: unknown;
   provider_id?: string;
   provider_name?: string;
   provider_type?: string;
   tool_name?: string;
-  params?: Record<string, any>;
+  params?: Record<string, unknown>;
   code?: string;
   code_language?: string;
-  conditions?: any[];
+  conditions?: unknown[];
   logical_operator?: string;
-  iterator_selector?: any;
+  iterator_selector?: unknown;
   output_type?: string;
   template?: string;
-  memory?: any;
-  [key: string]: any;
+  memory?: unknown;
+  [key: string]: unknown;
 }
 
 export interface DifyNode {
@@ -41,24 +41,22 @@ export interface DifyNode {
 }
 
 export interface DifyEdge {
-  id?: string;
+  id: string;
   source: string;
   target: string;
   sourceHandle?: string;
   targetHandle?: string;
-  type?: string;
   data?: {
     sourceType?: string;
     targetType?: string;
     isInIteration?: boolean;
-    isInLoop?: boolean;
+    conditionId?: string;
+    label?: string;
   };
 }
 
 export interface DifyWorkflowData {
-  id?: string;
-  name?: string;
-  description?: string;
+  version?: string;
   app?: {
     name?: string;
     description?: string;
@@ -71,23 +69,23 @@ export interface DifyWorkflowData {
       nodes?: DifyNode[];
       edges?: DifyEdge[];
     };
-    features?: Record<string, any>;
-    conversation_variables?: any[];
-    environment_variables?: any[];
+    features?: Record<string, unknown>;
+    conversation_variables?: unknown[];
+    environment_variables?: unknown[];
   };
-  dependencies?: any[];
+  dependencies?: unknown[];
 }
 
 /**
  * Robust YAML/JSON parser for Dify DSL files
  */
-export function parseDifyDslYaml(yamlText: string): any {
+export function parseDifyDslYaml(yamlText: string): DifyWorkflowData {
   if (!yamlText || typeof yamlText !== "string") return {};
 
   const trimmed = yamlText.trim();
   if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
     try {
-      return JSON.parse(trimmed);
+      return JSON.parse(trimmed) as DifyWorkflowData;
     } catch {
       // Fall through to YAML parse
     }
@@ -95,7 +93,7 @@ export function parseDifyDslYaml(yamlText: string): any {
 
   try {
     const parsed = yaml.load(yamlText);
-    return parsed && typeof parsed === "object" ? parsed : {};
+    return parsed && typeof parsed === "object" ? (parsed as DifyWorkflowData) : {};
   } catch (err) {
     console.warn("[parseDifyDslYaml] YAML parse error:", err);
     return {};
@@ -108,77 +106,36 @@ export function parseDifyDslYaml(yamlText: string): any {
 function mapDifyNodeType(difyType: string): GraphNodeType {
   const t = (difyType || "").toLowerCase();
 
-  if (
-    t === "start" ||
-    t.includes("trigger") ||
-    t.includes("webhook") ||
-    t.includes("schedule") ||
-    t === "user-input"
-  ) {
-    return "start";
-  }
-
-  if (t === "end" || t === "output" || t === "answer") {
-    return "end";
-  }
-
-  if (
-    t === "llm" ||
-    t === "agent" ||
-    t === "question-classifier" ||
-    t === "parameter-extractor" ||
-    t.includes("knowledge")
-  ) {
-    return "agent";
-  }
-
-  if (
-    t === "tool" ||
-    t === "document-extractor" ||
-    t === "list-operator" ||
-    t === "doc-extractor"
-  ) {
-    return "tool";
-  }
-
-  if (t === "http-request" || t === "http") {
-    return "http";
-  }
-
-  if (
-    t === "code" ||
-    t === "template-transform" ||
-    t === "variable-aggregator" ||
-    t === "variable-assigner" ||
-    t === "assigner"
-  ) {
-    return "transform";
-  }
-
-  if (t === "if-else" || t === "switch") {
-    return "router";
-  }
-
-  if (t === "human-input" || t === "approval") {
-    return "approval";
-  }
-
-  if (t === "iteration" || t === "loop") {
-    return "loop";
-  }
-
-  if (t === "note") {
-    return "sticky_note";
-  }
+  if (t === "llm" || t.includes("model") || t.includes("generate")) return "agent";
+  if (t === "tool" || t.includes("tool") || t === "http-request" || t === "api-call") return "tool";
+  if (t === "code" || t === "custom_code" || t === "script") return "transform";
+  if (t === "if-else" || t === "condition" || t === "router" || t === "branch") return "router";
+  if (t === "question-classifier" || t === "classifier") return "router";
+  if (t === "iteration" || t === "loop") return "loop";
+  if (t === "human-in-the-loop" || t === "approval" || t === "moderation") return "approval";
+  if (t === "knowledge-retrieval" || t === "rag" || t === "search") return "tool";
+  if (t === "template-transform" || t === "transform" || t === "assigner") return "transform";
+  if (t === "variable-aggregator" || t === "merge") return "subgraph";
+  if (t === "document-extractor" || t === "docling") return "docling_pdf_parser";
+  if (t === "pdf-generator" || t === "gotenberg") return "gotenberg_pdf_exporter";
+  if (t === "webhook" || t === "trigger") return "webhook_trigger";
+  if (t === "rss" || t === "feed") return "rss_feed";
+  if (t === "web-reader" || t === "jina") return "web_reader";
+  if (t === "notify" || t === "notification" || t === "discord" || t === "slack") return "notification_dispatcher";
+  if (t === "nocodb") return "nocodb_record";
+  if (t === "pocketbase") return "pocketbase_store";
 
   return "tool";
 }
 
 /**
- * Converts a raw Dify workflow DSL into an Agent Studio GraphDefinition
+ * Converts a Dify Workflow DSL (nodes + edges) into an Agent Studio AgentGraphDefinition.
  */
 export function convertDifyToAgentGraph(difyWorkflow: DifyWorkflowData): AgentGraphDefinition {
-  const graphData = difyWorkflow.workflow?.graph || (difyWorkflow as any).graph || {};
+  const graphData =
+    difyWorkflow.workflow?.graph ||
+    ((difyWorkflow as Record<string, unknown>).graph as { nodes?: DifyNode[]; edges?: DifyEdge[] } | undefined) ||
+    {};
   const rawNodes: DifyNode[] = Array.isArray(graphData.nodes) ? graphData.nodes : [];
   const rawEdges: DifyEdge[] = Array.isArray(graphData.edges) ? graphData.edges : [];
 
@@ -196,9 +153,9 @@ export function convertDifyToAgentGraph(difyWorkflow: DifyWorkflowData): AgentGr
       if (Array.isArray(node.position) && node.position.length >= 2) {
         posX = node.position[0];
         posY = node.position[1];
-      } else if (typeof (node.position as any).x === "number") {
-        posX = (node.position as any).x;
-        posY = (node.position as any).y;
+      } else if (typeof node.position === "object" && "x" in node.position && typeof node.position.x === "number") {
+        posX = node.position.x;
+        posY = node.position.y;
       }
     } else if (node.positionAbsolute) {
       posX = node.positionAbsolute.x;
@@ -222,47 +179,56 @@ export function convertDifyToAgentGraph(difyWorkflow: DifyWorkflowData): AgentGr
       data: {
         label: title,
         description: desc,
-        prompt:
-          typeof rawData.prompt_template === "string"
-            ? rawData.prompt_template
-            : rawData.prompt_template?.template || rawData.prompt_template?.text,
-        allowedTools: rawData.provider_name ? [rawData.provider_name] : [],
+        prompt: typeof rawData.prompt_template === "string" ? rawData.prompt_template : undefined,
+        model: rawData.model?.name,
         toolName: rawData.tool_name || rawData.provider_name,
-        transformExpr: rawData.code,
+        condition: rawData.conditions ? JSON.stringify(rawData.conditions) : undefined,
       },
     });
   });
 
-  rawEdges.forEach((edge, i) => {
-    if (edge.source && edge.target) {
-      convertedEdges.push({
-        id: edge.id || `edge-${edge.source}-${edge.target}-${i}`,
-        source: String(edge.source),
-        target: String(edge.target),
-        label: edge.data?.sourceType || undefined,
-      });
-    }
+  rawEdges.forEach((edge, index) => {
+    if (!edge.source || !edge.target) return;
+
+    convertedEdges.push({
+      id: edge.id || `dify_e_${edge.source}_${edge.target}_${index}`,
+      source: String(edge.source),
+      target: String(edge.target),
+      label: edge.data?.label || edge.data?.conditionId,
+    });
   });
 
-  // Fallback: If no edges were defined, chain nodes sequentially
-  if (convertedEdges.length === 0 && convertedNodes.length > 1) {
-    for (let i = 0; i < convertedNodes.length - 1; i++) {
-      convertedEdges.push({
-        id: `auto-edge-${convertedNodes[i].id}-${convertedNodes[i + 1].id}`,
-        source: convertedNodes[i].id,
-        target: convertedNodes[i + 1].id,
-      });
-    }
-  }
+  // Ensure start and end node if empty
+  if (convertedNodes.length === 0) {
+    convertedNodes.push(
+      {
+        id: "start",
+        type: "start",
+        position: { x: 100, y: 150 },
+        data: { label: "Start Trigger", description: "Workflow input entrypoint" },
+      },
+      {
+        id: "dify_agent",
+        type: "agent",
+        position: { x: 400, y: 150 },
+        data: {
+          label: difyWorkflow.app?.name || "Dify Agent",
+          description: difyWorkflow.app?.description || "Imported Dify LLM Node",
+          model: "meta-llama/llama-3.3-70b-versatile",
+        },
+      },
+      {
+        id: "end",
+        type: "end",
+        position: { x: 700, y: 150 },
+        data: { label: "Complete", description: "Workflow output resolution" },
+      }
+    );
 
-  // Ensure start node exists
-  if (!convertedNodes.some((n) => n.type === "start") && convertedNodes.length > 0) {
-    convertedNodes[0].type = "start";
-  }
-
-  // Ensure end node exists
-  if (!convertedNodes.some((n) => n.type === "end") && convertedNodes.length > 1) {
-    convertedNodes[convertedNodes.length - 1].type = "end";
+    convertedEdges.push(
+      { id: "e_start_agent", source: "start", target: "dify_agent" },
+      { id: "e_agent_end", source: "dify_agent", target: "end" }
+    );
   }
 
   return {
@@ -275,32 +241,37 @@ export function convertDifyToAgentGraph(difyWorkflow: DifyWorkflowData): AgentGr
 /**
  * Converts Dify template metadata into an Agent Studio WorkflowTemplate.
  */
-export function convertDifyToWorkflowTemplate(template: any): WorkflowTemplate {
+export function convertDifyToWorkflowTemplate(template: Record<string, unknown>): WorkflowTemplate {
   const dslParsed =
     typeof template.dsl === "string"
       ? parseDifyDslYaml(template.dsl)
-      : template.dsl || template;
+      : (template.dsl as DifyWorkflowData) || (template as DifyWorkflowData);
 
   const graph = convertDifyToAgentGraph(dslParsed);
-  const categories = template.categories || [];
+  const categories = (template.categories as string[]) || [];
   const rawCat = (categories[0] || "OPERATIONS").toUpperCase();
   const validCat: WorkflowTemplate["category"] =
     rawCat === "FINANCE" || rawCat === "COMPLIANCE" || rawCat === "SUPPORT"
       ? rawCat
       : "OPERATIONS";
 
+  const templateId = String(template.id || "imported");
+  const templateName = String(template.template_name || template.name || `Dify Template #${templateId}`);
+  const overview = String(template.overview || template.description || "Imported Dify workflow template");
+  const badges = Array.isArray(template.badges) ? (template.badges as string[]) : [];
+
   return {
-    id: `dify-${template.id}`,
-    name: template.template_name || template.name || `Dify Template #${template.id}`,
-    purpose: (template.overview || template.description || "Imported Dify workflow template").slice(0, 280),
+    id: `dify-${templateId}`,
+    name: templateName,
+    purpose: overview.slice(0, 280),
     category: validCat,
-    badge: template.badges?.includes("partner") ? "PARTNER BLUEPRINT" : "COMMUNITY WORKFLOW",
+    badge: badges.includes("partner") ? "PARTNER BLUEPRINT" : "COMMUNITY WORKFLOW",
     stepsSummary: graph.nodes.map((n) => n.data.label || n.type).slice(0, 7),
-    instructions: template.readme || (template.overview || "Execute Dify imported workflow").slice(0, 500),
+    instructions: String(template.readme || overview || "Execute Dify imported workflow").slice(0, 500),
     inputSchema: { type: "object", properties: {} },
     outputSchema: { type: "object", properties: {} },
     examples: [],
-    allowedTools: template.deps_plugins || [],
+    allowedTools: Array.isArray(template.deps_plugins) ? (template.deps_plugins as string[]) : [],
     actionsRequiringApproval: [],
     maxExecutionSteps: 50,
   };

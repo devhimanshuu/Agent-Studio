@@ -5,14 +5,14 @@ import { ExecutionPlan } from "../state/agentState";
 import { executionPlanSchema } from "./planSchema";
 import { withRetries } from "../executor/retry";
 
-export interface PlanInput {
+interface PlanInput {
   skill: SkillDTO;
   version: SkillVersionDTO;
   userInput: Record<string, unknown>;
   availableTools?: Array<{ name: string; description?: string; category?: string }>;
 }
 
-export interface PlannerServiceOptions {
+interface PlannerServiceOptions {
   /** Total planner attempts including the first (LLM transient failures retried). */
   maxRetries?: number;
   /** Per-attempt LLM request timeout in ms. */

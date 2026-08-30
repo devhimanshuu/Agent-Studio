@@ -6,7 +6,7 @@ import { McpToolDefinition } from "@/types/mcp";
  */
 
 /** A minimal JSON-RPC 2.0 message shape (subset used by the MCP client hub). */
-export interface JsonRpcMessage {
+interface JsonRpcMessage {
   jsonrpc: "2.0";
   id?: string | number | null;
   method?: string;

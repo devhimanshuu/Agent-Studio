@@ -271,36 +271,42 @@ export async function GET(request: Request) {
       if (!res.ok) throw new Error(`n8n API error ${res.status}`);
       const json = await res.json();
 
-      const rawWorkflows: any[] = json.workflows || [];
+      const rawWorkflows: Record<string, unknown>[] = json.workflows || [];
       const total = json.totalWorkflows ?? json.total ?? rawWorkflows.length;
 
-      const normalized = rawWorkflows.map((w: any) => ({
-        id: w.id,
-        provider: "n8n" as const,
-        providerName: "n8n",
-        name: w.name || `n8n Workflow #${w.id}`,
-        description: w.description || "",
-        readme: w.description || "",
-        author: w.user?.username || w.user?.name || "n8n Community",
-        authorUrl: `https://n8n.io/workflows/${w.id}`,
-        icon: "Workflow",
-        iconBackground: "#F0506E",
-        categories: (w.categories || []).map((c: any) => (typeof c === "string" ? c : c.name || "Automation")),
-        primaryCategory: (w.categories?.[0]?.name || w.categories?.[0] || "automation").toLowerCase(),
-        tags: (w.nodes || []).map((n: any) => (typeof n === "string" ? n : n.name || n.type)),
-        pluginTags: (w.nodes || []).map((n: any) => {
-          const typeStr = typeof n === "string" ? n : n.type || n.name || "";
-          return typeStr.replace(/^n8n-nodes-base\./, "");
-        }).slice(0, 4),
-        nodeCount: Array.isArray(w.nodes) ? w.nodes.length : 0,
-        usageCount: 0,
-        viewsCount: w.views || w.totalViews || 0,
-        version: "1.0.0",
-        badges: ["community"],
-        sourceUrl: `https://n8n.io/workflows/${w.id}`,
-        canvasUrl: `/dashboard/canvas/new?n8nId=${w.id}`,
-        createdAt: w.createdAt,
-      }));
+      const normalized = rawWorkflows.map((w: Record<string, unknown>) => {
+        const userObj = (w.user as Record<string, unknown>) || {};
+        const categoriesList = Array.isArray(w.categories) ? (w.categories as Array<string | { name?: string }>) : [];
+        const nodesList = Array.isArray(w.nodes) ? (w.nodes as Array<string | { name?: string; type?: string }>) : [];
+
+        return {
+          id: w.id,
+          provider: "n8n" as const,
+          providerName: "n8n",
+          name: w.name || `n8n Workflow #${w.id}`,
+          description: w.description || "",
+          readme: w.description || "",
+          author: userObj.username || userObj.name || "n8n Community",
+          authorUrl: `https://n8n.io/workflows/${w.id}`,
+          icon: "Workflow",
+          iconBackground: "#F0506E",
+          categories: categoriesList.map((c) => (typeof c === "string" ? c : c.name || "Automation")),
+          primaryCategory: (typeof categoriesList[0] === "string" ? categoriesList[0] : categoriesList[0]?.name || "automation").toLowerCase(),
+          tags: nodesList.map((n) => (typeof n === "string" ? n : n.name || n.type || "node")),
+          pluginTags: nodesList.map((n) => {
+            const typeStr = typeof n === "string" ? n : n.type || n.name || "";
+            return String(typeStr).replace(/^n8n-nodes-base\./, "");
+          }).slice(0, 4),
+          nodeCount: nodesList.length,
+          usageCount: 0,
+          viewsCount: w.views || w.totalViews || 0,
+          version: "1.0.0",
+          badges: ["community"],
+          sourceUrl: `https://n8n.io/workflows/${w.id}`,
+          canvasUrl: `/dashboard/canvas/new?n8nId=${w.id}`,
+          createdAt: w.createdAt,
+        };
+      });
 
       const payload = {
         provider: "n8n",
@@ -344,15 +350,17 @@ export async function GET(request: Request) {
       if (!res.ok) throw new Error(`Dify API error ${res.status}`);
       const json = await res.json();
 
-      const rawTemplates: any[] = json.data?.templates || json.templates || [];
+      const rawTemplates: Record<string, unknown>[] = json.data?.templates || json.templates || [];
       const total = json.data?.total ?? json.total ?? rawTemplates.length;
 
-      const normalized = rawTemplates.map((t: any) => {
-        const plugins = Array.isArray(t.deps_plugins) ? t.deps_plugins : [];
+      const normalized = rawTemplates.map((t: Record<string, unknown>) => {
+        const plugins = Array.isArray(t.deps_plugins) ? (t.deps_plugins as string[]) : [];
         const pluginTags = plugins.map((p: string) => {
           const parts = p.split("/");
           return parts[parts.length - 1] || p;
         });
+
+        const categories = Array.isArray(t.categories) ? (t.categories as string[]) : ["operations"];
 
         return {
           id: t.id,
@@ -365,8 +373,8 @@ export async function GET(request: Request) {
           authorUrl: `https://marketplace.dify.ai/templates/${t.id}`,
           icon: t.icon || "Layers",
           iconBackground: t.icon_background || "#1C64F2",
-          categories: Array.isArray(t.categories) ? t.categories : ["operations"],
-          primaryCategory: (t.categories?.[0] || "operations").toLowerCase(),
+          categories,
+          primaryCategory: (categories[0] || "operations").toLowerCase(),
           tags: pluginTags,
           pluginTags,
           nodeCount: 0,
@@ -452,36 +460,42 @@ export async function GET(request: Request) {
       ? studioAll.slice(0, 4)
       : [];
 
-    const normalizedN8n = (n8nData.workflows || []).map((w: any) => ({
-      id: w.id,
-      provider: "n8n" as const,
-      providerName: "n8n",
-      name: w.name || `n8n Workflow #${w.id}`,
-      description: w.description || "",
-      readme: w.description || "",
-      author: w.user?.username || w.user?.name || "n8n Community",
-      authorUrl: `https://n8n.io/workflows/${w.id}`,
-      icon: "Workflow",
-      iconBackground: "#F0506E",
-      categories: (w.categories || []).map((c: any) => (typeof c === "string" ? c : c.name || "Automation")),
-      primaryCategory: (w.categories?.[0]?.name || w.categories?.[0] || "automation").toLowerCase(),
-      tags: (w.nodes || []).map((n: any) => (typeof n === "string" ? n : n.name || n.type)),
-      pluginTags: (w.nodes || []).map((n: any) => {
-        const typeStr = typeof n === "string" ? n : n.type || n.name || "";
-        return typeStr.replace(/^n8n-nodes-base\./, "");
-      }).slice(0, 4),
-      nodeCount: Array.isArray(w.nodes) ? w.nodes.length : 0,
-      usageCount: 0,
-      viewsCount: w.views || w.totalViews || 0,
-      version: "1.0.0",
-      badges: ["community"],
-      sourceUrl: `https://n8n.io/workflows/${w.id}`,
-      canvasUrl: `/dashboard/canvas/new?n8nId=${w.id}`,
-      createdAt: w.createdAt,
-    }));
+    const normalizedN8n = (n8nData.workflows || []).map((w: Record<string, unknown>) => {
+      const userObj = (w.user as Record<string, unknown>) || {};
+      const categoriesList = Array.isArray(w.categories) ? (w.categories as Array<string | { name?: string }>) : [];
+      const nodesList = Array.isArray(w.nodes) ? (w.nodes as Array<string | { name?: string; type?: string }>) : [];
 
-    const normalizedDify = (difyData.workflows || []).map((t: any) => {
-      const plugins = Array.isArray(t.deps_plugins) ? t.deps_plugins : [];
+      return {
+        id: w.id,
+        provider: "n8n" as const,
+        providerName: "n8n",
+        name: w.name || `n8n Workflow #${w.id}`,
+        description: w.description || "",
+        readme: w.description || "",
+        author: userObj.username || userObj.name || "n8n Community",
+        authorUrl: `https://n8n.io/workflows/${w.id}`,
+        icon: "Workflow",
+        iconBackground: "#F0506E",
+        categories: categoriesList.map((c) => (typeof c === "string" ? c : c.name || "Automation")),
+        primaryCategory: (typeof categoriesList[0] === "string" ? categoriesList[0] : categoriesList[0]?.name || "automation").toLowerCase(),
+        tags: nodesList.map((n) => (typeof n === "string" ? n : n.name || n.type || "node")),
+        pluginTags: nodesList.map((n) => {
+          const typeStr = typeof n === "string" ? n : n.type || n.name || "";
+          return String(typeStr).replace(/^n8n-nodes-base\./, "");
+        }).slice(0, 4),
+        nodeCount: nodesList.length,
+        usageCount: 0,
+        viewsCount: w.views || w.totalViews || 0,
+        version: "1.0.0",
+        badges: ["community"],
+        sourceUrl: `https://n8n.io/workflows/${w.id}`,
+        canvasUrl: `/dashboard/canvas/new?n8nId=${w.id}`,
+        createdAt: w.createdAt,
+      };
+    });
+
+    const normalizedDify = (difyData.workflows || []).map((t: Record<string, unknown>) => {
+      const plugins = Array.isArray(t.deps_plugins) ? (t.deps_plugins as string[]) : [];
       const pluginTags = plugins.map((p: string) => {
         const parts = p.split("/");
         return parts[parts.length - 1] || p;
@@ -499,7 +513,7 @@ export async function GET(request: Request) {
         icon: t.icon || "Layers",
         iconBackground: t.icon_background || "#1C64F2",
         categories: Array.isArray(t.categories) ? t.categories : ["operations"],
-        primaryCategory: (t.categories?.[0] || "operations").toLowerCase(),
+        primaryCategory: ((Array.isArray(t.categories) ? t.categories[0] : "operations") || "operations").toLowerCase(),
         tags: pluginTags,
         pluginTags,
         nodeCount: 0,
@@ -556,12 +570,13 @@ export async function GET(request: Request) {
 
     unifiedSearchCache.set(cacheKey, { data: payload, timestamp: Date.now() });
     return NextResponse.json({ success: true, ...payload });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[Unified workflows search API error]:", error);
+    const message = error instanceof Error ? error.message : "Failed to search workflows";
     return NextResponse.json(
       {
         success: false,
-        error: error?.message || "Failed to search workflows",
+        error: message,
         workflows: [],
         stats: { total: 11950, n8n: 11620, dify: 292, studio: totalStudioTemplates },
         pagination: { page, perPage, totalWorkflows: 0, totalPages: 0 },

@@ -64,8 +64,38 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 const PAGE_SIZE = 18;
 
+export interface DifyMarketplaceWorkflow {
+  id: string | number;
+  name: string;
+  description: string;
+  readme?: string;
+  categories?: string[];
+  depsPlugins?: string[];
+  pluginTags?: string[];
+  preferredLanguages?: string[];
+  icon?: string | null;
+  iconBackground?: string;
+  iconFileKey?: string | null;
+  author?: string;
+  publisherType?: string;
+  usageCount?: number;
+  version?: string;
+  badges?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+  source?: string;
+  url?: string;
+  rawDsl?: string;
+  nodeCount?: number;
+  convertedGraph?: {
+    nodes?: Array<{ id: string; label?: string; type?: string }>;
+    edges?: Array<{ id: string; source: string; target: string }>;
+  };
+  convertedTemplate?: unknown;
+}
+
 export function DifyWorkflowsMarketplace() {
-  const [workflows, setWorkflows] = useState<any[]>([]);
+  const [workflows, setWorkflows] = useState<DifyMarketplaceWorkflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalWorkflows, setTotalWorkflows] = useState(0);
@@ -74,13 +104,13 @@ export function DifyWorkflowsMarketplace() {
   const [activeCategory, setActiveCategory] = useState("ALL");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [detailWorkflow, setDetailWorkflow] = useState<any | null>(null);
+  const [detailWorkflow, setDetailWorkflow] = useState<DifyMarketplaceWorkflow | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
   // In-memory page cache for instant pagination & prefetching
-  const pageCacheRef = useRef<Map<number, { workflows: any[]; totalWorkflows: number; totalPages: number }>>(new Map());
+  const pageCacheRef = useRef<Map<number, { workflows: DifyMarketplaceWorkflow[]; totalWorkflows: number; totalPages: number }>>(new Map());
 
   const prefetchNextPage = useCallback(
     async (nextPage: number, maxPages: number) => {
@@ -162,8 +192,9 @@ export function DifyWorkflowsMarketplace() {
         } else {
           toast.error("Failed to load Dify templates", json.error);
         }
-      } catch (err: any) {
-        toast.error("Error fetching Dify templates", err.message);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Error fetching Dify templates";
+        toast.error("Error fetching Dify templates", msg);
       } finally {
         setLoading(false);
       }
@@ -179,7 +210,7 @@ export function DifyWorkflowsMarketplace() {
     return () => clearTimeout(timer);
   }, [search, activeCategory, activeTag, fetchWorkflows]);
 
-  const loadWorkflowDetails = async (id: string) => {
+  const loadWorkflowDetails = async (id: string | number) => {
     setDetailLoading(true);
     try {
       const res = await fetch(`/api/workflows/dify/${id}`);
@@ -194,10 +225,10 @@ export function DifyWorkflowsMarketplace() {
     }
   };
 
-  const copyDslToClipboard = (dsl: string, id: string) => {
+  const copyDslToClipboard = (dsl: string, id: string | number) => {
     if (!dsl) return;
     navigator.clipboard.writeText(dsl);
-    setCopiedId(id);
+    setCopiedId(String(id));
     toast.success("DSL copied!", "Dify workflow YAML copied to clipboard");
     setTimeout(() => setCopiedId(null), 2000);
   };
@@ -470,7 +501,7 @@ export function DifyWorkflowsMarketplace() {
                     {/* Stats & Actions */}
                     <div className="pt-3 border-t border-slate-100 dark:border-indigo-950/60 flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2.5 text-[9px] text-slate-500">
-                        {wf.usageCount > 0 && (
+                        {Boolean(wf.usageCount && wf.usageCount > 0) && (
                           <span className="flex items-center gap-1 text-amber-500 font-semibold">
                             <Flame className="h-3 w-3 fill-amber-400" />
                             {Number(wf.usageCount).toLocaleString()} uses
@@ -533,7 +564,7 @@ export function DifyWorkflowsMarketplace() {
                   </div>
 
                   <div className="flex items-center gap-3 shrink-0 self-end sm:self-auto">
-                    {wf.usageCount > 0 && (
+                    {Boolean(wf.usageCount && wf.usageCount > 0) && (
                       <span className="flex items-center gap-1 text-[9px] text-amber-500 font-semibold">
                         <Flame className="h-3 w-3 fill-amber-400" />
                         {Number(wf.usageCount).toLocaleString()}
@@ -643,7 +674,7 @@ export function DifyWorkflowsMarketplace() {
                     <Puzzle className="h-3 w-3 text-blue-400" /> Dependencies &amp; Tools
                   </h4>
                   <div className="flex flex-wrap gap-1">
-                    {(detailWorkflow.depsPlugins || []).length > 0 ? (
+                    {detailWorkflow.depsPlugins && detailWorkflow.depsPlugins.length > 0 ? (
                       detailWorkflow.depsPlugins.map((p: string, idx: number) => (
                         <span key={idx} className="px-2 py-0.5 rounded text-[9px] bg-blue-500/10 text-blue-300 border border-blue-500/30">
                           {p}
@@ -677,7 +708,7 @@ export function DifyWorkflowsMarketplace() {
                     Canvas Graph Nodes ({detailWorkflow.nodeCount || detailWorkflow.convertedGraph.nodes?.length || 0})
                   </h4>
                   <div className="flex flex-wrap gap-1.5">
-                    {(detailWorkflow.convertedGraph.nodes || []).map((n: any, idx: number) => (
+                    {(detailWorkflow.convertedGraph.nodes || []).map((n, idx: number) => (
                       <span
                         key={idx}
                         className="px-2 py-1 rounded text-[10px] bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-300"
@@ -705,7 +736,7 @@ export function DifyWorkflowsMarketplace() {
                 {detailWorkflow.rawDsl && (
                   <button
                     type="button"
-                    onClick={() => copyDslToClipboard(detailWorkflow.rawDsl, detailWorkflow.id)}
+                    onClick={() => copyDslToClipboard(detailWorkflow.rawDsl!, detailWorkflow.id)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-slate-300 dark:border-slate-800 text-slate-300 hover:bg-slate-800 transition-all cursor-pointer text-[10px] font-bold uppercase"
                   >
                     {copiedId === detailWorkflow.id ? (

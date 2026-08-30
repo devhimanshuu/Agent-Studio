@@ -33,7 +33,7 @@ import { clsx } from "clsx";
 
 type NodeStatus = "idle" | "running" | "done" | "awaiting";
 
-export interface DemoNodeDef {
+interface DemoNodeDef {
   id: string;
   label: string;
   badge: string;
@@ -53,7 +53,7 @@ export interface DemoNodeDef {
   tokens: number;
 }
 
-export interface DemoEdgeLink {
+interface DemoEdgeLink {
   id: string;
   source: string;
   target: string;
@@ -62,7 +62,7 @@ export interface DemoEdgeLink {
   accept?: boolean;
 }
 
-export interface DemoTraceStep {
+interface DemoTraceStep {
   nodeId: string;
   stepName: string;
   type: "START" | "AGENT" | "TOOL" | "APPROVAL" | "ROUTER" | "END";
@@ -73,7 +73,7 @@ export interface DemoTraceStep {
   cls: string;
 }
 
-export interface BlueprintPreset {
+interface BlueprintPreset {
   id: string;
   name: string;
   tagline: string;

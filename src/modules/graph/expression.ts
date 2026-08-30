@@ -163,7 +163,7 @@ function getPath(root: unknown, segments: (string | number)[]): unknown {
   return current;
 }
 
-export interface ExpressionContext {
+interface ExpressionContext {
   /** Outputs keyed by node id. */
   results: Record<string, unknown>;
   /** The skill's validated user input. */

@@ -4,4 +4,3 @@ export {
   DEFAULT_APPROVAL_POLICY 
 } from "./approval-policy/approvalPolicy";
 export { ApprovalHistoryService } from "./approval-history/approvalHistoryService";
-export type { TimelineEntry } from "./approval-history/approvalHistoryService";

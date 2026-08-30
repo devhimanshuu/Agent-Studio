@@ -17,7 +17,7 @@
 
 export type GraphNodeStatus = "RUNNING" | "SUCCESS" | "FAILED" | "AWAITING_APPROVAL" | "SKIPPED";
 
-export interface ExecutionEventBase {
+interface ExecutionEventBase {
   executionId: string;
   /** Monotonic sequence for ordering on the client. */
   seq: number;

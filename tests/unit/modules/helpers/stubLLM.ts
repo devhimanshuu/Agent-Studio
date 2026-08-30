@@ -7,7 +7,7 @@ import {
   LLMStreamChunk,
 } from "@/providers/llm";
 
-export interface StubLLMOptions {
+interface StubLLMOptions {
   /** Value returned by structuredOutput (usually a plan object). */
   plan?: unknown;
   /** Error thrown by structuredOutput (immediately, unless failNTimes set). */

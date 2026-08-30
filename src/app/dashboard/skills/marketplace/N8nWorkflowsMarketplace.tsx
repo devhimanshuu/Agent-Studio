@@ -54,11 +54,48 @@ const POPULAR_TAGS = [
   "RSS",
 ];
 
+import { AgentGraphDefinition } from "@/types/graph";
+import { SkillExampleDTO } from "@/types/skill";
+
 const PAGE_SIZE = 18;
+
+export interface N8nMarketplaceWorkflow {
+  id: number;
+  name: string;
+  description: string;
+  totalViews?: number;
+  views?: number;
+  createdAt?: string;
+  user?: {
+    name?: string;
+    username?: string;
+    avatar?: string | null;
+    verified?: boolean;
+  };
+  nodeCount?: number;
+  nodeIcons?: Array<{ name: string; icon: string | null; type: string }>;
+  nodeTypes?: string[];
+  url?: string;
+  convertedGraph?: {
+    nodes: Array<{ id: string; label?: string; type?: string }>;
+    edges: Array<{ id: string; source: string; target: string }>;
+  };
+  convertedTemplate?: {
+    purpose?: string;
+    instructions?: string;
+    allowedTools?: string[];
+    inputSchema?: Record<string, unknown>;
+    outputSchema?: Record<string, unknown>;
+    examples?: SkillExampleDTO[];
+    actionsRequiringApproval?: string[];
+    maxExecutionSteps?: number;
+  };
+  rawWorkflowJson?: unknown;
+}
 
 export function N8nWorkflowsMarketplace() {
   const router = useRouter();
-  const [workflows, setWorkflows] = useState<any[]>([]);
+  const [workflows, setWorkflows] = useState<N8nMarketplaceWorkflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalWorkflows, setTotalWorkflows] = useState(0);
@@ -67,14 +104,14 @@ export function N8nWorkflowsMarketplace() {
   const [activeCategory, setActiveCategory] = useState("ALL");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [detailWorkflow, setDetailWorkflow] = useState<any | null>(null);
+  const [detailWorkflow, setDetailWorkflow] = useState<N8nMarketplaceWorkflow | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [importingId, setImportingId] = useState<number | null>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
   // In-memory page cache for instant pagination & prefetching
-  const pageCacheRef = useRef<Map<number, { workflows: any[]; totalWorkflows: number; totalPages: number }>>(new Map());
+  const pageCacheRef = useRef<Map<number, { workflows: N8nMarketplaceWorkflow[]; totalWorkflows: number; totalPages: number }>>(new Map());
 
   const prefetchNextPage = useCallback(
     async (nextPage: number, maxPages: number) => {
@@ -160,8 +197,9 @@ export function N8nWorkflowsMarketplace() {
         } else {
           toast.error("Failed to load n8n workflows", json.error);
         }
-      } catch (err: any) {
-        toast.error("Error fetching workflows", err.message);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Error fetching workflows";
+        toast.error("Error fetching workflows", msg);
       } finally {
         setLoading(false);
       }
@@ -187,14 +225,15 @@ export function N8nWorkflowsMarketplace() {
       } else {
         toast.error("Failed to load workflow details", json.error);
       }
-    } catch (err: any) {
-      toast.error("Error fetching details", err.message);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Error fetching details";
+      toast.error("Error fetching details", msg);
     } finally {
       setDetailLoading(false);
     }
   };
 
-  const handleImportToStudio = async (wf: any) => {
+  const handleImportToStudio = async (wf: N8nMarketplaceWorkflow) => {
     setImportingId(wf.id);
     try {
       let wfData = wf;
@@ -215,16 +254,16 @@ export function N8nWorkflowsMarketplace() {
         examples: template?.examples,
         actionsRequiringApproval: template?.actionsRequiringApproval,
         maxExecutionSteps: template?.maxExecutionSteps,
-        graphDefinition: wfData.convertedGraph || undefined,
+        graphDefinition: (wfData.convertedGraph as AgentGraphDefinition) || undefined,
       });
 
       toast.success("Workflow imported to Studio!", `Created skill: ${created.name}`);
       router.push(`/dashboard/skills/${created.id}`);
-    } catch (err: any) {
-      let msg = err?.message || "Failed to import workflow";
-      if (err?.fields) {
-        const details = Object.entries(err.fields)
-          .map(([k, v]) => `${k}: ${(v as string[]).join(", ")}`)
+    } catch (err: unknown) {
+      let msg = err instanceof Error ? err.message : "Failed to import workflow";
+      if (typeof err === "object" && err !== null && "fields" in err) {
+        const details = Object.entries((err as { fields: Record<string, string[]> }).fields)
+          .map(([k, v]) => `${k}: ${v.join(", ")}`)
           .join(" | ");
         msg = `${msg} (${details})`;
       }
@@ -234,7 +273,7 @@ export function N8nWorkflowsMarketplace() {
     }
   };
 
-  const handleCopyJson = (wf: any) => {
+  const handleCopyJson = (wf: N8nMarketplaceWorkflow) => {
     const jsonStr = JSON.stringify(wf.rawWorkflowJson || wf, null, 2);
     navigator.clipboard.writeText(jsonStr);
     setCopiedId(wf.id);

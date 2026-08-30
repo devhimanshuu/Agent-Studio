@@ -1,6 +1,6 @@
 import { AgentGraphDefinition } from "@/types/graph";
 
-export interface GraphIssue {
+interface GraphIssue {
   severity: "error" | "warning";
   message: string;
   nodeId?: string;

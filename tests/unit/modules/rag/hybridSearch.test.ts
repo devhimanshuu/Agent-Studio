@@ -29,7 +29,7 @@ The RAG Triad evaluates context relevance, groundedness, and answer relevance.`;
     const store = new PgVectorStore({ embeddingProvider: "local" });
 
     // Mock search (dense)
-    vi.spyOn(store as any, "search").mockResolvedValue([
+    vi.spyOn(store, "search").mockResolvedValue([
       {
         id: "chunk-1",
         documentId: "doc-1",
@@ -43,7 +43,7 @@ The RAG Triad evaluates context relevance, groundedness, and answer relevance.`;
     ]);
 
     // Mock searchSparse (sparse)
-    vi.spyOn(store as any, "searchSparse").mockResolvedValue([
+    vi.spyOn(store as unknown as { searchSparse: (...args: unknown[]) => Promise<unknown> }, "searchSparse").mockResolvedValue([
       {
         id: "chunk-1",
         documentId: "doc-1",

@@ -5,7 +5,7 @@
 
 // ────────────── Generic Fetch with Retry ──────────────
 
-export interface FetchWithRetryOptions {
+interface FetchWithRetryOptions {
   /** Maximum retry attempts (default: 3) */
   retries?: number;
   /** Base delay between retries in ms (default: 1000) */

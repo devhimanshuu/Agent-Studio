@@ -1,4 +1,4 @@
-export interface RetryOptions {
+interface RetryOptions {
   /** Total attempts including the first (must be >= 1). */
   attempts: number;
   /** Delay between attempts in ms. */

@@ -7,7 +7,7 @@ import { convertN8nToAgentGraph, convertN8nToWorkflowTemplate } from "@/lib/conv
 export const revalidate = 600;
 
 interface CacheEntry {
-  data: any;
+  data: Record<string, unknown>;
   timestamp: number;
 }
 
@@ -93,12 +93,13 @@ export async function GET(
       success: true,
       data: payload,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(`[n8n workflow detail API error for #${id}]:`, error);
+    const message = error instanceof Error ? error.message : `Failed to fetch n8n workflow #${id}`;
     return NextResponse.json(
       {
         success: false,
-        error: error?.message || `Failed to fetch n8n workflow #${id}`,
+        error: message,
       },
       { status: 502 }
     );

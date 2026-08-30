@@ -52,13 +52,6 @@ export interface RespondApprovalInput {
   idempotencyKey: string;
 }
 
-export interface ResumeExecutionInput {
-  executionId: string;
-  userId: string;
-  /** The single-use approval token that proves this request was approved. */
-  approvalToken: string;
-}
-
 export interface ApprovalPolicy {
   /** Always require human review for this tool action. */
   alwaysRequireApproval: boolean;

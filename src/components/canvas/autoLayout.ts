@@ -1,6 +1,6 @@
 import { CanvasNode } from "./graphUtils";
 
-export interface LayoutPosition {
+interface LayoutPosition {
   x: number;
   y: number;
 }

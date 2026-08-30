@@ -28,13 +28,13 @@ import { toast } from "@/stores/toastStore";
 import { Pagination } from "@/components/common/Pagination";
 import { N8nOfficialLogo, DifyOfficialLogo } from "@/components/common/BrandLogos";
 
-export type WorkflowProvider = "all" | "n8n" | "dify" | "studio";
+type WorkflowProvider = "all" | "n8n" | "dify" | "studio";
 
 const PROVIDERS: Array<{
   id: WorkflowProvider;
   name: string;
   statsKey: "total" | "n8n" | "dify" | "studio";
-  icon: any;
+  icon: React.ComponentType<{ className?: string }>;
   colorClass: string;
   activeClass: string;
   pillClass: string;
@@ -119,9 +119,41 @@ const POPULAR_INTEGRATION_TAGS = [
 
 const PAGE_SIZE = 18;
 
+export interface UnifiedMarketplaceWorkflow {
+  id: string | number;
+  provider: "n8n" | "dify" | "studio";
+  providerName: string;
+  name: string;
+  description: string;
+  readme?: string;
+  author?: string;
+  authorUrl?: string;
+  icon?: string;
+  iconBackground?: string;
+  categories?: string[];
+  primaryCategory?: string;
+  tags?: string[];
+  pluginTags?: string[];
+  nodeCount?: number;
+  usageCount?: number;
+  viewsCount?: number;
+  version?: string;
+  badges?: string[];
+  sourceUrl?: string;
+  canvasUrl?: string;
+  createdAt?: string;
+  rawDsl?: string;
+  rawWorkflowJson?: unknown;
+  convertedGraph?: {
+    nodes?: Array<{ id: string; label?: string; data?: { label?: string }; type?: string }>;
+    edges?: Array<{ id: string; source: string; target: string }>;
+  };
+  convertedTemplate?: unknown;
+}
+
 export function UnifiedWorkflowsMarketplace() {
   const [activeProvider, setActiveProvider] = useState<WorkflowProvider>("all");
-  const [workflows, setWorkflows] = useState<any[]>([]);
+  const [workflows, setWorkflows] = useState<UnifiedMarketplaceWorkflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalWorkflows, setTotalWorkflows] = useState(0);
@@ -130,14 +162,14 @@ export function UnifiedWorkflowsMarketplace() {
   const [activeCategory, setActiveCategory] = useState("ALL");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [detailWorkflow, setDetailWorkflow] = useState<any | null>(null);
+  const [detailWorkflow, setDetailWorkflow] = useState<UnifiedMarketplaceWorkflow | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [stats, setStats] = useState({ total: 0, n8n: 0, dify: 0, studio: 0 });
   const gridRef = useRef<HTMLDivElement>(null);
 
   // In-memory page cache for instant pagination & prefetching
-  const pageCacheRef = useRef<Map<number, { workflows: any[]; totalWorkflows: number; totalPages: number }>>(new Map());
+  const pageCacheRef = useRef<Map<number, { workflows: UnifiedMarketplaceWorkflow[]; totalWorkflows: number; totalPages: number }>>(new Map());
 
   const prefetchNextPage = useCallback(
     async (nextPage: number, maxPages: number) => {
@@ -225,8 +257,9 @@ export function UnifiedWorkflowsMarketplace() {
         } else {
           toast.error("Failed to load workflows", json.error);
         }
-      } catch (err: any) {
-        toast.error("Error loading workflows", err.message);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Error loading workflows";
+        toast.error("Error loading workflows", msg);
       } finally {
         setLoading(false);
       }
@@ -242,7 +275,7 @@ export function UnifiedWorkflowsMarketplace() {
     return () => clearTimeout(timer);
   }, [activeProvider, search, activeCategory, activeTag, fetchWorkflows]);
 
-  const loadWorkflowDetails = async (wf: any) => {
+  const loadWorkflowDetails = async (wf: UnifiedMarketplaceWorkflow) => {
     setDetailWorkflow(wf);
     if (wf.provider === "studio") return;
 
@@ -265,7 +298,7 @@ export function UnifiedWorkflowsMarketplace() {
     }
   };
 
-  const copyDslOrJson = (content: any, id: string) => {
+  const copyDslOrJson = (content: unknown, id: string) => {
     if (!content) return;
     const textToCopy = typeof content === "string" ? content : JSON.stringify(content, null, 2);
     navigator.clipboard.writeText(textToCopy);
@@ -587,24 +620,24 @@ export function UnifiedWorkflowsMarketplace() {
                     {/* Stats & Actions */}
                     <div className="pt-3 border-t border-slate-100 dark:border-indigo-950/60 flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2.5 text-[9px] text-slate-500">
-                        {wf.usageCount > 0 ? (
+                        {Boolean(wf.usageCount && wf.usageCount > 0) ? (
                           <span className="flex items-center gap-1 text-amber-500 font-semibold">
                             <Flame className="h-3 w-3 fill-amber-400" />
                             {Number(wf.usageCount).toLocaleString()} uses
                           </span>
-                        ) : wf.viewsCount > 0 ? (
+                        ) : Boolean(wf.viewsCount && wf.viewsCount > 0) ? (
                           <span className="flex items-center gap-1 text-slate-400">
                             <Eye className="h-3 w-3 text-slate-500" />
                             {Number(wf.viewsCount).toLocaleString()}
                           </span>
-                        ) : wf.nodeCount > 0 ? (
+                        ) : Boolean(wf.nodeCount && wf.nodeCount > 0) ? (
                           <span>{wf.nodeCount} nodes</span>
                         ) : null}
                       </div>
 
                       <div className="flex items-center gap-2">
                         <Link
-                          href={wf.canvasUrl}
+                          href={wf.canvasUrl || "/dashboard/canvas/new"}
                           onClick={(e) => e.stopPropagation()}
                           className={clsx(
                             "inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider border text-white shadow-sm transition-all cursor-pointer",
@@ -680,14 +713,14 @@ export function UnifiedWorkflowsMarketplace() {
                     </div>
 
                     <div className="flex items-center gap-3 shrink-0 self-end sm:self-auto">
-                      {wf.usageCount > 0 && (
+                      {Boolean(wf.usageCount && wf.usageCount > 0) && (
                         <span className="flex items-center gap-1 text-[9px] text-amber-500 font-semibold">
                           <Flame className="h-3 w-3 fill-amber-400" />
                           {Number(wf.usageCount).toLocaleString()}
                         </span>
                       )}
                       <Link
-                        href={wf.canvasUrl}
+                        href={wf.canvasUrl || "/dashboard/canvas/new"}
                         onClick={(e) => e.stopPropagation()}
                         className={clsx(
                           "inline-flex items-center gap-1 px-3 py-1 rounded text-[10px] font-bold text-white",
@@ -810,15 +843,18 @@ export function UnifiedWorkflowsMarketplace() {
                     <Puzzle className="h-3 w-3 text-blue-400" /> Integrations &amp; Tools
                   </h4>
                   <div className="flex flex-wrap gap-1">
-                    {(detailWorkflow.pluginTags || detailWorkflow.tags || []).length > 0 ? (
-                      (detailWorkflow.pluginTags || detailWorkflow.tags).map((p: string, idx: number) => (
-                        <span key={idx} className="px-2 py-0.5 rounded text-[9px] bg-slate-100 dark:bg-slate-900 text-slate-300 border border-slate-300 dark:border-slate-800">
-                          +{p}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-[10px] text-slate-500">None specified</span>
-                    )}
+                    {(() => {
+                      const tagsList = detailWorkflow.pluginTags || detailWorkflow.tags || [];
+                      return tagsList.length > 0 ? (
+                        tagsList.map((p: string, idx: number) => (
+                          <span key={idx} className="px-2 py-0.5 rounded text-[9px] bg-slate-100 dark:bg-slate-900 text-slate-300 border border-slate-300 dark:border-slate-800">
+                            +{p}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-[10px] text-slate-500">None specified</span>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -844,7 +880,7 @@ export function UnifiedWorkflowsMarketplace() {
                     Canvas Graph Architecture ({detailWorkflow.convertedGraph.nodes?.length || 0} nodes · {detailWorkflow.convertedGraph.edges?.length || 0} edges)
                   </h4>
                   <div className="flex flex-wrap gap-1.5">
-                    {(detailWorkflow.convertedGraph.nodes || []).map((n: any, idx: number) => (
+                    {(detailWorkflow.convertedGraph.nodes || []).map((n, idx: number) => (
                       <span
                         key={idx}
                         className="px-2 py-1 rounded text-[10px] bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-300"
@@ -871,13 +907,13 @@ export function UnifiedWorkflowsMarketplace() {
               )}
 
               <div className="flex items-center gap-2">
-                {(detailWorkflow.rawDsl || detailWorkflow.rawWorkflowJson) && (
+                {Boolean(detailWorkflow.rawDsl || detailWorkflow.rawWorkflowJson) && (
                   <button
                     type="button"
                     onClick={() =>
                       copyDslOrJson(
                         detailWorkflow.rawDsl || detailWorkflow.rawWorkflowJson,
-                        detailWorkflow.id
+                        String(detailWorkflow.id)
                       )
                     }
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-slate-300 dark:border-slate-800 text-slate-300 hover:bg-slate-800 transition-all cursor-pointer text-[10px] font-bold uppercase"
@@ -895,7 +931,7 @@ export function UnifiedWorkflowsMarketplace() {
                 )}
 
                 <Link
-                  href={detailWorkflow.canvasUrl}
+                  href={detailWorkflow.canvasUrl || "/dashboard/canvas/new"}
                   className={clsx(
                     "inline-flex items-center gap-1.5 px-4 py-1.5 rounded border text-white font-bold text-[10px] uppercase tracking-wider shadow-md transition-all cursor-pointer",
                     detailWorkflow.provider === "n8n"

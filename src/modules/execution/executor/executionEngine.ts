@@ -17,7 +17,7 @@ import {
   errorMessage,
 } from "./errors";
 
-export interface ExecutionEngineDeps {
+interface ExecutionEngineDeps {
   toolRegistry: ToolRegistry;
   permissionChecker: PermissionChecker;
   planner: PlannerService;
@@ -31,7 +31,7 @@ export interface ExecutionEngineDeps {
   timeoutMs?: number;
 }
 
-export interface EngineRunInput {
+interface EngineRunInput {
   executionId: string;
   skill: SkillDTO;
   version: SkillVersionDTO;

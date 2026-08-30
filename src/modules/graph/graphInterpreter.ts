@@ -14,7 +14,7 @@ import { executionEventBus, GraphNodeStatus } from "./eventBus";
 import { evaluateExpression, ExpressionError } from "./expression";
 import { mcpToolRegistryName } from "@/modules/mcp/toolAdapter";
 
-export interface GraphInterpreterDeps {
+interface GraphInterpreterDeps {
   llm?: LLMProvider;
   toolRegistry: ToolRegistry;
   permissionChecker: PermissionChecker;
@@ -55,7 +55,7 @@ export interface GraphState {
   traversedEdges?: string[];
 }
 
-export interface GraphRunInput {
+interface GraphRunInput {
   executionId: string;
   skill: SkillDTO;
   version: SkillVersionDTO;

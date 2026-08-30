@@ -11,7 +11,7 @@
 import { SemanticSearchResult } from "./pgvectorStore";
 import { getLLMProvider } from "@/providers/llm";
 
-export interface ReRankOptions {
+interface ReRankOptions {
   /** Number of top results to return after re-ranking (default: 5) */
   topN?: number;
   /** Minimum re-ranking score threshold (0.0 to 1.0) */
@@ -20,7 +20,7 @@ export interface ReRankOptions {
   boostExactPhrase?: boolean;
 }
 
-export interface ReRankedResult extends SemanticSearchResult {
+interface ReRankedResult extends SemanticSearchResult {
   initialRank: number;
   rerankScore: number;
   rerankRank: number;

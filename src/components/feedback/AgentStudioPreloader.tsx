@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 
-export interface AgentStudioPreloaderProps {
+interface AgentStudioPreloaderProps {
   /**
    * Controlled loading state. When false, triggers smooth exit transition.
    * If undefined, preloader automatically simulates a full boot sequence.

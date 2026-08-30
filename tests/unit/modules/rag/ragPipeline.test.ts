@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { RAGPipeline, createRAGPipeline } from "@/modules/rag";
 import { PgVectorStore } from "@/modules/rag/pgvectorStore";
-import { prisma } from "@/lib/prisma";
 
 describe("RAG Pipeline & pgvector Engine", () => {
   let pipeline: RAGPipeline;

@@ -7,18 +7,13 @@ import {
   Globe,
   Plus,
   Check,
-  Zap,
   Loader2,
-  Sparkles,
-  ExternalLink,
-  ShieldCheck,
-  Layers,
   Wrench,
   Info,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { OPENAPI_PRESETS, OpenApiPreset } from "@/modules/openapi/presets";
-import { BUILT_IN_TOOL_CATALOG, TOOL_CATEGORIES } from "@/modules/tools";
+import { BUILT_IN_TOOL_CATALOG } from "@/modules/tools";
 import { openApiToolRegistryName } from "@/modules/openapi/dynamicTool";
 import { toast } from "@/stores/toastStore";
 
@@ -96,7 +91,7 @@ export function QuickConnectToolModal({
         "Tool Pack Connected!",
         `Added ${addedCount || preset.endpoints.length} endpoints from "${preset.name}" directly to your skill.`
       );
-    } catch (err) {
+    } catch {
       toast.error("Failed to connect preset", "Could not register endpoints");
     } finally {
       setInstallingPresetId(null);

@@ -76,7 +76,7 @@ export interface VaultEntryInput {
   tags?: string[];
 }
 
-export interface VaultEntryDTO {
+interface VaultEntryDTO {
   id: string;
   name: string;
   category: VaultCategory;

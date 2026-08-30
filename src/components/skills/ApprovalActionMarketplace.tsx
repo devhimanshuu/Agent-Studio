@@ -2,13 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import {
-  ShieldAlert,
-  Check,
-  Plus,
   Zap,
-  DollarSign,
-  Terminal,
-  MessageSquare,
   ShieldCheck,
   Search,
   Wand2,

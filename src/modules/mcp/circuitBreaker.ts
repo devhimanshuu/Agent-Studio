@@ -7,7 +7,7 @@
  * HALF-OPENS (success → CLOSED) or re-OPENS (failure → back to OPEN).
  */
 
-export type CircuitState = "CLOSED" | "OPEN" | "HALF_OPEN";
+type CircuitState = "CLOSED" | "OPEN" | "HALF_OPEN";
 
 export class CircuitOpenError extends Error {
   readonly serverId: string;
@@ -18,7 +18,7 @@ export class CircuitOpenError extends Error {
   }
 }
 
-export interface CircuitBreakerOptions {
+interface CircuitBreakerOptions {
   /** Consecutive failures before the circuit opens. Default 3. */
   failureThreshold?: number;
   /** Window (ms) the circuit stays open before a probe is allowed. Default 30s. */

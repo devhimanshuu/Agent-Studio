@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import {
   ChevronDown,
   Search,
-  Zap,
   Bot,
   Sparkles,
   Check,
@@ -100,7 +99,7 @@ export function ModelDropdown({
   }, [openRouterModels]);
 
   // Filtered lists based on search & filter chip
-  const filterList = (list: ModelEntry[]) => {
+  const filterList = useCallback((list: ModelEntry[]) => {
     return list.filter((m) => {
       if (activeFilter === "free" && !(m.model.endsWith(":free") || m.inputPrice === 0 || m.provider === "groq")) {
         return false;
@@ -120,12 +119,12 @@ export function ModelDropdown({
         (m.category && m.category.toLowerCase().includes(q))
       );
     });
-  };
+  }, [activeFilter, searchQuery]);
 
-  const filteredGroq = useMemo(() => filterList(groqModels), [groqModels, searchQuery, activeFilter]);
-  const filteredORFree = useMemo(() => filterList(openRouterFree), [openRouterFree, searchQuery, activeFilter]);
-  const filteredORPopular = useMemo(() => filterList(openRouterPopular), [openRouterPopular, searchQuery, activeFilter]);
-  const filteredOpenAI = useMemo(() => filterList(openaiModels), [openaiModels, searchQuery, activeFilter]);
+  const filteredGroq = useMemo(() => filterList(groqModels), [groqModels, filterList]);
+  const filteredORFree = useMemo(() => filterList(openRouterFree), [openRouterFree, filterList]);
+  const filteredORPopular = useMemo(() => filterList(openRouterPopular), [openRouterPopular, filterList]);
+  const filteredOpenAI = useMemo(() => filterList(openaiModels), [openaiModels, filterList]);
 
   const getCategoryIcon = (category?: string, isSelected?: boolean) => {
     const iconClass = `h-3.5 w-3.5 shrink-0 ${isSelected ? "text-white" : ""}`;

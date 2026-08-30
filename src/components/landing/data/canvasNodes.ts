@@ -5,7 +5,7 @@ import {
   Clock, Radio, Webhook, Network,
 } from "lucide-react";
 
-export interface CanvasNodeCategory {
+interface CanvasNodeCategory {
   category: string;
   color: string;
   nodes: Array<{

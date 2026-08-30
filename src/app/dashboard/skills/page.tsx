@@ -9,7 +9,6 @@ import {
   Copy,
   Archive,
   Trash2,
-  Cpu,
   GitCompare,
   ArrowRight,
   Workflow,

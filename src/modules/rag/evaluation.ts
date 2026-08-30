@@ -11,7 +11,7 @@
 import { evaluateMetricWithJudge } from "@/modules/evals/llmJudge";
 import { EvalJudgeConfig } from "@/types/evals";
 
-export interface RAGTriadEvaluationInput {
+interface RAGTriadEvaluationInput {
   query: string;
   contextChunks: Array<{ content: string; score?: number; title?: string }>;
   generatedAnswer: string;

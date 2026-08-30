@@ -9,7 +9,7 @@
  * 5. Prompt Augmentation & RAG Grounded Answer Synthesis
  */
 
-import { PgVectorStore, pgVectorStore, IngestDocumentInput, SemanticSearchResult, SemanticSearchOptions } from "./pgvectorStore";
+import { PgVectorStore, pgVectorStore, SemanticSearchResult } from "./pgvectorStore";
 import { ChunkingOptions } from "./chunkingService";
 import { getLLMProvider } from "@/providers/llm";
 import { rerankCandidates, generateHyDEQuery } from "./reranker";
@@ -342,8 +342,3 @@ export const defaultRAGPipeline = new RAGPipeline();
 
 // Re-exports
 export { pgVectorStore } from "./pgvectorStore";
-export type { DocumentChunk, ChunkingOptions } from "./chunkingService";
-export type { SemanticSearchResult, IngestDocumentInput, IngestDocumentOutput, HybridSearchOptions } from "./pgvectorStore";
-export type { ReRankOptions, ReRankedResult } from "./reranker";
-export type { VectorClusterPoint, ClusterMapData } from "./clusterVisualizer";
-export type { RAGTriadEvaluationReport, RAGTriadScore } from "./evaluation";

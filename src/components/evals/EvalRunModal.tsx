@@ -3,10 +3,9 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { X, Play, Loader2, Check, Database, Scale, Workflow, Network, Bot } from "lucide-react";
-import { EvalDataset, EvalJudgeConfig, EvalMetricType, EvalRunReport, EvalTargetType } from "@/types/evals";
+import { EvalDataset, EvalMetricType, EvalRunReport, EvalTargetType } from "@/types/evals";
 import { SkillDTO } from "@/types/skill";
 import { skillsApi } from "@/lib/api/skills";
-import { useModels } from "@/hooks/useModels";
 import { ModelDropdown } from "@/components/common/ModelDropdown";
 
 interface EvalRunModalProps {
@@ -65,7 +64,7 @@ export function EvalRunModal({
     "SEMANTIC_CORRECTNESS",
     "SAFETY_POLICY",
   ]);
-  const [threshold, setThreshold] = useState(0.75);
+  const [threshold] = useState(0.75);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,9 +75,6 @@ export function EvalRunModal({
     enabled: isOpen,
   });
 
-  // Fetch real models from providers
-  const { groqModels, openRouterModels, openaiModels, models: allProviderModels } = useModels();
-
   const skills: SkillDTO[] = skillsData?.items || [];
   const activeSkills = skills.filter((s: SkillDTO) => s.status !== "ARCHIVED");
   const graphs = activeSkills.filter((s: SkillDTO) => {
@@ -87,8 +83,6 @@ export function EvalRunModal({
   });
 
   if (!isOpen) return null;
-
-  const currentDataset = datasets.find((d) => d.id === selectedDatasetId) || datasets[0];
 
   const toggleMetric = (metric: EvalMetricType) => {
     setSelectedMetrics((prev) =>
