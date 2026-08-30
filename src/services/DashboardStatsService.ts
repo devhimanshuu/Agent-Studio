@@ -37,6 +37,8 @@ export class DashboardStatsService {
       rangeExecutions,
       liveExecutionsRaw,
       rangeExecutionsCount,
+      statusGroups,
+      durationAgg,
       providerGroups,
       // Tool Calls
       rangeToolCalls,
@@ -98,6 +100,29 @@ export class DashboardStatsService {
           userId,
           ...(rangeDate ? { startedAt: { gte: rangeDate } } : {}),
         },
+      }),
+
+      // Real status breakdown across every execution in range, not just the
+      // 100 most recent (rangeExecutions above is capped for the "recent
+      // activity" feed) — otherwise successRate/statusBreakdown silently
+      // reflected only the latest 100 runs while totalExecutions showed the
+      // true count, making the two disagree for any user past 100 runs.
+      prisma.execution.groupBy({
+        by: ["status"],
+        where: {
+          userId,
+          ...(rangeDate ? { startedAt: { gte: rangeDate } } : {}),
+        },
+        _count: { _all: true },
+      }),
+
+      prisma.execution.aggregate({
+        where: {
+          userId,
+          ...(rangeDate ? { startedAt: { gte: rangeDate } } : {}),
+          durationMs: { gt: 0 },
+        },
+        _avg: { durationMs: true },
       }),
 
       prisma.execution.groupBy({
@@ -177,7 +202,8 @@ export class DashboardStatsService {
       a2aAgentsCount: a2aPresets.length,
     };
 
-    // 2. Telemetry & Metrics
+    // 2. Telemetry & Metrics — real aggregates across the FULL range (not the
+    // 100-row cap on rangeExecutions, which exists only for the recent-activity feed).
     const statusCounts: Record<string, number> = {
       COMPLETED: 0,
       FAILED: 0,
@@ -186,24 +212,15 @@ export class DashboardStatsService {
       RUNNING: 0,
       STEP_LIMIT_EXCEEDED: 0,
     };
-
-    let totalDurationMs = 0;
-    let durationCount = 0;
-
-    for (const exec of rangeExecutions) {
-      statusCounts[exec.status] = (statusCounts[exec.status] ?? 0) + 1;
-      if (exec.durationMs != null && exec.durationMs > 0) {
-        totalDurationMs += exec.durationMs;
-        durationCount++;
-      }
+    for (const g of statusGroups) {
+      statusCounts[g.status] = g._count._all;
     }
 
-    const totalRangeExecs = rangeExecutions.length;
     const completedCount = statusCounts["COMPLETED"] ?? 0;
     const failedCount = (statusCounts["FAILED"] ?? 0) + (statusCounts["STEP_LIMIT_EXCEEDED"] ?? 0);
     const terminalCount = completedCount + failedCount;
     const successRate = terminalCount > 0 ? Math.round((completedCount / terminalCount) * 100) : 100;
-    const avgDurationMs = durationCount > 0 ? Math.round(totalDurationMs / durationCount) : 0;
+    const avgDurationMs = durationAgg._avg.durationMs ? Math.round(durationAgg._avg.durationMs) : 0;
 
     const providerBreakdown = providerGroups.map((p) => ({
       provider: p.provider || "Standard",

@@ -23,7 +23,7 @@ export interface ApprovalRequestDTO {
   respondedAt?: Date | null;
   rejectionReason?: string | null;
   /** Expanded relations for the review detail page (loaded when needed). */
-  history?: ApprovalHistoryDTO[];
+  history?: ApprovalTimelineEntryDTO[];
 }
 
 export interface ApprovalHistoryDTO {
@@ -34,6 +34,14 @@ export interface ApprovalHistoryDTO {
   action: ApprovalHistoryAction;
   details: Record<string, unknown>;
   timestamp: Date;
+}
+
+/** Human-readable audit entry (see ApprovalHistoryService.getTimeline). */
+export interface ApprovalTimelineEntryDTO {
+  action: ApprovalHistoryAction;
+  timestamp: Date;
+  summary: string;
+  details: Record<string, unknown>;
 }
 
 export interface RespondApprovalInput {

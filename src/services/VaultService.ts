@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 // ────────────── Encryption Config ──────────────
 
@@ -52,7 +53,7 @@ export function decrypt(encrypted: string, iv: string, tag: string): string {
  * Mask a secret value for display: shows first 4 and last 4 chars,
  * with asterisks in between.
  */
-export function maskSecret(value: string): string {
+function maskSecret(value: string): string {
   if (value.length <= 8) {
     return value.slice(0, 2) + "*".repeat(Math.max(0, value.length - 2));
   }
@@ -326,13 +327,23 @@ export class VaultService {
    * Convert a DB entry to a DTO with masked value.
    */
   private toDTO(entry: VaultRow): VaultEntryDTO {
-    const rawValue = decrypt(entry.value, entry.iv, entry.tag);
+    // A single corrupted ciphertext/iv/tag row must not take down the whole
+    // list — surface it as an unreadable entry (still safe: never the raw
+    // value) instead of throwing and 500ing every other entry with it.
+    let maskedValue: string;
+    try {
+      maskedValue = maskSecret(decrypt(entry.value, entry.iv, entry.tag));
+    } catch (err) {
+      logger.error({ err, entryId: entry.id }, "Failed to decrypt vault entry — returning as unreadable");
+      maskedValue = "••• (unreadable — corrupted or re-keyed)";
+    }
+
     return {
       id: entry.id,
       name: entry.name,
       category: entry.category,
       key: entry.key,
-      value: maskSecret(rawValue),
+      value: maskedValue,
       description: entry.description,
       tags: entry.tags,
       lastUsedAt: entry.lastUsedAt,

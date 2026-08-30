@@ -73,7 +73,7 @@ export async function runSuiteForModel(suite: BenchmarkSuite, modelId: string): 
   const inputPrice = modelEntry?.inputPrice ?? 0;
   const outputPrice = modelEntry?.outputPrice ?? 0;
   const costPer1kRuns =
-    Math.round((totalInputTokens * inputPrice + totalOutputTokens * outputPrice) * 1000 * 100) / 100;
+    Math.round(((totalInputTokens * inputPrice + totalOutputTokens * outputPrice) / 1_000_000) * 1000 * 100) / 100;
 
   return { scorecard, avgLatencyMs, costPer1kRuns };
 }

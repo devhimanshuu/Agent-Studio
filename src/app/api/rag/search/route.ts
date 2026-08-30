@@ -30,6 +30,7 @@ export async function POST(request: Request) {
       useHybridSearch = false,
       expandToParent = false,
       useReranking = false,
+      useHyDE = false,
     } = body;
 
     if (!query || typeof query !== "string" || !query.trim()) {
@@ -53,6 +54,7 @@ export async function POST(request: Request) {
         useHybridSearch,
         expandToParent,
         useReranking,
+        useHyDE,
       });
 
       return NextResponse.json({
@@ -73,6 +75,7 @@ export async function POST(request: Request) {
         useHybridSearch,
         expandToParent,
         useReranking,
+        useHyDE,
       });
 
       return NextResponse.json({
@@ -93,6 +96,7 @@ export async function POST(request: Request) {
       useHybridSearch,
       expandToParent,
       useReranking,
+      useHyDE,
     });
 
     return NextResponse.json({

@@ -293,7 +293,7 @@ export class McpConnection implements McpRpcClient {
 }
 
 /** Parse a command line string into command + args (quote-aware). */
-export function parseCommandLine(commandLine: string): { command: string; args: string[] } {
+function parseCommandLine(commandLine: string): { command: string; args: string[] } {
   const tokens: string[] = [];
   let current = "";
   let quote: "'" | '"' | null = null;

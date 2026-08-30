@@ -29,7 +29,7 @@ const endpointRequestBodySchema = z.object({
   schema: z.record(z.string(), z.unknown()).optional(),
 });
 
-export const endpointDefinitionSchema = z.object({
+const endpointDefinitionSchema = z.object({
   id: z.string().min(1),
   operationId: z.string().min(1),
   method: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]),

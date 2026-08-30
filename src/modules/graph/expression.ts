@@ -150,7 +150,7 @@ function tokenize(src: string): Token[] {
   return tokens;
 }
 
-export function getPath(root: unknown, segments: (string | number)[]): unknown {
+function getPath(root: unknown, segments: (string | number)[]): unknown {
   let current: unknown = root;
   for (const seg of segments) {
     if (current === null || current === undefined) return undefined;

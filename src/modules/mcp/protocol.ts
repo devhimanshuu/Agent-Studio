@@ -43,7 +43,7 @@ export function isJsonRpcError(message: JsonRpcMessage | null): boolean {
 }
 
 /** Extract the `result.tools` array from a `tools/list` response payload. */
-export function extractToolsList(rawResult: unknown): unknown[] {
+function extractToolsList(rawResult: unknown): unknown[] {
   if (rawResult === null || typeof rawResult !== "object") return [];
   const result = rawResult as Record<string, unknown>;
   if (!Array.isArray(result.tools)) return [];

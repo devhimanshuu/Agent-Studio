@@ -3,7 +3,7 @@ import { VaultService } from "@/services/VaultService";
 /**
  * Shared secret-handling helpers.
  *
- *  - `VAULT_REF` / `isVaultRef` / `resolveVaultPlaceholders`: inject Vault
+ *  - `resolveVaultPlaceholders`: inject Vault
  *    secrets into integration configs at execution time via `${vault.KEY}`
  *    placeholders. Secrets are fetched per-run, scoped to the owning user,
  *    and never serialized into DTOs or logs.
@@ -15,15 +15,11 @@ import { VaultService } from "@/services/VaultService";
 
 const vaultService = new VaultService();
 
-export const VAULT_REF = /\$\{vault\.([A-Za-z0-9_.-]+)\}/g;
-export const REDACTED = "__REDACTED__";
+const VAULT_REF = /\$\{vault\.([A-Za-z0-9_.-]+)\}/g;
+const REDACTED = "__REDACTED__";
 
 export function isRedactedValue(value: unknown): boolean {
   return typeof value === "string" && value === REDACTED;
-}
-
-export function isVaultRef(value: string): boolean {
-  return VAULT_REF.test(value);
 }
 
 /**
@@ -90,7 +86,7 @@ const SENSITIVE_HEADERS = new Set([
   "cookie",
 ]);
 
-export function isSensitiveHeader(name: string): boolean {
+function isSensitiveHeader(name: string): boolean {
   return SENSITIVE_HEADERS.has(name.toLowerCase());
 }
 

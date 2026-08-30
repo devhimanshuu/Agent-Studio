@@ -33,7 +33,7 @@ export interface N8nWorkflowData {
 /**
  * Maps an n8n node type string to Agent Studio GraphNodeType.
  */
-export function mapN8nNodeType(n8nType: string): GraphNodeType {
+function mapN8nNodeType(n8nType: string): GraphNodeType {
   const t = (n8nType || "").toLowerCase();
 
   // Triggers & Entry points

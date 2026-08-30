@@ -79,7 +79,7 @@ function formatModelLabel(id: string, rawName?: string): string {
 /**
  * Fetch live models from Groq API (https://api.groq.com/openai/v1/models)
  */
-export async function fetchLiveGroqModels(apiKey?: string): Promise<ModelEntry[]> {
+async function fetchLiveGroqModels(apiKey?: string): Promise<ModelEntry[]> {
   const effectiveKey = apiKey || env.GROQ_API_KEY;
   if (!effectiveKey) {
     return GROQ_ALL_MODELS;
@@ -131,7 +131,7 @@ export async function fetchLiveGroqModels(apiKey?: string): Promise<ModelEntry[]
 /**
  * Fetch live models from OpenRouter API (https://openrouter.ai/api/v1/models)
  */
-export async function fetchLiveOpenRouterModels(apiKey?: string): Promise<ModelEntry[]> {
+async function fetchLiveOpenRouterModels(apiKey?: string): Promise<ModelEntry[]> {
   const effectiveKey = apiKey || env.OPENROUTER_API_KEY;
 
   try {
@@ -217,7 +217,7 @@ export async function fetchLiveOpenRouterModels(apiKey?: string): Promise<ModelE
 /**
  * Fetch live models from OpenAI API (https://api.openai.com/v1/models) if key configured
  */
-export async function fetchLiveOpenAIModels(apiKey?: string): Promise<ModelEntry[]> {
+async function fetchLiveOpenAIModels(apiKey?: string): Promise<ModelEntry[]> {
   const effectiveKey = apiKey || env.OPENAI_API_KEY;
   if (!effectiveKey) return [];
 

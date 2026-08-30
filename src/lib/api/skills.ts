@@ -14,7 +14,7 @@ async function handle<T>(res: Response): Promise<T> {
   return json.data;
 }
 
-export function buildSkillsQuery(query: SkillListQuery): string {
+function buildSkillsQuery(query: SkillListQuery): string {
   const params = new URLSearchParams();
   if (query.search) params.set("search", query.search);
   if (query.status) params.set("status", query.status);

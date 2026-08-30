@@ -25,11 +25,8 @@ import {
 import { clsx } from "clsx";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/stores/toastStore";
-import { SkillPack, PackCategory, PackInstallationState } from "@/types/skillPacks";
-import { SKILL_PACKS, PACK_CATEGORIES } from "@/data/skillPacks";
-
-/** Persistent map of installed pack IDs */
-const INSTALLED_PACKS_KEY = "skill-installed-packs";
+import { SkillPack, PackCategory, PackInstallationState, INSTALLED_PACKS_KEY } from "@/types/skillPacks";
+import { SKILL_PACKS, PACK_CATEGORIES, getPacksByCategory } from "@/data/skillPacks";
 
 function loadInstalledPacks(): Set<string> {
   if (typeof window === "undefined") return new Set();
@@ -135,10 +132,7 @@ export function SkillPackMarketplace() {
   const [installingPack, setInstallingPack] = useState<string | null>(null);
   const [installState, setInstallState] = useState<PackInstallationState | null>(null);
 
-  const filteredPacks = useMemo(() => {
-    if (selectedCategory === "all") return SKILL_PACKS;
-    return SKILL_PACKS.filter((p) => p.category === selectedCategory);
-  }, [selectedCategory]);
+  const filteredPacks = useMemo(() => getPacksByCategory(selectedCategory), [selectedCategory]);
 
   const handleInstall = useCallback(
     async (pack: SkillPack) => {

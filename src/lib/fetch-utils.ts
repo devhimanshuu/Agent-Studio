@@ -74,26 +74,9 @@ export async function fetchWithRetry(
   throw new Error(`fetchWithRetry: max retries (${retries}) exceeded for ${url}`);
 }
 
-/**
- * Fetch JSON with retry. Returns parsed JSON or fallback on failure.
- */
-export async function fetchJsonWithRetry<T>(
-  url: string,
-  options: FetchWithRetryOptions = {},
-  fallback: T
-): Promise<T> {
-  try {
-    const res = await fetchWithRetry(url, options);
-    if (!res.ok) return fallback;
-    return await res.json();
-  } catch {
-    return fallback;
-  }
-}
-
 // ────────────── Sleep Helper ──────────────
 
-export function sleep(ms: number): Promise<void> {
+function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
@@ -385,7 +368,7 @@ function buildCacheKey(endpoint: string, page: number, pageSize: number, query =
 /**
  * Fetch a single page from Smithery registry with retry.
  */
-export async function smitheryFetchPage<T = unknown>(
+async function smitheryFetchPage<T = unknown>(
   endpoint: "servers" | "skills",
   page: number,
   pageSize = SMITHERY_DEFAULT_PAGE_SIZE,
@@ -997,7 +980,7 @@ const COMPOSIO_TOOLS_CACHE_TTL = 3600_000; // 1 hour
  * Fetch a page of Composio tools from their API.
  * Uses cursor-based pagination.
  */
-export async function fetchComposioToolsPage(
+async function fetchComposioToolsPage(
   cursor?: string,
   limit = 100,
   toolkitFilter?: string

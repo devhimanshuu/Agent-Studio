@@ -43,14 +43,19 @@ export class VersionComparisonService {
     for (const { field, key } of fields) {
       const rawA = vA[key];
       const rawB = vB[key];
-      const oldValue = rawA === null || rawA === undefined ? "" : rawA;
-      const newValue = rawB === null || rawB === undefined ? "" : rawB;
+      // Track absence (null/undefined) separately from the display value —
+      // a field genuinely set to "" must not be classified as "added"/"removed"
+      // just because it normalizes to the same placeholder as a missing field.
+      const wasAbsent = rawA === null || rawA === undefined;
+      const isAbsent = rawB === null || rawB === undefined;
+      const oldValue = wasAbsent ? "" : rawA;
+      const newValue = isAbsent ? "" : rawB;
       const same = JSON.stringify(oldValue) === JSON.stringify(newValue);
       if (same) continue;
 
       changes.push({
         field,
-        kind: oldValue === "" ? "added" : newValue === "" ? "removed" : "modified",
+        kind: wasAbsent ? "added" : isAbsent ? "removed" : "modified",
         oldValue,
         newValue,
       });

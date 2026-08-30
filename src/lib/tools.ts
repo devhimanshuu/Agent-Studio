@@ -8,7 +8,7 @@ import { ToolDefinitionDTO } from "@/types/tool";
  * built-in tool makes the table short again). Self-healing + additive: the
  * sync is idempotent and only touches diverging rows.
  */
-export async function listToolDefinitions(): Promise<ToolDefinitionDTO[]> {
+async function listToolDefinitions(): Promise<ToolDefinitionDTO[]> {
   const repo = new ToolDefinitionRepository();
   let definitions = await repo.list();
   if (definitions.length < BUILT_IN_TOOL_CATALOG.length) {

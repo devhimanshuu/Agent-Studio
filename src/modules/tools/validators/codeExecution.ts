@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const CODE_LANGUAGES = ["javascript", "python"] as const;
+const CODE_LANGUAGES = ["javascript", "python"] as const;
 export type CodeLanguage = (typeof CODE_LANGUAGES)[number];
 
 export const codeExecutionInputValidator = z.object({

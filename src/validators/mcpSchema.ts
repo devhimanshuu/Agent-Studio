@@ -73,4 +73,3 @@ export const mcpTestToolSchema = z.object({
   arguments: z.record(z.string(), z.unknown()).default({}),
 });
 
-export const mcpServerIdSchema = z.string().min(1, "Server ID is required");

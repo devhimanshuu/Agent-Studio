@@ -39,5 +39,3 @@ export function ThemeProvider({
     </NextThemesProvider>
   );
 }
-
-export default ThemeProvider;

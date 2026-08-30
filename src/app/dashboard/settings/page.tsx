@@ -53,7 +53,7 @@ function ProviderModelPanel({
   models,
   apiKeyEnvName,
   providerType = "groq",
-  defaultOpen = true,
+  defaultOpen = false,
 }: {
   title: string;
   configured: boolean;
@@ -420,7 +420,7 @@ function ProviderModelPanel({
 function ProviderCard({ status }: { status: ProviderStatus }) {
   const groqList = (status.groqConfigured ? status.roster.groq : status.availableModels?.groq || []) as ModelRosterItem[];
   const openRouterList = (status.openRouterConfigured ? status.roster.openRouter : status.availableModels?.openRouter || []) as ModelRosterItem[];
-  const [expandAll, setExpandAll] = React.useState(true);
+  const [expandAll, setExpandAll] = React.useState(false);
 
   return (
     <div className="p-6 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-5 shadow-sm">
@@ -436,7 +436,7 @@ function ProviderCard({ status }: { status: ProviderStatus }) {
             onClick={() => setExpandAll(!expandAll)}
             className="text-[10px] font-mono px-2.5 py-1 rounded border border-slate-200 dark:border-indigo-950 bg-slate-100/70 dark:bg-black/60 text-slate-600 dark:text-slate-300 hover:border-indigo-400 dark:hover:border-indigo-600 transition-all cursor-pointer font-semibold flex items-center gap-1"
           >
-            {expandAll ? "COLLAPSE PANELS" : "EXPAND PANELS"}
+            {expandAll ? "COLLAPSE ALL" : "EXPAND ALL"}
           </button>
           <span
             className={`text-[10px] font-mono px-2.5 py-1 rounded border font-semibold ${

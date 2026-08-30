@@ -4,15 +4,6 @@
  * into standard human-readable pricing per 1 Million tokens ($/1M tokens).
  */
 
-export interface FormattedModelPricing {
-  isFree: boolean;
-  promptPricePerMillion: number;
-  completionPricePerMillion: number;
-  promptFormatted: string;
-  completionFormatted: string;
-  summary: string;
-  shortBadge: string;
-}
 
 /**
  * Formats a raw per-token price in USD into a clean string per 1 Million tokens.
@@ -66,43 +57,3 @@ export function isModelFree(modelId: string, inputPrice?: number, outputPrice?: 
   return inPrice === 0 && outPrice === 0;
 }
 
-/**
- * Formats full pricing information for a model.
- */
-export function formatModelPricing(
-  modelId: string,
-  inputPrice?: number,
-  outputPrice?: number
-): FormattedModelPricing {
-  const free = isModelFree(modelId, inputPrice, outputPrice);
-
-  if (free) {
-    return {
-      isFree: true,
-      promptPricePerMillion: 0,
-      completionPricePerMillion: 0,
-      promptFormatted: "$0",
-      completionFormatted: "$0",
-      summary: "$0 / Free Tier",
-      shortBadge: "FREE",
-    };
-  }
-
-  const inPrice = inputPrice ?? 0;
-  const outPrice = outputPrice ?? 0;
-  const promptPricePerMillion = inPrice * 1_000_000;
-  const completionPricePerMillion = outPrice * 1_000_000;
-
-  const promptFormatted = `${formatPricePerMillion(inPrice)}/M`;
-  const completionFormatted = `${formatPricePerMillion(outPrice)}/M`;
-
-  return {
-    isFree: false,
-    promptPricePerMillion,
-    completionPricePerMillion,
-    promptFormatted,
-    completionFormatted,
-    summary: `${promptFormatted} in · ${completionFormatted} out`,
-    shortBadge: `${formatPricePerMillion(inPrice)}/M in`,
-  };
-}

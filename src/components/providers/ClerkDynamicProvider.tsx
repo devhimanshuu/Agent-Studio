@@ -116,5 +116,3 @@ export function ClerkDynamicProvider({ children }: { children: React.ReactNode }
     </ClerkProvider>
   );
 }
-
-export default ClerkDynamicProvider;

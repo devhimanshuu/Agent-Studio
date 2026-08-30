@@ -9,7 +9,7 @@ import {
 } from "@/types/mcp";
 import { prisma } from "@/lib/prisma";
 import { ensureUserExists } from "@/lib/user";
-import { REDACTED, isRedactedValue, redactHeaders } from "@/lib/secrets";
+import { isRedactedValue, redactHeaders } from "@/lib/secrets";
 
 /**
  * MCP server repository.
@@ -142,5 +142,3 @@ export class McpServerRepository implements IMcpServerRepository {
     };
   }
 }
-
-export { REDACTED };

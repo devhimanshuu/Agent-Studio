@@ -6,7 +6,7 @@ import { unauthorized, forbidden, notFound, badRequest, serverError } from "@/li
 import { rateLimit } from "@/lib/api/rateLimit";
 import { apiServices } from "@/lib/api/services";
 
-const { approvalRepo, approvalEngine } = apiServices();
+const { approvalRepo, approvalEngine, approvalHistoryService } = apiServices();
 
 export async function GET(_request: Request) {
   const { userId } = await auth();
@@ -20,7 +20,17 @@ export async function GET(_request: Request) {
     // Return ALL approvals for the user (not just pending) — the review UI needs
     // both the pending queue and history. Single query, ownership-scoped.
     const requests = await approvalRepo.findByUserId(userId);
-    return NextResponse.json({ success: true, data: requests });
+
+    // Attach each request's audit timeline (requested/approved/rejected/resumed)
+    // so the review UI can show a real history, not just the current status.
+    const requestsWithHistory = await Promise.all(
+      requests.map(async (r) => ({
+        ...r,
+        history: await approvalHistoryService.getTimeline(r.id),
+      }))
+    );
+
+    return NextResponse.json({ success: true, data: requestsWithHistory });
   } catch (error) {
     return serverError(error);
   }

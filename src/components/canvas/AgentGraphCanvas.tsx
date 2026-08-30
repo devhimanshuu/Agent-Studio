@@ -27,6 +27,7 @@ import { canvasNodeTypes } from "./CanvasNodes";
 import { NodePalette } from "./NodePalette";
 import { NodeInspector } from "./NodeInspector";
 import { graphToFlow, flowToGraph, createNodeFromType, nextNodeId, nextEdgeId, CanvasNode, CanvasNodeData } from "./graphUtils";
+import { importGraphFromJson } from "./exportUtils";
 import { useExecutionStream, replayEvents } from "./useExecutionStream";
 import { computeLayout } from "./autoLayout";
 import { validateGraph } from "./graphValidation";
@@ -142,6 +143,13 @@ function CanvasInner({
 
   const inTraceMode = Boolean(executionId);
   const isPreview = mode === "preview";
+  // `readOnly` alone previously did nothing but hide UI chrome — every actual
+  // mutation path (drag/connect/paste/duplicate/delete/drop, plus ReactFlow's
+  // own interactivity props) checked only `inTraceMode`. The one current
+  // caller of `readOnly` happens to also pass `executionId` (which sets
+  // inTraceMode), so this was masked — but a future read-only view without a
+  // live execution would have been fully editable. `isLocked` is the real gate.
+  const isLocked = inTraceMode || readOnly;
 
   // ─── Full-Screen Mode (overlay, not browser fullscreen API) ───
   const toggleFullScreen = useCallback(() => {
@@ -164,22 +172,22 @@ function CanvasInner({
   // Emits the current graph back to the parent without recording history (used by undo/redo).
   const emitGraphChange = useCallback(
     (nextNodes: CanvasNode[], nextEdges: Edge[]) => {
-      if (inTraceMode) return;
+      if (isLocked) return;
       const nextGraph = flowToGraph(nextNodes, nextEdges);
       lastEmittedRef.current = nextGraph;
       onChange(nextGraph);
     },
-    [inTraceMode, onChange]
+    [isLocked, onChange]
   );
 
   // Emits graph to parent AND records in history (used by all user modifications).
   const notifyChange = useCallback(
     (nextNodes: CanvasNode[], nextEdges: Edge[]) => {
-      if (inTraceMode) return;
+      if (isLocked) return;
       emitGraphChange(nextNodes, nextEdges);
       pushHistory(nextNodes, nextEdges);
     },
-    [inTraceMode, emitGraphChange, pushHistory]
+    [isLocked, emitGraphChange, pushHistory]
   );
 
   const undo = useCallback(() => {
@@ -234,7 +242,7 @@ function CanvasInner({
   }, [nodes, edges, selectedNodeId]);
 
   const pasteClipboard = useCallback(() => {
-    if (!clipboard || inTraceMode) return;
+    if (!clipboard || isLocked) return;
     const idMap = new Map<string, string>();
     const newNodes = clipboard.nodes.map((n) => {
       const newId = nextNodeId((n.type ?? "agent") as GraphNodeType, [...nodes, ...clipboard.nodes.map((cn) => ({ ...cn, id: cn.id }))]);
@@ -264,7 +272,7 @@ function CanvasInner({
     setNodes(allNodes);
     setEdges(allEdges);
     notifyChange(allNodes, allEdges);
-  }, [clipboard, nodes, edges, inTraceMode, setNodes, setEdges, notifyChange]);
+  }, [clipboard, nodes, edges, isLocked, setNodes, setEdges, notifyChange]);
 
   // ─── Export / Import Graph ───
   const exportGraph = useCallback(() => {
@@ -288,19 +296,15 @@ function CanvasInner({
       if (!file) return;
       const reader = new FileReader();
       reader.onload = (ev) => {
-        try {
-          const data = JSON.parse(ev.target?.result as string);
-          if (data.nodes && Array.isArray(data.nodes) && data.nodes.length > 0) {
-            const flow = graphToFlow(data);
-            setNodes(flow.nodes);
-            setEdges(flow.edges);
-            notifyChange(flow.nodes, flow.edges);
-            toast.success("Graph imported", `Imported ${flow.nodes.length} nodes and ${flow.edges.length} edges.`);
-          } else {
-            toast.error("Import failed", "File is missing a valid nodes array.");
-          }
-        } catch {
-          toast.error("Import failed", "Invalid JSON format in selected file.");
+        const data = importGraphFromJson(ev.target?.result as string);
+        if (data && data.nodes.length > 0) {
+          const flow = graphToFlow(data);
+          setNodes(flow.nodes);
+          setEdges(flow.edges);
+          notifyChange(flow.nodes, flow.edges);
+          toast.success("Graph imported", `Imported ${flow.nodes.length} nodes and ${flow.edges.length} edges.`);
+        } else {
+          toast.error("Import failed", "File must be a valid exported graph (version 1, with nodes and edges arrays).");
         }
       };
       reader.readAsText(file);
@@ -517,8 +521,8 @@ function CanvasInner({
   const writeBackSubgraph = useCallback(() => {
     if (subgraphStack.length === 0) return;
     const entry = subgraphStack[subgraphStack.length - 1];
-    // In trace mode, just navigate back without writing changes
-    if (inTraceMode) {
+    // In trace mode or read-only, just navigate back without writing changes
+    if (isLocked) {
       setNodes(entry.parentNodes);
       setEdges(entry.parentEdges);
       setSelectedNodeId(null);
@@ -537,7 +541,7 @@ function CanvasInner({
     setSubgraphStack((s) => s.slice(0, -1));
     onSubgraphEdit?.(subgraphStack.length > 1);
     notifyChange(parentNodes, entry.parentEdges);
-  }, [subgraphStack, nodes, edges, setNodes, setEdges, notifyChange, onSubgraphEdit, inTraceMode]);
+  }, [subgraphStack, nodes, edges, setNodes, setEdges, notifyChange, onSubgraphEdit, isLocked]);
 
   // Enter subgraph editing or trace viewing: load the inner graph onto the canvas.
   const openSubgraph = useCallback(
@@ -553,9 +557,9 @@ function CanvasInner({
       setEdges(view.edges);
       setSelectedNodeId(null);
       setSelectedEdgeId(null);
-      if (!inTraceMode) onSubgraphEdit?.(true);
+      if (!isLocked) onSubgraphEdit?.(true);
     },
-    [nodes, edges, setNodes, setEdges, onSubgraphEdit, inTraceMode]
+    [nodes, edges, setNodes, setEdges, onSubgraphEdit, isLocked]
   );
 
   // Collapse the current selection into a subgraph (macro) node.
@@ -681,7 +685,7 @@ function CanvasInner({
 
   const onConnect: OnConnect = useCallback(
     (connection: Connection) => {
-      if (inTraceMode) return;
+      if (isLocked) return;
       connectSourceIdRef.current = null;
       setEdges((eds) => {
         const next = addEdge(
@@ -701,7 +705,7 @@ function CanvasInner({
         return next;
       });
     },
-    [nodes, setEdges, notifyChange, inTraceMode]
+    [nodes, setEdges, notifyChange, isLocked]
   );
 
   const onEdgeClick = useCallback((_: React.MouseEvent, edge: Edge) => {
@@ -712,7 +716,7 @@ function CanvasInner({
   /** ⌥-click duplicates the node (keyboard-first editing). */
   const duplicateNode = useCallback(
     (node: CanvasNode) => {
-      if (inTraceMode) return;
+      if (isLocked) return;
       const clone: CanvasNode = {
         ...node,
         id: nextNodeId((node.type ?? "agent") as GraphNodeType, nodes),
@@ -726,7 +730,7 @@ function CanvasInner({
       setSelectedEdgeId(null);
       notifyChange(nextNodes, edges);
     },
-    [nodes, edges, setNodes, notifyChange, inTraceMode]
+    [nodes, edges, setNodes, notifyChange, isLocked]
   );
 
   // Keep the ref in sync
@@ -739,7 +743,7 @@ function CanvasInner({
 
   const onDrop = useCallback(
     (event: React.DragEvent) => {
-      if (inTraceMode) return;
+      if (isLocked) return;
       event.preventDefault();
       const type = event.dataTransfer.getData("application/agent-node-type") as GraphNodeType;
       if (!type || !CANVAS_NODE_TYPES.some((t) => t.type === type)) return;
@@ -756,7 +760,7 @@ function CanvasInner({
       setSelectedNodeId(node.id);
       notifyChange(nextNodes, edges);
     },
-    [nodes, edges, setNodes, notifyChange, inTraceMode]
+    [nodes, edges, setNodes, notifyChange, isLocked]
   );
 
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -771,33 +775,36 @@ function CanvasInner({
   const issues = useMemo(() => validateGraph(graph), [graph]);
 
   const handleAutoLayout = useCallback(() => {
+    if (isLocked) return;
     const positions = computeLayout(nodes, edges);
     const nextNodes = nodes.map((n, i) => ({ ...n, position: positions[i] ?? n.position }));
     setNodes(nextNodes);
     notifyChange(nextNodes, edges);
-  }, [nodes, edges, setNodes, notifyChange]);
+  }, [nodes, edges, setNodes, notifyChange, isLocked]);
 
   const updateNodeData = useCallback(
     (id: string, patch: Partial<CanvasNodeData>) => {
+      if (isLocked) return;
       const nextNodes = nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...patch } } : n));
       setNodes(nextNodes);
       notifyChange(nextNodes, edges);
     },
-    [nodes, edges, setNodes, notifyChange]
+    [nodes, edges, setNodes, notifyChange, isLocked]
   );
 
   const updateEdgeLabel = useCallback(
     (edgeId: string, label: string) => {
+      if (isLocked) return;
       const nextEdges = edges.map((e) => (e.id === edgeId ? { ...e, label: label || undefined } : e));
       setEdges(nextEdges);
       notifyChange(nodes, nextEdges);
     },
-    [nodes, edges, setEdges, notifyChange]
+    [nodes, edges, setEdges, notifyChange, isLocked]
   );
 
   const onNodesDelete = useCallback(
     (deletedNodes: CanvasNode[]) => {
-      if (inTraceMode) return;
+      if (isLocked) return;
       const deletedIds = new Set(deletedNodes.map((n) => n.id));
       const nextNodes = nodes.filter((n) => !deletedIds.has(n.id));
       const nextEdges = edges.filter((e) => !deletedIds.has(e.source) && !deletedIds.has(e.target));
@@ -808,12 +815,12 @@ function CanvasInner({
       }
       notifyChange(nextNodes, nextEdges);
     },
-    [inTraceMode, nodes, edges, selectedNodeId, setNodes, setEdges, notifyChange]
+    [isLocked, nodes, edges, selectedNodeId, setNodes, setEdges, notifyChange]
   );
 
   const onEdgesDelete = useCallback(
     (deletedEdges: Edge[]) => {
-      if (inTraceMode) return;
+      if (isLocked) return;
       const deletedIds = new Set(deletedEdges.map((e) => e.id));
       const nextEdges = edges.filter((e) => !deletedIds.has(e.id));
       setEdges(nextEdges);
@@ -822,11 +829,11 @@ function CanvasInner({
       }
       notifyChange(nodes, nextEdges);
     },
-    [inTraceMode, nodes, edges, selectedEdgeId, setEdges, notifyChange]
+    [isLocked, nodes, edges, selectedEdgeId, setEdges, notifyChange]
   );
 
   const deleteSelected = useCallback(() => {
-    if (inTraceMode) return;
+    if (isLocked) return;
     if (selectedNodeId) {
       const nextNodes = nodes.filter((n) => n.id !== selectedNodeId);
       const nextEdges = edges.filter((e) => e.source !== selectedNodeId && e.target !== selectedNodeId);
@@ -840,7 +847,7 @@ function CanvasInner({
       setSelectedEdgeId(null);
       notifyChange(nodes, nextEdges);
     }
-  }, [selectedNodeId, selectedEdgeId, nodes, edges, setNodes, setEdges, notifyChange, inTraceMode]);
+  }, [selectedNodeId, selectedEdgeId, nodes, edges, setNodes, setEdges, notifyChange, isLocked]);
 
   const terminal = effExecutionStatus
     ? ["COMPLETED", "FAILED", "CANCELLED", "STEP_LIMIT_EXCEEDED"].includes(effExecutionStatus)
@@ -1110,7 +1117,7 @@ function CanvasInner({
                 }
               }}
               onConnectEnd={(event) => {
-                if (inTraceMode) return;
+                if (isLocked) return;
                 const sourceId = connectSourceIdRef.current;
                 connectSourceIdRef.current = null;
                 if (!sourceId || !wrapperRef.current) return;
@@ -1144,10 +1151,10 @@ function CanvasInner({
               maxZoom={2}
               snapToGrid
               snapGrid={[12, 12]}
-              nodesDraggable={!inTraceMode}
-              nodesConnectable={!inTraceMode}
-              edgesFocusable={!inTraceMode}
-              elementsSelectable={!inTraceMode}
+              nodesDraggable={!isLocked}
+              nodesConnectable={!isLocked}
+              edgesFocusable={!isLocked}
+              elementsSelectable={!isLocked}
               proOptions={{ hideAttribution: true }}
             >
               <Background variant={BackgroundVariant.Dots} gap={24} size={1.5} color={canvasTheme === "paper" ? "#cbd5e1" : canvasTheme === "graphite" ? "#2a2e3a" : isDark ? "#334155" : "#cbd5e1"} />
@@ -1532,7 +1539,7 @@ function CanvasInner({
               }
             }}
             onConnectEnd={(event) => {
-              if (inTraceMode) return;
+              if (isLocked) return;
               const sourceId = connectSourceIdRef.current;
               connectSourceIdRef.current = null;
               if (!sourceId || !wrapperRef.current) return;
@@ -1572,10 +1579,10 @@ function CanvasInner({
             maxZoom={1.75}
             snapToGrid
             snapGrid={[12, 12]}
-            nodesDraggable={!inTraceMode}
-            nodesConnectable={!inTraceMode}
-            edgesFocusable={!inTraceMode}
-            elementsSelectable={!inTraceMode}
+            nodesDraggable={!isLocked}
+            nodesConnectable={!isLocked}
+            edgesFocusable={!isLocked}
+            elementsSelectable={!isLocked}
             proOptions={{ hideAttribution: true }}
           >
             <Background

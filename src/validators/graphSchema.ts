@@ -11,7 +11,7 @@ const positionSchema = z.object({
   y: z.number().finite(),
 });
 
-export const graphNodeDataSchema = z.object({
+const graphNodeDataSchema = z.object({
   label: z.string().min(1, "Node label is required").max(120),
   description: z.string().max(1000).optional(),
   prompt: z.string().max(10000).optional(),
@@ -63,7 +63,7 @@ export const graphNodeDataSchema = z.object({
   containedNodeIds: z.array(z.string()).optional(),
 });
 
-export const graphNodeSchema = z.object({
+const graphNodeSchema = z.object({
   id: z.string().min(1).max(100),
   type: z.enum([
     "start",
@@ -92,7 +92,7 @@ export const graphNodeSchema = z.object({
   data: graphNodeDataSchema,
 });
 
-export const graphEdgeSchema = z.object({
+const graphEdgeSchema = z.object({
   id: z.string().min(1).max(100),
   source: z.string().min(1).max(100),
   target: z.string().min(1).max(100),

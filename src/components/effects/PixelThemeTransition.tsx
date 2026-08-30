@@ -397,5 +397,3 @@ export function PixelThemeTransitionProvider({
     </PixelTransitionContext.Provider>
   );
 }
-
-export default PixelThemeTransitionProvider;

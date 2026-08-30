@@ -985,5 +985,3 @@ export function AgentStudioPreloader({
     </div>
   );
 }
-
-export default AgentStudioPreloader;

@@ -12,7 +12,7 @@ export function Skeleton({ className }: { className?: string }) {
   return <div className={clsx("skeleton-shimmer rounded bg-indigo-100 dark:bg-indigo-950/20", className)} aria-hidden />;
 }
 
-export function SkeletonText({
+function SkeletonText({
   lines = 3,
   className,
 }: {
@@ -28,15 +28,11 @@ export function SkeletonText({
   );
 }
 
-export function SkeletonBadge({ className }: { className?: string }) {
-  return <Skeleton className={clsx("h-5 w-16 rounded", className)} />;
-}
-
-export function SkeletonButton({ className }: { className?: string }) {
+function SkeletonButton({ className }: { className?: string }) {
   return <Skeleton className={clsx("h-9 w-28 rounded", className)} />;
 }
 
-export function SkeletonPageHeader({
+function SkeletonPageHeader({
   subtitle = true,
   action,
 }: {
@@ -54,7 +50,7 @@ export function SkeletonPageHeader({
   );
 }
 
-export function SkeletonToolbar({ controls = 3 }: { controls?: number }) {
+function SkeletonToolbar({ controls = 3 }: { controls?: number }) {
   return (
     <div className="flex flex-wrap items-center gap-3" aria-hidden>
       <Skeleton className="h-9 w-56 rounded" />
@@ -65,7 +61,7 @@ export function SkeletonToolbar({ controls = 3 }: { controls?: number }) {
   );
 }
 
-export function SkeletonCard({ className }: { className?: string }) {
+function SkeletonCard({ className }: { className?: string }) {
   return (
     <div
       className={clsx("p-5 rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 space-y-3 shadow-sm", className)}
@@ -137,7 +133,7 @@ export function SkeletonTable({ cols = 4, rows = 6 }: { cols?: number; rows?: nu
   );
 }
 
-export function SkeletonMetrics({ cards = 4 }: { cards?: number }) {
+function SkeletonMetrics({ cards = 4 }: { cards?: number }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" aria-hidden>
       {Array.from({ length: cards }).map((_, i) => (

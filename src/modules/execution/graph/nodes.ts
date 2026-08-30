@@ -15,7 +15,7 @@ export type GraphNode = (state: AgentState, config: unknown) => Promise<Partial<
  * contract) — the version's `approvalPolicy` when set, DEFAULT_APPROVAL_POLICY
  * (no overrides) otherwise, which preserves prior behavior for versions that
  * never configured one. */
-export function stepRequiresApproval(
+function stepRequiresApproval(
   step: { action: string; requiresApproval: boolean; toolName?: string },
   version: SkillVersionDTO | null,
   tool?: { requiresApproval: boolean } | null,

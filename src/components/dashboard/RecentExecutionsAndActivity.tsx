@@ -130,18 +130,3 @@ export function SystemAuditActivityCard({ activity }: { activity: AuditLogItemDT
     </div>
   );
 }
-
-export function RecentExecutionsAndActivity({
-  executions,
-  activity,
-}: {
-  executions: ExecutionDTO[];
-  activity: AuditLogItemDTO[];
-}) {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-mono">
-      <RecentExecutionsCard executions={executions} />
-      <SystemAuditActivityCard activity={activity} />
-    </div>
-  );
-}

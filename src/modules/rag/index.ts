@@ -12,7 +12,7 @@
 import { PgVectorStore, pgVectorStore, IngestDocumentInput, SemanticSearchResult, SemanticSearchOptions } from "./pgvectorStore";
 import { ChunkingOptions } from "./chunkingService";
 import { getLLMProvider } from "@/providers/llm";
-import { rerankCandidates } from "./reranker";
+import { rerankCandidates, generateHyDEQuery } from "./reranker";
 
 export interface RAGPipelineConfig {
   /** Maximum context tokens for LLM grounding (default: 4000) */
@@ -65,6 +65,9 @@ export interface RetrieveOptions {
   expandToParent?: boolean;
   /** Apply the multi-signal re-ranker to the candidate pool before truncating to `limit` */
   useReranking?: boolean;
+  /** Expand the query into a hypothetical answer excerpt (HyDE) before embedding, so
+   * retrieval matches on response patterns rather than the raw question phrasing. */
+  useHyDE?: boolean;
 }
 
 export interface RAGResult {
@@ -161,13 +164,20 @@ export class RAGPipeline {
       useHybridSearch = false,
       expandToParent = false,
       useReranking = false,
+      useHyDE = false,
     } = options;
 
     // Over-fetch when re-ranking so the reranker has a real candidate pool to reorder.
     const fetchLimit = useReranking ? Math.max(limit * 3, limit + 10) : limit;
 
+    // HyDE: embed a hypothetical answer excerpt instead of the raw question, so
+    // retrieval matches on response patterns rather than question phrasing.
+    // Reranking still scores against the original `query` (below), since exact
+    // phrase/term relevance should reflect user intent, not the synthesized excerpt.
+    const searchQuery = useHyDE ? (await generateHyDEQuery(query)).expandedQuery : query;
+
     const candidates = useHybridSearch
-      ? await this.vectorStore.hybridSearch(query, {
+      ? await this.vectorStore.hybridSearch(searchQuery, {
           limit: fetchLimit,
           minScore,
           collection,
@@ -175,7 +185,7 @@ export class RAGPipeline {
           metadataFilter,
           expandToParent,
         })
-      : await this.vectorStore.search(query, {
+      : await this.vectorStore.search(searchQuery, {
           limit: fetchLimit,
           minScore,
           collection,
@@ -327,24 +337,11 @@ export function createRAGPipeline(config: RAGPipelineConfig = {}): RAGPipeline {
   return new RAGPipeline(config);
 }
 
-/**
- * Creates RAG pipeline from environment variables.
- */
-export function createRAGPipelineFromEnv(): RAGPipeline {
-  return new RAGPipeline();
-}
-
 /** Default singleton instance */
 export const defaultRAGPipeline = new RAGPipeline();
 
 // Re-exports
-export { generateEmbedding, batchEmbed, cosineSimilarity, embedLocally } from "./embeddingService";
-export { chunkDocument, chunkDocumentWithParent, mergeSmallChunks, estimateTokens, previewChunks } from "./chunkingService";
-export { PgVectorStore, pgVectorStore } from "./pgvectorStore";
-export { VectorStore, createVectorStore, createVectorStoreFromEnv } from "./vectorStore";
-export { rerankCandidates, generateHyDEQuery } from "./reranker";
-export { projectVectorsTo2D } from "./clusterVisualizer";
-export { evaluateRAGTriad } from "./evaluation";
+export { pgVectorStore } from "./pgvectorStore";
 export type { DocumentChunk, ChunkingOptions } from "./chunkingService";
 export type { SemanticSearchResult, IngestDocumentInput, IngestDocumentOutput, HybridSearchOptions } from "./pgvectorStore";
 export type { ReRankOptions, ReRankedResult } from "./reranker";

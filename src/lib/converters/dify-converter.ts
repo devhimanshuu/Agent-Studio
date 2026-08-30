@@ -105,7 +105,7 @@ export function parseDifyDslYaml(yamlText: string): any {
 /**
  * Maps a Dify node type string to an Agent Studio GraphNodeType.
  */
-export function mapDifyNodeType(difyType: string): GraphNodeType {
+function mapDifyNodeType(difyType: string): GraphNodeType {
   const t = (difyType || "").toLowerCase();
 
   if (

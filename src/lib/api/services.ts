@@ -6,7 +6,7 @@ import { ApprovalHistoryRepository } from "@/repositories/ApprovalHistoryReposit
 import { McpServerRepository } from "@/repositories/McpServerRepository";
 import { OpenApiRepository } from "@/repositories/OpenApiRepository";
 import { ExecutionLogRepository } from "@/repositories/ExecutionLogRepository";
-import { ApprovalEngine } from "@/modules/approval";
+import { ApprovalEngine, ApprovalHistoryService } from "@/modules/approval";
 import { ExecutionHistoryService } from "@/modules/history";
 import { McpClientService } from "@/services/McpClientService";
 import { OpenApiService } from "@/services/OpenApiService";
@@ -38,6 +38,7 @@ interface ApiServices {
   mcpService: McpClientService;
   openApiService: OpenApiService;
   approvalEngine: ApprovalEngine;
+  approvalHistoryService: ApprovalHistoryService;
   executionService: ExecutionService;
   historyService: ExecutionHistoryService;
 }
@@ -54,6 +55,7 @@ function build(): ApiServices {
   const mcpService = new McpClientService(new McpServerRepository());
   const openApiService = new OpenApiService(new OpenApiRepository());
   const approvalEngine = new ApprovalEngine(approvalRepo, historyRepo, executionRepo);
+  const approvalHistoryService = new ApprovalHistoryService(historyRepo);
   const executionService = new ExecutionService(executionRepo, skillRepo, auditRepo, {
     mcpService,
     openApiService,
@@ -79,6 +81,7 @@ function build(): ApiServices {
     mcpService,
     openApiService,
     approvalEngine,
+    approvalHistoryService,
     executionService,
     historyService,
   };

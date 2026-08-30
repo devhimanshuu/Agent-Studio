@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const plannedStepSchema = z.object({
+const plannedStepSchema = z.object({
   stepNumber: z.number().int().min(1),
   /** Tool name to invoke, or "none" for a data pass-through step. */
   toolName: z.string().min(1),

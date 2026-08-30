@@ -125,6 +125,23 @@ function ReviewCard({
         </pre>
       </div>
 
+      {request.history && request.history.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400/60 font-semibold">Timeline</div>
+          <ul className="space-y-1.5">
+            {request.history.map((h, i) => (
+              <li key={i} className="flex items-start gap-2 text-[10px] font-mono">
+                <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-indigo-400 shrink-0" />
+                <span className="text-slate-700 dark:text-slate-300 font-semibold">
+                  {h.summary}
+                </span>
+                <span className="text-slate-400">— {formatDate(h.timestamp)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {request.status === "PENDING" && (
         <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-indigo-950/60">
           <div className="flex flex-wrap items-center gap-2">

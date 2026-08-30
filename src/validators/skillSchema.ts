@@ -20,10 +20,17 @@ const jsonSchema = z
     { message: "JSON object exceeds maximum size of 1MB" }
   );
 
-export const skillExampleSchema = z.object({
+const skillExampleSchema = z.object({
   input: jsonSchema,
   output: jsonSchema,
   description: z.string().max(300).optional(),
+});
+
+const approvalPolicySchema = z.object({
+  alwaysRequireApproval: z.boolean(),
+  neverRequireApproval: z.boolean(),
+  toolBasedApproval: z.array(z.string().min(1)).max(20),
+  skillBasedApproval: z.array(z.string().min(1)).max(20),
 });
 
 export const createSkillSchema = z.object({
@@ -36,6 +43,7 @@ export const createSkillSchema = z.object({
   examples: z.array(skillExampleSchema).max(50).optional(),
   allowedTools: z.array(z.string().min(1)).min(1, "At least one allowed tool is required").max(20),
   actionsRequiringApproval: z.array(z.string().min(1)).max(20).optional(),
+  approvalPolicy: approvalPolicySchema.optional(),
   maxExecutionSteps: z.number().int("Must be a whole number").min(1, "Max execution steps must be greater than 0").max(100).optional(),
   graphDefinition: graphDefinitionSchema.optional(),
   notes: z.string().max(5000).optional(),
@@ -61,4 +69,3 @@ export const skillListQuerySchema = z.object({
   sortOrder: z.enum(["asc", "desc"]).optional(),
 });
 
-export const skillIdSchema = z.string().min(1, "Skill ID is required");

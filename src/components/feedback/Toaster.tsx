@@ -93,5 +93,3 @@ export function Toaster() {
     </div>
   );
 }
-
-export default Toaster;

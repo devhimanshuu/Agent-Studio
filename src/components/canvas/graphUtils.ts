@@ -335,7 +335,7 @@ export function flowToGraph(nodes: CanvasNode[], edges: Edge[]): AgentGraphDefin
 }
 
 /** Default width for a node type (used by the auto-layout). */
-export function nodeDefaultSize(type: string): { width: number; height: number } {
+function nodeDefaultSize(type: string): { width: number; height: number } {
   switch (type) {
     case "start":
     case "end":

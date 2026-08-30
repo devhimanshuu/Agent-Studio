@@ -53,7 +53,7 @@ export const GROQ_SAFETY_MODELS: ModelEntry[] = [
 ];
 
 /** Dedicated Groq Voice, Audio & Speech Models */
-export const GROQ_AUDIO_MODELS: ModelEntry[] = [
+const GROQ_AUDIO_MODELS: ModelEntry[] = [
   { provider: "groq", model: "canopylabs/orpheus-v1-english", label: "CanopyLabs: Orpheus V1 English (Voice)", category: "audio", contextLength: 4096 },
   { provider: "groq", model: "canopylabs/orpheus-arabic-saudi", label: "CanopyLabs: Orpheus Arabic Saudi (Voice)", category: "audio", contextLength: 4096 },
   { provider: "groq", model: "whisper-large-v3-turbo", label: "Whisper: Large V3 Turbo (STT)", category: "audio", throughput: "1800 t/s" },
@@ -110,9 +110,6 @@ export const OPENROUTER_CHAT_MODELS: ModelEntry[] = [
   { provider: "openrouter", model: "stealth/ox-alpha", label: "Stealth: OX Alpha (Direct)", category: "reasoning", contextLength: 131072 },
 ];
 
-/** Alias for backwards compatibility with existing openrouter chat roster imports */
-export const OPENROUTER_FREE_MODELS = OPENROUTER_CHAT_MODELS;
-
 /** Dedicated Dense Vector Embedding Models (for Qdrant, Pinecone, RAG & Semantic Memory) */
 export const EMBEDDING_MODELS: ModelEntry[] = [
   { provider: "openrouter", model: "nvidia/nemotron-3-embed-1b:free", label: "NVIDIA: Nemotron 3 Embed 1B", category: "embedding", contextLength: 32768 },
@@ -134,7 +131,7 @@ export const VISION_MODELS: ModelEntry[] = [
 ];
 
 /** Dedicated Safety & Content Moderation Models */
-export const SAFETY_MODELS: ModelEntry[] = [
+const SAFETY_MODELS: ModelEntry[] = [
   ...GROQ_SAFETY_MODELS,
   { provider: "openrouter", model: "nvidia/nemotron-3.5-content-safety:free", label: "NVIDIA: Nemotron 3.5 Content Safety", category: "safety", contextLength: 128000, latency: "256ms", throughput: "65 t/s" },
 ];
@@ -174,7 +171,7 @@ export type ModelCategory =
  * When an agent performs a specialized task (e.g. reasoning, coding, safety, audio, embeddings, vision),
  * the router tries specialized models first, then falls back to resilient alternative models.
  */
-export const CATEGORY_FALLBACK_MODELS: Record<ModelCategory, ModelEntry[]> = {
+const CATEGORY_FALLBACK_MODELS: Record<ModelCategory, ModelEntry[]> = {
   // 1. General chat / orchestrator failover chain
   general: ALL_FALLBACK_MODELS,
 
@@ -249,31 +246,6 @@ export const CATEGORY_FALLBACK_MODELS: Record<ModelCategory, ModelEntry[]> = {
 /** Lookup any model entry by ID across all modalities */
 export function findModelEntry(modelId: string): ModelEntry | undefined {
   return ALL_MODELS_CATALOG.find((m) => m.model === modelId || m.model.split(":")[0] === modelId);
-}
-
-/** Get chat & reasoning models only */
-export function getChatModels(): ModelEntry[] {
-  return ALL_FALLBACK_MODELS;
-}
-
-/** Get vector embedding models only */
-export function getEmbeddingModels(): ModelEntry[] {
-  return EMBEDDING_MODELS;
-}
-
-/** Get voice & audio models only */
-export function getAudioModels(): ModelEntry[] {
-  return AUDIO_MODELS;
-}
-
-/** Get vision / multimodal OCR models only */
-export function getVisionModels(): ModelEntry[] {
-  return VISION_MODELS;
-}
-
-/** Get safety / guardrail models only */
-export function getSafetyModels(): ModelEntry[] {
-  return SAFETY_MODELS;
 }
 
 /** Get fallback chain for a specific category */

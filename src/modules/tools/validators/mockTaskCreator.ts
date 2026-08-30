@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const TASK_PRIORITIES = ["low", "medium", "high"] as const;
+const TASK_PRIORITIES = ["low", "medium", "high"] as const;
 
 export const mockTaskCreatorInputValidator = z.object({
   title: z.string({ message: "title must be a string" }).trim().min(1, "title is required").max(120),

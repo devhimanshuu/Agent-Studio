@@ -364,6 +364,12 @@ export function SkillForm({
       examples: draft?.examples?.length ? draft.examples : initialTemplate?.examples?.length ? initialTemplate.examples : [],
       allowedTools: draft?.allowedTools?.length ? draft.allowedTools : initialTemplate?.allowedTools?.length ? initialTemplate.allowedTools : [],
       actionsRequiringApproval: draft?.actionsRequiringApproval ?? initialTemplate?.actionsRequiringApproval ?? [],
+      approvalPolicy: draft?.approvalPolicy ?? initialTemplate?.approvalPolicy ?? {
+        alwaysRequireApproval: false,
+        neverRequireApproval: false,
+        toolBasedApproval: [],
+        skillBasedApproval: [],
+      },
       maxExecutionSteps: draft?.maxExecutionSteps ?? initialTemplate?.maxExecutionSteps ?? 10,
       notes: draft?.notes ?? "",
     },
@@ -628,6 +634,110 @@ export function SkillForm({
               />
             </div>
           )}
+        />
+        <Controller
+          control={control}
+          name="approvalPolicy"
+          render={({ field }) => {
+            const policy = field.value ?? {
+              alwaysRequireApproval: false,
+              neverRequireApproval: false,
+              toolBasedApproval: [],
+              skillBasedApproval: [],
+            };
+            const toolBasedApproval = policy.toolBasedApproval ?? [];
+
+            return (
+              <div className="rounded border border-slate-300 dark:border-indigo-900/50 bg-slate-50/60 dark:bg-[#0a0a0a]/60 p-4 space-y-3 shadow-sm">
+                <label className={`${labelClass} flex items-center gap-1.5`}>
+                  <CheckSquare className="h-3.5 w-3.5 text-indigo-500" /> Approval Policy Overrides
+                </label>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-serif leading-tight">
+                  Evaluated before the per-action list above: an override here always wins.
+                </p>
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      field.onChange({
+                        ...policy,
+                        alwaysRequireApproval: !policy.alwaysRequireApproval,
+                        neverRequireApproval: false,
+                      })
+                    }
+                    className={clsx(
+                      "px-2.5 py-1.5 rounded border text-[10px] font-mono font-semibold uppercase tracking-wider transition-all cursor-pointer",
+                      policy.alwaysRequireApproval
+                        ? "border-amber-500 bg-amber-500 text-white"
+                        : "border-slate-300 dark:border-indigo-900/50 text-slate-600 dark:text-slate-400 hover:border-amber-400"
+                    )}
+                  >
+                    Always require approval
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      field.onChange({
+                        ...policy,
+                        neverRequireApproval: !policy.neverRequireApproval,
+                        alwaysRequireApproval: false,
+                      })
+                    }
+                    className={clsx(
+                      "px-2.5 py-1.5 rounded border text-[10px] font-mono font-semibold uppercase tracking-wider transition-all cursor-pointer",
+                      policy.neverRequireApproval
+                        ? "border-red-500 bg-red-500 text-white"
+                        : "border-slate-300 dark:border-indigo-900/50 text-slate-600 dark:text-slate-400 hover:border-red-400"
+                    )}
+                  >
+                    Never require approval
+                  </button>
+                </div>
+
+                {policy.neverRequireApproval && (
+                  <p className="text-[10px] text-red-600 dark:text-red-400 font-semibold">
+                    ⚠ Overrides every tool's own WRITE/requiresApproval contract — actions execute without human review.
+                  </p>
+                )}
+
+                {allowedTools.length > 0 && (
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500">
+                      Always pause for these tools (independent of the action list above)
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {allowedTools.map((toolName) => {
+                        const active = toolBasedApproval.includes(toolName);
+                        return (
+                          <button
+                            key={toolName}
+                            type="button"
+                            onClick={() =>
+                              field.onChange({
+                                ...policy,
+                                toolBasedApproval: active
+                                  ? toolBasedApproval.filter((t) => t !== toolName)
+                                  : [...toolBasedApproval, toolName],
+                              })
+                            }
+                            className={clsx(
+                              "px-2 py-1 rounded text-[10px] font-mono border transition-all cursor-pointer",
+                              active
+                                ? "border-indigo-500 bg-indigo-600 text-white"
+                                : "border-slate-300 dark:border-indigo-900/50 text-slate-600 dark:text-slate-400 hover:border-indigo-400"
+                            )}
+                          >
+                            {toolName}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          }}
         />
       </div>
 
