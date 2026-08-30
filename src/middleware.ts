@@ -1,28 +1,25 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 
-// MCP server routes that handle their own auth (Clerk session OR bearer token).
-// These must bypass Clerk middleware entirely so external clients can connect
-// without a Clerk cookie.
-const isMcpServerRoute = (pathname: string) =>
+// Public routes that bypass Clerk middleware entirely:
+// - /api/health: health check probe
+// - /api/mcp/sse & /api/mcp/messages: external MCP clients with bearer tokens
+const isPublicRoute = (pathname: string) =>
+  pathname === '/api/health' ||
   pathname.startsWith('/api/mcp/sse') ||
-  pathname.startsWith('/api/mcp/messages')
+  pathname.startsWith('/api/mcp/messages');
 
 const isProtectedRoute = createRouteMatcher([
   '/dashboard(.*)',
   '/executions(.*)',
   '/versions(.*)',
   '/approvals(.*)',
-  // All API routes except health and MCP server routes (they do their own auth)
-  /^\/api\/(?!health|mcp\/sse|mcp\/messages)(.*)/,
-])
+  '/api/(.*)',
+]);
 
 export default clerkMiddleware(async (auth, req) => {
-  // MCP server routes bypass Clerk entirely — they validate bearer tokens
-  // in their own route handlers so external clients (Cursor, Claude Desktop)
-  // can connect without a Clerk session cookie.
-  if (isMcpServerRoute(req.nextUrl.pathname)) {
-    return NextResponse.next()
+  if (isPublicRoute(req.nextUrl.pathname)) {
+    return NextResponse.next();
   }
 
   const { userId } = await auth()
