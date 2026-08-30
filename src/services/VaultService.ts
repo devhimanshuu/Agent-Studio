@@ -1,67 +1,13 @@
-import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
-
-// ────────────── Encryption Config ──────────────
-
-const ALGORITHM = "aes-256-gcm";
-const IV_LENGTH = 16;
-
-/**
- * Derive an encryption key from the vault master key.
- * `VAULT_MASTER_KEY` MUST be a 64-char hex string in production — booting
- * without it refuses to encrypt/decrypt rather than silently using the public
- * repo constant (which would make every "encrypted" secret world-readable).
- * The fallback exists ONLY for local development.
- */
-function getEncryptionKey(): Buffer {
-  const masterKey = process.env.VAULT_MASTER_KEY;
-  if (masterKey) return crypto.createHash("sha256").update(masterKey).digest();
-  if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      "VAULT_MASTER_KEY is required in production — refusing to derive vault keys from the development fallback."
-    );
-  }
-  return crypto.createHash("sha256").update("dev-vault-key-change-in-production-00000000000000000000000000").digest();
-}
-
-// ────────────── Encryption / Decryption ──────────────
-
-export function encrypt(plaintext: string): { encrypted: string; iv: string; tag: string } {
-  const key = getEncryptionKey();
-  const iv = crypto.randomBytes(IV_LENGTH);
-  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
-
-  let encrypted = cipher.update(plaintext, "utf8", "hex");
-  encrypted += cipher.final("hex");
-  const tag = cipher.getAuthTag().toString("hex");
-
-  return { encrypted, iv: iv.toString("hex"), tag };
-}
-
-export function decrypt(encrypted: string, iv: string, tag: string): string {
-  const key = getEncryptionKey();
-  const decipher = crypto.createDecipheriv(ALGORITHM, key, Buffer.from(iv, "hex"));
-  decipher.setAuthTag(Buffer.from(tag, "hex"));
-
-  let decrypted = decipher.update(encrypted, "hex", "utf8");
-  decrypted += decipher.final("utf8");
-  return decrypted;
-}
-
-/**
- * Mask a secret value for display: shows first 4 and last 4 chars,
- * with asterisks in between.
- */
-function maskSecret(value: string): string {
-  if (value.length <= 8) {
-    return value.slice(0, 2) + "*".repeat(Math.max(0, value.length - 2));
-  }
-  if (value.length <= 16) {
-    return value.slice(0, 4) + "*".repeat(value.length - 8) + value.slice(-4);
-  }
-  return value.slice(0, 4) + "*".repeat(12) + value.slice(-4);
-}
+import {
+  encrypt as encryptPayload,
+  decryptWithFallback,
+  maskSecret,
+  getCurrentKeyVersion,
+  getKeyVersions,
+} from "@/lib/vault/crypto";
+import { recordDecryptionFailure } from "@/lib/vault/monitoring";
 
 // ────────────── Types ──────────────
 
@@ -99,6 +45,7 @@ interface VaultRow {
   value: string;
   iv: string;
   tag: string;
+  keyVersion?: number; // Optional for backward compatibility with pre-rotation entries
   description: string | null;
   tags: string[];
   lastUsedAt: Date | null;
@@ -148,7 +95,15 @@ export class VaultService {
       data: { lastUsedAt: new Date() },
     });
 
-    return decrypt(entry.value, entry.iv, entry.tag);
+    // Handle entries without keyVersion (pre-rotation entries)
+    const keyVersion = entry.keyVersion ?? 1;
+    const { plaintext } = decryptWithFallback(
+      entry.value,
+      entry.iv,
+      entry.tag,
+      [keyVersion, ...getKeyVersions().filter(v => v !== keyVersion)]
+    );
+    return plaintext;
   }
 
   /**
@@ -163,7 +118,15 @@ export class VaultService {
     const idsToUpdate: string[] = [];
 
     for (const entry of entries) {
-      result[entry.key] = decrypt(entry.value, entry.iv, entry.tag);
+      // Handle entries without keyVersion (pre-rotation entries)
+      const keyVersion = entry.keyVersion ?? 1;
+      const { plaintext } = decryptWithFallback(
+        entry.value,
+        entry.iv,
+        entry.tag,
+        [keyVersion, ...getKeyVersions().filter(v => v !== keyVersion)]
+      );
+      result[entry.key] = plaintext;
       idsToUpdate.push(entry.id);
     }
 
@@ -190,7 +153,8 @@ export class VaultService {
       throw new Error(`A vault entry with key "${input.key}" already exists`);
     }
 
-    const { encrypted, iv, tag } = encrypt(input.value);
+    const keyVersion = getCurrentKeyVersion();
+    const { encrypted, iv, tag } = encryptPayload(input.value, keyVersion);
 
     const entry = await prisma.vaultEntry.create({
       data: {
@@ -201,6 +165,7 @@ export class VaultService {
         value: encrypted,
         iv,
         tag,
+        keyVersion,
         description: input.description || null,
         tags: input.tags || [],
       },
@@ -231,12 +196,14 @@ export class VaultService {
     if (input.description !== undefined) updateData.description = input.description;
     if (input.tags !== undefined) updateData.tags = input.tags;
 
-    // Re-encrypt if value changed
+    // Re-encrypt if value changed (use current key version)
     if (input.value !== undefined) {
-      const { encrypted, iv, tag } = encrypt(input.value);
+      const keyVersion = getCurrentKeyVersion();
+      const { encrypted, iv, tag } = encryptPayload(input.value, keyVersion);
       updateData.value = encrypted;
       updateData.iv = iv;
       updateData.tag = tag;
+      updateData.keyVersion = keyVersion;
     }
 
     // Check key uniqueness if changing
@@ -332,9 +299,23 @@ export class VaultService {
     // value) instead of throwing and 500ing every other entry with it.
     let maskedValue: string;
     try {
-      maskedValue = maskSecret(decrypt(entry.value, entry.iv, entry.tag));
+      // Handle entries without keyVersion (pre-rotation entries)
+      const keyVersion = entry.keyVersion ?? 1;
+      const { plaintext } = decryptWithFallback(
+        entry.value,
+        entry.iv,
+        entry.tag,
+        [keyVersion, ...getKeyVersions().filter(v => v !== keyVersion)]
+      );
+      maskedValue = maskSecret(plaintext);
     } catch (err) {
-      logger.error({ err, entryId: entry.id }, "Failed to decrypt vault entry — returning as unreadable");
+      // Record failure for monitoring
+      recordDecryptionFailure({
+        entryId: entry.id,
+        key: entry.key,
+        error: err,
+        keyVersion: entry.keyVersion,
+      });
       maskedValue = "••• (unreadable — corrupted or re-keyed)";
     }
 

@@ -397,6 +397,7 @@ model VaultEntry {
   value       String    // Encrypted value (AES-256-GCM)
   iv          String    // Initialization vector for decryption
   tag         String    // Auth tag for AES-GCM verification
+  keyVersion  Int       @default(1) // Key version used for encryption (supports rotation)
   description String?   // Optional description of what this secret is for
   tags        String[]  @default([]) // Tags for organization
   lastUsedAt  DateTime?
