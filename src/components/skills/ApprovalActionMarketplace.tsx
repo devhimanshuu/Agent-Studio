@@ -14,7 +14,7 @@ import { openApiToolRegistryName } from "@/modules/openapi/dynamicTool";
 import { mcpToolRegistryName } from "@/modules/mcp/toolAdapter";
 import { toast } from "@/stores/toastStore";
 
-export interface ActionMarketplaceItem {
+interface ActionMarketplaceItem {
   id: string;
   name: string;
   category: "DISCOVERED" | "FINTECH" | "DEVOPS" | "CRM_WEBHOOKS" | "SECURITY";

@@ -16,5 +16,3 @@ export const executionPlanSchema = z.object({
   expectedOutput: z.string().min(1),
 });
 
-export type PlannedStepInput = z.infer<typeof plannedStepSchema>;
-export type ExecutionPlanInput = z.infer<typeof executionPlanSchema>;

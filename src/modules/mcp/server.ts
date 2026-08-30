@@ -56,7 +56,7 @@ async function createSessionTransport(server: McpServer): Promise<WebStandardStr
   return transport;
 }
 
-export interface AgentStudioMcpServerDeps {
+interface AgentStudioMcpServerDeps {
   executionService: IExecutionService;
   skillRepo: ISkillRepository;
   /**
@@ -88,7 +88,7 @@ export interface PublishedSkillVersionRow {
 }
 
 /** A published skill/workflow exposed as a callable MCP tool. */
-export interface ExposedSkillTool {
+interface ExposedSkillTool {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;

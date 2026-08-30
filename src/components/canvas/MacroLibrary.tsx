@@ -15,7 +15,7 @@ import type { CanvasNode } from "./graphUtils";
 
 const STORAGE_KEY = "agent-studio-component-library";
 
-export interface MacroComponent {
+interface MacroComponent {
   id: string;
   name: string;
   description: string;

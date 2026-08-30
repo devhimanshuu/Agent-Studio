@@ -13,7 +13,7 @@
 
 import { AgentGraphDefinition } from "@/types/graph";
 
-export interface PreviewSession {
+interface PreviewSession {
   userId: string;
   skillVersionId: string;
   graph: AgentGraphDefinition;

@@ -119,7 +119,7 @@ const POPULAR_INTEGRATION_TAGS = [
 
 const PAGE_SIZE = 18;
 
-export interface UnifiedMarketplaceWorkflow {
+interface UnifiedMarketplaceWorkflow {
   id: string | number;
   provider: "n8n" | "dify" | "studio";
   providerName: string;

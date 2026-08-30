@@ -4,7 +4,7 @@ import React, { useMemo } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { clsx } from "clsx";
 
-export interface PaginationProps {
+interface PaginationProps {
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;

@@ -2,7 +2,7 @@ import * as yaml from "js-yaml";
 import { AgentGraphDefinition, GraphEdgeDefinition, GraphNodeDefinition, GraphNodeType } from "@/types/graph";
 import { WorkflowTemplate } from "@/components/workflows/WorkflowTemplates";
 
-export interface DifyNodeData {
+interface DifyNodeData {
   title?: string;
   type?: string;
   variables?: unknown[];

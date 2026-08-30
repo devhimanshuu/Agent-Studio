@@ -64,7 +64,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 const PAGE_SIZE = 18;
 
-export interface DifyMarketplaceWorkflow {
+interface DifyMarketplaceWorkflow {
   id: string | number;
   name: string;
   description: string;

@@ -14,7 +14,7 @@ import { ChunkingOptions } from "./chunkingService";
 import { getLLMProvider } from "@/providers/llm";
 import { rerankCandidates, generateHyDEQuery } from "./reranker";
 
-export interface RAGPipelineConfig {
+interface RAGPipelineConfig {
   /** Maximum context tokens for LLM grounding (default: 4000) */
   maxContextTokens?: number;
   /** Number of chunks to retrieve (default: 5) */
@@ -27,7 +27,7 @@ export interface RAGPipelineConfig {
   vectorStore?: PgVectorStore;
 }
 
-export interface IngestOptions {
+interface IngestOptions {
   /** Document text content */
   content: string;
   /** Document title or filename */
@@ -46,7 +46,7 @@ export interface IngestOptions {
   metadata?: Record<string, unknown>;
 }
 
-export interface RetrieveOptions {
+interface RetrieveOptions {
   /** Search query */
   query: string;
   /** Collection namespace */
@@ -70,7 +70,7 @@ export interface RetrieveOptions {
   useHyDE?: boolean;
 }
 
-export interface RAGResult {
+interface RAGResult {
   /** Retrieved context chunks with scores */
   context: Array<{
     id: string;
@@ -92,7 +92,7 @@ export interface RAGResult {
   collection: string;
 }
 
-export interface GenerateAnswerResult {
+interface GenerateAnswerResult {
   answer: string;
   query: string;
   sources: Array<{

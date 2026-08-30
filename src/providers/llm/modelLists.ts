@@ -111,21 +111,21 @@ export const OPENROUTER_CHAT_MODELS: ModelEntry[] = [
 ];
 
 /** Dedicated Dense Vector Embedding Models (for Qdrant, Pinecone, RAG & Semantic Memory) */
-export const EMBEDDING_MODELS: ModelEntry[] = [
+const EMBEDDING_MODELS: ModelEntry[] = [
   { provider: "openrouter", model: "nvidia/nemotron-3-embed-1b:free", label: "NVIDIA: Nemotron 3 Embed 1B", category: "embedding", contextLength: 32768 },
   { provider: "openrouter", model: "nvidia/llama-nemotron-embed-vl-1b-v2:free", label: "NVIDIA: Llama Nemotron Embed VL 1B V2", category: "embedding", contextLength: 131072 },
   { provider: "openrouter", model: "liquid/lfm-2.5-embedding-350m:free", label: "LiquidAI: LFM2.5-Embedding-350M", category: "embedding", contextLength: 512 },
 ];
 
 /** Dedicated Voice, Audio & Speech Models (for Audio Transcriber STT & Piper / Neural TTS) */
-export const AUDIO_MODELS: ModelEntry[] = [
+const AUDIO_MODELS: ModelEntry[] = [
   ...GROQ_AUDIO_MODELS,
   { provider: "openrouter", model: "fish-audio/s2.1-pro-free:free", label: "Fish Audio: S2.1 Pro Free (Voice Synthesis)", category: "audio" },
   { provider: "openrouter", model: "deepgram/flux-tts:free", label: "Deepgram: Flux TTS (Neural Voice)", category: "audio" },
 ];
 
 /** Dedicated Vision & Multimodal OCR Models */
-export const VISION_MODELS: ModelEntry[] = [
+const VISION_MODELS: ModelEntry[] = [
   { provider: "openrouter", model: "nvidia/nemotron-nano-12b-v2-vl:free", label: "NVIDIA: Nemotron Nano 12B 2 VL", category: "vision", contextLength: 128000, latency: "1809ms", throughput: "19 t/s" },
   { provider: "openrouter", model: "nvidia/llama-nemotron-rerank-vl-1b-v2:free", label: "NVIDIA: Llama Nemotron Rerank VL 1B V2", category: "vision", contextLength: 10240 },
 ];

@@ -23,7 +23,7 @@ import { ModelEntry } from "@/providers/llm";
 import { formatPricePerMillion, isModelFree } from "@/lib/utils/pricing";
 import { GroqOfficialLogo, OpenRouterOfficialLogo } from "@/components/common/BrandLogos";
 
-export interface ModelDropdownProps {
+interface ModelDropdownProps {
   value?: string;
   onChange: (model: string) => void;
   disabled?: boolean;

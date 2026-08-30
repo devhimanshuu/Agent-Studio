@@ -14,7 +14,7 @@ const CURSOR_COLORS = [
   "#2dd4bf", // teal
 ];
 
-export interface PeerPresence {
+interface PeerPresence {
   id: string;
   name: string;
   color: string;

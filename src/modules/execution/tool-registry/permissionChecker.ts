@@ -1,6 +1,6 @@
 import { ToolRegistry } from "@/modules/tools";
 
-export type ToolPermissionVerdict =
+type ToolPermissionVerdict =
   | { ok: true }
   | {
       ok: false;

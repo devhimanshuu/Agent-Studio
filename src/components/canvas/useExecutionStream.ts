@@ -3,13 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { ExecutionEvent, GraphNodeStatus } from "@/modules/graph/eventBus";
 
-export interface TraversedEdge {
+interface TraversedEdge {
   sourceId: string;
   targetId: string;
   label?: string;
 }
 
-export interface TraceState {
+interface TraceState {
   nodeStatuses: Record<string, GraphNodeStatus>;
   nodeDetails: Record<string, string>;
   /** Edges traversed during the run, keyed by persisted edge id (or `source->target`). */

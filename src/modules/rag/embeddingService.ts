@@ -7,7 +7,7 @@
  * - Built-in 1536D Normalized Semantic Vector Generator (Zero-config offline mode)
  */
 
-export interface EmbeddingOptions {
+interface EmbeddingOptions {
   /** Text to embed */
   text: string;
   /** Model to use */
@@ -31,7 +31,7 @@ export interface EmbeddingResult {
   dimensions: number;
 }
 
-export interface BatchEmbeddingOptions {
+interface BatchEmbeddingOptions {
   /** Concurrency limit (default: 5) */
   concurrency?: number;
   /** Model to use */

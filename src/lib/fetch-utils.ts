@@ -273,7 +273,7 @@ export async function getCachedAwesomeMcpServers(): Promise<AwesomeMcpServer[]> 
   return servers;
 }
 
-export interface AwesomeMcpPaginatedResult<T> {
+interface AwesomeMcpPaginatedResult<T> {
   items: T[];
   page: number;
   pageSize: number;
@@ -428,7 +428,7 @@ function prefetchNextSmitheryPage(
     });
 }
 
-export interface SmitheryPaginatedResult<T> {
+interface SmitheryPaginatedResult<T> {
   items: T[];
   page: number;
   pageSize: number;
@@ -1080,7 +1080,7 @@ interface ArcadeCacheEntry {
 
 let arcadeCache: ArcadeCacheEntry | null = null;
 
-export interface ArcadeIntegration {
+interface ArcadeIntegration {
   id: string;
   name: string;
   description: string;

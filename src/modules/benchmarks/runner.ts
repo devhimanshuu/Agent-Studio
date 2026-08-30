@@ -8,7 +8,7 @@ import { findModelEntry } from "@/providers/llm/modelLists";
 import { BenchmarkSuite, ModelBenchmarkComparisonItem, TestCaseResult } from "@/types/benchmark";
 import { evaluateTestCase, generateScorecard } from "./benchmarkEngine";
 
-export interface SuiteRunResult {
+interface SuiteRunResult {
   scorecard: ReturnType<typeof generateScorecard>;
   avgLatencyMs: number;
   costPer1kRuns: number;

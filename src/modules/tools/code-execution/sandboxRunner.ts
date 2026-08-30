@@ -2,7 +2,7 @@ const MAX_OUTPUT_BYTES = 100 * 1024; // 100 KB
 const DEFAULT_TIMEOUT_MS = 10_000;
 const MAX_TIMEOUT_MS = 30_000;
 
-export interface SandboxResult {
+interface SandboxResult {
   stdout: string;
   stderr: string;
   exitCode: number;

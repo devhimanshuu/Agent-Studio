@@ -2163,4 +2163,3 @@ export function AgentGraphCanvas(props: AgentGraphCanvasProps) {
   );
 }
 
-export type { GraphNodeType, AgentGraphDefinition };

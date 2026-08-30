@@ -40,7 +40,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export interface CanvasNodeTypeMeta {
+interface CanvasNodeTypeMeta {
   type: GraphNodeType;
   label: string;
   tag: string;

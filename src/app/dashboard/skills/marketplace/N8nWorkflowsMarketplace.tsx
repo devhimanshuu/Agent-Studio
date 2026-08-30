@@ -59,7 +59,7 @@ import { SkillExampleDTO } from "@/types/skill";
 
 const PAGE_SIZE = 18;
 
-export interface N8nMarketplaceWorkflow {
+interface N8nMarketplaceWorkflow {
   id: number;
   name: string;
   description: string;

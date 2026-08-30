@@ -2,7 +2,7 @@ import { z } from "zod";
 import { OpenApiEndpointDefinition } from "@/types/openapi";
 import { jsonSchemaToZod } from "@/modules/mcp/toolAdapter";
 
-export interface EndpointSchemas {
+interface EndpointSchemas {
   jsonSchema: Record<string, unknown>;
   zodSchema: z.ZodType;
 }

@@ -7,7 +7,7 @@ import { withRetries } from "../executor/retry";
 import { resolveStepReferences } from "../executor/stepReferences";
 import { evaluateApprovalPolicy, DEFAULT_APPROVAL_POLICY } from "@/modules/approval";
 
-export type GraphNode = (state: AgentState, config: unknown) => Promise<Partial<AgentState>>;
+type GraphNode = (state: AgentState, config: unknown) => Promise<Partial<AgentState>>;
 
 /** True when the given step must pause for human approval. Delegates to the
  * full approval policy (always/never/tool-based/skill-based overrides, then

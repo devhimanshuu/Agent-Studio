@@ -7,7 +7,7 @@ import {
   LLMToolCall,
 } from "./LLMProvider";
 
-export interface ChatCompletionRequestInput {
+interface ChatCompletionRequestInput {
   endpoint: string;
   apiKey: string;
   model: string;

@@ -16,7 +16,7 @@ import { generateEmbedding, batchEmbed, cosineSimilarity, EmbeddingResult, DEFAU
 import { chunkDocument, chunkDocumentWithParent, mergeSmallChunks, ChunkingOptions, DocumentChunk } from "./chunkingService";
 import { logger } from "@/lib/logger";
 
-export interface PgVectorStoreConfig {
+interface PgVectorStoreConfig {
   /** Default collection name */
   defaultCollection?: string;
   /** Embedding model override */
@@ -27,7 +27,7 @@ export interface PgVectorStoreConfig {
   dimensions?: number;
 }
 
-export interface IngestDocumentInput {
+interface IngestDocumentInput {
   /** Raw document content */
   content: string;
   /** Document title or filename */
@@ -74,7 +74,7 @@ export interface SemanticSearchResult {
   sparseScore?: number;
 }
 
-export interface SemanticSearchOptions {
+interface SemanticSearchOptions {
   /** Maximum results to return (default: 5) */
   limit?: number;
   /** Minimum similarity score between 0.0 and 1.0 (default: 0.25) */
@@ -98,7 +98,7 @@ interface HybridSearchOptions extends SemanticSearchOptions {
   rrfK?: number;
 }
 
-export interface CollectionSummary {
+interface CollectionSummary {
   name: string;
   documentCount: number;
   chunkCount: number;

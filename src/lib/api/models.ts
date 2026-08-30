@@ -20,14 +20,14 @@ export interface ModelsApiResponse {
   error?: string;
 }
 
-export interface TestModelParams {
+interface TestModelParams {
   model: string;
   apiKey?: string;
   apiBaseUrl?: string;
   provider?: string;
 }
 
-export interface TestModelResponse {
+interface TestModelResponse {
   success: boolean;
   connected: boolean;
   latencyMs?: number;

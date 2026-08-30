@@ -1,7 +1,7 @@
 import { AgentGraphDefinition, GraphEdgeDefinition, GraphNodeDefinition, GraphNodeType } from "@/types/graph";
 import { WorkflowTemplate } from "@/components/workflows/WorkflowTemplates";
 
-export interface N8nNode {
+interface N8nNode {
   id: string;
   name: string;
   type: string;
@@ -13,7 +13,7 @@ export interface N8nNode {
   disabled?: boolean;
 }
 
-export interface N8nConnectionTarget {
+interface N8nConnectionTarget {
   node: string;
   type: string;
   index: number;
