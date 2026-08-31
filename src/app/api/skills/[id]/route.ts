@@ -28,11 +28,8 @@ export async function GET(
   try {
     const { id } = await params;
     
-    // Get skill to check organization context
-    const skill = await prisma.skill.findUnique({
-      where: { id },
-      include: { versions: true },
-    });
+    // Get skill to check organization context and return mapped DTO
+    const skill = await skillRepo.findById(id);
     
     if (!skill) return notFound("Skill not found");
 

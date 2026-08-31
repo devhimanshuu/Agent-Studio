@@ -60,14 +60,15 @@ export default function SkillDetailPage() {
   });
 
   const draft = skill?.currentDraft ?? null;
+  const activeVersion = skill?.currentDraft ?? skill?.publishedVersion ?? skill?.versions?.[0] ?? null;
 
   const [initialized, setInitialized] = useState(false);
   useEffect(() => {
-    if (draft && !initialized) {
-      setRunInput(getPrefilledExecutionInput(draft));
+    if (activeVersion && !initialized) {
+      setRunInput(getPrefilledExecutionInput(activeVersion));
       setInitialized(true);
     }
-  }, [draft, initialized]);
+  }, [activeVersion, initialized]);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["skill", id] });
@@ -107,12 +108,12 @@ export default function SkillDetailPage() {
     onError: (e) => toast.error("Execution failed to start", e.message),
   });
 
-  const runDraft = () => {
-    if (!draft) return;
+  const runSkill = () => {
+    if (!activeVersion) return;
     try {
       const inputData = safeParseExecutionInput(runInput);
       setRunInputError(null);
-      runMutation.mutate({ versionId: draft.id, inputData });
+      runMutation.mutate({ versionId: activeVersion.id, inputData });
     } catch (err) {
       setRunInputError(err instanceof Error ? err.message : "Invalid JSON input payload");
     }
@@ -197,16 +198,16 @@ export default function SkillDetailPage() {
             >
               <GitCompare className="h-3.5 w-3.5" /> [ VERSIONS ]
             </Link>
-            {draft && skill.status !== "ARCHIVED" && (
+            {activeVersion && skill.status !== "ARCHIVED" && (
               <button
                 type="button"
-                onClick={runDraft}
+                onClick={runSkill}
                 disabled={runMutation.isPending}
-                title="Execute the current draft through the agent runtime"
+                title="Execute through the agent runtime"
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-indigo-400 bg-indigo-600 text-white font-semibold hover:bg-indigo-500 shadow-md shadow-indigo-500/30 transition-all cursor-pointer disabled:opacity-50"
               >
                 {runMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                [ RUN DRAFT v{draft.versionNumber} ]
+                [ RUN {draft ? `DRAFT v${draft.versionNumber}` : `v${activeVersion.versionNumber}`} ]
               </button>
             )}
             {draft && skill.status !== "ARCHIVED" && (
@@ -286,7 +287,7 @@ export default function SkillDetailPage() {
       )}
 
       {/* Execution input editor */}
-      {draft && skill.status !== "ARCHIVED" && (
+      {activeVersion && skill.status !== "ARCHIVED" && (
         <div className="rounded border border-slate-200 dark:border-indigo-900/40 bg-white/80 dark:bg-[#0a0a0a]/60 p-4 space-y-2 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="text-[10px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400/80 flex items-center gap-1.5 font-semibold">
@@ -304,7 +305,7 @@ export default function SkillDetailPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setRunInput(getPrefilledExecutionInput(draft));
+                  setRunInput(getPrefilledExecutionInput(activeVersion));
                   if (runInputError) setRunInputError(null);
                   toast.info("Input reloaded from schema sample");
                 }}

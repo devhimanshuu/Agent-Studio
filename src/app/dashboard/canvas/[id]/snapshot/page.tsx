@@ -23,7 +23,7 @@ export default function CanvasSnapshotPage({ params }: { params: Promise<{ id: s
     queryFn: () => skillsApi.get(id),
   });
 
-  const draft = skill?.publishedVersion ?? skill?.currentDraft ?? null;
+  const draft = skill?.publishedVersion ?? skill?.currentDraft ?? skill?.versions?.[0] ?? null;
 
   const { data: pastExecutions = [] } = useQuery({
     queryKey: ["executions", "by-version", draft?.id],

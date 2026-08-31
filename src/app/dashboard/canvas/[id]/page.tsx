@@ -44,7 +44,7 @@ export default function CanvasEditorPage({ params }: { params: Promise<{ id: str
     queryFn: () => skillsApi.get(id),
   });
 
-  const draft = skill?.currentDraft ?? skill?.publishedVersion ?? null;
+  const draft = skill?.currentDraft ?? skill?.publishedVersion ?? skill?.versions?.[0] ?? null;
 
   // Past runs of this version — powers branch coverage + replay-last-run.
   const { data: pastExecutions = [] } = useQuery({

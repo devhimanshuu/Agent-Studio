@@ -414,7 +414,7 @@ export class SkillRepository implements ISkillRepository {
     return versions.map((v) => this.mapVersion(v));
   }
 
-  private mapSkill(s: Prisma.SkillGetPayload<{ include: { versions: true } }>): SkillDTO {
+  public mapSkill(s: Prisma.SkillGetPayload<{ include: { versions: true } }>): SkillDTO {
     const versions = (s.versions || []).map((v) => this.mapVersion(v));
     return {
       id: s.id,

@@ -58,11 +58,15 @@ export async function GET(request: Request) {
         : { createdAt: "desc" };
 
       // List skills for organization
-      result = await prisma.skill.findMany({
-        where,
-        orderBy,
-        include: { versions: { where: { status: "DRAFT" }, take: 1 } },
-      });
+      const [skills, total] = await Promise.all([
+        prisma.skill.findMany({
+          where,
+          orderBy,
+          include: { versions: true },
+        }),
+        prisma.skill.count({ where }),
+      ]);
+      result = { items: skills.map((s) => skillRepo.mapSkill(s)), total };
     } else {
       // List user's personal skills
       result = await skillService.listSkills(userId, parsed.data);
