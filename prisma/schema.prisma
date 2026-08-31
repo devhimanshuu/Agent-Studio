@@ -459,7 +459,7 @@ model OrganizationMember {
   joinedAt       DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   customRoleId   String?
-  customRole     CustomRole?  @relation(fields: [customRoleId], references: [id])
+  customRole     CustomRole?  @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
   inviter        User?        @relation("Inviter", fields: [invitedBy], references: [id])
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)

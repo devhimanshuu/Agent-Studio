@@ -37,15 +37,20 @@ export async function GET(
     if (!skill) return notFound("Skill not found");
 
     // Check access permission
-    const hasAccess = await rbacService.canAccessResource(
-      userId,
-      skill.organizationId || "",
-      "skill",
-      id,
-      "read"
-    );
-
-    if (!hasAccess) return forbidden();
+    if (skill.organizationId) {
+      // Organization skill — check org-level access
+      const hasAccess = await rbacService.canAccessResource(
+        userId,
+        skill.organizationId,
+        "skill",
+        id,
+        "read"
+      );
+      if (!hasAccess) return forbidden();
+    } else {
+      // Personal skill — only the owner can access
+      if (skill.userId !== userId) return forbidden();
+    }
 
     return NextResponse.json({ success: true, data: skill });
   } catch (error) {

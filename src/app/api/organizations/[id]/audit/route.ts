@@ -29,9 +29,9 @@ export async function GET(
     const { id } = await params;
     const url = new URL(request.url);
 
-    // Check membership
-    const membership = await rbacService.getOrgMembership(userId, id);
-    if (!membership) return forbidden();
+    // Check membership and audit permission (ADMIN/OWNER or custom role with audit:view)
+    const permissions = await rbacService.getUserOrgPermissions(userId, id);
+    if (!permissions.canViewAuditLog) return forbidden();
 
     // Parse query parameters
     const limit = parseInt(url.searchParams.get("limit") || "100", 10);

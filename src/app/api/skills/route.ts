@@ -97,8 +97,8 @@ export async function POST(request: Request) {
       const membership = await rbacService.getOrgMembership(userId, organizationId);
       if (!membership) return forbidden();
 
-      const permissions = await rbacService.getUserOrgPermissions(userId, organizationId);
-      if (!permissions.canCreateSkill) {
+      const canCreate = await rbacService.hasPermission(userId, organizationId, "skills:create");
+      if (!canCreate) {
         return forbidden();
       }
     }

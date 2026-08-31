@@ -11,7 +11,7 @@ import { prisma } from "@/lib/prisma";
 
 // ────────────── Types ──────────────
 
-export type OrgRole = "OWNER" | "ADMIN" | "MEMBER" | "VIEWER" | string;
+export type OrgRole = "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
 
 // Custom role prefix to distinguish from built-in roles
 export const CUSTOM_ROLE_PREFIX = "custom:";
@@ -67,6 +67,43 @@ const SKILL_PERMISSION_HIERARCHY: Record<SkillPermission, number> = {
   SKILL_VIEWER: 1,
 };
 
+// ────────────── Base Role → Permission Mapping ──────────────
+
+/**
+ * Maps each built-in org role to the set of granular permission strings it implies.
+ * Uses the same vocabulary as AVAILABLE_PERMISSIONS in CustomRoleService.
+ * OWNER gets wildcard "*" (all permissions).
+ */
+const BASE_ROLE_PERMISSIONS: Record<string, string[]> = {
+  OWNER: ["*"],
+  ADMIN: [
+    "org:manage",
+    "members:manage", "members:read",
+    "skills:create", "skills:read", "skills:edit", "skills:delete", "skills:execute", "skills:publish",
+    "executions:create", "executions:read", "executions:cancel",
+    "mcp:manage", "mcp:read", "mcp:create", "mcp:delete",
+    "vault:manage", "vault:create", "vault:read", "vault:delete",
+    "audit:view", "audit:read",
+    "api_keys:manage", "api_keys:read",
+    "roles:manage", "roles:read",
+  ],
+  MEMBER: [
+    "members:read",
+    "skills:create", "skills:read", "skills:edit:own", "skills:delete:own", "skills:execute",
+    "executions:create", "executions:read:own", "executions:cancel:own",
+    "mcp:read", "mcp:create",
+    "vault:create", "vault:read:own", "vault:delete:own",
+    "roles:read",
+  ],
+  VIEWER: [
+    "members:read",
+    "skills:read",
+    "executions:read",
+    "mcp:read",
+    "roles:read",
+  ],
+};
+
 // ────────────── Permission Sets ──────────────
 
 function buildOrgPermissionSet(role: OrgRole): OrgPermissionSet {
@@ -96,11 +133,38 @@ function buildSkillPermissionSet(permissions: SkillPermission[]): SkillPermissio
     permissions,
     isAdmin: permissions.includes("SKILL_ADMIN"),
     isEditor: permissions.includes("SKILL_EDITOR") || permissions.includes("SKILL_ADMIN"),
-    isExecutor: permissions.includes("SKILL_EXECUTOR") || permissions.includes("SKILL_EDITOR"),
+    isExecutor: permissions.includes("SKILL_EXECUTOR") || permissions.includes("SKILL_EDITOR") || permissions.includes("SKILL_ADMIN"),
     isViewer: permissions.includes("SKILL_VIEWER") || permissions.length > 0,
     canEdit: highestPermission === "SKILL_ADMIN" || highestPermission === "SKILL_EDITOR",
     canExecute: highestPermission !== "SKILL_VIEWER",
     canDelete: highestPermission === "SKILL_ADMIN",
+  };
+}
+
+/**
+ * Overlay custom role permissions onto base OrgPermissionSet (additive).
+ * Custom permissions can grant additional capabilities but never revoke base role ones.
+ */
+function overlayCustomPermissions(
+  base: OrgPermissionSet,
+  customPerms: string[]
+): OrgPermissionSet {
+  if (customPerms.length === 0) return base;
+
+  return {
+    ...base,
+    canManageMembers: base.canManageMembers || customPerms.includes("members:manage"),
+    canManageSettings: base.canManageSettings || customPerms.includes("org:manage"),
+    // canDeleteOrg stays from base only — too dangerous for custom roles
+    canCreateSkill: base.canCreateSkill || customPerms.includes("skills:create"),
+    canExecuteSkill:
+      base.canExecuteSkill ||
+      customPerms.includes("skills:execute") ||
+      customPerms.includes("executions:create"),
+    canViewAuditLog:
+      base.canViewAuditLog ||
+      customPerms.includes("audit:view") ||
+      customPerms.includes("audit:read"),
   };
 }
 
@@ -186,14 +250,22 @@ export class RBACService {
   ): Promise<boolean> {
     const { role, permissions } = await this.getEffectivePermissions(userId, organizationId);
 
-    // Check base role permissions
-    const orgPerms = buildOrgPermissionSet(role);
-    if (this.checkOrgPermission(orgPerms, permission)) {
-      return true;
-    }
+    // 1. Check base role implied permissions via unified mapping
+    const rolePerms = BASE_ROLE_PERMISSIONS[role] || [];
+    if (rolePerms.includes("*") || rolePerms.includes(permission)) return true;
 
-    // Check custom permissions
-    return permissions.includes(permission);
+    // 2. Support :own inheritance (e.g., skills:edit implies skills:edit:own)
+    const ownVariant = `${permission}:own`;
+    if (permission !== ownVariant && rolePerms.includes(permission.replace(/:own$/, ""))) return true;
+
+    // 3. Check custom role permissions
+    if (permissions.includes(permission)) return true;
+
+    // 4. Legacy org:* namespace backward compatibility
+    const orgPerms = buildOrgPermissionSet(role);
+    if (this.checkOrgPermission(orgPerms, permission)) return true;
+
+    return false;
   }
 
   /**
@@ -245,8 +317,8 @@ export class RBACService {
     const membership = await this.getOrgMembership(userId, organizationId);
     if (!membership) return false;
 
-    const userLevel = ORG_ROLE_HIERARCHY[membership.role];
-    const requiredLevel = ORG_ROLE_HIERARCHY[requiredRole];
+    const userLevel = ORG_ROLE_HIERARCHY[membership.role] ?? 0;
+    const requiredLevel = ORG_ROLE_HIERARCHY[requiredRole] ?? 0;
 
     return userLevel >= requiredLevel;
   }
@@ -301,11 +373,16 @@ export class RBACService {
     userId: string,
     organizationId: string
   ): Promise<OrgPermissionSet> {
-    const membership = await this.getOrgMembership(userId, organizationId);
-    if (!membership) {
-      return buildOrgPermissionSet("VIEWER"); // Default to no permissions
-    }
-    return buildOrgPermissionSet(membership.role);
+    const { role, permissions: customPerms } = await this.getEffectivePermissions(
+      userId,
+      organizationId
+    );
+
+    const basePerms = buildOrgPermissionSet(role);
+
+    // Overlay custom role permissions (additive — custom roles can grant,
+    // never revoke, capabilities beyond the base role)
+    return overlayCustomPermissions(basePerms, customPerms);
   }
 
   /**
@@ -464,6 +541,11 @@ export class RBACService {
     resourceId: string,
     action: "read" | "write" | "delete" | "execute"
   ): Promise<boolean> {
+    // Handle personal resources (no organization context)
+    if (!organizationId) {
+      return this.isResourceOwner(userId, resourceType, resourceId);
+    }
+
     const membership = await this.getOrgMembership(userId, organizationId);
     if (!membership) return false;
 

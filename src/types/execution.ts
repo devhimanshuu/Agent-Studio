@@ -60,6 +60,8 @@ export interface ExecutionDTO {
   skillName?: string | null;
   /** Set when this run was created by replaying a previous execution. */
   replayedFromExecutionId?: string | null;
+  /** Organization ID if executed in an organization context. */
+  organizationId?: string | null;
   status: ExecutionStatus;
   inputData: Record<string, unknown>;
   finalOutput?: Record<string, unknown> | null;
@@ -98,6 +100,7 @@ export interface StartExecutionInput {
   userId: string;
   skillVersionId: string;
   inputData: Record<string, unknown>;
+  organizationId?: string | null;
   /**
    * Deterministic replay for graph versions: recorded LLM outputs keyed by
    * node id, replayed instead of re-invoking the model.

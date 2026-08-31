@@ -325,7 +325,99 @@ async function main() {
     console.log(`✅ Seeded Demo Workflow: ${skill.name}`);
   }
 
+  // 5. Seed Demo Organization, Custom Roles, and Members for RBAC
+  const demoOrgSlug = "agent-studio-demo";
+  const org = await prisma.organization.upsert({
+    where: { slug: demoOrgSlug },
+    update: {},
+    create: {
+      name: "Agent Studio Demo Org",
+      slug: demoOrgSlug,
+      plan: "pro",
+      billingEmail: "billing@agentstudio.io",
+      settings: { theme: "dark", allowedDomains: ["agentstudio.io"] },
+    },
+  });
 
+  // Ensure primary demo user is OWNER
+  await prisma.organizationMember.upsert({
+    where: {
+      organizationId_userId: {
+        organizationId: org.id,
+        userId: user.id,
+      },
+    },
+    update: { role: "OWNER" },
+    create: {
+      organizationId: org.id,
+      userId: user.id,
+      role: "OWNER",
+      permissions: [],
+    },
+  });
+
+  // Seed Custom Role
+  const operatorRole = await prisma.customRole.upsert({
+    where: {
+      organizationId_name: {
+        organizationId: org.id,
+        name: "Skill Operator",
+      },
+    },
+    update: {
+      permissions: ["skills:read", "skills:execute", "executions:read", "executions:create"],
+    },
+    create: {
+      organizationId: org.id,
+      name: "Skill Operator",
+      description: "Can view and execute skills, and monitor workflow executions.",
+      permissions: ["skills:read", "skills:execute", "executions:read", "executions:create"],
+      isSystem: false,
+    },
+  });
+
+  // Seed a secondary member user
+  const auditorUser = await prisma.user.upsert({
+    where: { id: "user_demo_auditor" },
+    update: {},
+    create: {
+      id: "user_demo_auditor",
+      email: "auditor@agentstudio.io",
+      name: "Auditor Demo User",
+      role: Role.USER,
+    },
+  });
+
+  // Add auditor as MEMBER with custom role
+  await prisma.organizationMember.upsert({
+    where: {
+      organizationId_userId: {
+        organizationId: org.id,
+        userId: auditorUser.id,
+      },
+    },
+    update: {
+      role: "MEMBER",
+      customRoleId: operatorRole.id,
+    },
+    create: {
+      organizationId: org.id,
+      userId: auditorUser.id,
+      role: "MEMBER",
+      customRoleId: operatorRole.id,
+      permissions: [],
+    },
+  });
+
+  // Associate demo skill with demo org
+  if (skill) {
+    await prisma.skill.update({
+      where: { id: skill.id },
+      data: { organizationId: org.id },
+    });
+  }
+
+  console.log(`✅ Seeded Demo Organization & RBAC Members/Roles (${org.name})`);
   console.log("🎉 Database seeding completed successfully!");
 }
 

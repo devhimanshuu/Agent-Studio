@@ -25,7 +25,7 @@ export async function GET(request: Request) {
     const search = url.searchParams.get("q");
     const organizationId = request.headers.get("X-Organization-Id") || url.searchParams.get("organizationId") || undefined;
 
-    let entries;
+    let entries: unknown[];
     if (organizationId) {
       // Verify membership
       const membership = await rbacService.getOrgMembership(userId, organizationId);
@@ -33,11 +33,26 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
 
-      // List vault entries for organization
-      entries = await prisma.vaultEntry.findMany({
-        where: { organizationId },
-        orderBy: { updatedAt: "desc" },
-      });
+      const permissions = await rbacService.getUserOrgPermissions(userId, organizationId);
+
+      if (permissions.isAdmin) {
+        // Admins/Owners can see all vault entries in the org
+        entries = await prisma.vaultEntry.findMany({
+          where: { organizationId },
+          orderBy: { updatedAt: "desc" },
+        });
+      } else {
+        // Members see only their own entries; Viewers see none
+        const canReadOwn = await rbacService.hasPermission(userId, organizationId, "vault:read:own");
+        if (!canReadOwn) {
+          entries = [];
+        } else {
+          entries = await prisma.vaultEntry.findMany({
+            where: { organizationId, userId },
+            orderBy: { updatedAt: "desc" },
+          });
+        }
+      }
     } else {
       entries = search
         ? await vaultService.search(userId, search)
@@ -92,8 +107,9 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
 
-      const permissions = await rbacService.getUserOrgPermissions(userId, organizationId);
-      if (!permissions.canCreateSkill) {
+      // Check vault:create permission (custom role aware)
+      const canCreate = await rbacService.hasPermission(userId, organizationId, "vault:create");
+      if (!canCreate) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
     }

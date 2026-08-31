@@ -2,7 +2,7 @@
  * Organization Invitations Routes
  *
  * GET    /api/organizations/[id]/invitations — List pending invitations
- * POST   /api/organizations/[id]/invitations — Cancel invitation
+ * DELETE /api/organizations/[id]/invitations — Cancel invitation
  */
 
 import { NextResponse } from "next/server";
