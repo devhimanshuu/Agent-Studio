@@ -2,15 +2,14 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { 
-  Building2, 
-  Plus, 
-  Users, 
+import {
+  Building2,
+  Plus,
+  Users,
   Loader2,
   ChevronRight,
   Settings
 } from "lucide-react";
-import { clsx } from "clsx";
 import { toast } from "@/stores/toastStore";
 
 // ────────────── Types ──────────────
@@ -94,7 +93,7 @@ export default function OrganizationsPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="space-y-6 w-full font-mono">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
@@ -190,7 +189,7 @@ export default function OrganizationsPage() {
             <h3 className="text-lg font-mono font-bold text-slate-900 dark:text-slate-100 mb-4">
               Create Organization
             </h3>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-mono font-bold text-slate-500 mb-2">

@@ -32,7 +32,6 @@
  *   - Rolls back on failure
  */
 
-import crypto from "crypto";
 import { prisma } from "../src/lib/prisma";
 import {
   decryptWithFallback,
@@ -41,7 +40,6 @@ import {
   getCurrentKeyVersion,
   generateMasterKey,
 } from "../src/lib/vault/crypto";
-import { logger } from "../src/lib/logger";
 
 interface RotationResult {
   total: number;

@@ -16,15 +16,17 @@ const organizationService = new OrganizationService();
 /**
  * GET /api/organizations — List user's organizations
  */
-export async function GET(request: Request) {
+export async function GET(_request: Request) {
   const { userId } = await auth();
   if (!userId) return unauthorized();
 
   try {
     const organizations = await organizationService.listUserOrganizations(userId);
     return NextResponse.json({ success: true, data: organizations });
-  } catch (error) {
-    logger.error({ error }, "Failed to list organizations");
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    const errStack = error instanceof Error ? error.stack : undefined;
+    logger.error({ error: errMsg, stack: errStack }, "Failed to list organizations");
     return serverError(error);
   }
 }
@@ -68,7 +70,9 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error && error.message.includes("already exists")) {
       return badRequest(error);
     }
-    logger.error({ error }, "Failed to create organization");
+    const errMsg = error instanceof Error ? error.message : String(error);
+    const errStack = error instanceof Error ? error.stack : undefined;
+    logger.error({ error: errMsg, stack: errStack }, "Failed to create organization");
     return serverError(error);
   }
 }

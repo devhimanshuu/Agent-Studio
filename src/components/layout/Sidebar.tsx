@@ -23,6 +23,7 @@ import {
   Bot,
   Award,
   Scale,
+  Building2,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { SignOutModal } from "@/components/feedback/SignOutModal";
@@ -42,6 +43,7 @@ const navItems = [
   { name: "Compare", href: "/dashboard/compare", icon: GitCompare, tag: "DIFF_07" },
   { name: "Tool Registry", href: "/dashboard/tools", icon: Wrench, tag: "TOOL_V1" },
   { name: "Human Review", href: "/dashboard/review", icon: Shield, tag: "HITL_V2" },
+  { name: "Organizations", href: "/organizations", icon: Building2, tag: "RBAC" },
   { name: "Settings", href: "/dashboard/settings", icon: Settings, tag: "CFG_V1" },
 ];
 
@@ -61,7 +63,9 @@ export function Sidebar() {
   const isAppRoute =
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/versions") ||
-    pathname.startsWith("/approvals");
+    pathname.startsWith("/approvals") ||
+    pathname.startsWith("/organizations") ||
+    pathname.startsWith("/invitations");
 
   // Hide sidebar if user is not authenticated, or on public landing / 404 routes
   if (!isLoaded || !isSignedIn || pathname === "/" || !isAppRoute) return null;

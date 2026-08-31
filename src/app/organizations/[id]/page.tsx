@@ -66,7 +66,7 @@ export default function OrganizationDetailPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="space-y-6 w-full font-mono">
       {/* Header */}
       <div className="mb-8">
         <button

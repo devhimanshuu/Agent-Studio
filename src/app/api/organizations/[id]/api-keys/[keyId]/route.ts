@@ -4,7 +4,7 @@
  * DELETE /api/organizations/[id]/api-keys/[keyId] — Delete API key
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { ApiKeyService } from "@/services/ApiKeyService";
 import { unauthorized, forbidden, notFound, serverError } from "@/lib/api/handlers";
@@ -17,7 +17,7 @@ const apiKeyService = new ApiKeyService();
  * DELETE /api/organizations/[id]/api-keys/[keyId] — Delete API key
  */
 export async function DELETE(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string; keyId: string }> }
 ) {
   const { userId } = await auth();

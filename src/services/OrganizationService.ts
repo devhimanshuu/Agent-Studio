@@ -178,7 +178,7 @@ export class OrganizationService {
       data: {
         ...(input.name !== undefined && { name: input.name }),
         ...(input.billingEmail !== undefined && { billingEmail: input.billingEmail }),
-        ...(input.settings !== undefined && { settings: input.settings }),
+        ...(input.settings !== undefined && { settings: input.settings as any }),
       },
       include: {
         _count: { select: { members: true } },
@@ -191,7 +191,7 @@ export class OrganizationService {
       userId,
       organizationId,
       resourceType: "organization",
-      details: input,
+      details: input as any,
     });
 
     logger.info({ organizationId, userId }, "Organization updated");
@@ -264,7 +264,7 @@ export class OrganizationService {
       data: {
         organizationId,
         email: input.email,
-        role: input.role || "MEMBER",
+        role: (input.role || "MEMBER") as any,
         token,
         invitedBy: userId,
         expiresAt,
@@ -526,7 +526,7 @@ export class OrganizationService {
           userId: targetUserId,
         },
       },
-      data: { role: newRole },
+      data: { role: newRole as any },
       include: { user: true },
     });
 
@@ -645,8 +645,98 @@ export class OrganizationService {
     logger.info({ invitationId, organizationId, cancelledBy: userId }, "Invitation cancelled");
   }
 
-  // ────────────── Helpers ──────────────
+  /**
+   * Ensure user has a default organization.
+   * Creates a "Personal Workspace" if none exists.
+   * Auto-migrates existing resources to the default org.
+   */
+  async ensureDefaultOrganization(userId: string): Promise<OrganizationDTO> {
+    // Check if user already has an organization
+    const existingMemberships = await prisma.organizationMember.findMany({
+      where: { userId },
+      include: {
+        organization: {
+          include: {
+            _count: { select: { members: true } },
+          },
+        },
+      },
+      orderBy: { joinedAt: "asc" },
+    });
 
+    // Return existing org if found
+    if (existingMemberships.length > 0) {
+      return this.toDTO(existingMemberships[0].organization);
+    }
+
+    // Create default organization
+    const slug = `personal-${userId.slice(0, 8)}`;
+
+    const organization = await prisma.organization.create({
+      data: {
+        name: "Personal Workspace",
+        slug,
+        plan: "free",
+        members: {
+          create: {
+            userId,
+            role: "OWNER",
+            permissions: [],
+          },
+        },
+      },
+      include: {
+        _count: { select: { members: true } },
+      },
+    });
+
+    // Auto-migrate existing resources to the default org
+    await this.migrateExistingResources(userId, organization.id);
+
+    logger.info({ organizationId: organization.id, userId }, "Default organization created");
+
+    return this.toDTO(organization);
+  }
+
+  /**
+   * Migrate existing user resources to their organization
+   */
+  private async migrateExistingResources(userId: string, organizationId: string): Promise<void> {
+    try {
+      // Migrate skills
+      await prisma.skill.updateMany({
+        where: { userId, organizationId: null },
+        data: { organizationId },
+      });
+
+      // Migrate executions
+      await prisma.execution.updateMany({
+        where: { userId, organizationId: null },
+        data: { organizationId },
+      });
+
+      // Migrate MCP servers
+      await prisma.mcpServer.updateMany({
+        where: { userId, organizationId: null },
+        data: { organizationId },
+      });
+
+      // Migrate vault entries
+      await prisma.vaultEntry.updateMany({
+        where: { userId, organizationId: null },
+        data: { organizationId },
+      });
+
+      logger.info({ userId, organizationId }, "Existing resources migrated to organization");
+    } catch (error) {
+      // Log but don't fail - migration is best-effort
+      logger.error({ userId, organizationId, error }, "Failed to migrate some resources");
+    }
+  }
+
+  /**
+   * Generate slug from name
+   */
   private generateSlug(name: string): string {
     return name
       .toLowerCase()

@@ -47,12 +47,12 @@ export default function InvitationAcceptPage() {
         organizationName: "Organization",
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       });
-    } catch (err) {
+    } catch {
       setError("Failed to load invitation details");
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     loadInvitation();

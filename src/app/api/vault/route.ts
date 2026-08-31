@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { VaultService, VaultEntryInput, VaultCategory } from "@/services/VaultService";
 import { logger } from "@/lib/logger";
-import { RBACService, ForbiddenError } from "@/services/RBACService";
+import { RBACService } from "@/services/RBACService";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";

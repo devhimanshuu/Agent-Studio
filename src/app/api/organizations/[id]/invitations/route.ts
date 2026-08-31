@@ -5,12 +5,11 @@
  * POST   /api/organizations/[id]/invitations — Cancel invitation
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { OrganizationService } from "@/services/OrganizationService";
 import { unauthorized, forbidden, badRequest, serverError } from "@/lib/api/handlers";
 import { ForbiddenError } from "@/services/RBACService";
-import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 
 const organizationService = new OrganizationService();
@@ -19,7 +18,7 @@ const organizationService = new OrganizationService();
  * GET /api/organizations/[id]/invitations — List pending invitations
  */
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { userId } = await auth();

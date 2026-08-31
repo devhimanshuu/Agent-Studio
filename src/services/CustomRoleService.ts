@@ -7,7 +7,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
-import { RBACService, ForbiddenError, OrgRole } from "./RBACService";
+import { RBACService, ForbiddenError } from "./RBACService";
 import { AuditService } from "./AuditService";
 
 // ────────────── Types ──────────────
@@ -38,7 +38,7 @@ export interface UpdateCustomRoleInput {
 // ────────────── Constants ──────────────
 
 // Built-in system role names that cannot be modified/deleted
-const SYSTEM_ROLES = ["Owner", "Admin", "Member", "Viewer"];
+export const SYSTEM_ROLES = ["Owner", "Admin", "Member", "Viewer"];
 
 // Available permissions
 export const AVAILABLE_PERMISSIONS = [

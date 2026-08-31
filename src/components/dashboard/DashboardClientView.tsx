@@ -56,7 +56,7 @@ export function DashboardClientView({ initialStats }: DashboardClientViewProps) 
   return (
     <div className="space-y-6 sm:space-y-8 w-full max-w-[1600px] mx-auto pb-12 font-mono">
       {/* 1. Header with Controls & Action Hub */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-200 dark:border-indigo-950/80 pb-5">
+      <div className="relative z-30 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-200 dark:border-indigo-950/80 pb-5">
         <Reveal delay={0}>
           <div className="space-y-1">
             <div className="flex items-center gap-2.5">
@@ -73,7 +73,7 @@ export function DashboardClientView({ initialStats }: DashboardClientViewProps) 
           </div>
         </Reveal>
 
-        <Reveal delay={100}>
+        <Reveal delay={100} className="relative z-30">
           <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-between md:justify-end">
             {/* Time Range Filter Bar */}
             <div className="inline-flex items-center rounded-lg border border-slate-300 dark:border-indigo-900/60 bg-white/80 dark:bg-black/50 p-1 text-xs font-mono shadow-sm">

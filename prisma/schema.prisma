@@ -1,10 +1,526 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
+model User {
+  id                  String               @id @default(cuid())
+  email               String               @unique
+  name                String?
+  role                Role                 @default(USER)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  api_keys            ApiKey[]
+  approvals           ApprovalRequest[]
+  auditLogs           AuditLog[]
+  documents           Document[]
+  evalRunReports      EvalRunReport[]
+  executions          Execution[]
+  sentInvitations     Invitation[]
+  mcpServers          McpServer[]
+  openApiIntegrations OpenApiIntegration[]
+  invitedOrgs         OrganizationMember[] @relation("Inviter")
+  memberships         OrganizationMember[]
+  skills              Skill[]
+  tasks               Task[]
+  vaultEntries        VaultEntry[]
+
+  @@map("users")
+}
+
+model Skill {
+  id                 String         @id @default(cuid())
+  userId             String
+  name               String
+  purpose            String
+  status             SkillStatus    @default(DRAFT)
+  currentDraftId     String?        @unique
+  publishedVersionId String?        @unique
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  organizationId     String?
+  versions           SkillVersion[] @relation("SkillToVersions")
+  organization       Organization?  @relation(fields: [organizationId], references: [id])
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([organizationId])
+  @@map("skills")
+}
+
+model SkillVersion {
+  id                       String      @id @default(cuid())
+  skillId                  String
+  versionNumber            Int
+  status                   SkillStatus @default(DRAFT)
+  inputSchema              Json
+  outputSchema             Json
+  instructions             String
+  examples                 Json
+  allowedTools             Json
+  actionsRequiringApproval Json
+  maxExecutionSteps        Int         @default(10)
+  changelog                String?
+  notes                    String?
+  createdAt                DateTime    @default(now())
+  publishedAt              DateTime?
+  graphDefinition          Json?
+  approvalPolicy           Json?
+  executions               Execution[]
+  skill                    Skill       @relation("SkillToVersions", fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([skillId, versionNumber])
+  @@index([skillId, status])
+  @@map("skill_versions")
+}
+
+model Execution {
+  id                      String            @id @default(cuid())
+  userId                  String
+  skillVersionId          String
+  status                  ExecutionStatus   @default(PENDING)
+  inputData               Json
+  finalOutput             Json?
+  plannerOutput           Json?
+  provider                String?
+  durationMs              Int?
+  stepCount               Int               @default(0)
+  maxSteps                Int
+  errorMessage            String?
+  startedAt               DateTime          @default(now())
+  completedAt             DateTime?
+  replayedFromExecutionId String?
+  skillName               String?
+  organizationId          String?
+  approvalRequests        ApprovalRequest[]
+  auditLogs               AuditLog[]
+  logs                    ExecutionLog[]
+  steps                   ExecutionStep[]
+  organization            Organization?     @relation(fields: [organizationId], references: [id])
+  replayedFrom            Execution?        @relation("ExecutionReplay", fields: [replayedFromExecutionId], references: [id])
+  replays                 Execution[]       @relation("ExecutionReplay")
+  skillVersion            SkillVersion      @relation(fields: [skillVersionId], references: [id])
+  user                    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  toolCalls               ToolCall[]
+
+  @@index([userId])
+  @@index([skillVersionId])
+  @@index([organizationId])
+  @@index([status])
+  @@index([startedAt])
+  @@index([replayedFromExecutionId])
+  @@map("executions")
+}
+
+model ExecutionLog {
+  id          String    @id @default(cuid())
+  executionId String
+  event       String
+  level       String
+  status      String?
+  durationMs  Int?
+  metadata    Json
+  timestamp   DateTime  @default(now())
+  execution   Execution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([executionId])
+  @@index([timestamp])
+  @@map("execution_logs")
+}
+
+model ExecutionStep {
+  id            String     @id @default(cuid())
+  executionId   String
+  stepNumber    Int
+  nodeName      String
+  stateSnapshot Json
+  status        StepStatus @default(RUNNING)
+  startedAt     DateTime   @default(now())
+  completedAt   DateTime?
+  execution     Execution  @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  toolCalls     ToolCall[]
+
+  @@unique([executionId, stepNumber])
+  @@map("execution_steps")
+}
+
+model ToolCall {
+  id           String         @id @default(cuid())
+  executionId  String
+  stepId       String?
+  toolName     String
+  action       String
+  inputArgs    Json
+  outputResult Json?
+  status       String
+  errorMessage String?
+  executedAt   DateTime       @default(now())
+  durationMs   Int?
+  execution    Execution      @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  step         ExecutionStep? @relation(fields: [stepId], references: [id])
+
+  @@index([executionId])
+  @@map("tool_calls")
+}
+
+model ApprovalRequest {
+  id              String         @id @default(cuid())
+  executionId     String
+  userId          String
+  toolName        String
+  action          String
+  inputPayload    Json
+  status          ApprovalStatus @default(PENDING)
+  idempotencyKey  String         @unique
+  requestedAt     DateTime       @default(now())
+  respondedAt     DateTime?
+  rejectionReason String?
+  plannerReason   String?
+  skillName       String?
+  execution       Execution      @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([executionId])
+  @@index([status])
+  @@map("approval_requests")
+}
+
+model ApprovalHistory {
+  id          String   @id @default(cuid())
+  approvalId  String
+  executionId String
+  userId      String
+  action      String
+  details     Json
+  timestamp   DateTime @default(now())
+
+  @@index([approvalId])
+  @@index([executionId])
+  @@map("approval_history")
+}
+
+model ToolDefinition {
+  id               String   @id @default(cuid())
+  name             String   @unique
+  displayName      String
+  description      String
+  type             ToolType @default(READ)
+  parameters       Json
+  requiresAuth     Boolean  @default(false)
+  isSystem         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  category         String?
+  requiresApproval Boolean  @default(false)
+
+  @@map("tool_definitions")
+}
+
+model VersionComparison {
+  id         String   @id @default(cuid())
+  userId     String
+  skillId    String
+  versionAId String
+  versionBId String
+  result     Json
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([skillId])
+  @@map("version_comparisons")
+}
+
+model McpServer {
+  id             String          @id @default(cuid())
+  userId         String
+  name           String
+  transport      McpTransport
+  endpointUrl    String?
+  command        String?
+  headers        Json?
+  status         McpServerStatus @default(DISCONNECTED)
+  cachedTools    Json            @default("[]")
+  lastError      String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  organizationId String?
+  organization   Organization?   @relation(fields: [organizationId], references: [id])
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions       McpSession[]
+
+  @@index([userId])
+  @@index([organizationId])
+  @@map("mcp_servers")
+}
+
+model McpSession {
+  id           String     @id @default(cuid())
+  sessionId    String     @unique
+  serverId     String?
+  userId       String?
+  transport    String     @default("SSE")
+  status       String     @default("ACTIVE")
+  metadata     Json?
+  createdAt    DateTime   @default(now())
+  lastActiveAt DateTime   @default(now())
+  expiresAt    DateTime?
+  server       McpServer? @relation(fields: [serverId], references: [id])
+
+  @@index([sessionId])
+  @@index([serverId])
+  @@index([status])
+  @@map("mcp_sessions")
+}
+
+model AuditLog {
+  id             String        @id @default(cuid())
+  userId         String?
+  executionId    String?
+  action         String
+  details        Json
+  ipAddress      String?
+  timestamp      DateTime      @default(now())
+  organizationId String?
+  execution      Execution?    @relation(fields: [executionId], references: [id])
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  user           User?         @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([executionId])
+  @@index([organizationId])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
+
+model OpenApiIntegration {
+  id          String          @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  specUrl     String?
+  rawSpec     Json
+  baseUrl     String
+  authType    OpenApiAuthType @default(NONE)
+  authConfig  Json?
+  endpoints   Json            @default("[]")
+  status      OpenApiStatus   @default(CONNECTED)
+  lastError   String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("openapi_integrations")
+}
+
+model VaultEntry {
+  id             String        @id @default(cuid())
+  userId         String
+  name           String
+  category       VaultCategory @default(API_KEY)
+  key            String
+  value          String
+  iv             String
+  tag            String
+  description    String?
+  tags           String[]      @default([])
+  lastUsedAt     DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  keyVersion     Int           @default(1)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([keyVersion])
+  @@map("vault_entries")
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  userId      String?
+  title       String
+  description String?
+  status      TaskStatus   @default(TODO)
+  priority    TaskPriority @default(MEDIUM)
+  dueDate     DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  user        User?        @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("tasks")
+}
+
+model Document {
+  id         String          @id @default(cuid())
+  userId     String?
+  title      String
+  source     String?
+  mimeType   String?         @default("text/plain")
+  content    String
+  metadata   Json            @default("{}")
+  collection String          @default("default")
+  chunkCount Int             @default(0)
+  tokenCount Int?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  chunks     DocumentChunk[]
+  user       User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([collection])
+  @@index([createdAt])
+  @@map("documents")
+}
+
+model DocumentChunk {
+  id               String                 @id @default(cuid())
+  documentId       String
+  chunkIndex       Int
+  content          String
+  metadata         Json                   @default("{}")
+  tokenCount       Int?
+  startOffset      Int?
+  endOffset        Int?
+  embedding        Float[]                @default([])
+  createdAt        DateTime               @default(now())
+  embedding_vector Unsupported("vector")?
+  document         Document               @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([chunkIndex])
+  @@index([embedding_vector])
+  @@map("document_chunks")
+}
+
+model EvalRunReport {
+  id           String    @id
+  userId       String?
+  datasetId    String
+  datasetName  String
+  targetType   String
+  targetId     String
+  targetName   String
+  name         String
+  status       String
+  startedAt    DateTime
+  completedAt  DateTime?
+  durationMs   Int
+  overallScore Int
+  passRate     Int
+  /// Full EvalRunReport payload (judgeConfig, summary, verdicts, regressionAlerts).
+  data         Json
+  createdAt    DateTime  @default(now())
+  user         User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([startedAt])
+  @@map("eval_run_reports")
+}
+
+model Organization {
+  id           String               @id @default(cuid())
+  name         String
+  slug         String               @unique
+  plan         String               @default("free")
+  billingEmail String?
+  settings     Json                 @default("{}")
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  apiKeys      ApiKey[]
+  auditLogs    AuditLog[]
+  customRoles  CustomRole[]
+  executions   Execution[]
+  invitations  Invitation[]
+  mcpServers   McpServer[]
+  members      OrganizationMember[]
+  skills       Skill[]
+  vaultEntries VaultEntry[]
+
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  organizationId String
+  userId         String
+  role           OrgRole      @default(MEMBER)
+  permissions    Json         @default("[]")
+  invitedBy      String?
+  joinedAt       DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  customRoleId   String?
+  customRole     CustomRole?  @relation(fields: [customRoleId], references: [id])
+  inviter        User?        @relation("Inviter", fields: [invitedBy], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@map("organization_members")
+}
+
+model Invitation {
+  id             String       @id @default(cuid())
+  organizationId String
+  email          String
+  role           OrgRole      @default(MEMBER)
+  token          String       @unique
+  invitedBy      String
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime     @default(now())
+  inviter        User         @relation(fields: [invitedBy], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([email, organizationId])
+  @@map("invitations")
+}
+
+model CustomRole {
+  id             String               @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  permissions    Json                 @default("[]")
+  isSystem       Boolean              @default(false)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members        OrganizationMember[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("custom_roles")
+}
+
+model ApiKey {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String
+  keyHash        String       @unique
+  keyPrefix      String
+  scopes         Json         @default("[]")
+  expiresAt      DateTime?
+  lastUsedAt     DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  createdBy      String
+  users          User         @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([keyPrefix])
+  @@index([organizationId])
+  @@map("api_keys")
 }
 
 enum Role {
@@ -83,334 +599,6 @@ enum VaultCategory {
   OTHER
 }
 
-model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  name          String?
-  role          Role           @default(USER)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-
-  skills        Skill[]
-  executions    Execution[]
-  approvals     ApprovalRequest[]
-  auditLogs     AuditLog[]
-  mcpServers    McpServer[]
-  openApiIntegrations OpenApiIntegration[]
-  vaultEntries  VaultEntry[]
-  tasks         Task[]
-  documents     Document[]
-  evalRunReports EvalRunReport[]
-
-  @@map("users")
-}
-
-model Skill {
-  id                 String         @id @default(cuid())
-  userId             String
-  name               String
-  purpose            String
-  status             SkillStatus    @default(DRAFT)
-  currentDraftId     String?        @unique
-  publishedVersionId String?        @unique
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
-
-  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  versions           SkillVersion[] @relation("SkillToVersions")
-
-  @@index([userId])
-  @@map("skills")
-}
-
-model SkillVersion {
-  id                       String         @id @default(cuid())
-  skillId                  String
-  versionNumber            Int
-  status                   SkillStatus    @default(DRAFT)
-  inputSchema              Json           // JSON Schema definition
-  outputSchema             Json           // JSON Schema definition
-  instructions             String
-  examples                 Json           // Array of input/output examples
-  allowedTools             Json           // String array of permitted tool names
-  actionsRequiringApproval Json           // String array of tool actions requiring human approval
-  approvalPolicy           Json?          // Optional ApprovalPolicy override (always/never/tool-based/skill-based) — see src/modules/approval/approval-policy
-  maxExecutionSteps        Int            @default(10)
-  graphDefinition          Json?          // Visual multi-agent graph (nodes + edges) — drives the graph interpreter when present
-  changelog                String?
-  notes                    String?
-  createdAt                DateTime       @default(now())
-  publishedAt              DateTime?
-
-  skill                    Skill          @relation("SkillToVersions", fields: [skillId], references: [id], onDelete: Cascade)
-  executions               Execution[]
-
-  @@unique([skillId, versionNumber])
-  @@index([skillId, status])
-  @@map("skill_versions")
-}
-
-model Execution {
-  id                     String          @id @default(cuid())
-  userId                 String
-  skillVersionId         String
-  skillName              String?         // Denormalized for history/search/metrics
-  status                 ExecutionStatus @default(PENDING)
-  inputData              Json
-  finalOutput            Json?
-  plannerOutput          Json?           // Plan produced by the planner node
-  provider               String?         // LLM provider/model that served the planner
-  durationMs             Int?            // Total wall-clock time of the run
-  stepCount              Int             @default(0)
-  maxSteps               Int
-  errorMessage           String?
-  startedAt              DateTime        @default(now())
-  completedAt            DateTime?
-  replayedFromExecutionId String?        // Set when this run was created by a replay
-
-  user                   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  skillVersion           SkillVersion    @relation(fields: [skillVersionId], references: [id])
-  replayedFrom           Execution?      @relation("ExecutionReplay", fields: [replayedFromExecutionId], references: [id], onDelete: SetNull)
-  replays                Execution[]     @relation("ExecutionReplay")
-  steps                  ExecutionStep[]
-  toolCalls              ToolCall[]
-  logs                   ExecutionLog[]
-  approvalRequests       ApprovalRequest[]
-  auditLogs              AuditLog[]
-
-  @@index([userId])
-  @@index([skillVersionId])
-  @@index([status])
-  @@index([startedAt])
-  @@index([replayedFromExecutionId])
-  @@map("executions")
-}
-
-model ExecutionLog {
-  id          String   @id @default(cuid())
-  executionId String
-  event       String   // e.g. EXECUTION_STARTED, PLANNER_FINISHED, TOOL_SELECTED, APPROVAL_REQUESTED
-  level       String   // INFO | WARN | ERROR
-  status      String?  // e.g. SUCCESS | FAILED | AWAITING_APPROVAL
-  durationMs  Int?
-  metadata    Json
-  timestamp   DateTime @default(now())
-
-  execution   Execution @relation(fields: [executionId], references: [id], onDelete: Cascade)
-
-  @@index([executionId])
-  @@index([timestamp])
-  @@map("execution_logs")
-}
-
-model ExecutionStep {
-  id           String      @id @default(cuid())
-  executionId  String
-  stepNumber   Int
-  nodeName     String
-  stateSnapshot Json
-  status       StepStatus  @default(RUNNING)
-  startedAt    DateTime    @default(now())
-  completedAt  DateTime?
-
-  execution    Execution   @relation(fields: [executionId], references: [id], onDelete: Cascade)
-  toolCalls    ToolCall[]
-
-  @@unique([executionId, stepNumber])
-  @@map("execution_steps")
-}
-
-model ToolCall {
-  id             String      @id @default(cuid())
-  executionId    String
-  stepId         String?
-  toolName       String
-  action         String
-  inputArgs      Json
-  outputResult   Json?
-  status         String      // SUCCESS | ERROR | BLOCKED | REJECTED
-  errorMessage   String?
-  durationMs     Int?        // Wall-clock execution time of the tool call
-  executedAt     DateTime    @default(now())
-
-  execution      Execution   @relation(fields: [executionId], references: [id], onDelete: Cascade)
-  step           ExecutionStep? @relation(fields: [stepId], references: [id], onDelete: SetNull)
-
-  @@index([executionId])
-  @@map("tool_calls")
-}
-
-model ApprovalRequest {
-  id             String         @id @default(cuid())
-  executionId    String
-  userId         String
-  skillName      String?        // Denormalized from the Skill for the review card
-  plannerReason  String?        // Denormalized from the planner's reasoning
-  toolName       String
-  action         String
-  inputPayload   Json
-  status         ApprovalStatus @default(PENDING)
-  idempotencyKey String         @unique // Single-use execution token
-  requestedAt    DateTime       @default(now())
-  respondedAt    DateTime?
-  rejectionReason String?
-
-  execution      Execution      @relation(fields: [executionId], references: [id], onDelete: Cascade)
-  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([executionId])
-  @@index([status])
-  @@map("approval_requests")
-}
-
-model ApprovalHistory {
-  id             String         @id @default(cuid())
-  approvalId     String         // FK to ApprovalRequest
-  executionId    String
-  userId         String
-  action         String         // CREATED | APPROVED | REJECTED | CANCELLED | EXPIRED | RESUMED
-  details        Json
-  timestamp      DateTime       @default(now())
-
-  @@index([approvalId])
-  @@index([executionId])
-  @@map("approval_history")
-}
-
-model ToolDefinition {
-  id                String   @id @default(cuid())
-  name              String   @unique
-  displayName       String
-  description       String
-  category          String?  // COMPUTE | SEARCH | DATA | TASK
-  type              ToolType @default(READ)
-  parameters        Json     // JSON Schema for tool parameters
-  requiresAuth      Boolean  @default(false)
-  requiresApproval  Boolean  @default(false) // WRITE actions that need HITL
-  isSystem          Boolean  @default(true)
-  createdAt         DateTime @default(now())
-
-  @@map("tool_definitions")
-}
-
-model VersionComparison {
-  id         String   @id @default(cuid())
-  userId     String
-  skillId    String
-  versionAId String
-  versionBId String
-  result     Json     // Serialized VersionDiffDTO
-  createdAt  DateTime @default(now())
-
-  @@index([userId])
-  @@index([skillId])
-  @@map("version_comparisons")
-}
-
-model McpServer {
-  id           String          @id @default(cuid())
-  userId       String
-  name         String
-  transport    McpTransport
-  endpointUrl  String?
-  command      String?
-  headers      Json?
-  status       McpServerStatus @default(DISCONNECTED)
-  cachedTools  Json            @default("[]")
-  lastError    String?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-
-  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sessions     McpSession[]
-
-  @@index([userId])
-  @@map("mcp_servers")
-}
-
-model McpSession {
-  id           String          @id @default(cuid())
-  sessionId    String          @unique
-  serverId     String?
-  userId       String?
-  transport    String          @default("SSE")
-  status       String          @default("ACTIVE")
-  metadata     Json?
-  createdAt    DateTime        @default(now())
-  lastActiveAt DateTime        @default(now())
-  expiresAt    DateTime?
-
-  server       McpServer?      @relation(fields: [serverId], references: [id], onDelete: SetNull)
-
-  @@index([sessionId])
-  @@index([serverId])
-  @@index([status])
-  @@map("mcp_sessions")
-}
-
-model AuditLog {
-  id          String   @id @default(cuid())
-  userId      String?
-  executionId String?
-  action      String   // e.g. SKILL_CREATED, VERSION_PUBLISHED, APPROVAL_GRANTED
-  details     Json
-  ipAddress   String?
-  timestamp   DateTime @default(now())
-
-  user        User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
-  execution   Execution? @relation(fields: [executionId], references: [id], onDelete: SetNull)
-
-  @@index([userId])
-  @@index([executionId])
-  @@index([timestamp])
-  @@map("audit_logs")
-}
-
-model OpenApiIntegration {
-  id           String          @id @default(cuid())
-  userId       String
-  name         String
-  description  String?
-  specUrl      String?
-  rawSpec      Json            // Parsed OpenAPI/Swagger document
-  baseUrl      String          // Base URL for HTTP requests
-  authType     OpenApiAuthType @default(NONE)
-  authConfig   Json?           // Encrypted/stored auth config
-  endpoints    Json            @default("[]") // Configured endpoint definitions
-  status       OpenApiStatus   @default(CONNECTED)
-  lastError    String?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-
-  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@map("openapi_integrations")
-}
-
-model VaultEntry {
-  id          String    @id @default(cuid())
-  userId      String
-  name        String    // Human-readable name (e.g. "GitHub PAT", "Postgres URL")
-  category    VaultCategory @default(API_KEY)
-  key         String    // Environment variable name (e.g. GITHUB_TOKEN, DATABASE_URL)
-  value       String    // Encrypted value (AES-256-GCM)
-  iv          String    // Initialization vector for decryption
-  tag         String    // Auth tag for AES-GCM verification
-  keyVersion  Int       @default(1) // Key version used for encryption (supports rotation)
-  description String?   // Optional description of what this secret is for
-  tags        String[]  @default([]) // Tags for organization
-  lastUsedAt  DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, key])
-  @@index([userId])
-  @@map("vault_entries")
-}
-
 enum TaskStatus {
   TODO
   IN_PROGRESS
@@ -425,90 +613,9 @@ enum TaskPriority {
   URGENT
 }
 
-model Task {
-  id          String       @id @default(cuid())
-  userId      String?
-  title       String
-  description String?
-  status      TaskStatus   @default(TODO)
-  priority    TaskPriority @default(MEDIUM)
-  dueDate     DateTime?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-
-  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  @@index([userId])
-  @@index([status])
-  @@index([createdAt])
-  @@map("tasks")
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
 }
-
-model Document {
-  id          String          @id @default(cuid())
-  userId      String?
-  title       String
-  source      String?
-  mimeType    String?         @default("text/plain")
-  content     String          @db.Text
-  metadata    Json            @default("{}")
-  collection  String          @default("default")
-  chunkCount  Int             @default(0)
-  tokenCount  Int?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-
-  user        User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  chunks      DocumentChunk[]
-
-  @@index([userId])
-  @@index([collection])
-  @@index([createdAt])
-  @@map("documents")
-}
-
-model DocumentChunk {
-  id          String   @id @default(cuid())
-  documentId  String
-  chunkIndex  Int
-  content     String   @db.Text
-  metadata    Json     @default("{}")
-  tokenCount  Int?
-  startOffset Int?
-  endOffset   Int?
-  embedding   Float[]  @default([])
-  createdAt   DateTime @default(now())
-
-  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-
-  @@index([documentId])
-  @@index([chunkIndex])
-  @@map("document_chunks")
-}
-
-model EvalRunReport {
-  id           String    @id
-  userId       String?
-  datasetId    String
-  datasetName  String
-  targetType   String
-  targetId     String
-  targetName   String
-  name         String
-  status       String
-  startedAt    DateTime
-  completedAt  DateTime?
-  durationMs   Int
-  overallScore Int
-  passRate     Int
-  /// Full EvalRunReport payload (judgeConfig, summary, verdicts, regressionAlerts).
-  data         Json
-  createdAt    DateTime  @default(now())
-
-  user         User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([startedAt])
-  @@map("eval_run_reports")
-}
-

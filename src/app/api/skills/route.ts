@@ -6,6 +6,7 @@ import { AuditLogRepository } from "@/repositories/AuditLogRepository";
 import { auth } from "@clerk/nextjs/server";
 import { unauthorized, forbidden, badRequest, serverError } from "@/lib/api/handlers";
 import { RBACService, ForbiddenError } from "@/services/RBACService";
+import { PlanLimitsService } from "@/services/PlanLimitsService";
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 
@@ -13,6 +14,7 @@ const skillRepo = new SkillRepository();
 const auditRepo = new AuditLogRepository();
 const skillService = new SkillService(skillRepo, auditRepo);
 const rbacService = new RBACService();
+const planLimitsService = new PlanLimitsService();
 
 /**
  * GET /api/skills — List skills
@@ -41,10 +43,27 @@ export async function GET(request: Request) {
       const membership = await rbacService.getOrgMembership(userId, organizationId);
       if (!membership) return forbidden();
 
+      // Build where clause for search
+      const where: any = { organizationId };
+      if (parsed.data.search) {
+        where.name = { contains: parsed.data.search, mode: "insensitive" };
+      }
+      if (parsed.data.status) {
+        where.status = parsed.data.status;
+      }
+
+      // Build order clause
+      const orderBy: any = {};
+      if (parsed.data.sortBy) {
+        orderBy[parsed.data.sortBy] = parsed.data.sortOrder || "desc";
+      } else {
+        orderBy.createdAt = "desc";
+      }
+
       // List skills for organization
       result = await prisma.skill.findMany({
-        where: { organizationId, ...this.buildSearchFilter(parsed.data.search) },
-        orderBy: this.buildSortClause(parsed.data.sortBy, parsed.data.sortOrder),
+        where,
+        orderBy,
         include: { versions: { where: { status: "DRAFT" }, take: 1 } },
       });
     } else {
@@ -82,6 +101,11 @@ export async function POST(request: Request) {
       if (!permissions.canCreateSkill) {
         return forbidden();
       }
+    }
+
+    // Enforce plan limits if organization context
+    if (organizationId) {
+      await planLimitsService.enforceLimit(organizationId, "skills");
     }
 
     const validated = createSkillSchema.parse({ ...body, userId });

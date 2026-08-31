@@ -23,7 +23,12 @@ export type AuditAction =
   | "API_KEYS_REVOKED"
   | "SKILL_PERMISSION_CHANGED"
   | "INVITATION_CANCELLED"
-  | "INVITATION_ACCEPTED";
+  | "INVITATION_ACCEPTED"
+  | "ROLE_CREATED"
+  | "ROLE_UPDATED"
+  | "ROLE_DELETED"
+  | "ROLE_ASSIGNED"
+  | "ROLE_REMOVED";
 
 export interface AuditLogEntry {
   action: AuditAction;

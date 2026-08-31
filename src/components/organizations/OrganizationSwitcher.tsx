@@ -7,8 +7,7 @@ import {
   Plus, 
   Check,
   Loader2,
-  Users,
-  Settings
+  Users
 } from "lucide-react";
 import { clsx } from "clsx";
 import { toast } from "@/stores/toastStore";

@@ -7,10 +7,10 @@
  * - Enforcing skill-level permissions
  */
 
-import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { RBACService, ForbiddenError, OrgRole, SkillPermission, OrgPermissionSet, SkillPermissionSet } from "@/services/RBACService";
 import { unauthorized, forbidden, badRequest } from "@/lib/api/handlers";
+import { prisma } from "@/lib/prisma";
 
 // ────────────── Types ──────────────
 
@@ -56,12 +56,9 @@ function extractOrganizationId(request: Request): string | null {
  * Get default organization for user
  */
 async function getDefaultOrganization(userId: string): Promise<string | null> {
-  const { PrismaClient } = await import("@prisma/client");
-  const prisma = new PrismaClient();
-
   const membership = await prisma.organizationMember.findFirst({
     where: { userId },
-    orderBy: { createdAt: "asc" }, // First joined org
+    orderBy: { joinedAt: "asc" }, // First joined org
   });
 
   return membership?.organizationId || null;
@@ -245,9 +242,6 @@ export async function checkPermission(
 
   if (!organizationId) {
     // No organization context - only owner has access
-    const { PrismaClient } = await import("@prisma/client");
-    const prisma = new PrismaClient();
-
     switch (resourceType) {
       case "skill": {
         const skill = await prisma.skill.findUnique({

@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { OrganizationService } from "@/services/OrganizationService";
-import { unauthorized, forbidden, notFound, badRequest, serverError } from "@/lib/api/handlers";
+import { unauthorized, forbidden, badRequest, serverError } from "@/lib/api/handlers";
 import { ForbiddenError } from "@/services/RBACService";
 import { logger } from "@/lib/logger";
 
@@ -65,7 +65,7 @@ export async function PUT(
  * DELETE /api/organizations/[id]/members/[userId] — Remove member
  */
 export async function DELETE(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string; userId: string }> }
 ) {
   const { userId: currentUserId } = await auth();

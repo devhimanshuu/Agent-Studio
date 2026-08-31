@@ -11,7 +11,7 @@ import {
 } from "@/types/openapi";
 import { prisma } from "@/lib/prisma";
 import { ensureUserExists } from "@/lib/user";
-import { decrypt, encrypt } from "@/services/VaultService";
+import { decrypt, encrypt } from "@/lib/vault/crypto";
 import { mergeRedactedAuthConfig, redactAuthConfig } from "@/lib/secrets";
 
 /**
@@ -25,6 +25,7 @@ interface EncryptedAuthEnvelope {
   data: string;
   iv: string;
   tag: string;
+  keyVersion?: number;
 }
 
 function isEnvelope(value: unknown): value is EncryptedAuthEnvelope {
@@ -38,14 +39,14 @@ function isEnvelope(value: unknown): value is EncryptedAuthEnvelope {
 
 function sealAuthConfig(config: Record<string, unknown> | null | undefined): Prisma.InputJsonValue | typeof Prisma.DbNull {
   if (!config || Object.keys(config).length === 0) return Prisma.DbNull;
-  const { encrypted, iv, tag } = encrypt(JSON.stringify(config));
-  return { __enc: true, data: encrypted, iv, tag } as unknown as Prisma.InputJsonValue;
+  const { encrypted, iv, tag, keyVersion } = encrypt(JSON.stringify(config));
+  return { __enc: true, data: encrypted, iv, tag, keyVersion } as unknown as Prisma.InputJsonValue;
 }
 
 function unsealAuthConfig(raw: unknown): Record<string, unknown> | null {
   if (!isEnvelope(raw)) return (raw as Record<string, unknown>) ?? null;
   try {
-    return JSON.parse(decrypt(raw.data, raw.iv, raw.tag)) as Record<string, unknown>;
+    return JSON.parse(decrypt(raw.data, raw.iv, raw.tag, raw.keyVersion ?? 1)) as Record<string, unknown>;
   } catch {
     // Wrong VAULT_MASTER_KEY or corrupted row — fail closed to no-auth rather
     // than leaking anything.

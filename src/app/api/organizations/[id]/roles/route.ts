@@ -1,15 +1,21 @@
+/**
+ * Organization Roles API Routes
+ *
+ * GET  /api/organizations/[id]/roles      - List custom roles
+ * POST /api/organizations/[id]/roles      - Create custom role
+ */
+
 import { NextRequest } from "next/server";
-import { withAuth } from "@/lib/api/handlers";
-import { forbidden, success, badRequest, notFound } from "@/lib/api/responses";
+import { auth } from "@clerk/nextjs/server";
 import { CustomRoleService } from "@/services/CustomRoleService";
+import { unauthorized, forbidden, badRequest, serverError } from "@/lib/api/handlers";
+import { logger } from "@/lib/logger";
 import { z } from "zod";
 
 const createRoleSchema = z.object({
   name: z.string().min(1).max(50),
   description: z.string().max(500).optional(),
   permissions: z.array(z.string()).min(1),
-  baseRole: z.enum(["MEMBER", "VIEWER"]).optional(),
-  isDefault: z.boolean().optional(),
 });
 
 const customRoleService = new CustomRoleService();
@@ -18,53 +24,51 @@ const customRoleService = new CustomRoleService();
  * GET /api/organizations/[id]/roles
  * List all custom roles for an organization
  */
-export const GET = withAuth(async (request, context) => {
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { userId } = await auth();
+  if (!userId) return unauthorized();
+
   try {
-    const organizationId = request.url.split("/organizations/")[1]?.split("/")[0];
-
-    if (!organizationId) {
-      return badRequest(new Error("Organization ID required"));
-    }
-
-    // Check if user is member
-    const isMember = await customRoleService["prisma"].organizationMember.findFirst({
-      where: { userId: context.userId!, organizationId },
+    const { id: organizationId } = await params;
+    const roles = await customRoleService.list(userId, organizationId);
+    return new Response(JSON.stringify({ success: true, data: roles }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
     });
-
-    if (!isMember) {
-      return forbidden(new Error("Not a member of this organization"));
-    }
-
-    const roles = await customRoleService.listRoles(organizationId);
-
-    return success(roles);
   } catch (error) {
-    return badRequest(error instanceof Error ? error : new Error("Failed to list roles"));
+    if (error instanceof Error && error.message.includes("Not a member")) {
+      return forbidden();
+    }
+    logger.error({ error }, "Failed to list roles");
+    return serverError(error);
   }
-});
+}
 
 /**
  * POST /api/organizations/[id]/roles
  * Create a new custom role
  */
-export const POST = withAuth(async (request, context) => {
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { userId } = await auth();
+  if (!userId) return unauthorized();
+
   try {
-    const organizationId = request.url.split("/organizations/")[1]?.split("/")[0];
-
-    if (!organizationId) {
-      return badRequest(new Error("Organization ID required"));
-    }
-
+    const { id: organizationId } = await params;
     const body = await request.json();
     const validatedData = createRoleSchema.parse(body);
 
-    const role = await customRoleService.createRole({
-      organizationId,
-      ...validatedData,
-      createdBy: context.userId!,
-    });
+    const role = await customRoleService.create(userId, organizationId, validatedData);
 
-    return success(role);
+    return new Response(JSON.stringify({ success: true, data: role }), {
+      status: 201,
+      headers: { "Content-Type": "application/json" },
+    });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return badRequest(new Error(error.errors.map((e) => e.message).join(", ")));
@@ -72,6 +76,10 @@ export const POST = withAuth(async (request, context) => {
     if (error instanceof Error && error.message.includes("already exists")) {
       return badRequest(error);
     }
-    return badRequest(error instanceof Error ? error : new Error("Failed to create role"));
+    if (error instanceof Error && error.message.includes("Only admins")) {
+      return forbidden();
+    }
+    logger.error({ error }, "Failed to create role");
+    return serverError(error);
   }
-});
+}

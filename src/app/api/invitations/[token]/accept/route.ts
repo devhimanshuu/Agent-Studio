@@ -4,7 +4,7 @@
  * POST /api/invitations/[token]/accept — Accept organization invitation
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { OrganizationService } from "@/services/OrganizationService";
 import { unauthorized, badRequest, serverError } from "@/lib/api/handlers";
@@ -16,7 +16,7 @@ const organizationService = new OrganizationService();
  * POST /api/invitations/[token]/accept — Accept invitation
  */
 export async function POST(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { userId } = await auth();

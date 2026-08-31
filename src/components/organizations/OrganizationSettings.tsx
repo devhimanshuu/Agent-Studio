@@ -4,18 +4,13 @@ import React, { useState, useEffect, useCallback } from "react";
 import { 
   Building2, 
   Users, 
-  Mail, 
-  Shield, 
   Loader2,
-  Save,
   Trash2,
   UserPlus,
-  X,
-  Check,
-  AlertTriangle
+  X
 } from "lucide-react";
-import { clsx } from "clsx";
 import { toast } from "@/stores/toastStore";
+import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 
 // ────────────── Types ──────────────
 
@@ -37,13 +32,6 @@ interface Member {
   joinedAt: string;
 }
 
-interface Invitation {
-  id: string;
-  email: string;
-  role: string;
-  expiresAt: string;
-}
-
 interface OrganizationSettingsProps {
   organizationId: string;
   onUpdate?: () => void;
@@ -57,20 +45,19 @@ export function OrganizationSettings({
 }: OrganizationSettingsProps) {
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
-  const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("MEMBER");
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState<{ userId: string; name: string } | null>(null);
 
   // Load organization data
   const loadData = useCallback(async () => {
     try {
-      const [orgRes, membersRes, invRes] = await Promise.all([
+      const [orgRes, membersRes] = await Promise.all([
         fetch(`/api/organizations/${organizationId}`),
         fetch(`/api/organizations/${organizationId}/members`),
-        fetch(`/api/organizations/${organizationId}/members? invitations=true`),
       ]);
 
       if (orgRes.ok) {
@@ -81,11 +68,6 @@ export function OrganizationSettings({
       if (membersRes.ok) {
         const membersData = await membersRes.json();
         setMembers(membersData.data || []);
-      }
-
-      if (invRes.ok) {
-        const invData = await invRes.json();
-        setInvitations(invData.data || []);
       }
     } catch (err) {
       console.error("Failed to load organization data:", err);
@@ -119,6 +101,7 @@ export function OrganizationSettings({
         setInviteEmail("");
         setShowInviteModal(false);
         loadData();
+        onUpdate?.();
       } else {
         const err = await res.json();
         throw new Error(err.error || "Failed to send invitation");
@@ -128,12 +111,10 @@ export function OrganizationSettings({
     } finally {
       setSaving(false);
     }
-  }, [organizationId, inviteEmail, inviteRole, loadData]);
+  }, [organizationId, inviteEmail, inviteRole, loadData, onUpdate]);
 
   // Handle remove member
   const handleRemoveMember = useCallback(async (userId: string) => {
-    if (!confirm("Are you sure you want to remove this member?")) return;
-
     try {
       const res = await fetch(`/api/organizations/${organizationId}/members/${userId}`, {
         method: "DELETE",
@@ -141,7 +122,9 @@ export function OrganizationSettings({
 
       if (res.ok) {
         toast.success("Member removed", "Member has been removed from the organization");
+        setMemberToRemove(null);
         loadData();
+        onUpdate?.();
       } else {
         const err = await res.json();
         throw new Error(err.error || "Failed to remove member");
@@ -149,7 +132,7 @@ export function OrganizationSettings({
     } catch (err) {
       toast.error("Error", err instanceof Error ? err.message : "Failed to remove member");
     }
-  }, [organizationId, loadData]);
+  }, [organizationId, loadData, onUpdate]);
 
   // Handle update role
   const handleUpdateRole = useCallback(async (userId: string, newRole: string) => {
@@ -163,6 +146,7 @@ export function OrganizationSettings({
       if (res.ok) {
         toast.success("Role updated", "Member role has been updated");
         loadData();
+        onUpdate?.();
       } else {
         const err = await res.json();
         throw new Error(err.error || "Failed to update role");
@@ -170,7 +154,7 @@ export function OrganizationSettings({
     } catch (err) {
       toast.error("Error", err instanceof Error ? err.message : "Failed to update role");
     }
-  }, [organizationId, loadData]);
+  }, [organizationId, loadData, onUpdate]);
 
   if (loading) {
     return (
@@ -223,7 +207,10 @@ export function OrganizationSettings({
 
         {/* Members List */}
         <div className="space-y-2">
-          {members.map((member) => (
+          {members.map((member) => {
+            const displayName = (member.userName && member.userName !== "string") ? member.userName : member.userEmail;
+            const initials = displayName[0]?.toUpperCase() || "?";
+            return (
             <div
               key={member.id}
               className="flex items-center justify-between p-3 rounded-lg border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50"
@@ -231,16 +218,18 @@ export function OrganizationSettings({
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center">
                   <span className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400">
-                    {member.userName?.[0] || member.userEmail[0].toUpperCase()}
+                    {initials}
                   </span>
                 </div>
                 <div>
                   <div className="text-xs font-mono font-bold text-slate-900 dark:text-slate-100">
-                    {member.userName || member.userEmail}
+                    {displayName}
                   </div>
-                  <div className="text-[10px] font-mono text-slate-500">
-                    {member.userEmail}
-                  </div>
+                  {member.userName && member.userName !== displayName && (
+                    <div className="text-[10px] font-mono text-slate-500">
+                      {member.userEmail}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -256,7 +245,7 @@ export function OrganizationSettings({
                 </select>
                 <button
                   type="button"
-                  onClick={() => handleRemoveMember(member.userId)}
+                  onClick={() => setMemberToRemove({ userId: member.userId, name: member.userName || member.userEmail })}
                   className="p-1.5 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
                   title="Remove member"
                 >
@@ -264,22 +253,24 @@ export function OrganizationSettings({
                 </button>
               </div>
             </div>
-          ))}
+          );
+          })}
         </div>
       </div>
 
       {/* Invite Modal */}
       {showInviteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowInviteModal(false)} aria-hidden="true" />
+          <div className="relative w-full max-w-md rounded border border-slate-200 dark:border-indigo-900/50 bg-white dark:bg-black p-6 font-mono shadow-2xl dark:shadow-indigo-950/80 animate-fadeInUp">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-mono font-bold text-slate-900 dark:text-slate-100">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 uppercase tracking-wide">
                 Invite Member
               </h3>
               <button
                 type="button"
                 onClick={() => setShowInviteModal(false)}
-                className="p-1 rounded text-slate-400 hover:text-slate-600"
+                className="p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -295,7 +286,7 @@ export function OrganizationSettings({
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
                   placeholder="colleague@example.com"
-                  className="w-full px-3 py-2 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono"
+                  className="w-full px-3 py-2 rounded border border-slate-300 dark:border-indigo-900/50 bg-slate-50 dark:bg-slate-900 text-xs font-mono text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 transition-colors"
                 />
               </div>
 
@@ -306,39 +297,45 @@ export function OrganizationSettings({
                 <select
                   value={inviteRole}
                   onChange={(e) => setInviteRole(e.target.value)}
-                  className="w-full px-3 py-2 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono"
+                  className="w-full px-3 py-2 rounded border border-slate-300 dark:border-indigo-900/50 bg-slate-50 dark:bg-slate-900 text-xs font-mono text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors"
                 >
-                  <option value="VIEWER">Viewer - Can view all resources</option>
-                  <option value="MEMBER">Member - Can create and edit own resources</option>
-                  <option value="ADMIN">Admin - Can manage members and all resources</option>
+                  <option value="VIEWER">Viewer — Can view all resources</option>
+                  <option value="MEMBER">Member — Can create and edit own resources</option>
+                  <option value="ADMIN">Admin — Can manage members and all resources</option>
                 </select>
               </div>
 
-              <div className="flex justify-end gap-2">
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-5">
                 <button
                   type="button"
                   onClick={() => setShowInviteModal(false)}
-                  className="px-4 py-2 rounded text-xs font-mono font-bold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400"
+                  className="w-full sm:w-auto px-4 py-2 rounded border border-slate-300 dark:border-indigo-500/40 bg-slate-100 dark:bg-indigo-950/40 text-xs font-mono font-semibold text-slate-700 dark:text-indigo-200 hover:border-indigo-400 hover:bg-slate-200 dark:hover:bg-indigo-900/60 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer text-center"
                 >
-                  Cancel
+                  [ CANCEL ]
                 </button>
                 <button
                   type="button"
                   onClick={handleInvite}
                   disabled={saving || !inviteEmail.trim()}
-                  className="px-4 py-2 rounded text-xs font-mono font-bold bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50"
+                  className="w-full sm:w-auto px-4 py-2 rounded border border-indigo-400 bg-indigo-600 text-xs font-mono font-semibold text-white hover:bg-indigo-500 shadow-md shadow-indigo-500/30 transition-all cursor-pointer disabled:opacity-50 text-center"
                 >
-                  {saving ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    "Send Invitation"
-                  )}
+                  {saving ? "[ SENDING ]" : "[ SEND INVITE ]"}
                 </button>
               </div>
             </div>
           </div>
         </div>
       )}
+      {/* Remove Member Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={memberToRemove !== null}
+        title="Remove Member"
+        description={`Are you sure you want to remove ${memberToRemove?.name || "this member"} from the organization? They will lose access to all organization resources.`}
+        confirmLabel="REMOVE"
+        variant="danger"
+        onConfirm={() => memberToRemove && handleRemoveMember(memberToRemove.userId)}
+        onClose={() => setMemberToRemove(null)}
+      />
     </div>
   );
 }

@@ -10,17 +10,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { OrganizationService } from "@/services/OrganizationService";
 import { unauthorized, forbidden, notFound, badRequest, serverError } from "@/lib/api/handlers";
-import { RBACService, ForbiddenError } from "@/services/RBACService";
+import { ForbiddenError } from "@/services/RBACService";
 import { logger } from "@/lib/logger";
 
 const organizationService = new OrganizationService();
-const rbacService = new RBACService();
 
 /**
  * GET /api/organizations/[id] — Get organization details
  */
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { userId } = await auth();
@@ -81,7 +80,7 @@ export async function PUT(
  * DELETE /api/organizations/[id] — Delete organization
  */
 export async function DELETE(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { userId } = await auth();

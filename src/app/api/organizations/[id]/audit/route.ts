@@ -4,7 +4,7 @@
  * GET /api/organizations/[id]/audit — Get audit logs for organization
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { AuditService } from "@/services/AuditService";
 import { RBACService, ForbiddenError } from "@/services/RBACService";

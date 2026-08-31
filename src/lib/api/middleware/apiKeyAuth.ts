@@ -5,7 +5,7 @@
  * Supports both API key and Clerk session authentication.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { ApiKeyService } from "@/services/ApiKeyService";
 import { logger } from "@/lib/logger";
@@ -84,9 +84,9 @@ export function withApiKeyAuth(handler: AuthenticatedHandler) {
         return handler(request, {
           ...context,
           type: "api_key",
-          keyId: validation.keyId,
-          organizationId: validation.organizationId,
-          scopes: validation.scopes,
+          keyId: validation.keyId!,
+          organizationId: validation.organizationId!,
+          scopes: validation.scopes!,
         });
       } catch (error) {
         logger.error({ error }, "API key validation failed");
@@ -141,9 +141,9 @@ export function requireApiKey(handler: AuthenticatedHandler) {
       return handler(request, {
         ...context,
         type: "api_key",
-        keyId: validation.keyId,
-        organizationId: validation.organizationId,
-        scopes: validation.scopes,
+        keyId: validation.keyId!,
+        organizationId: validation.organizationId!,
+        scopes: validation.scopes!,
       });
     } catch (error) {
       logger.error({ error }, "API key validation failed");

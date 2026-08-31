@@ -123,8 +123,14 @@ If you didn't expect this invitation, you can safely ignore this email.
         {
           to,
           organizationName,
+          inviterName,
+          role,
+          subject,
           invitationUrl,
           expiresAt,
+          expiryDate,
+          contentPreview: textContent.slice(0, 100),
+          htmlLength: htmlContent.length,
         },
         "Invitation email sent (logged)"
       );
@@ -166,8 +172,12 @@ If you didn't expect this invitation, you can safely ignore this email.
         {
           to,
           organizationName,
+          inviterName,
+          role,
+          subject,
           invitationUrl,
           expiresAt,
+          expiryDate,
         },
         "Invitation reminder email sent (logged)"
       );
