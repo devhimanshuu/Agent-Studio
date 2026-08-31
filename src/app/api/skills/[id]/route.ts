@@ -37,20 +37,14 @@ export async function GET(
     if (!skill) return notFound("Skill not found");
 
     // Check access permission
-    if (skill.organizationId) {
-      // Organization skill — check org-level access
-      const hasAccess = await rbacService.canAccessResource(
-        userId,
-        skill.organizationId,
-        "skill",
-        id,
-        "read"
-      );
-      if (!hasAccess) return forbidden();
-    } else {
-      // Personal skill — only the owner can access
-      if (skill.userId !== userId) return forbidden();
-    }
+    const hasAccess = await rbacService.canAccessResource(
+      userId,
+      skill.organizationId || "",
+      "skill",
+      id,
+      "read"
+    );
+    if (!hasAccess && skill.userId !== userId) return forbidden();
 
     return NextResponse.json({ success: true, data: skill });
   } catch (error) {
@@ -82,17 +76,14 @@ export async function PATCH(
     if (!skill) return notFound("Skill not found");
 
     // Check edit permission
-    if (skill.organizationId) {
-      try {
-        await rbacService.requireSkillPermission(userId, id, "SKILL_EDITOR");
-      } catch (error) {
-        if (error instanceof ForbiddenError) return forbidden();
-        throw error;
-      }
-    } else {
-      // Personal skill - only owner can edit
-      if (skill.userId !== userId) return forbidden();
-    }
+    const canEdit = await rbacService.canAccessResource(
+      userId,
+      skill.organizationId || "",
+      "skill",
+      id,
+      "write"
+    );
+    if (!canEdit && skill.userId !== userId) return forbidden();
 
     const body = await request.json();
     const validated = updateSkillSchema.parse(body);
@@ -137,17 +128,14 @@ export async function DELETE(
     if (!skill) return notFound("Skill not found");
 
     // Check delete permission
-    if (skill.organizationId) {
-      try {
-        await rbacService.requireSkillPermission(userId, id, "SKILL_ADMIN");
-      } catch (error) {
-        if (error instanceof ForbiddenError) return forbidden();
-        throw error;
-      }
-    } else {
-      // Personal skill - only owner can delete
-      if (skill.userId !== userId) return forbidden();
-    }
+    const canDelete = await rbacService.canAccessResource(
+      userId,
+      skill.organizationId || "",
+      "skill",
+      id,
+      "delete"
+    );
+    if (!canDelete && skill.userId !== userId) return forbidden();
 
     await skillService.deleteSkill(id, userId);
     return NextResponse.json({ success: true });

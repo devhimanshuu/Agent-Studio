@@ -88,13 +88,17 @@ export class OrganizationService {
       throw new Error(`Organization slug "${slug}" already exists`);
     }
 
-    // Create organization with owner membership
     const organization = await prisma.organization.create({
       data: {
         name: input.name,
         slug,
-        plan: input.plan || "free",
+        plan: input.plan || "enterprise",
         billingEmail: input.billingEmail,
+        settings: {
+          sso: true,
+          auditExport: true,
+          customRoles: true,
+        },
         members: {
           create: {
             userId,

@@ -22,6 +22,7 @@ import {
   Download,
   FileJson,
   FileText,
+  Search,
 } from "lucide-react";
 import { clsx } from "clsx";
 import type { ExecutionEvent, GraphNodeStatus } from "@/modules/graph/eventBus";
@@ -275,6 +276,45 @@ function buildTimeline(events: ExecutionEvent[]): TimelineStep[] {
   return ordered;
 }
 
+// ─── Status Filter Config (static Tailwind classes for JIT) ───
+const STATUS_FILTER_CONFIG: Array<{
+  status: GraphNodeStatus;
+  label: string;
+  activeClasses: string;
+  icon: React.ReactNode;
+}> = [
+  {
+    status: "RUNNING",
+    label: "RUNNING",
+    activeClasses: "border-indigo-400 dark:border-indigo-500/60 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300",
+    icon: <Loader2 className="h-2 w-2 animate-spin" />,
+  },
+  {
+    status: "SUCCESS",
+    label: "SUCCESS",
+    activeClasses: "border-emerald-400 dark:border-emerald-500/60 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300",
+    icon: <Check className="h-2 w-2" />,
+  },
+  {
+    status: "FAILED",
+    label: "FAILED",
+    activeClasses: "border-red-400 dark:border-red-500/60 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300",
+    icon: <X className="h-2 w-2" />,
+  },
+  {
+    status: "AWAITING_APPROVAL",
+    label: "AWAITING",
+    activeClasses: "border-amber-400 dark:border-amber-500/60 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300",
+    icon: <Shield className="h-2 w-2" />,
+  },
+  {
+    status: "SKIPPED",
+    label: "SKIPPED",
+    activeClasses: "border-slate-400 dark:border-slate-500/60 bg-slate-100 dark:bg-slate-950/40 text-slate-600 dark:text-slate-300",
+    icon: <Clock className="h-2 w-2" />,
+  },
+];
+
 // ─── Export Functions ───
 
 interface TimelineExportJSON {
@@ -518,6 +558,87 @@ export function ExecutionTimeline({
 
   const steps = useMemo(() => buildTimeline(events), [events]);
 
+  // ─── Search & Filter State ───
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilters, setStatusFilters] = useState<Set<GraphNodeStatus>>(new Set());
+  const [typeFilters, setTypeFilters] = useState<Set<string>>(new Set());
+  const [showTypeFilter, setShowTypeFilter] = useState(false);
+  const typeMenuRef = useRef<HTMLDivElement>(null);
+
+  // Collect unique node types from steps
+  const availableTypes = useMemo(() => {
+    const types = new Map<string, number>();
+    for (const s of steps) {
+      types.set(s.nodeType, (types.get(s.nodeType) || 0) + 1);
+    }
+    return Array.from(types.entries()).sort((a, b) => b[1] - a[1]);
+  }, [steps]);
+
+  // Filter steps
+  const filteredSteps = useMemo(() => {
+    return steps.filter((step) => {
+      // Status filter
+      if (statusFilters.size > 0 && !statusFilters.has(step.status)) return false;
+
+      // Type filter
+      if (typeFilters.size > 0 && !typeFilters.has(step.nodeType)) return false;
+
+      // Keyword search
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const searchable = [
+          step.nodeLabel,
+          step.nodeId,
+          step.nodeType,
+          step.detail || "",
+          step.error || "",
+          ...step.subEvents.map((e) => `${e.label} ${e.detail || ""}`),
+        ].join(" ").toLowerCase();
+        if (!searchable.includes(q)) return false;
+      }
+
+      return true;
+    });
+  }, [steps, searchQuery, statusFilters, typeFilters]);
+
+  const toggleStatusFilter = (status: GraphNodeStatus) => {
+    setStatusFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(status)) next.delete(status);
+      else next.add(status);
+      return next;
+    });
+  };
+
+  const toggleTypeFilter = (type: string) => {
+    setTypeFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  };
+
+  const clearAllFilters = () => {
+    setSearchQuery("");
+    setStatusFilters(new Set());
+    setTypeFilters(new Set());
+  };
+
+  const hasActiveFilters = searchQuery.trim().length > 0 || statusFilters.size > 0 || typeFilters.size > 0;
+
+  // Close type menu on outside click
+  useEffect(() => {
+    if (!showTypeFilter) return;
+    const handleClick = (e: MouseEvent) => {
+      if (typeMenuRef.current && !typeMenuRef.current.contains(e.target as Node)) {
+        setShowTypeFilter(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showTypeFilter]);
+
   // Auto-expand running steps
   useEffect(() => {
     if (!isRunning) return;
@@ -531,11 +652,12 @@ export function ExecutionTimeline({
     }
   }, [steps, isRunning]);
 
-  // Auto-scroll to the latest step
+  // Auto-scroll to the latest step (only when not filtering)
   useEffect(() => {
     if (!autoScroll || !containerRef.current) return;
+    if (hasActiveFilters) return; // Don't auto-scroll when user is filtering
     containerRef.current.scrollTop = containerRef.current.scrollHeight;
-  }, [steps, autoScroll]);
+  }, [steps, autoScroll, hasActiveFilters]);
 
   const toggleExpand = (nodeId: string) => {
     setExpandedSteps((prev) => {
@@ -546,7 +668,7 @@ export function ExecutionTimeline({
     });
   };
 
-  const expandAll = () => setExpandedSteps(new Set(steps.map((s) => s.nodeId)));
+  const expandAll = () => setExpandedSteps(new Set(filteredSteps.map((s) => s.nodeId)));
   const collapseAll = () => setExpandedSteps(new Set());
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
@@ -564,6 +686,7 @@ export function ExecutionTimeline({
   }, [showExportMenu]);
 
   const completedSteps = steps.filter((s) => s.status === "SUCCESS" || s.status === "FAILED" || s.status === "SKIPPED");
+  const filteredCompleted = filteredSteps.filter((s) => s.status === "SUCCESS" || s.status === "FAILED" || s.status === "SKIPPED");
   const totalDuration = steps.length > 0 && steps[0].startedAt
     ? (steps[steps.length - 1].endedAt ?? Date.now()) - steps[0].startedAt
     : 0;
@@ -589,10 +712,115 @@ export function ExecutionTimeline({
           )}
         </div>
 
+        {/* Search bar */}
+        <div className="relative mb-2">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-2.5 w-2.5 text-slate-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search nodes, types, events…"
+            className="w-full pl-6 pr-6 py-1 text-[8px] rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0a0a0a] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 transition-colors"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            >
+              <X className="h-2.5 w-2.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Status filter chips */}
+        <div className="flex flex-wrap gap-1 mb-1.5">
+          {STATUS_FILTER_CONFIG.map(({ status, label, activeClasses, icon }) => {
+            const count = steps.filter((s) => s.status === status).length;
+            const active = statusFilters.has(status);
+            if (count === 0 && !active) return null;
+            return (
+              <button
+                key={status}
+                onClick={() => toggleStatusFilter(status)}
+                className={clsx(
+                  "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[7px] font-bold border transition-all cursor-pointer",
+                  active
+                    ? activeClasses
+                    : "border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-400"
+                )}
+              >
+                {icon}
+                {label}
+                <span className="text-[6px] opacity-60">{count}</span>
+              </button>
+            );
+          })}
+
+          {/* Node type filter */}
+          {availableTypes.length > 0 && (
+            <div className="relative" ref={typeMenuRef}>
+              <button
+                onClick={() => setShowTypeFilter((p) => !p)}
+                className={clsx(
+                  "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[7px] font-bold border transition-all cursor-pointer",
+                  typeFilters.size > 0
+                    ? "border-violet-400 dark:border-violet-500/60 bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300"
+                    : "border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-400"
+                )}
+              >
+                TYPE
+                {typeFilters.size > 0 && <span>{typeFilters.size}</span>}
+                <ChevronDown className="h-2 w-2" />
+              </button>
+              {showTypeFilter && (
+                <div className="absolute left-0 top-5 z-50 w-44 max-h-40 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0c0d18] shadow-xl">
+                  {typeFilters.size > 0 && (
+                    <button
+                      onClick={() => setTypeFilters(new Set())}
+                      className="w-full text-left px-2 py-1.5 text-[7px] text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 cursor-pointer"
+                    >
+                      Clear all types
+                    </button>
+                  )}
+                  {availableTypes.map(([type, count]) => (
+                    <button
+                      key={type}
+                      onClick={() => toggleTypeFilter(type)}
+                      className={clsx(
+                        "w-full flex items-center justify-between px-2 py-1.5 text-left transition-colors cursor-pointer",
+                        typeFilters.has(type)
+                          ? "bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-300"
+                          : "hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-600 dark:text-slate-400"
+                      )}
+                    >
+                      <span className="text-[8px] font-bold truncate">{type}</span>
+                      <span className="text-[7px] opacity-50">{count}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Clear filters */}
+          {hasActiveFilters && (
+            <button
+              onClick={clearAllFilters}
+              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[7px] font-bold border border-red-300 dark:border-red-500/40 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
+            >
+              <X className="h-2 w-2" /> CLEAR
+            </button>
+          )}
+        </div>
+
         {/* Summary bar */}
         <div className="flex items-center gap-3 text-[8px]">
           <span className="text-slate-400">
-            {completedSteps.length}/{steps.length} steps
+            {hasActiveFilters ? (
+              <>{filteredCompleted.length}/{filteredSteps.length} of {steps.length} steps</>
+            ) : (
+              <>{completedSteps.length}/{steps.length} steps</>
+            )}
           </span>
           {totalDuration > 0 && (
             <span className="text-slate-500">
@@ -673,19 +901,20 @@ export function ExecutionTimeline({
         </div>
       </div>
 
-      {/* Timeline Steps */}
-      <div ref={containerRef} className="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-0 scrollbar-thin">
-        {steps.length === 0 ? (
+      {/* Timeline Steps */}          <div ref={containerRef} className="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-0 scrollbar-thin">
+        {filteredSteps.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center py-8">
             <Activity className="h-6 w-6 text-slate-600 dark:text-slate-700 mb-2" />
-            <p className="text-[9px] text-slate-500 dark:text-slate-600">Waiting for execution events…</p>
+            <p className="text-[9px] text-slate-500 dark:text-slate-600">
+              {steps.length === 0 ? "Waiting for execution events…" : "No steps match the current filters"}
+            </p>
           </div>
         ) : (
           <div className="relative">
             {/* Vertical connector line */}
             <div className="absolute left-[7px] top-2 bottom-2 w-px bg-slate-200 dark:bg-slate-700/60" />
 
-            {steps.map((step, idx) => {
+            {filteredSteps.map((step, idx) => {
               const isExpanded = expandedSteps.has(step.nodeId);
               const meta = CANVAS_NODE_TYPE_MAP[step.nodeType as GraphNodeType];
               const NodeIcon = meta?.icon;

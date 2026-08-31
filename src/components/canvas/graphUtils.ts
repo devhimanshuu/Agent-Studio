@@ -170,6 +170,8 @@ export interface CanvasNodeData {
     turn: number;
     mode?: string;
   }>;
+  /** Whether this node should show a temporary pulse highlight (from timeline focus). */
+  isHighlighted?: boolean;
   [key: string]: unknown;
 }
 

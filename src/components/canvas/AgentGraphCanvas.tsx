@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ReactFlow,
   ReactFlowProvider,
+  useReactFlow,
   Background,
   BackgroundVariant,
   Controls,
@@ -121,6 +122,10 @@ function CanvasInner({
   const [showDebugger, setShowDebugger] = useState(false);
   // Execution Timeline state
   const [showTimeline, setShowTimeline] = useState(false);
+  // Highlighted node state for pulse animation (auto-expires)
+  const [highlightedNodeId, setHighlightedNodeId] = useState<string | null>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { setCenter } = useReactFlow();
   // Collaboration viewport
   const [viewport, setViewport] = useState({ x: 0, y: 0, zoom: 1 });
 
@@ -459,7 +464,23 @@ function CanvasInner({
     setSelectedEdgeId(null);
     setShowNodeSearch(false);
     setNodeSearchQuery("");
-  }, []);
+
+    // Find the node and smoothly pan + zoom to center it
+    const node = nodes.find((n) => n.id === nodeId);
+    if (node) {
+      const x = node.position.x + 115; // center of 230px-wide node
+      const y = node.position.y + 50; // approximate center height
+      setCenter(x, y, { zoom: 1.2, duration: 500 });
+
+      // Trigger pulse highlight that auto-expires after 2s
+      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+      setHighlightedNodeId(nodeId);
+      highlightTimerRef.current = setTimeout(() => {
+        setHighlightedNodeId(null);
+        highlightTimerRef.current = null;
+      }, 2000);
+    }
+  }, [nodes, setCenter]);
 
   // ─── Keyboard Shortcuts ───
   useEffect(() => {
@@ -633,10 +654,11 @@ function CanvasInner({
           traceTokenStream: effTokenStreams[n.id],
           traceA2ADelegation: effA2ADelegations[n.id],
           traceA2AMessages: effA2AMessages[n.id],
+          isHighlighted: highlightedNodeId === n.id,
         },
       };
     });
-  }, [nodes, inTraceMode, heatmap, effStatuses, effDetails, nodeLatencies, maxLatency, effRouterDecisions, effLoopState, effToolCalls, effLlmCalls, effMcpCalls, effApprovalState, effTokenStreams, effA2ADelegations, effA2AMessages]);
+  }, [nodes, inTraceMode, heatmap, effStatuses, effDetails, nodeLatencies, maxLatency, effRouterDecisions, effLoopState, effToolCalls, effLlmCalls, effMcpCalls, effApprovalState, effTokenStreams, effA2ADelegations, effA2AMessages, highlightedNodeId]);
 
   // Animate + highlight edges as they are traversed during a live run.
   const traceEdges = useMemo(() => {
@@ -1512,8 +1534,7 @@ function CanvasInner({
               nodeStatuses={effStatuses}
               isRunning={inTraceMode && effExecutionStatus === "RUNNING"}
               onNodeClick={(nodeId) => {
-                setSelectedNodeId(nodeId);
-                setSelectedEdgeId(null);
+                focusNode(nodeId);
                 if (!fsRightOpen) setFsRightOpen(true);
               }}
               onClose={() => setShowTimeline(false)}
@@ -2305,8 +2326,7 @@ function CanvasInner({
             nodeStatuses={effStatuses}
             isRunning={inTraceMode && effExecutionStatus === "RUNNING"}
             onNodeClick={(nodeId) => {
-              setSelectedNodeId(nodeId);
-              setSelectedEdgeId(null);
+              focusNode(nodeId);
               if (!normRightOpen) setNormRightOpen(true);
             }}
             onClose={() => setShowTimeline(false)}

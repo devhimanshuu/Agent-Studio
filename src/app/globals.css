@@ -963,6 +963,23 @@ select optgroup {
   animation: edge-travel 0.8s linear infinite !important;
 }
 
+/* Timeline focus highlight: amber pulse ring */
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.5), 0 0 20px rgba(251, 191, 36, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(251, 191, 36, 0), 0 0 30px rgba(251, 191, 36, 0.4);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0), 0 0 20px rgba(251, 191, 36, 0.1);
+  }
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 1.2s ease-in-out 2 !important;
+}
+
 /* Node transition for smooth status changes */
 .canvas-node {
   transition: border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, transform 0.2s ease;

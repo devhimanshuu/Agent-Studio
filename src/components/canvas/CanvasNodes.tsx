@@ -202,13 +202,15 @@ function BaseShell({
   showSource?: boolean;
   sourceCount?: number;
 }) {
+  const isHighlighted = data.isHighlighted;
   return (
     <div
       className={clsx(
         "relative w-[230px] rounded-xl border bg-white/95 dark:bg-[#0c0d18]/95 font-mono shadow-md dark:shadow-xl dark:shadow-black/50 transition-all duration-150 canvas-node",
         accentClass,
         statusClasses(data.traceStatus) || heatmapClasses(data.heatmapLatency, data.heatmapMax),
-        selected && "ring-2 ring-indigo-500/80 dark:ring-indigo-400/80 shadow-indigo-500/20"
+        selected && "ring-2 ring-indigo-500/80 dark:ring-indigo-400/80 shadow-indigo-500/20",
+        isHighlighted && "ring-2 ring-amber-400 dark:ring-amber-400/80 shadow-[0_0_20px_rgba(251,191,36,0.4)] animate-pulse-ring"
       )}
     >
       {showTarget && <Handle type="target" position={Position.Left} className="!bg-indigo-500 dark:!bg-indigo-400 !border-0 !w-2.5 !h-2.5 shadow-sm" />}

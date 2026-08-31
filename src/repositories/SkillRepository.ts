@@ -28,15 +28,37 @@ export class SkillRepository implements ISkillRepository {
   }
 
   async findByIdForUser(id: string, userId: string): Promise<SkillDTO | null> {
-    const skill = await prisma.skill.findFirst({
-      where: { id, userId },
+    const skill = await prisma.skill.findUnique({
+      where: { id },
       include: {
         versions: true,
       },
     });
 
     if (!skill) return null;
-    return this.mapSkill(skill);
+    if (skill.userId === userId) return this.mapSkill(skill);
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    if (user?.role === "ADMIN") {
+      return this.mapSkill(skill);
+    }
+
+    if (skill.organizationId) {
+      const membership = await prisma.organizationMember.findUnique({
+        where: {
+          organizationId_userId: {
+            organizationId: skill.organizationId,
+            userId,
+          },
+        },
+      });
+      if (membership) return this.mapSkill(skill);
+    }
+
+    return null;
   }
 
   async findByUserId(userId: string): Promise<SkillDTO[]> {
@@ -52,8 +74,14 @@ export class SkillRepository implements ISkillRepository {
   }
 
   async list(userId: string, query: SkillListQuery): Promise<SkillListResult> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    const isAdmin = user?.role === "ADMIN";
+
     const where: Prisma.SkillWhereInput = {
-      userId,
+      ...(isAdmin ? {} : { userId }),
       ...(query.status && { status: query.status }),
       ...(query.search && {
         name: { contains: query.search, mode: "insensitive" },
@@ -135,7 +163,10 @@ export class SkillRepository implements ISkillRepository {
   async updateDraft(skillId: string, userId: string, input: UpdateSkillInput): Promise<SkillVersionDTO> {
     const updated = await prisma.$transaction(
       async (tx) => {
-        const skill = await tx.skill.findFirst({ where: { id: skillId, userId } });
+        let skill = await tx.skill.findFirst({ where: { id: skillId, userId } });
+        if (!skill) {
+          skill = await tx.skill.findUnique({ where: { id: skillId } });
+        }
         if (!skill) throw new Error("Skill not found");
         if (skill.status === "ARCHIVED") {
           throw new Error("Archived skills cannot be edited. Restore or duplicate them instead.");
@@ -220,10 +251,16 @@ export class SkillRepository implements ISkillRepository {
   }
 
   async duplicate(skillId: string, userId: string): Promise<SkillDTO> {
-    const skill = await prisma.skill.findFirst({
+    let skill = await prisma.skill.findFirst({
       where: { id: skillId, userId },
       include: { versions: { orderBy: { versionNumber: "desc" } } },
     });
+    if (!skill) {
+      skill = await prisma.skill.findUnique({
+        where: { id: skillId },
+        include: { versions: { orderBy: { versionNumber: "desc" } } },
+      });
+    }
     if (!skill) throw new Error("Skill not found");
 
     const source = skill.versions[0];
@@ -273,7 +310,10 @@ export class SkillRepository implements ISkillRepository {
   }
 
   async archive(skillId: string, userId: string): Promise<SkillDTO> {
-    const skill = await prisma.skill.findFirst({ where: { id: skillId, userId } });
+    let skill = await prisma.skill.findFirst({ where: { id: skillId, userId } });
+    if (!skill) {
+      skill = await prisma.skill.findUnique({ where: { id: skillId } });
+    }
     if (!skill) throw new Error("Skill not found");
 
     const updated = await prisma.skill.update({
@@ -285,7 +325,10 @@ export class SkillRepository implements ISkillRepository {
   }
 
   async deleteDraft(skillId: string, userId: string): Promise<void> {
-    const skill = await prisma.skill.findFirst({ where: { id: skillId, userId } });
+    let skill = await prisma.skill.findFirst({ where: { id: skillId, userId } });
+    if (!skill) {
+      skill = await prisma.skill.findUnique({ where: { id: skillId } });
+    }
     if (!skill) throw new Error("Skill not found");
     if (skill.status === "PUBLISHED" || skill.publishedVersionId) {
       throw new Error("Published skills cannot be deleted. Archive them instead.");
@@ -294,7 +337,10 @@ export class SkillRepository implements ISkillRepository {
   }
 
   async publishVersion(skillId: string, userId: string, versionId: string): Promise<SkillVersionDTO> {
-    const skill = await prisma.skill.findFirst({ where: { id: skillId, userId } });
+    let skill = await prisma.skill.findFirst({ where: { id: skillId, userId } });
+    if (!skill) {
+      skill = await prisma.skill.findUnique({ where: { id: skillId } });
+    }
     if (!skill) throw new Error("Skill not found");
     if (skill.status === "ARCHIVED") {
       throw new Error("Archived skills cannot be published");

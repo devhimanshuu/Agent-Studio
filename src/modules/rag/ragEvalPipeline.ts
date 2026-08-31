@@ -464,9 +464,6 @@ function computeContextCoverage(
 
 // ─── Helpers ───
 
-const getGrade = (s: number): "A" | "B" | "C" | "D" | "F" =>
-  s >= 0.85 ? "A" : s >= 0.7 ? "B" : s >= 0.55 ? "C" : s >= 0.4 ? "D" : "F";
-
 async function evaluateWithFallback(
   judgeFn: () => Promise<import("@/types/evals").EvalMetricJudgeResult>,
   heuristicFn: () => { score: number; reasoning: string }

@@ -240,6 +240,19 @@ export class RBACService {
     };
   }
 
+  private async isSuperAdmin(userId: string): Promise<boolean> {
+    if (!userId) return false;
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+      return user?.role === "ADMIN";
+    } catch {
+      return false;
+    }
+  }
+
   /**
    * Check if user has a specific permission (supports both built-in and custom)
    */
@@ -248,6 +261,7 @@ export class RBACService {
     organizationId: string,
     permission: string
   ): Promise<boolean> {
+    if (await this.isSuperAdmin(userId)) return true;
     const { role, permissions } = await this.getEffectivePermissions(userId, organizationId);
 
     // 1. Check base role implied permissions via unified mapping
@@ -314,6 +328,7 @@ export class RBACService {
     organizationId: string,
     requiredRole: OrgRole
   ): Promise<boolean> {
+    if (await this.isSuperAdmin(userId)) return true;
     const membership = await this.getOrgMembership(userId, organizationId);
     if (!membership) return false;
 
@@ -331,6 +346,7 @@ export class RBACService {
     skillId: string,
     requiredPermission: SkillPermission
   ): Promise<boolean> {
+    if (await this.isSuperAdmin(userId)) return true;
     // First check if user is skill owner
     const skill = await prisma.skill.findUnique({
       where: { id: skillId },
@@ -392,6 +408,15 @@ export class RBACService {
     userId: string,
     skillId: string
   ): Promise<SkillPermissionSet> {
+    if (await this.isSuperAdmin(userId)) {
+      return buildSkillPermissionSet([
+        "SKILL_ADMIN",
+        "SKILL_EDITOR",
+        "SKILL_EXECUTOR",
+        "SKILL_VIEWER",
+      ]);
+    }
+
     const skill = await prisma.skill.findUnique({
       where: { id: skillId },
       select: { userId: true, organizationId: true },
@@ -442,6 +467,10 @@ export class RBACService {
     organizationId: string,
     requiredRole: OrgRole
   ): Promise<OrgPermissionSet> {
+    if (await this.isSuperAdmin(userId)) {
+      return buildOrgPermissionSet("OWNER");
+    }
+
     const membership = await this.getOrgMembership(userId, organizationId);
     if (!membership) {
       throw new ForbiddenError("Not a member of this organization");
@@ -467,6 +496,15 @@ export class RBACService {
     skillId: string,
     permission: SkillPermission
   ): Promise<SkillPermissionSet> {
+    if (await this.isSuperAdmin(userId)) {
+      return buildSkillPermissionSet([
+        "SKILL_ADMIN",
+        "SKILL_EDITOR",
+        "SKILL_EXECUTOR",
+        "SKILL_VIEWER",
+      ]);
+    }
+
     const permissions = await this.getUserSkillPermissions(userId, skillId);
     
     const hasPermission = this.checkSkillPermission(permissions, permission);
@@ -510,7 +548,16 @@ export class RBACService {
     if (!organizationId) return null;
 
     const membership = await this.getOrgMembership(userId, organizationId);
-    if (!membership) return null;
+    if (!membership) {
+      if (await this.isSuperAdmin(userId)) {
+        return {
+          organizationId,
+          role: "OWNER",
+          permissions: buildOrgPermissionSet("OWNER"),
+        };
+      }
+      return null;
+    }
 
     return {
       organizationId,
@@ -541,6 +588,7 @@ export class RBACService {
     resourceId: string,
     action: "read" | "write" | "delete" | "execute"
   ): Promise<boolean> {
+    if (await this.isSuperAdmin(userId)) return true;
     // Handle personal resources (no organization context)
     if (!organizationId) {
       return this.isResourceOwner(userId, resourceType, resourceId);
