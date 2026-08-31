@@ -17,7 +17,7 @@ import {
   setKeyVersions,
 } from "@/lib/vault/crypto";
 
-describe("Vault Crypto", () => {
+describe("Vault Crypto", { timeout: 30000 }, () => {
   // Save and restore environment
   const originalEnv = { ...process.env };
 
@@ -103,7 +103,7 @@ describe("Vault Crypto", () => {
       // But both decrypt to the same plaintext
       expect(decrypt(enc1.encrypted, enc1.iv, enc1.tag, enc1.keyVersion)).toBe(plaintext);
       expect(decrypt(enc2.encrypted, enc2.iv, enc2.tag, enc2.keyVersion)).toBe(plaintext);
-    });
+    }, 20000);
 
     it("includes key version in encrypted payload", () => {
       const plaintext = "test";

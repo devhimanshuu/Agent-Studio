@@ -335,7 +335,7 @@ export function SkillForm({
   onSubmit,
   isSubmitting = false,
 }: SkillFormProps) {
-  const draft = initialDraft ?? skill?.currentDraft ?? null;
+  const draft = initialDraft ?? skill?.currentDraft ?? skill?.publishedVersion ?? skill?.versions?.[0] ?? null;
 
   // Tracks editors currently showing invalid JSON. JsonEditor only reports
   // parsed values upward, so without this the form would silently submit the
