@@ -6,7 +6,6 @@
  * DELETE /api/organizations/[id]/roles/[roleId] - Delete role
  */
 
-import { NextRequest } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { CustomRoleService } from "@/services/CustomRoleService";
 import { unauthorized, forbidden, badRequest, serverError } from "@/lib/api/handlers";

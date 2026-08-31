@@ -44,7 +44,7 @@ export async function GET(request: Request) {
       if (!membership) return forbidden();
 
       // Build where clause for search
-      const where: any = { organizationId };
+      const where: import("@prisma/client").Prisma.SkillWhereInput = { organizationId };
       if (parsed.data.search) {
         where.name = { contains: parsed.data.search, mode: "insensitive" };
       }
@@ -53,12 +53,9 @@ export async function GET(request: Request) {
       }
 
       // Build order clause
-      const orderBy: any = {};
-      if (parsed.data.sortBy) {
-        orderBy[parsed.data.sortBy] = parsed.data.sortOrder || "desc";
-      } else {
-        orderBy.createdAt = "desc";
-      }
+      const orderBy: import("@prisma/client").Prisma.SkillOrderByWithRelationInput = parsed.data.sortBy
+        ? { [parsed.data.sortBy]: parsed.data.sortOrder || "desc" }
+        : { createdAt: "desc" };
 
       // List skills for organization
       result = await prisma.skill.findMany({

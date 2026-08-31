@@ -30,7 +30,7 @@ export interface SkillContext {
 
 export type RouteHandler = (
   request: Request,
-  context?: any
+  context?: Record<string, unknown>
 ) => Promise<Response>;
 
 // ────────────── Organization Context Extraction ──────────────
@@ -70,7 +70,7 @@ async function getDefaultOrganization(userId: string): Promise<string | null> {
  * Require authenticated user
  */
 export function requireAuth(handler: RouteHandler): RouteHandler {
-  return async (request: Request, context?: any) => {
+  return async (request: Request, context: Record<string, unknown> = {}) => {
     const { userId } = await auth();
     if (!userId) {
       return unauthorized();
@@ -85,7 +85,7 @@ export function requireAuth(handler: RouteHandler): RouteHandler {
  * Extracts organizationId from request and validates membership
  */
 export function requireOrganization(handler: RouteHandler): RouteHandler {
-  return async (request: Request, context?: any) => {
+  return async (request: Request, context: Record<string, unknown> = {}) => {
     const { userId } = await auth();
     if (!userId) {
       return unauthorized();
@@ -130,11 +130,12 @@ export function requireOrgRole(
   role: OrgRole,
   handler: RouteHandler
 ): RouteHandler {
-  return requireOrganization(async (request: Request, context: OrganizationContext) => {
+  return requireOrganization(async (request: Request, context: Record<string, unknown> = {}) => {
     const rbacService = new RBACService();
+    const { userId, organizationId } = context as { userId: string; organizationId: string };
 
     try {
-      await rbacService.requireOrgRole(context.userId, context.organizationId, role);
+      await rbacService.requireOrgRole(userId, organizationId, role);
     } catch (error) {
       if (error instanceof ForbiddenError) {
         return forbidden();
@@ -153,8 +154,9 @@ export function requireSkillPermission(
   permission: SkillPermission,
   handler: RouteHandler
 ): RouteHandler {
-  return requireAuth(async (request: Request, context: any) => {
+  return requireAuth(async (request: Request, context: Record<string, unknown> = {}) => {
     const rbacService = new RBACService();
+    const { userId } = context as { userId: string };
 
     // Extract skill ID from URL or body
     const url = new URL(request.url);
@@ -167,7 +169,7 @@ export function requireSkillPermission(
 
     try {
       const skillPermissions = await rbacService.requireSkillPermission(
-        context.userId,
+        userId,
         skillId,
         permission
       );
@@ -198,7 +200,7 @@ export function requireSkillPermission(
  * If organizationId is provided, validate membership; otherwise proceed without
  */
 export function optionalOrganization(handler: RouteHandler): RouteHandler {
-  return async (request: Request, context?: any) => {
+  return async (request: Request, context: Record<string, unknown> = {}) => {
     const { userId } = await auth();
     if (!userId) {
       return unauthorized();
@@ -234,9 +236,9 @@ export function optionalOrganization(handler: RouteHandler): RouteHandler {
 export async function checkPermission(
   userId: string,
   organizationId: string | undefined,
-  resourceType: string,
+  resourceType: "skill" | "execution" | "mcp_server" | "vault_entry",
   resourceId: string,
-  action: string
+  action: "read" | "write" | "delete" | "execute"
 ): Promise<boolean> {
   const rbacService = new RBACService();
 
@@ -265,8 +267,8 @@ export async function checkPermission(
   return rbacService.canAccessResource(
     userId,
     organizationId,
-    resourceType as any,
+    resourceType,
     resourceId,
-    action as any
+    action
   );
 }

@@ -178,7 +178,7 @@ export class OrganizationService {
       data: {
         ...(input.name !== undefined && { name: input.name }),
         ...(input.billingEmail !== undefined && { billingEmail: input.billingEmail }),
-        ...(input.settings !== undefined && { settings: input.settings as any }),
+        ...(input.settings !== undefined && { settings: input.settings as import("@prisma/client").Prisma.InputJsonValue }),
       },
       include: {
         _count: { select: { members: true } },
@@ -191,7 +191,7 @@ export class OrganizationService {
       userId,
       organizationId,
       resourceType: "organization",
-      details: input as any,
+      details: input as Record<string, unknown>,
     });
 
     logger.info({ organizationId, userId }, "Organization updated");
@@ -264,7 +264,7 @@ export class OrganizationService {
       data: {
         organizationId,
         email: input.email,
-        role: (input.role || "MEMBER") as any,
+        role: input.role || "MEMBER",
         token,
         invitedBy: userId,
         expiresAt,
@@ -526,7 +526,7 @@ export class OrganizationService {
           userId: targetUserId,
         },
       },
-      data: { role: newRole as any },
+      data: { role: newRole },
       include: { user: true },
     });
 
@@ -745,7 +745,7 @@ export class OrganizationService {
       .slice(0, 50);
   }
 
-  private toDTO(organization: any): OrganizationDTO {
+  private toDTO(organization: import("@prisma/client").Organization & { _count?: { members?: number } }): OrganizationDTO {
     return {
       id: organization.id,
       name: organization.name,

@@ -6,9 +6,9 @@
  * DELETE /api/skills/[id]/permissions — Reset to org defaults
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { RBACService, ForbiddenError } from "@/services/RBACService";
+import { RBACService } from "@/services/RBACService";
 import { unauthorized, forbidden, badRequest, serverError } from "@/lib/api/handlers";
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
@@ -86,7 +86,7 @@ export async function GET(
  * POST /api/skills/[id]/permissions — Set skill permissions for a user
  */
 export async function POST(
-  request: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { userId } = await auth();
@@ -164,7 +164,7 @@ export async function POST(
  * DELETE /api/skills/[id]/permissions — Reset permissions to org defaults
  */
 export async function DELETE(
-  request: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { userId } = await auth();

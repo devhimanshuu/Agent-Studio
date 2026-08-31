@@ -342,3 +342,44 @@ export const defaultRAGPipeline = new RAGPipeline();
 
 // Re-exports
 export { pgVectorStore } from "./pgvectorStore";
+
+// ─── Advanced RAG Features ───
+export {
+  processMultiModal,
+  extractTables,
+  extractCodeBlocks,
+  extractImages,
+} from "./multiModalProcessor";
+export type { MultiModalChunk, MultiModalProcessOptions } from "./multiModalProcessor";
+
+export { KnowledgeGraph, extractEntities } from "./knowledgeGraph";
+export type {
+  KGEntity,
+  KGRelationship,
+  KGCommunity,
+  EntityType,
+  RelationshipType,
+} from "./knowledgeGraph";
+
+export { optimizeChunking, profileDocument, analyzeChunkQuality } from "./chunkOptimizer";
+export type {
+  DocumentProfile,
+  ChunkQualityMetrics,
+  OptimizationResult,
+} from "./chunkOptimizer";
+
+export { CrossCollectionSearchEngine, crossCollectionSearch } from "./crossCollectionSearch";
+export type {
+  CollectionConfig,
+  CrossCollectionResult,
+  FederatedSearchResult,
+  SearchAnalytics,
+} from "./crossCollectionSearch";
+
+export { runComprehensiveRAGEval } from "./ragEvalPipeline";
+export type {
+  ComprehensiveRAGEvalReport,
+  EvalInput,
+  HallucinationReport,
+  ChunkQualityScore,
+} from "./ragEvalPipeline";

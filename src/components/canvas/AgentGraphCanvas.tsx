@@ -32,7 +32,7 @@ import { useExecutionStream, replayEvents } from "./useExecutionStream";
 import { computeLayout } from "./autoLayout";
 import { validateGraph } from "./graphValidation";
 import { collapseSelection } from "./subgraphUtils";
-import { Workflow, Play, Link2, X, Pause, Radio, Flame, LayoutTemplate, AlertTriangle, GitBranch, Keyboard, Copy, Boxes, CornerUpLeft, Maximize, Minimize, Undo2, Redo2, Search, Download, Upload, Package, Bug, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight, ChevronDown, ChevronUp, Check, Network } from "lucide-react";
+import { Workflow, Play, Link2, X, Pause, Radio, Flame, LayoutTemplate, AlertTriangle, GitBranch, Keyboard, Copy, Boxes, CornerUpLeft, Maximize, Minimize, Undo2, Redo2, Search, Download, Upload, Package, Bug, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight, ChevronDown, ChevronUp, Check, Network, Sparkles, Activity } from "lucide-react";
 import { toast } from "@/stores/toastStore";
 import { QuickConnectSearch } from "./quickConnectSearch";
 import { AlignmentBar } from "./AlignmentBar";
@@ -43,6 +43,9 @@ import { DebuggerPanel } from "./DebuggerPanel";
 import { CollaborationOverlay } from "./CollaborationOverlay";
 import { A2ADirectoryModal } from "./A2ADirectoryModal";
 import type { A2AAgentManifest } from "@/types/a2a";
+import { MarketplacePanel } from "./MarketplacePanel";
+import { ExecutionProgressOverlay } from "./ExecutionProgressOverlay";
+import { ExecutionTimeline } from "./ExecutionTimeline";
 import { clsx } from "clsx";
 
 const labelClass = "text-[9px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-400/80 font-semibold";
@@ -112,8 +115,12 @@ function CanvasInner({
   const [showMacroLibrary, setShowMacroLibrary] = useState(false);
   // A2A Agent Directory state
   const [showA2ADirectory, setShowA2ADirectory] = useState(false);
+  // Marketplace state
+  const [showMarketplace, setShowMarketplace] = useState(false);
   // Debugger state
   const [showDebugger, setShowDebugger] = useState(false);
+  // Execution Timeline state
+  const [showTimeline, setShowTimeline] = useState(false);
   // Collaboration viewport
   const [viewport, setViewport] = useState({ x: 0, y: 0, zoom: 1 });
 
@@ -587,6 +594,7 @@ function CanvasInner({
     setScrubPlaying(false);
     setHeatmap(false);
     setCoverageMode(false);
+    setShowTimeline(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [executionId]);
 
@@ -745,6 +753,18 @@ function CanvasInner({
     (event: React.DragEvent) => {
       if (isLocked) return;
       event.preventDefault();
+
+      // Handle marketplace template drops
+      const templateData = event.dataTransfer.getData("application/marketplace-template");
+      if (templateData) {
+        try {
+          const templateGraph: AgentGraphDefinition = JSON.parse(templateData);
+          handleAddMacro(templateGraph);
+          setShowMarketplace(false);
+        } catch {}
+        return;
+      }
+
       const type = event.dataTransfer.getData("application/agent-node-type") as GraphNodeType;
       if (!type || !CANVAS_NODE_TYPES.some((t) => t.type === type)) return;
 
@@ -760,7 +780,7 @@ function CanvasInner({
       setSelectedNodeId(node.id);
       notifyChange(nextNodes, edges);
     },
-    [nodes, edges, setNodes, notifyChange, isLocked]
+    [nodes, edges, setNodes, notifyChange, isLocked, handleAddMacro]
   );
 
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -949,6 +969,10 @@ function CanvasInner({
                   <button onClick={() => setShowA2ADirectory(true)} className={clsx("inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-bold uppercase transition-colors cursor-pointer text-purple-400 hover:text-purple-300", toolbarBtnCls)} title="Google A2A Agent Directory">
                     <Network className="h-3 w-3 text-purple-400" /> A2A DIRECTORY
                   </button>
+                  <div className={toolbarDividerCls} />
+                  <button onClick={() => setShowMarketplace((p) => !p)} className={clsx("inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-bold uppercase transition-colors cursor-pointer", showMarketplace ? (isPaper ? "text-amber-700 bg-amber-100/90 font-bold" : "text-amber-400 bg-amber-950/60") : toolbarBtnCls)} title="Marketplace Templates">
+                    <Sparkles className="h-3 w-3" /> MARKETPLACE
+                  </button>
                   {coverage && coverage.length > 0 && (
                     <>
                       <div className={toolbarDividerCls} />
@@ -1003,7 +1027,22 @@ function CanvasInner({
               <span className={clsx("inline-block h-2 w-2 rounded-full", trace.connected ? "bg-emerald-500 animate-pulse" : "bg-red-500")} />
               <span className={clsx("font-bold", isPaper ? "text-indigo-800" : "text-indigo-300")}>{isPreview ? "GHOST PREVIEW" : "LIVE TRACE"} · {effExecutionStatus ?? "CONNECTING…"}</span>
             </div>
-            <div className="flex items-center gap-2">{traceHeaderExtra}</div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowTimeline((p) => !p)}
+                className={clsx(
+                  "inline-flex items-center gap-1 px-2 py-1 rounded border text-[9px] font-bold uppercase tracking-wider transition-colors cursor-pointer",
+                  showTimeline
+                    ? "border-indigo-400 bg-indigo-500/20 text-indigo-300"
+                    : "border-slate-600 text-slate-400 hover:text-indigo-300 hover:border-indigo-400"
+                )}
+                title="Toggle execution timeline"
+              >
+                <Activity className="h-3 w-3" /> TIMELINE
+              </button>
+              {traceHeaderExtra}
+            </div>
           </div>
         )}
 
@@ -1440,6 +1479,62 @@ function CanvasInner({
             />
           </div>
         )}
+
+        {/* ─── Marketplace Panel ─── */}
+        {showMarketplace && (
+          <div className={clsx("absolute left-14 top-12 z-20 w-72 max-h-[70vh] overflow-y-auto rounded-lg backdrop-blur-md p-3 shadow-2xl font-mono",
+            canvasTheme === "paper"
+              ? "border border-slate-200 bg-white/95"
+              : canvasTheme === "graphite"
+                ? "border border-slate-600/60 bg-[#1a1d27]/95"
+                : "border border-slate-700/60 bg-[#0a0a14]/95"
+          )}>
+            <MarketplacePanel
+              onDragStart={onDragStart}
+              onAddMacro={handleAddMacro}
+              disabled={inTraceMode}
+              onClose={() => setShowMarketplace(false)}
+            />
+          </div>
+        )}
+
+        {/* ─── Execution Timeline Panel ─── */}
+        {showTimeline && inTraceMode && (
+          <div className={clsx("absolute right-14 top-12 z-20 w-80 h-[70vh] overflow-hidden rounded-lg backdrop-blur-md shadow-2xl",
+            canvasTheme === "paper"
+              ? "border border-slate-200 bg-white/95"
+              : canvasTheme === "graphite"
+                ? "border border-slate-600/60 bg-[#1a1d27]/95"
+                : "border border-slate-700/60 bg-[#0a0a14]/95"
+          )}>
+            <ExecutionTimeline
+              events={trace.events}
+              nodeStatuses={effStatuses}
+              isRunning={inTraceMode && effExecutionStatus === "RUNNING"}
+              onNodeClick={(nodeId) => {
+                setSelectedNodeId(nodeId);
+                setSelectedEdgeId(null);
+                if (!fsRightOpen) setFsRightOpen(true);
+              }}
+              onClose={() => setShowTimeline(false)}
+            />
+          </div>
+        )}
+
+        {/* ─── Execution Progress Overlay ─── */}
+        {inTraceMode && (
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 w-[480px] max-w-[90vw]">
+            <ExecutionProgressOverlay
+              executionStatus={effExecutionStatus}
+              nodeStatuses={effStatuses as Record<string, "RUNNING" | "SUCCESS" | "FAILED" | "AWAITING_APPROVAL" | "SKIPPED">}
+              nodeDetails={effDetails}
+              totalNodes={nodes.length}
+              connected={trace.connected}
+              startedAt={trace.events.length > 0 ? trace.events[0].at : undefined}
+              isPreview={isPreview}
+            />
+          </div>
+        )}
       </div>
     );
   }
@@ -1486,7 +1581,22 @@ function CanvasInner({
               </span>
               {trace.connected ? <span className="text-emerald-600 dark:text-emerald-400 font-semibold">[SSE STREAM]</span> : <span className="text-amber-600 dark:text-amber-400 font-semibold">[RECONNECTING]</span>}
             </div>
-            <div className="flex items-center gap-2">{traceHeaderExtra}</div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowTimeline((p) => !p)}
+                className={clsx(
+                  "inline-flex items-center gap-1 px-2 py-1 rounded border text-[9px] font-bold uppercase tracking-wider transition-colors cursor-pointer",
+                  showTimeline
+                    ? "border-indigo-400 bg-indigo-500/20 text-indigo-700 dark:text-indigo-300"
+                    : "border-indigo-300 dark:border-indigo-500/50 text-indigo-600 dark:text-indigo-400 hover:border-indigo-400"
+                )}
+                title="Toggle execution timeline"
+              >
+                <Activity className="h-3 w-3" /> TIMELINE
+              </button>
+              {traceHeaderExtra}
+            </div>
           </div>
         )}
 
@@ -1780,6 +1890,15 @@ function CanvasInner({
                   title="Open Google A2A Agent Directory"
                 >
                   <Network className="h-3 w-3 text-purple-500" /> A2A DIRECTORY
+                </button>
+                <div className="w-px h-3.5 bg-slate-200 dark:bg-slate-700" />
+                <button
+                  type="button"
+                  onClick={() => setShowMarketplace((p) => !p)}
+                  className={clsx("inline-flex items-center gap-1 px-2 py-1 text-[9px] font-bold uppercase tracking-wider transition-colors cursor-pointer", showMarketplace ? "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50" : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800")}
+                  title="Marketplace Templates"
+                >
+                  <Sparkles className="h-3 w-3 text-amber-500" /> MARKETPLACE
                 </button>
                 {coverage && coverage.length > 0 && (
                   <>
@@ -2151,6 +2270,64 @@ function CanvasInner({
         onClose={() => setShowA2ADirectory(false)}
         onSelectAgent={handleAddA2AAgentFromDirectory}
       />
+
+      {/* ─── Marketplace Panel (normal layout) ─── */}
+      {showMarketplace && (
+        <div className={clsx(
+          "absolute left-2 top-16 z-20 w-72 max-h-[70vh] overflow-y-auto rounded-lg backdrop-blur-md p-3 shadow-2xl font-mono",
+          canvasTheme === "paper"
+            ? "border border-slate-200 bg-white/95 text-slate-800"
+            : canvasTheme === "graphite"
+              ? "border border-slate-600/60 bg-[#1a1d27]/95 text-slate-200"
+              : "border border-slate-700/60 bg-[#0a0a14]/95 text-slate-200"
+        )}>
+          <MarketplacePanel
+            onDragStart={onDragStart}
+            onAddMacro={handleAddMacro}
+            disabled={inTraceMode}
+            onClose={() => setShowMarketplace(false)}
+          />
+        </div>
+      )}
+
+      {/* ─── Execution Timeline Panel (normal layout) ─── */}
+      {showTimeline && inTraceMode && (
+        <div className={clsx(
+          "absolute right-2 top-16 z-20 w-80 h-[70vh] overflow-hidden rounded-lg backdrop-blur-md shadow-2xl",
+          canvasTheme === "paper"
+            ? "border border-slate-200 bg-white/95 text-slate-800"
+            : canvasTheme === "graphite"
+              ? "border border-slate-600/60 bg-[#1a1d27]/95 text-slate-200"
+              : "border border-slate-700/60 bg-[#0a0a14]/95 text-slate-200"
+        )}>
+          <ExecutionTimeline
+            events={trace.events}
+            nodeStatuses={effStatuses}
+            isRunning={inTraceMode && effExecutionStatus === "RUNNING"}
+            onNodeClick={(nodeId) => {
+              setSelectedNodeId(nodeId);
+              setSelectedEdgeId(null);
+              if (!normRightOpen) setNormRightOpen(true);
+            }}
+            onClose={() => setShowTimeline(false)}
+          />
+        </div>
+      )}
+
+      {/* ─── Execution Progress Overlay (normal layout) ─── */}
+      {inTraceMode && (
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 w-[480px] max-w-[90vw]">
+          <ExecutionProgressOverlay
+            executionStatus={effExecutionStatus}
+            nodeStatuses={effStatuses as Record<string, "RUNNING" | "SUCCESS" | "FAILED" | "AWAITING_APPROVAL" | "SKIPPED">}
+            nodeDetails={effDetails}
+            totalNodes={nodes.length}
+            connected={trace.connected}
+            startedAt={trace.events.length > 0 ? trace.events[0].at : undefined}
+            isPreview={isPreview}
+          />
+        </div>
+      )}
     </div>
   );
 }

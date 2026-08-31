@@ -15,7 +15,7 @@ function createRequest(path: string = "/api/skills/skill-1"): Request {
 }
 
 describe("enforceAction middleware", () => {
-  const handler = vi.fn(async (req: Request, ctx: any) => new Response("ok"));
+  const handler = vi.fn(async (_req: Request, _ctx: any) => new Response("ok"));
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -113,7 +113,7 @@ describe("enforceAction middleware", () => {
 });
 
 describe("requireResourceOwner middleware", () => {
-  const handler = vi.fn(async (req: Request, ctx: any) => new Response("ok"));
+  const handler = vi.fn(async (_req: Request, _ctx: any) => new Response("ok"));
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -159,7 +159,7 @@ describe("requireResourceOwner middleware", () => {
 });
 
 describe("requireResourceOwnerForDelete middleware", () => {
-  const handler = vi.fn(async (req: Request, ctx: any) => new Response("ok"));
+  const handler = vi.fn(async (_req: Request, _ctx: any) => new Response("ok"));
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -205,7 +205,7 @@ describe("requireResourceOwnerForDelete middleware", () => {
 });
 
 describe("validateOrgContext middleware", () => {
-  const handler = vi.fn(async (req: Request, ctx: any) => new Response("ok"));
+  const handler = vi.fn(async (_req: Request, _ctx: any) => new Response("ok"));
 
   beforeEach(() => {
     vi.clearAllMocks();

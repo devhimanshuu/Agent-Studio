@@ -28,6 +28,7 @@ import { clsx } from "clsx";
 import { BUILT_IN_TOOL_CATALOG } from "@/modules/tools";
 import type { CanvasNode, CanvasNodeData } from "./graphUtils";
 import { GraphNodeType } from "@/types/graph";
+import { ConditionalBranchEditor } from "./ConditionalBranchEditor";
 import type { McpServerDTO } from "@/types/mcp";
 import {
   GROQ_FREE_MODELS,
@@ -899,51 +900,34 @@ export function NodeInspector({ node, onUpdate, onDelete, allNodeIds, onOpenSubg
 
       {type === "router" && (
         <>
-          <Field label="Router Mode">
-            <select
-              value={node.data.routerMode ?? "deterministic"}
-              onChange={(e) => onUpdate({ routerMode: e.target.value as "deterministic" | "ai" })}
-              className={`${inputClass} cursor-pointer`}
-            >
-              <option value="deterministic">DETERMINISTIC CONDITION</option>
-              <option value="ai">AI ROUTER (LLM decides)</option>
-            </select>
-          </Field>
-          {node.data.routerMode === "ai" ? (
-            <>
-              <ModelSelectField
-                value={node.data.model}
-                customApiKey={node.data.customApiKey}
-                customApiBaseUrl={node.data.customApiBaseUrl}
-                customApiProvider={node.data.customApiProvider}
-                onUpdate={(patch) => onUpdate(patch)}
-              />
-              <PromptField
-                label="Router Prompt"
-                hint={'The model returns { "next": "<edge label>" }.'}
-                value={node.data.routerPrompt ?? ""}
-                onChange={(v) => onUpdate({ routerPrompt: v })}
-                rows={4}
-                allNodeIds={allNodeIds}
-              />
-            </>
-          ) : (
+          {node.data.routerMode === "ai" && (
+            <ModelSelectField
+              value={node.data.model}
+              customApiKey={node.data.customApiKey}
+              customApiBaseUrl={node.data.customApiBaseUrl}
+              customApiProvider={node.data.customApiProvider}
+              onUpdate={(patch) => onUpdate(patch)}
+            />
+          )}
+          <ConditionalBranchEditor
+            routerMode={node.data.routerMode ?? "deterministic"}
+            condition={node.data.condition ?? ""}
+            routerPrompt={node.data.routerPrompt ?? ""}
+            branches={[]}
+            onUpdate={(patch) => onUpdate(patch)}
+            edgeLabels={allNodeIds ?? []}
+            allNodeIds={allNodeIds ?? []}
+          />
+          {node.data.routerMode === "ai" && (
             <Field
-              label="Condition Expression"
-              hint={'Evaluated against state. Examples: results.classifier.decision == "high" · input.amount > 500 · results.a.count >= 3 && input.flag'}
+              label="Condition Expression (fallback)"
+              hint={'Optional fallback condition when AI is disabled.'}
             >
               <input
                 value={node.data.condition ?? ""}
                 onChange={(e) => onUpdate({ condition: e.target.value })}
                 className={inputClass}
               />
-              <p className="text-[8px] text-amber-500/80 leading-tight">
-                {'Edge labelled '}
-                <code>true</code>
-                {' = condition matched · '}
-                <code>false</code>
-                {' = not matched. A label-less edge is the fallback.'}
-              </p>
             </Field>
           )}
         </>

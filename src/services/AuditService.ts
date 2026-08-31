@@ -92,7 +92,7 @@ export class AuditService {
       endDate?: Date;
     }
   ) {
-    const where: any = { organizationId };
+    const where: import("@prisma/client").Prisma.AuditLogWhereInput = { organizationId };
 
     if (options?.action) {
       where.action = options.action;
@@ -103,13 +103,10 @@ export class AuditService {
     }
 
     if (options?.startDate || options?.endDate) {
-      where.timestamp = {};
-      if (options.startDate) {
-        where.timestamp.gte = options.startDate;
-      }
-      if (options.endDate) {
-        where.timestamp.lte = options.endDate;
-      }
+      where.timestamp = {
+        ...(options.startDate && { gte: options.startDate }),
+        ...(options.endDate && { lte: options.endDate }),
+      };
     }
 
     const [logs, total] = await Promise.all([
@@ -141,7 +138,7 @@ export class AuditService {
       organizationId?: string;
     }
   ) {
-    const where: any = { userId };
+    const where: import("@prisma/client").Prisma.AuditLogWhereInput = { userId };
 
     if (options?.organizationId) {
       where.organizationId = options.organizationId;

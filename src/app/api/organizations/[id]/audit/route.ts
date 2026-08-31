@@ -6,7 +6,7 @@
 
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { AuditService } from "@/services/AuditService";
+import { AuditService, AuditAction } from "@/services/AuditService";
 import { RBACService, ForbiddenError } from "@/services/RBACService";
 import { unauthorized, forbidden, serverError } from "@/lib/api/handlers";
 import { logger } from "@/lib/logger";
@@ -36,7 +36,7 @@ export async function GET(
     // Parse query parameters
     const limit = parseInt(url.searchParams.get("limit") || "100", 10);
     const offset = parseInt(url.searchParams.get("offset") || "0", 10);
-    const action = url.searchParams.get("action") as any;
+    const action = (url.searchParams.get("action") as AuditAction | null) || undefined;
     const filterUserId = url.searchParams.get("userId");
     const startDate = url.searchParams.get("startDate");
     const endDate = url.searchParams.get("endDate");

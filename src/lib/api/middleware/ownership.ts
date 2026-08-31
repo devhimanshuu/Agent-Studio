@@ -8,7 +8,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { unauthorized, forbidden, badRequest } from "@/lib/api/handlers";
+import { forbidden, badRequest } from "@/lib/api/handlers";
 import { OrgRole, OrgPermissionSet } from "@/services/RBACService";
 
 // ────────────── Types ──────────────
@@ -26,7 +26,7 @@ export interface OwnershipContext {
 
 export type RouteHandler = (
   request: Request,
-  context?: any
+  context?: Record<string, unknown>
 ) => Promise<Response>;
 
 // ────────────── Helpers ──────────────
@@ -91,8 +91,8 @@ export function requireOrgResource(
   resourceType: ResourceType,
   handler: RouteHandler
 ): RouteHandler {
-  return async (request: Request, context: any) => {
-    const { userId, organizationId } = context;
+  return async (request: Request, context: Record<string, unknown> = {}) => {
+    const { userId, organizationId } = context as { userId?: string; organizationId?: string };
 
     if (!organizationId) {
       return forbidden();
@@ -145,8 +145,8 @@ export function requireOrgResource(
 export function requireResourceOwner(
   handler: RouteHandler
 ): RouteHandler {
-  return async (request: Request, context: any) => {
-    const { role, isOwner } = context;
+  return async (request: Request, context: Record<string, unknown> = {}) => {
+    const { role, isOwner } = context as { role?: OrgRole; isOwner?: boolean };
 
     // Owners and admins bypass ownership check
     if (role === "OWNER" || role === "ADMIN") {
@@ -174,8 +174,8 @@ export function requireResourceOwner(
 export function requireResourceOwnerForDelete(
   handler: RouteHandler
 ): RouteHandler {
-  return async (request: Request, context: any) => {
-    const { role, isOwner } = context;
+  return async (request: Request, context: Record<string, unknown> = {}) => {
+    const { role, isOwner } = context as { role?: OrgRole; isOwner?: boolean };
 
     // Owners can delete anything
     if (role === "OWNER") {
@@ -208,8 +208,8 @@ export function requireResourceOwnerForDelete(
 export function validateOrgContext(
   handler: RouteHandler
 ): RouteHandler {
-  return async (request: Request, context: any) => {
-    const { organizationId } = context;
+  return async (request: Request, context: Record<string, unknown> = {}) => {
+    const { organizationId } = context as { organizationId?: string };
 
     if (!organizationId) {
       return forbidden();
@@ -237,8 +237,8 @@ export function enforceAction(
   action: "read" | "write" | "delete" | "execute",
   handler: RouteHandler
 ): RouteHandler {
-  return async (request: Request, context: any) => {
-    const { role, isOwner } = context;
+  return async (request: Request, context: Record<string, unknown> = {}) => {
+    const { role, isOwner } = context as { role?: OrgRole; isOwner?: boolean };
 
     // Owners and admins have full access
     if (role === "OWNER" || role === "ADMIN") {
