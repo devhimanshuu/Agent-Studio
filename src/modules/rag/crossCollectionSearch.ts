@@ -49,6 +49,8 @@ export interface CrossCollectionSearchOptions {
   useHybridSearch?: boolean;
   /** Enable re-ranking across all collections */
   useReranking?: boolean;
+  /** Factor to lower minScore for per-collection search (default: 0.5). The per-collection threshold = minScore * this factor, then post-filtered at minScore. */
+  perCollectionScoreFactor?: number;
 }
 
 export interface CrossCollectionResult {
@@ -161,17 +163,18 @@ export class CrossCollectionSearchEngine {
       if (!config.enabled || boost <= 0) return { config, results: [] as SemanticSearchResult[] };
 
       try {
-        const searchFn = useHybridSearch
+        const perCollMinScore = minScore * (options.perCollectionScoreFactor ?? 0.5);
+      const searchFn = useHybridSearch
           ? (q: string) => this.vectorStore.hybridSearch(q, {
               limit: perCollectionLimit,
-              minScore: minScore * 0.5, // Lower threshold per-collection, filter later
+              minScore: perCollMinScore,
               collection: config.name,
               userId,
               metadataFilter: config.metadataFilter,
             })
           : (q: string) => this.vectorStore.search(q, {
               limit: perCollectionLimit,
-              minScore: minScore * 0.5,
+              minScore: perCollMinScore,
               collection: config.name,
               userId,
               metadataFilter: config.metadataFilter,

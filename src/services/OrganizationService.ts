@@ -48,6 +48,7 @@ export interface MemberDTO {
   userName: string | null;
   userEmail: string;
   role: OrgRole;
+  customRoleId?: string | null;
   joinedAt: Date;
 }
 
@@ -204,10 +205,22 @@ export class OrganizationService {
 
   /**
    * Delete organization (Owner only)
+   * Cascades cleanup: members, custom roles, invitations, audit logs,
+   * API keys, and dissociates skills/executions/MCP servers/vault entries.
    */
   async delete(userId: string, organizationId: string): Promise<void> {
     // Only owner can delete
     await this.rbacService.requireOrgRole(userId, organizationId, "OWNER");
+
+    // Safety: prevent deleting if this is the user's last organization
+    const membershipCount = await prisma.organizationMember.count({
+      where: { userId },
+    });
+    if (membershipCount <= 1) {
+      throw new Error(
+        "Cannot delete your only organization. Create another organization first, or leave this one."
+      );
+    }
 
     // Log audit event before deletion
     await this.auditService.log({
@@ -217,9 +230,49 @@ export class OrganizationService {
       resourceType: "organization",
     });
 
-    await prisma.organization.delete({
-      where: { id: organizationId },
-    });
+    // Clean up all related data in a transaction to avoid FK constraint violations.
+    // Relations lack onDelete: Cascade in the Prisma schema, so we must
+    // manually delete child rows before removing the organization row.
+    await prisma.$transaction(
+      async (tx) => {
+        // 1. Members
+        await tx.organizationMember.deleteMany({ where: { organizationId } });
+
+        // 2. Invitations
+        await tx.invitation.deleteMany({ where: { organizationId } });
+
+        // 3. Custom roles
+        await tx.customRole.deleteMany({ where: { organizationId } });
+
+        // 4. Audit logs
+        await tx.auditLog.deleteMany({ where: { organizationId } });
+
+        // 5. API keys
+        await tx.apiKey.deleteMany({ where: { organizationId } });
+
+        // 6. Dissociate resources (set organizationId to null, do NOT delete them)
+        await tx.skill.updateMany({
+          where: { organizationId },
+          data: { organizationId: null },
+        });
+        await tx.execution.updateMany({
+          where: { organizationId },
+          data: { organizationId: null },
+        });
+        await tx.mcpServer.updateMany({
+          where: { organizationId },
+          data: { organizationId: null },
+        });
+        await tx.vaultEntry.updateMany({
+          where: { organizationId },
+          data: { organizationId: null },
+        });
+
+        // 7. Finally delete the organization itself
+        await tx.organization.delete({ where: { id: organizationId } });
+      },
+      { maxWait: 10_000, timeout: 30_000 }
+    );
 
     logger.info({ organizationId, userId }, "Organization deleted");
   }
@@ -406,6 +459,7 @@ export class OrganizationService {
       userName: m.user.name,
       userEmail: m.user.email,
       role: m.role as OrgRole,
+      customRoleId: m.customRoleId ?? null,
       joinedAt: m.joinedAt,
     }));
   }

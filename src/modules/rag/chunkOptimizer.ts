@@ -64,6 +64,22 @@ export interface ChunkQualityMetrics {
   overallScore: number;
 }
 
+/** Configurable thresholds for chunk quality analysis. */
+export interface ChunkQualityOptions {
+  /** Minimum viable chunk size in chars (default: 100) */
+  minChunkChars?: number;
+  /** Maximum optimal chunk size in chars (default: 1500) */
+  maxChunkChars?: number;
+  /** Target average chunk size in chars for scoring (default: 800) */
+  targetAvgChars?: number;
+  /** Target completeness ratio (default: 0.8) */
+  targetCompleteness?: number;
+  /** Penalty weight for too-small chunks (default: 0.3) */
+  tooSmallPenalty?: number;
+  /** Penalty weight for too-large chunks (default: 0.2) */
+  tooLargePenalty?: number;
+}
+
 export interface OptimizationResult {
   /** Best parameters found */
   optimalParams: ChunkingOptions;
@@ -161,8 +177,17 @@ export function profileDocument(document: string): DocumentProfile {
  */
 export function analyzeChunkQuality(
   chunks: DocumentChunk[],
-  documentTokens: number
+  documentTokens: number,
+  options: ChunkQualityOptions = {}
 ): ChunkQualityMetrics {
+  const {
+    minChunkChars = 100,
+    maxChunkChars = 1500,
+    targetAvgChars = 800,
+    targetCompleteness = 0.8,
+    tooSmallPenalty = 0.3,
+    tooLargePenalty = 0.2,
+  } = options;
   if (chunks.length === 0) {
     return {
       avgChunkChars: 0,
@@ -183,9 +208,9 @@ export function analyzeChunkQuality(
   const avgChunkTokens = tokenCounts.reduce((a, b) => a + b, 0) / tokenCounts.length;
   const sizeVarianceCV = computeCV(charCounts);
 
-  // Too small (< 100 chars) or too large (> 1500 chars)
-  const tooSmallRatio = charCounts.filter((c) => c < 100).length / chunks.length;
-  const tooLargeRatio = charCounts.filter((c) => c > 1500).length / chunks.length;
+  // Too small or too large based on configurable thresholds
+  const tooSmallRatio = charCounts.filter((c) => c < minChunkChars).length / chunks.length;
+  const tooLargeRatio = charCounts.filter((c) => c > maxChunkChars).length / chunks.length;
 
   // Overlap efficiency: unique content ratio
   const allContent = chunks.map((c) => c.content).join("\n");
@@ -205,10 +230,10 @@ export function analyzeChunkQuality(
   const coherenceScore = chunks.length > 0 ? coherenceHits / chunks.length : 1.0;
 
   // Overall score: weighted combination
-  const sizeBalance = 1 - Math.abs(0.5 - (avgChunkChars / 800)); // Target ~800 chars
-  const completeness = Math.min(1, (avgChunkChars * chunks.length) / documentTokens / 0.8);
-  const smallnessPenalty = tooSmallRatio * 0.3;
-  const largenessPenalty = tooLargeRatio * 0.2;
+  const sizeBalance = 1 - Math.abs(0.5 - (avgChunkChars / targetAvgChars));
+  const completeness = Math.min(1, (avgChunkChars * chunks.length) / documentTokens / targetCompleteness);
+  const smallnessPenalty = tooSmallRatio * tooSmallPenalty;
+  const largenessPenalty = tooLargeRatio * tooLargePenalty;
 
   const overallScore = Math.round(
     Math.max(0, Math.min(100,

@@ -38,6 +38,7 @@ export interface SkillDTO {
   name: string;
   purpose: string;
   status: SkillStatus;
+  organizationId?: string | null;
   currentDraftId?: string | null;
   publishedVersionId?: string | null;
   createdAt: Date;
@@ -51,6 +52,7 @@ export interface CreateSkillInput {
   userId: string;
   name: string;
   purpose: string;
+  organizationId?: string | null;
   inputSchema?: Record<string, unknown>;
   outputSchema?: Record<string, unknown>;
   instructions?: string;

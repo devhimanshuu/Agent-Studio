@@ -602,9 +602,9 @@ export class RBACService {
       return true;
     }
 
-    // Viewers can only read
-    if (membership.role === "VIEWER" && action !== "read") {
-      return false;
+    // Viewers can read all org resources but cannot write/delete/execute
+    if (membership.role === "VIEWER") {
+      return action === "read";
     }
 
     // Members can read and write their own resources

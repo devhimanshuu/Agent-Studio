@@ -4,7 +4,7 @@
 [![MCP](https://img.shields.io/badge/MCP-Protocol_Client_%26_Server-8A2BE2?style=for-the-badge&logoColor=white)](https://modelcontextprotocol.io)
 [![Database](https://img.shields.io/badge/Database-Neon_Postgres-02E693?style=for-the-badge&logo=postgresql&logoColor=white)](https://neon.tech)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict_Mode-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![Tests](https://img.shields.io/badge/Tests-58_Suites_Passing-brightgreen?style=for-the-badge&logo=vitest&logoColor=white)](https://vitest.dev)
+[![Tests](https://img.shields.io/badge/Tests-70_Suites_559_Passing-brightgreen?style=for-the-badge&logo=vitest&logoColor=white)](https://vitest.dev)
 [![React Flow](https://img.shields.io/badge/Canvas-XYFlow_React-FF0072?style=for-the-badge&logo=react&logoColor=white)](https://reactflow.dev)
 
 > **Live Application**: [https://agent-studio-v1.vercel.app](https://agent-studio-v1.vercel.app)  
@@ -114,6 +114,29 @@ Users can visually design **Multi-Agent Graphs**, orchestrate **Chained Workflow
 - **Custom OpenAPI Spec Import**: Paste any Swagger/OpenAPI URL (JSON or YAML) to auto-parse, introspect endpoints, and mount them as callable agent tools.
 - **Per-Endpoint Configuration**: Enable/disable individual endpoints, configure custom headers, and assign HITL approval gates on write operations.
 
+### 10. Visual Workflow Builder Enhancements
+- **Marketplace Drag-and-Drop Panel**: Pre-built workflow templates (Research Agent, Intent Classifier, HITL Approval Pipeline, RSS Monitor, Document Processor, Parallel Map-Reduce, Voice Pipeline, Iterative Refinement Loop) that can be searched, filtered by category, and dragged directly onto the canvas as complete node groups.
+- **Conditional Branching UI**: Visual branch editor for Router and Supervisor nodes with mode toggle between Deterministic (condition expression) and AI (LLM prompt) routing. Per-branch condition expressions with visual preview.
+- **Parallel Execution Visualization**: Animated progress bar showing completion across parallel branches with per-branch status chips (running/success/failed), ghost placeholders for pending branches, and duration display.
+- **Real-Time Execution Progress Overlay**: Floating overlay during live trace mode with progress bar, status breakdown grid (Running/Success/Failed/Waiting), active node details, HITL approval details, token summary, and live elapsed timer.
+- **Enhanced Version Diff Visualization**: Visual diff mode with color-coded node cards (green=added, red=removed, amber=changed), edge diff cards with status badges, list/visual toggle, and summary statistics bar.
+
+### 11. Execution Timeline Sidebar
+- **Vertical Chronological Timeline**: Processes live `ExecutionEvent` stream into structured step cards on a vertical connector line with colored status indicators (running=indigo pulse, success=green, failed=red, awaiting=amber, skipped=gray).
+- **Expandable Detail Panels**: Click any step to reveal output/errors, precise timestamps, and a sub-event timeline with type-specific icons for tool calls (cyan), LLM calls with token counts (violet), MCP calls (fuchsia), router decisions (amber), loop iterations (fuchsia), parallel branches (teal), approval gates (amber/green), and A2A delegations (purple).
+- **Search & Filter Controls**: Full-text search across node labels, IDs, types, and sub-events. Filter chips for status (RUNNING/SUCCESS/FAILED/AWAITING/SKIPPED) and node type dropdown.
+- **Timeline Export**: Export as structured JSON trace (with full metadata, ISO timestamps, sub-events) or formatted Markdown report (status emoji, step tables, horizontal rules).
+- **Canvas Focus & Pan/Zoom**: "Focus on canvas" button smoothly pans and zooms the viewport to center on the target node with a 2-second amber pulse highlight ring.
+- **Auto-scroll with Smart Pausing**: Follows latest events by default, but pauses auto-scroll when filters are active.
+
+### 12. Advanced RAG Features (`/modules/rag/`)
+- **Multi-Modal RAG Processor**: Extracts and embeds tables (markdown/CSV detection, structured `{headers, rows}` representation), code blocks (language detection, function/class boundary splitting, signature extraction), and images (alt-text + surrounding context) alongside standard text chunks.
+- **Graph-Based Knowledge Graph**: Pattern-based NER for 8 entity types (person, organization, technology, concept, location, document, method, metric), sliding-window co-occurrence relationship extraction, degree centrality computation, label-propagation community detection, BFS graph traversal, and entity-centric search with centrality boosting.
+- **Automatic Chunk Size Optimization**: Statistical analysis of chunk size distributions (mean, median, P90, P95, P99, variance), optimal boundary detection via F1-score against target range, quality scoring (completeness, overlap, token density), and adaptive recommendations.
+- **Cross-Collection Search**: Federated retrieval across multiple RAG collections with configurable per-collection score boosts, Maximal Marginal Relevance (MMR) diversity re-ranking, collection-aware analytics, and auto-discovery of available collections.
+- **Comprehensive RAG Evaluation Pipeline**: Extends RAG Triad with Context Precision, Context Recall, Faithfulness (sentence-level claim verification), Answer Relevance, Hallucination Detection (per-sentence with risk rating), Retrieval Quality (Precision@k, MRR), Per-Chunk Quality scoring, and aggregated Grade Assessment with configurable LLM judge and heuristic fallback.
+- **Condition Expression Editor**: Rich editor with syntax highlighting (12 token kinds), real-time autocomplete for state references (`results.*`, `input.*`, `item.*`), graph-aware node ID completion, operator suggestions, and real-time validation (unterminated strings, unbalanced parentheses, unknown references, missing operators).
+
 ---
 
 ## Architecture
@@ -129,11 +152,12 @@ Agent Studio
 |   `-- /api/                   -> REST & SSE Streaming Handlers
 |
 |-- Application & Domain Layer (Clean Architecture Services & Modules)
-|   |-- modules/graph/          -> Graph Interpreter, Safe Expression Evaluator, EventBus
+|   |-- modules/graph/          -> Graph Interpreter, Safe Expression Evaluator, EventBus, PreviewStore
 |   |-- modules/execution/      -> Graph Nodes, Planner, Execution Engine, Agent State
 |   |-- modules/approval/       -> HITL Approval Engine & Policy Rules
 |   |-- modules/tools/          -> Tool Registry & Builtin Tool Implementations
 |   |-- modules/openapi/        -> OpenAPI Parser, Presets, Spec Validator
+|   |-- modules/rag/            -> Multi-Modal Processor, Knowledge Graph, Chunk Optimizer, Cross-Collection Search, Eval Pipeline
 |   |-- lib/converters/         -> Dify YAML & n8n JSON AST Converters
 |   `-- services/               -> ExecutionService, SkillService, ApprovalService, VersionService, OpenApiService
 |
@@ -141,6 +165,347 @@ Agent Studio
     |-- providers/llm/          -> GroqProvider, OpenRouterProvider, Resilient LLMRouter, Live Pricing
     |-- repositories/           -> Prisma Repositories with Dependency Inversion Interfaces
     `-- lib/                    -> Structured Logging (Pino), Rate Limiter, Env Validation (Zod)
+```
+
+### System Architecture Diagram
+
+```mermaid
+graph TB
+    subgraph Presentation["Presentation Layer"]
+        direction LR
+        Canvas["Canvas Builder<br/>React Flow + XYFlow + Dagre"]
+        SkillsUI["Skills Studio<br/>CRUD + Versions + Compare"]
+        ExecUI["Execution History<br/>Traces + Replay + Metrics"]
+        ReviewUI["HITL Review Queue<br/>Approval Gates"]
+        MCPUI["MCP Hub<br/>500+ Servers + Directory"]
+        OpenAPIUI["OpenAPI Hub<br/>2500+ APIs"]
+    end
+
+    subgraph API["API Layer — Next.js Route Handlers"]
+        direction LR
+        SkillsAPI["/api/skills<br/>CRUD + Publish + RBAC"]
+        ExecAPI["/api/executions<br/>Start + Replay + SSE Stream"]
+        CanvasAPI["/api/canvas/preview<br/>Live Ghost Preview"]
+        MCPAPI["/api/mcp<br/>Client + Server + Directory"]
+        OrgAPI["/api/organizations<br/>Members + Roles + Audit"]
+        ApprovAPI["/api/approvals<br/>HITL Queue"]
+    end
+
+    subgraph Services["Service Layer — Business Logic"]
+        direction LR
+        SkillSvc["SkillService<br/>Versioning + Diff"]
+        ExecSvc["ExecutionService<br/>Orchestration"]
+        RBACSvc["RBACService<br/>Org + Custom Roles"]
+        OrgSvc["OrganizationService<br/>Multi-Tenancy"]
+        ApprovSvc["ApprovalService<br/>Idempotency Gates"]
+        AuditSvc["AuditService<br/>Immutable Logs"]
+        PlanSvc["PlanLimitsService<br/>Usage Quotas"]
+        McpSvc["McpClientService<br/>SSE + Streamable HTTP"]
+        OpenApiSvc["OpenApiService<br/>Spec Parsing"]
+    end
+
+    subgraph Modules["Core Runtime Modules"]
+        direction LR
+        subgraph GraphMod["Graph Engine"]
+            GI["Graph Interpreter<br/>State Machine v2"]
+            EE["Expression Evaluator<br/>Safe JSONPath"]
+            EB["EventBus<br/>SSE Telemetry"]
+            PS["PreviewStore<br/>Ghost Dry-Run"]
+        end
+
+        subgraph ExecMod["Execution Engine"]
+            PL["Planner<br/>LLM + Rule Routing"]
+            EX["Executor<br/>Step Runner"]
+            AS["Agent State<br/>Typed Transitions"]
+        end
+
+        subgraph RAGMod["RAG Pipeline"]
+            MMP["Multi-Modal<br/>Tables + Code + Images"]
+            KG["Knowledge Graph<br/>NER + Relationships"]
+            CO["Chunk Optimizer<br/>F1 Boundary Detection"]
+            CCS["Cross-Collection<br/>MMR Diversity Re-ranking"]
+            RAGP["Eval Pipeline<br/>10+ Metrics + Hallucination"]
+        end
+
+        subgraph MCPMod["MCP Ecosystem"]
+            MCPClient["MCP Client<br/>SSE + stdio Connectors"]
+            MCPServer["MCP Server<br/>/api/mcp/sse Endpoint"]
+            MCPDir["MCP Directory<br/>500+ Presets"]
+            MCPComp["Server Composition<br/>Multi-Stage Chains"]
+        end
+
+        subgraph ToolMod["Tool Registry"]
+            TR["8 Builtin Tools<br/>Calculator + AI + Search"]
+            OAPI["OpenAPI Parser<br/>Swagger + Presets"]
+        end
+
+        subgraph ApprovalMod["Approval Engine"]
+            AE["Approval Engine<br/>Policy Rules"]
+            HITL["HITL Gates<br/>Auto-Approval + Timeout"]
+        end
+    end
+
+    subgraph Infra["Infrastructure Layer"]
+        direction LR
+        Prisma["Prisma ORM<br/>Neon PostgreSQL"]
+        Clerk["Clerk Auth<br/>Sessions + Orgs"]
+        LLMRouter["LLM Router<br/>Groq + OpenRouter<br/>Circuit Breaker + Live Pricing"]
+        Pino["Pino Logger<br/>Structured JSON"]
+        Vault["Vault Service<br/>Encrypted Secrets"]
+    end
+
+    %% ── Presentation → API ──
+    Canvas --> CanvasAPI
+    SkillsUI --> SkillsAPI
+    ExecUI --> ExecAPI
+    ReviewUI --> ApprovAPI
+    MCPUI --> MCPAPI
+    OpenAPIUI --> MCPAPI
+
+    %% ── API → Services ──
+    SkillsAPI --> SkillSvc
+    SkillsAPI --> RBACSvc
+    ExecAPI --> ExecSvc
+    CanvasAPI --> ExecSvc
+    OrgAPI --> OrgSvc
+    OrgAPI --> RBACSvc
+    ApprovAPI --> ApprovSvc
+    MCPAPI --> McpSvc
+
+    %% ── Services → Modules ──
+    SkillSvc --> Prisma
+    ExecSvc --> GI
+    ExecSvc --> PL
+    ExecSvc --> EX
+    ExecSvc --> EB
+    RBACSvc --> Prisma
+    OrgSvc --> Prisma
+    ApprovSvc --> AE
+    McpSvc --> MCPClient
+    OpenApiSvc --> OAPI
+
+    %% ── Module dependencies ──
+    GI --> EE
+    GI --> EB
+    PL --> LLMRouter
+    EX --> TR
+    EX --> AE
+    TR --> MCPClient
+    MMP --> Prisma
+    KG --> Prisma
+    CO --> MMP
+    CCS --> Prisma
+    RAGP --> LLMRouter
+    MCPServer --> McpSvc
+    MCPComp --> MCPClient
+
+    %% ── All → Infra ──
+    SkillSvc --> Clerk
+    OrgSvc --> Clerk
+    ExecSvc --> Pino
+    GI --> Pino
+    LLMRouter --> Pino
+
+    classDef presentation fill:#3b82f6,stroke:#1e40af,color:#fff
+    classDef api fill:#8b5cf6,stroke:#6d28d9,color:#fff
+    classDef service fill:#10b981,stroke:#047857,color:#fff
+    classDef module fill:#f59e0b,stroke:#b45309,color:#000
+    classDef infra fill:#6b7280,stroke:#374151,color:#fff
+
+    class Canvas,SkillsUI,ExecUI,ReviewUI,MCPUI,OpenAPIUI presentation
+    class SkillsAPI,ExecAPI,CanvasAPI,MCPAPI,OrgAPI,ApprovAPI api
+    class SkillSvc,ExecSvc,RBACSvc,OrgSvc,ApprovSvc,AuditSvc,PlanSvc,McpSvc,OpenApiSvc service
+    class GI,EE,EB,PS,PL,EX,AS,MMP,KG,CO,CCS,RAGP,MCPClient,MCPServer,MCPDir,MCPComp,TR,OAPI,AE,HITL module
+    class Prisma,Clerk,LLMRouter,Pino,Vault infra
+```
+
+### Data Flow — Canvas Execution Pipeline
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant CV as Canvas UI
+    participant API as /api/executions
+    participant ES as ExecutionService
+    participant PL as Planner
+    participant GI as Graph Interpreter
+    participant EX as Executor
+    participant LLM as LLM Router
+    participant TR as Tool Registry
+    participant EB as EventBus
+    participant SSE as SSE Stream
+
+    U->>CV: Click "Run Graph"
+    CV->>API: POST /api/executions {versionId, input}
+    API->>ES: startExecution()
+    ES->>PL: planNext(state)
+    PL->>LLM: completion(prompt)
+    LLM-->>PL: tool_calls + reasoning
+    PL-->>ES: execution plan
+    ES->>GI: execute(graph, state)
+    loop For each node
+        GI->>EB: emit(step_start, {nodeId})
+        GI->>EX: executeNode(node, state)
+        EX->>TR: tool.execute(params)
+        TR-->>EX: result
+        EX-->>GI: node output
+        GI->>EB: emit(step_complete, {nodeId, output})
+        EB-->>SSE: stream event
+        SSE-->>CV: live node highlight
+    end
+    GI-->>ES: final state
+    ES->>EB: emit(execution_complete)
+    EB-->>SSE: completion event
+    SSE-->>CV: trace summary + metrics
+```
+
+### Data Flow — RAG Pipeline Integration
+
+```mermaid
+graph LR
+    subgraph Input["Document Ingestion"]
+        DOC["Raw Document<br/>PDF, MD, HTML"]
+    end
+
+    subgraph Processing["Multi-Modal Processing"]
+        MMP["Multi-Modal<br/>Processor"]
+        TAB["Table Extractor<br/>MD/CSV → structured"]
+        CODE["Code Extractor<br/>Lang detect + split"]
+        IMG["Image Extractor<br/>Alt-text + context"]
+    end
+
+    subgraph Chunking["Intelligent Chunking"]
+        CS["Chunking Service<br/>Overlapping windows"]
+        CO["Chunk Optimizer<br/>F1 boundary detection"]
+    end
+
+    subgraph Embedding["Embedding Pipeline"]
+        ES["Embedding Service<br/>Vector generation"]
+        PG["pgvector Store<br/>Hybrid dense+sparse"]
+    end
+
+    subgraph Enrichment["Knowledge Enrichment"]
+        KG["Knowledge Graph<br/>NER + Relationships"]
+        CL["Cluster Visualizer<br/>t-SNE / UMAP"]
+    end
+
+    subgraph Retrieval["Query & Retrieval"]
+        QR["Query Router<br/>Hybrid search"]
+        RR["Reranker<br/>Cross-encoder"]
+        CCS["Cross-Collection<br/>Federated + MMR"]
+    end
+
+    subgraph Eval["Evaluation"]
+        RAGP["Eval Pipeline<br/>10+ metrics"]
+        HALL["Hallucination<br/>Detection"]
+        GRADE["Grade Assessment<br/>LLM Judge + Heuristic"]
+    end
+
+    DOC --> MMP
+    MMP --> TAB
+    MMP --> CODE
+    MMP --> IMG
+    TAB --> CS
+    CODE --> CS
+    IMG --> CS
+    CS --> CO
+    CO --> ES
+    ES --> PG
+    PG --> KG
+    KG --> CL
+    PG --> QR
+    QR --> RR
+    RR --> CCS
+    CCS --> RAGP
+    RAGP --> HALL
+    RAGP --> GRADE
+
+    classDef input fill:#ef4444,stroke:#b91c1c,color:#fff
+    classDef process fill:#f59e0b,stroke:#b45309,color:#000
+    classDef store fill:#3b82f6,stroke:#1e40af,color:#fff
+    classDef enrich fill:#8b5cf6,stroke:#6d28d9,color:#fff
+    classDef retrieve fill:#10b981,stroke:#047857,color:#fff
+    classDef eval fill:#ec4899,stroke:#be185d,color:#fff
+
+    class DOC input
+    class MMP,TAB,CODE,IMG,CS,CO process
+    class ES,PG store
+    class KG,CL enrich
+    class QR,RR,CCS retrieve
+    class RAGP,HALL,GRADE eval
+```
+
+### MCP Ecosystem Data Flow
+
+```mermaid
+graph TB
+    subgraph External["External MCP Clients"]
+        CUR["Cursor IDE"]
+        CLAUDE["Claude Desktop"]
+        ANTI["Antigravity"]
+        OTHER["Any MCP Client"]
+    end
+
+    subgraph Server["Agent Studio MCP Server"]
+        SSE["/api/mcp/sse<br/>Streamable HTTP"]
+        MSG["/api/mcp/messages<br/>Session Handler"]
+        AUTH["Auth Layer<br/>Clerk Session / Bearer Token"]
+    end
+
+    subgraph Tools["Published Skills as MCP Tools"]
+        SK1["Skill: Refund Flow"]
+        SK2["Skill: Invoice Screen"]
+        SK3["Skill: Triage Agent"]
+    end
+
+    subgraph ClientSide["Agent Studio MCP Client"]
+        MCLI["McpClientService<br/>SSE + stdio Connectors"]
+        DISC["Tool Discovery<br/>tools/list + Schema Validation"]
+        REG["Tool Registry<br/>Runtime Catalog"]
+    end
+
+    subgraph Directory["500+ MCP Server Directory"]
+        GLAMA["Glama.ai"]
+        MCPSO["mcp.so"]
+        AWESOME["awesome-mcp"]
+    end
+
+    subgraph Comp["Server Composition"]
+        CHAIN["Multi-Stage Chains<br/>MCP Server A → B → C"]
+        PIPE["Execution Pipeline<br/>Unified Input/Output"]
+    end
+
+    CUR --> AUTH
+    CLAUDE --> AUTH
+    ANTI --> AUTH
+    OTHER --> AUTH
+    AUTH --> SSE
+    SSE --> MSG
+    MSG --> SK1
+    MSG --> SK2
+    MSG --> SK3
+
+    GLAMA --> MCLI
+    MCPSO --> MCLI
+    AWESOME --> MCLI
+    MCLI --> DISC
+    DISC --> REG
+    REG --> CHAIN
+    CHAIN --> PIPE
+
+    classDef external fill:#64748b,stroke:#475569,color:#fff
+    classDef server fill:#8b5cf6,stroke:#6d28d9,color:#fff
+    classDef tools fill:#10b981,stroke:#047857,color:#fff
+    classDef client fill:#3b82f6,stroke:#1e40af,color:#fff
+    classDef directory fill:#f59e0b,stroke:#b45309,color:#000
+    classDef comp fill:#ec4899,stroke:#be185d,color:#fff
+
+    class CUR,CLAUDE,ANTI,OTHER external
+    class SSE,MSG,AUTH server
+    class SK1,SK2,SK3 tools
+    class MCLI,DISC,REG client
+    class GLAMA,MCPSO,AWESOME directory
+    class CHAIN,PIPE comp
 ```
 
 ---
@@ -174,7 +539,7 @@ Every tool implements the unified `ITool` contract (`id`, `name`, `description`,
 - **AI & LLM Routing**: [Groq SDK](https://groq.com/), [OpenRouter API](https://openrouter.ai/) with custom circuit-breaker failover router
 - **Streaming & Real-Time**: Server-Sent Events (SSE) via native Web Streams API
 - **Observability & Logging**: [Pino](https://getpino.io/) structured JSON logger
-- **Testing**: [Vitest](https://vitest.dev/) (58 test suites, 385 tests), [Playwright](https://playwright.dev/) (E2E Smoke)
+- **Testing**: [Vitest](https://vitest.dev/) (70 test suites, 559 tests), [Playwright](https://playwright.dev/) (E2E Smoke)
 
 ---
 
@@ -214,6 +579,14 @@ Every tool implements the unified `ITool` contract (`id`, `name`, `description`,
 │   │   └── layout.tsx                 # Root layout with Clerk, Theme, and Sidebar providers
 │   ├── components/
 │   │   ├── canvas/                    # AgentGraphCanvas, CanvasNodes, NodeInspector, AutoLayout, Diff
+│   │   │   ├── AgentGraphCanvas.tsx   # Main canvas with fullscreen/normal layouts, pan/zoom, highlight
+│   │   │   ├── MarketplacePanel.tsx   # Drag-and-drop workflow templates marketplace
+│   │   │   ├── ConditionalBranchEditor.tsx # Visual branch editor for router/supervisor nodes
+│   │   │   ├── ConditionExpressionEditor.tsx # Syntax-highlighted expression editor with autocomplete
+│   │   │   ├── ExecutionProgressOverlay.tsx # Real-time execution progress floating overlay
+│   │   │   ├── ExecutionTimeline.tsx  # Vertical timeline sidebar with search, filter, export
+│   │   │   ├── ParallelBranchProgress.tsx # Parallel branch progress visualization
+│   │   │   └── GraphDiffModal.tsx     # Visual diff modal with color-coded node/edge cards
 │   │   ├── workflows/                 # WorkflowForm, WorkflowCard, WorkflowStepChain, Templates
 │   │   ├── common/                    # BrandLogos (exact SVG vectors for OpenRouter & Groq)
 │   │   ├── landing/                   # LiveAgentCanvasDemo playground
@@ -227,6 +600,18 @@ Every tool implements the unified `ITool` contract (`id`, `name`, `description`,
 │   │   ├── history/                   # ExecutionHistoryService
 │   │   ├── mcp/                       # MCP protocol, client service, presets, server implementation
 │   │   ├── openapi/                   # OpenAPI parser, presets, spec validation
+│   │   ├── rag/                       # RAG pipeline modules (see below)
+│   │   │   ├── multiModalProcessor.ts # Table, code, image chunk extraction
+│   │   │   ├── knowledgeGraph.ts      # Entity extraction, relationship mapping, community detection
+│   │   │   ├── chunkOptimizer.ts      # Chunk size analysis, boundary optimization, quality scoring
+│   │   │   ├── crossCollectionSearch.ts # Federated cross-collection search with MMR re-ranking
+│   │   │   ├── ragEvalPipeline.ts     # Comprehensive RAG evaluation (10+ metrics)
+│   │   │   ├── chunkingService.ts     # Text chunking & overlap strategies
+│   │   │   ├── embeddingService.ts    # Embedding generation & batching
+│   │   │   ├── evaluation.ts          # RAG triad evaluation (context, faithfulness, relevance)
+│   │   │   ├── pgvectorStore.ts       # pgvector storage, search, and hybrid retrieval
+│   │   │   ├── reranker.ts            # Cross-encoder reranking
+│   │   │   └── clusterVisualizer.ts   # t-SNE/UMAP cluster visualization
 │   │   └── tools/                     # Tool Registry + 8 Builtin Tool Implementations
 │   ├── providers/llm/                 # LLMProvider, GroqProvider, OpenRouterProvider, LLMRouter, Live Pricing
 │   ├── repositories/                  # Prisma data repositories (+ Dependency Inversion interfaces)
@@ -238,7 +623,7 @@ Every tool implements the unified `ITool` contract (`id`, `name`, `description`,
 │   │   └── logger/                    # Structured logging (Pino)
 │   └── validators/                    # Zod schemas for graphs, skills, executions, and requests
 └── tests/
-    └── unit/                          # Vitest unit suites (58 test files, 385 passing tests)
+    └── unit/                          # Vitest unit suites (70 test files, 559 passing tests)
 ```
 
 ---
@@ -357,7 +742,7 @@ npm run build
 ```
 
 **Verification Results:**
-- **58 Test Suites Passed (385 / 385 Tests Passing)** with 100% success rate.
+- **70 Test Suites Passed (559 / 559 Tests Passing)** with 100% success rate.
 - **0 ESLint Errors & 0 Warnings** across all components, API routes, and modules.
 - **0 TypeScript Type Errors** under strict compiler configuration.
 - **Clean Next.js 15 Production Build** across all 64 pages and 70+ dynamic API endpoints.
@@ -369,7 +754,6 @@ npm run build
 - **Multi-Tenant Organization Workspaces**: Role-Based Access Control (RBAC) supporting Owner, Admin, Developer, and Auditor roles with workspace-level isolation.
 - **Community Skill & Graph Template Marketplace**: Public marketplace for publishing, discovering, rating, and 1-click cloning agent workflows and custom skill definitions.
 - **Webhook & Notification Integrations**: Automated alert dispatching to Slack, Discord, and custom webhook endpoints for review queue approvals and failed executions.
-- **Native Vector Database Connectors**: Direct integration with Qdrant, Pinecone, and pgvector for managed hybrid RAG search across knowledge bases.
 - **Per-Node Token Analytics & Cost Attribution**: Real-time token usage telemetry and exact dollar cost tracking aggregated per canvas node and workflow step.
 
 ---

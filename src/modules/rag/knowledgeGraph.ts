@@ -87,6 +87,13 @@ export interface EntityExtractionResult {
   relationships: KGRelationship[];
 }
 
+export interface EntityExtractionOptions {
+  /** Character window for co-occurrence detection (default: 150) */
+  coOccurrenceWindow?: number;
+  /** Minimum entity frequency to keep (default: 1) */
+  minFrequency?: number;
+}
+
 export interface GraphSearchResult {
   entity: KGEntity;
   score: number;
@@ -105,8 +112,10 @@ export interface GraphSearchResult {
 export function extractEntities(
   text: string,
   sourceId: string,
-  existingEntities?: Map<string, KGEntity>
+  existingEntities?: Map<string, KGEntity>,
+  options: EntityExtractionOptions = {}
 ): EntityExtractionResult {
+  const { coOccurrenceWindow = 150, minFrequency = 1 } = options;
   const entities: KGEntity[] = [];
   const relationships: KGRelationship[] = [];
   const existing = existingEntities || new Map<string, KGEntity>();
@@ -178,12 +187,15 @@ export function extractEntities(
   // ── Relationship Extraction ──
   // Find co-occurring entities within sliding windows
   const allEntityEntries = Array.from(extractedEntityMap.values());
-  const windowSize = 150; // characters
+  const windowSize = coOccurrenceWindow;
 
   for (let i = 0; i < allEntityEntries.length; i++) {
     for (let j = i + 1; j < allEntityEntries.length; j++) {
       const a = allEntityEntries[i];
       const b = allEntityEntries[j];
+
+      // Skip low-frequency entities
+      if (a.count < minFrequency || b.count < minFrequency) continue;
 
       // Check if they co-occur within the window
       const coOccurs = a.positions.some((posA) =>

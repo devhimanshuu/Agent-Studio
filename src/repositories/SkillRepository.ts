@@ -80,13 +80,33 @@ export class SkillRepository implements ISkillRepository {
     });
     const isAdmin = user?.role === "ADMIN";
 
-    const where: Prisma.SkillWhereInput = {
-      ...(isAdmin ? {} : { userId }),
-      ...(query.status && { status: query.status }),
-      ...(query.search && {
-        name: { contains: query.search, mode: "insensitive" },
-      }),
-    };
+    // For non-admins, include personal skills AND org skills the user has access to
+    let where: Prisma.SkillWhereInput;
+    if (isAdmin) {
+      where = {};
+    } else {
+      // Get organization IDs the user belongs to
+      const memberships = await prisma.organizationMember.findMany({
+        where: { userId },
+        select: { organizationId: true },
+      });
+      const orgIds = memberships.map((m) => m.organizationId);
+
+      where = {
+        OR: [
+          { userId }, // Personal skills
+          ...(orgIds.length > 0 ? [{ organizationId: { in: orgIds } }] : []), // Org skills
+        ],
+      };
+    }
+
+    // Apply optional filters
+    if (query.status) {
+      where = { AND: [where, { status: query.status }] };
+    }
+    if (query.search) {
+      where = { AND: [where, { name: { contains: query.search, mode: "insensitive" } }] };
+    }
 
     const sortBy = query.sortBy ?? "updatedAt";
     const sortOrder = query.sortOrder ?? "desc";
@@ -114,6 +134,7 @@ export class SkillRepository implements ISkillRepository {
             userId: input.userId,
             name: input.name,
             purpose: input.purpose,
+            ...(input.organizationId ? { organizationId: input.organizationId } : {}),
             versions: {
               create: {
                 versionNumber: 1,
@@ -401,6 +422,7 @@ export class SkillRepository implements ISkillRepository {
       name: s.name,
       purpose: s.purpose,
       status: s.status,
+      organizationId: s.organizationId ?? null,
       currentDraftId: s.currentDraftId,
       publishedVersionId: s.publishedVersionId,
       createdAt: s.createdAt,
