@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { unauthorized, notFound } from "@/lib/api/handlers";
 import { fetchWithRetry } from "@/lib/fetch-utils";
+import { logger } from "@/lib/logger";
 import {
   convertDifyToAgentGraph,
   convertDifyToWorkflowTemplate,
@@ -68,7 +69,7 @@ export async function GET(
         dslParsed = parseDifyDslYaml(rawDsl);
       }
     } catch (dslErr) {
-      console.warn(`[Dify DSL fetch warning for #${id}]:`, dslErr);
+      logger.warn({ err: dslErr, workflowId: id }, "Dify DSL fetch warning");
     }
 
     // 3. Convert Dify workflow DSL to Agent Studio Graph
@@ -136,7 +137,7 @@ export async function GET(
       data: payload,
     });
   } catch (error: unknown) {
-    console.error(`[Dify template detail API error for #${id}]:`, error);
+    logger.error({ err: error, workflowId: id }, "Dify template detail API error");
     const message = error instanceof Error ? error.message : `Failed to fetch Dify template #${id}`;
     return NextResponse.json(
       {

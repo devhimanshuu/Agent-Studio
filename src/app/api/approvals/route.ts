@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { respondApprovalSchema } from "@/validators/approvalSchema";
-import { unauthorized, badRequest, handleApiError } from "@/lib/api/handlers";
+import { unauthorized, handleApiError } from "@/lib/api/handlers";
 import { rateLimit } from "@/lib/api/rateLimit";
 import { apiServices } from "@/lib/api/services";
 import { prisma } from "@/lib/prisma";

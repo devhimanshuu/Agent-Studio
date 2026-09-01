@@ -43,6 +43,8 @@ interface BatchEmbeddingOptions {
 }
 
 /** Standard OpenAI embedding dimensions */
+import { logger } from "@/lib/logger";
+
 export const DEFAULT_EMBEDDING_DIM = 1536;
 
 /**
@@ -63,7 +65,7 @@ export async function generateEmbedding(options: EmbeddingOptions): Promise<Embe
     try {
       return await embedWithOpenAI(cleanText, model, dimensions);
     } catch (error) {
-      console.warn("OpenAI embedding failed, attempting fallback:", error);
+      logger.warn({ err: error }, "OpenAI embedding failed, attempting fallback");
       if (provider === "openai") throw error;
     }
   }
@@ -73,7 +75,7 @@ export async function generateEmbedding(options: EmbeddingOptions): Promise<Embe
     try {
       return await embedWithGroq(cleanText, model);
     } catch (error) {
-      console.warn("Groq embedding failed, attempting fallback:", error);
+      logger.warn({ err: error }, "Groq embedding failed, attempting fallback");
       if (provider === "groq") throw error;
     }
   }
@@ -83,7 +85,7 @@ export async function generateEmbedding(options: EmbeddingOptions): Promise<Embe
     try {
       return await embedWithOpenRouter(cleanText, model);
     } catch (error) {
-      console.warn("OpenRouter embedding failed, attempting fallback:", error);
+      logger.warn({ err: error }, "OpenRouter embedding failed, attempting fallback");
       if (provider === "openrouter") throw error;
     }
   }
@@ -93,7 +95,7 @@ export async function generateEmbedding(options: EmbeddingOptions): Promise<Embe
     try {
       return await embedWithOllama(cleanText, model);
     } catch (error) {
-      console.warn("Ollama embedding failed, attempting fallback:", error);
+      logger.warn({ err: error }, "Ollama embedding failed, attempting fallback");
       if (provider === "ollama") throw error;
     }
   }

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useState } from "react";
+import { logger } from "@/lib/logger";
 import { Download, X, Image, Code2, FileJson, Loader2, FileCode2, FileText, GitBranch, Code, FileType } from "lucide-react";
 import { clsx } from "clsx";
 import {
@@ -92,7 +93,7 @@ export function ExportDialog({ isOpen, onClose, graph, canvasContainerRef }: Exp
         }
         onClose();
       } catch (e) {
-        console.error("Export failed:", e);
+        logger.error({ err: e }, "Export failed");
       } finally {
         setExporting(null);
       }

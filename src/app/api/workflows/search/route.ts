@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { unauthorized } from "@/lib/api/handlers";
 import { fetchWithRetry } from "@/lib/fetch-utils";
+import { logger } from "@/lib/logger";
 import { CANVAS_TEMPLATES } from "@/components/canvas/AgentGraphTemplates";
 import { WORKFLOW_TEMPLATES } from "@/components/workflows/WorkflowTemplates";
 
@@ -571,7 +572,7 @@ export async function GET(request: Request) {
     unifiedSearchCache.set(cacheKey, { data: payload, timestamp: Date.now() });
     return NextResponse.json({ success: true, ...payload });
   } catch (error: unknown) {
-    console.error("[Unified workflows search API error]:", error);
+    logger.error({ err: error }, "Unified workflows search API error");
     const message = error instanceof Error ? error.message : "Failed to search workflows";
     return NextResponse.json(
       {

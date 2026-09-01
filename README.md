@@ -768,6 +768,26 @@ npm run build
 
 ---
 
+## 👨‍💻 Developer & Maintainer
+
+```typescript
+interface Developer {
+  name: "Himanshu";
+  github: "https://github.com/devhimanshuu";
+  role: "Creator & Lead Architect";
+  project: "Agent Studio";
+  stack: ["Next.js 15", "TypeScript", "React Flow", "MCP", "Prisma", "PostgreSQL"];
+  mission: "Architecting autonomous visual agent ecosystems and multi-agent workflows 🚀";
+}
+```
+
+<p align="left">
+  <b>Engineered with ❤️ & ☕ by <a href="https://github.com/devhimanshuu">Himanshu (@devhimanshuu)</a></b>
+</p>
+
+---
+
 ## License
 
 This project is open-source software licensed under the **MIT License**.
+

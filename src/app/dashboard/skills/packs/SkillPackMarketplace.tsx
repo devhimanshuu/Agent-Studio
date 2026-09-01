@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useMemo } from "react";
+import { logger } from "@/lib/logger";
 import {
   Layers,
   Container,
@@ -186,7 +187,7 @@ export function SkillPackMarketplace() {
           toast.error("Pack installation failed", state.errors.join("; "));
         }
       } catch (err) {
-        console.error("[PackInstall] Failed:", err);
+        logger.error({ err }, "Pack install failed");
         toast.error("Install failed", err instanceof Error ? err.message : "Unknown error");
       } finally {
         setInstallingPack(null);

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { unauthorized, notFound } from "@/lib/api/handlers";
 import { fetchWithRetry } from "@/lib/fetch-utils";
+import { logger } from "@/lib/logger";
 import { convertN8nToAgentGraph, convertN8nToWorkflowTemplate } from "@/lib/converters/n8n-converter";
 
 export const revalidate = 600;
@@ -94,7 +95,7 @@ export async function GET(
       data: payload,
     });
   } catch (error: unknown) {
-    console.error(`[n8n workflow detail API error for #${id}]:`, error);
+    logger.error({ err: error, workflowId: id }, "n8n workflow detail API error");
     const message = error instanceof Error ? error.message : `Failed to fetch n8n workflow #${id}`;
     return NextResponse.json(
       {

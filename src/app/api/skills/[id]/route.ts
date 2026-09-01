@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { updateSkillSchema } from "@/validators/skillSchema";
-import { unauthorized, badRequest, handleApiError } from "@/lib/api/handlers";
+import { unauthorized, handleApiError } from "@/lib/api/handlers";
 import { NotFoundError } from "@/services/RBACService";
 import { apiServices } from "@/lib/api/services";
 

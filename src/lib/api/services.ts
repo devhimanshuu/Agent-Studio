@@ -14,7 +14,6 @@ import { ExecutionService } from "@/services/ExecutionService";
 import { RBACService } from "@/services/RBACService";
 import { SkillService } from "@/services/SkillService";
 import { AuditService } from "@/services/AuditService";
-import { PlanLimitsService } from "@/services/PlanLimitsService";
 import { CustomRoleService } from "@/services/CustomRoleService";
 import { ApiKeyService } from "@/services/ApiKeyService";
 import { OrganizationService } from "@/services/OrganizationService";
@@ -57,7 +56,6 @@ interface ApiServices {
   rbacService: RBACService;
   skillService: SkillService;
   auditService: AuditService;
-  planLimitsService: PlanLimitsService;
   customRoleService: CustomRoleService;
   apiKeyService: ApiKeyService;
   organizationService: OrganizationService;
@@ -97,7 +95,6 @@ function build(): ApiServices {
   const rbacService = new RBACService();
   const skillService = new SkillService(skillRepo, auditRepo);
   const auditService = new AuditService();
-  const planLimitsService = new PlanLimitsService();
   const customRoleService = new CustomRoleService();
   const apiKeyService = new ApiKeyService();
   const organizationService = new OrganizationService(rbacService, auditService);
@@ -121,7 +118,6 @@ function build(): ApiServices {
     rbacService,
     skillService,
     auditService,
-    planLimitsService,
     customRoleService,
     apiKeyService,
     organizationService,

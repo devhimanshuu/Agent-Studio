@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { unauthorized } from "@/lib/api/handlers";
 import { fetchWithRetry } from "@/lib/fetch-utils";
+import { logger } from "@/lib/logger";
 
 export const revalidate = 300;
 
@@ -173,7 +174,7 @@ export async function GET(request: Request) {
       ...responsePayload,
     });
   } catch (error: unknown) {
-    console.error("[Dify templates search API error]:", error);
+    logger.error({ err: error }, "Dify templates search API error");
     const message = error instanceof Error ? error.message : "Failed to fetch Dify workflow templates";
     return NextResponse.json(
       {

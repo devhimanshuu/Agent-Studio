@@ -5,7 +5,6 @@ import { InstallPackInput, PackInstallationState } from "@/types/skillPacks";
 import { createSkillSchema } from "@/validators/skillSchema";
 import { apiServices } from "@/lib/api/services";
 import { logger } from "@/lib/logger";
-import { handleApiError } from "@/lib/api/handlers";
 
 export const dynamic = "force-dynamic";
 

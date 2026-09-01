@@ -4,8 +4,9 @@ import { auth } from "@clerk/nextjs/server";
 import { unauthorized, forbidden, badRequest, handleApiError } from "@/lib/api/handlers";
 import { apiServices } from "@/lib/api/services";
 import { rateLimit } from "@/lib/api/rate-limit";
+import { parseJsonBody } from "@/lib/api/bodyLimit";
 
-const { skillService, rbacService, planLimitsService, skillRepo } = apiServices();
+const { skillService, rbacService, skillRepo } = apiServices();
 
 /**
  * GET /api/skills — List skills
@@ -62,10 +63,11 @@ export async function POST(request: Request) {
   if (!userId) return unauthorized();
 
   try {
-    const body = await request.json();
+    const { data: body, error: bodyError } = await parseJsonBody<Record<string, unknown>>(request);
+    if (bodyError) return bodyError;
     
     // Get organization context if provided
-    const organizationId = request.headers.get("X-Organization-Id") || body.organizationId || undefined;
+    const organizationId = request.headers.get("X-Organization-Id") || (typeof body.organizationId === 'string' ? body.organizationId : undefined) || undefined;
 
     // Check permission if organization context
     if (organizationId) {
@@ -76,11 +78,6 @@ export async function POST(request: Request) {
       if (!canCreate) {
         return forbidden();
       }
-    }
-
-    // Enforce plan limits if organization context
-    if (organizationId) {
-      await planLimitsService.enforceLimit(organizationId, "skills");
     }
 
     const validated = createSkillSchema.parse({ ...body, userId });

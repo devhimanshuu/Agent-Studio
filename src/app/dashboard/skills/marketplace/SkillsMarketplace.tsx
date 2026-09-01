@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { logger } from "@/lib/logger";
 import {
   Search,
   X,
@@ -418,7 +419,7 @@ export function SkillsMarketplace() {
             }
           }
         } catch (err) {
-          console.warn("[Marketplace] Failed to auto-mount Composio server:", err);
+          logger.warn({ err }, "Marketplace: Failed to auto-mount Composio server");
         }
       } else if (skill.source === "arcade") {
         // ── Arcade auto-mount ──
@@ -448,7 +449,7 @@ export function SkillsMarketplace() {
             }
           }
         } catch (err) {
-          console.warn("[Marketplace] Failed to auto-mount Arcade server:", err);
+          logger.warn({ err }, "Marketplace: Failed to auto-mount Arcade server");
         }
       } else {
         // ── Smithery, Glama, MCP.SO, Awesome-MCP: search directory for a matching server ──
@@ -489,7 +490,7 @@ export function SkillsMarketplace() {
             }
           }
         } catch (err) {
-          console.warn("[Marketplace] Failed to auto-mount server:", err);
+          logger.warn({ err }, "Marketplace: Failed to auto-mount server");
         }
       }
     }
@@ -606,7 +607,7 @@ export function SkillsMarketplace() {
         toast.success("Skill installed", `${validName} is now available in Skills Studio`);
       }
     } catch (err) {
-      console.error("[Marketplace] Install failed:", err);
+      logger.error({ err }, "Marketplace install failed");
       toast.error("Install failed", err instanceof Error ? err.message : "Unknown error");
     } finally {
       setInstalling(null);
@@ -693,7 +694,7 @@ export function SkillsMarketplace() {
         `${skill.name} has been removed from your workspace`
       );
     } catch (err) {
-      console.error("[Marketplace] Uninstall failed:", err);
+      logger.error({ err }, "Marketplace uninstall failed");
       toast.error("Uninstall failed", err instanceof Error ? err.message : "Unknown error");
     } finally {
       setInstalling(null);

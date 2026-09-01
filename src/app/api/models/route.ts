@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLiveProviderModels } from "@/providers/llm";
+import { logger } from "@/lib/logger";
 
 /**
  * GET /api/models
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
       byProvider: data.byProvider,
     });
   } catch (error) {
-    console.error("[Models API] Error serving models:", error);
+    logger.error({ err: error }, "Models API error");
     return NextResponse.json(
       {
         success: false,

@@ -1,4 +1,5 @@
 import * as yaml from "js-yaml";
+import { logger } from "@/lib/logger";
 import { AgentGraphDefinition, GraphEdgeDefinition, GraphNodeDefinition, GraphNodeType } from "@/types/graph";
 import { WorkflowTemplate } from "@/components/workflows/WorkflowTemplates";
 
@@ -95,7 +96,7 @@ export function parseDifyDslYaml(yamlText: string): DifyWorkflowData {
     const parsed = yaml.load(yamlText);
     return parsed && typeof parsed === "object" ? (parsed as DifyWorkflowData) : {};
   } catch (err) {
-    console.warn("[parseDifyDslYaml] YAML parse error:", err);
+    logger.warn({ err }, "Dify DSL YAML parse error");
     return {};
   }
 }

@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { logger } from "@/lib/logger";
 import { 
   Building2, 
   Users, 
   Loader2,
   Trash2,
   UserPlus,
-  X,
-  Shield
+  X
 } from "lucide-react";
 import { CustomRolesManager } from "@/components/organizations/CustomRolesManager";
 import { toast } from "@/stores/toastStore";
@@ -83,7 +83,7 @@ export function OrganizationSettings({
         setCustomRoles(rolesData.data || []);
       }
     } catch (err) {
-      console.error("Failed to load organization data:", err);
+      logger.error({ err }, "Failed to load organization data");
       toast.error("Error", "Failed to load organization data");
     } finally {
       setLoading(false);

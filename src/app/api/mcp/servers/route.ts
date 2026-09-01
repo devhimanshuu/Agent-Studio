@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { apiServices } from "@/lib/api/services";
 import { createMcpServerSchema } from "@/validators/mcpSchema";
-import { unauthorized, forbidden, badRequest, handleApiError } from "@/lib/api/handlers";
+import { unauthorized, forbidden, handleApiError } from "@/lib/api/handlers";
 import { prisma } from "@/lib/prisma";
 
 const { mcpService, rbacService } = apiServices();

@@ -1,4 +1,5 @@
 import { env } from "@/lib/config/env";
+import { logger } from "@/lib/logger";
 import {
   ALL_MODELS_CATALOG,
   GROQ_ALL_MODELS,
@@ -95,7 +96,7 @@ async function fetchLiveGroqModels(apiKey?: string): Promise<ModelEntry[]> {
     });
 
     if (!res.ok) {
-      console.warn(`[Groq Models API] HTTP ${res.status}: ${res.statusText}, using fallback catalog`);
+      logger.warn({ status: res.status, statusText: res.statusText }, "Groq Models API HTTP error, using fallback");
       return GROQ_ALL_MODELS;
     }
 
@@ -123,7 +124,7 @@ async function fetchLiveGroqModels(apiKey?: string): Promise<ModelEntry[]> {
       };
     });
   } catch (err) {
-    console.warn("[Groq Models API] Failed to fetch live models, using fallback catalog:", err instanceof Error ? err.message : String(err));
+    logger.warn({ err }, "Groq Models API failed, using fallback catalog");
     return GROQ_ALL_MODELS;
   }
 }
@@ -148,7 +149,7 @@ async function fetchLiveOpenRouterModels(apiKey?: string): Promise<ModelEntry[]>
     });
 
     if (!res.ok) {
-      console.warn(`[OpenRouter Models API] HTTP ${res.status}: ${res.statusText}, using fallback catalog`);
+      logger.warn({ status: res.status, statusText: res.statusText }, "OpenRouter Models API HTTP error, using fallback");
       return OPENROUTER_CHAT_MODELS;
     }
 
@@ -209,7 +210,7 @@ async function fetchLiveOpenRouterModels(apiKey?: string): Promise<ModelEntry[]>
 
     return [autoRouterEntry, ...freeModels, ...paidModels];
   } catch (err) {
-    console.warn("[OpenRouter Models API] Failed to fetch live models, using fallback catalog:", err instanceof Error ? err.message : String(err));
+    logger.warn({ err }, "OpenRouter Models API failed, using fallback catalog");
     return OPENROUTER_CHAT_MODELS;
   }
 }

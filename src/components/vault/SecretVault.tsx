@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { logger } from "@/lib/logger";
 import {
   Lock,
   Plus,
@@ -509,7 +510,7 @@ export function SecretVault() {
         if (data.success) setEntries(data.data);
       }
     } catch (err) {
-      console.error("[Vault] Failed to load:", err);
+      logger.error({ err }, "Vault failed to load");
     } finally {
       setLoading(false);
     }
@@ -542,7 +543,7 @@ export function SecretVault() {
       // The value is shown in the card via state — for this implementation
       // the card will show the masked value; reveal fetches raw for copy
     } catch (err) {
-      console.error("[Vault] Reveal failed:", err);
+      logger.error({ err }, "Vault reveal failed");
     }
   }, []);
 

@@ -12,6 +12,7 @@ import { unauthorized, badRequest, handleApiError } from "@/lib/api/handlers";
 import { NotFoundError } from "@/services/RBACService";
 import { prisma } from "@/lib/prisma";
 import { apiServices } from "@/lib/api/services";
+import { logger } from "@/lib/logger";
 
 const { rbacService } = apiServices();
 
@@ -143,7 +144,7 @@ export async function POST(
 
     // In a full implementation, you'd store per-skill permissions in a separate table
     // For now, we store them as a JSON field on the skill version
-    console.log(`[Skills] Permissions updated for skill ${id}, target ${body.targetUserId}`);
+    logger.info({ skillId: id, targetUserId: body.targetUserId }, "Skill permissions updated");
 
     return NextResponse.json({
       success: true,
@@ -197,7 +198,7 @@ export async function DELETE(
       return handleApiError(new Error("access denied"));
     }
 
-    console.log(`[Skills] Permissions reset for skill ${id}, target ${targetUserId}`);
+    logger.info({ skillId: id, targetUserId }, "Skill permissions reset");
 
     return NextResponse.json({
       success: true,
