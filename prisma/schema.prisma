@@ -103,7 +103,7 @@ model Execution {
   organization            Organization?     @relation(fields: [organizationId], references: [id])
   replayedFrom            Execution?        @relation("ExecutionReplay", fields: [replayedFromExecutionId], references: [id])
   replays                 Execution[]       @relation("ExecutionReplay")
-  skillVersion            SkillVersion      @relation(fields: [skillVersionId], references: [id])
+  skillVersion            SkillVersion      @relation(fields: [skillVersionId], references: [id], onDelete: Cascade)
   user                    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   toolCalls               ToolCall[]
 
