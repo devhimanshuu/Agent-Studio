@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { apiServices } from "@/lib/api/services";
 
-import { unauthorized, badRequest, notFound } from "@/lib/api/handlers";
+import { unauthorized, handleApiError } from "@/lib/api/handlers";
 
 const { mcpService } = apiServices();
 
@@ -13,11 +13,15 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   try {
     const { id } = await params;
     const server = await mcpService.getServer(id, userId);
-    if (!server) return notFound("MCP server not found");
+    if (!server) {
+      return NextResponse.json(
+        { success: false, error: "MCP server not found", code: "NOT_FOUND" },
+        { status: 404 }
+      );
+    }
     const connected = await mcpService.connect(id, userId);
     return NextResponse.json({ success: true, data: connected });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Connect failed";
-    return badRequest(new Error(message));
+    return handleApiError(error);
   }
 }

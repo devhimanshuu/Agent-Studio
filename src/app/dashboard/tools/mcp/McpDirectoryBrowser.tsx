@@ -55,13 +55,14 @@ interface McpDirectoryBrowserProps {
   busyServerId?: string | null;
 }
 
-const SOURCES: { id: "ALL" | PublicMcpSource; label: string; countKey?: "glamaCount" | "mcpSoCount" | "smitheryCount" | "composioCount" | "arcadeCount" }[] = [
+const SOURCES: { id: "ALL" | PublicMcpSource; label: string; countKey?: "glamaCount" | "mcpSoCount" | "smitheryCount" | "composioCount" | "arcadeCount" | "mcpserversOrgCount" }[] = [
   { id: "ALL", label: "ALL REGISTRIES" },
   { id: "glama", label: "GLAMA DIRECTORY", countKey: "glamaCount" },
   { id: "mcp.so", label: "MCP.SO & CURATED", countKey: "mcpSoCount" },
   { id: "smithery", label: "SMITHERY (9K+)", countKey: "smitheryCount" },
   { id: "composio", label: "COMPOSIO (1K+)", countKey: "composioCount" },
   { id: "arcade", label: "ARCADE (7.5K+)", countKey: "arcadeCount" },
+  { id: "mcpservers-org", label: "MCPSERVERS.ORG (9.8K+)", countKey: "mcpserversOrgCount" },
 ];
 
 const CATEGORIES = [
@@ -165,7 +166,7 @@ export function McpDirectoryBrowser({ onMount, mountedServerIds = [], busyServer
   const [sortBy, setSortBy] = useState<SortOption>("default");
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [showInstalledOnly, setShowInstalledOnly] = useState(false);
-  const [counts, setCounts] = useState<{ glamaCount: number; mcpSoCount: number; smitheryCount: number; composioCount: number; arcadeCount: number }>({ glamaCount: 0, mcpSoCount: 0, smitheryCount: 0, composioCount: 0, arcadeCount: 0 });
+  const [counts, setCounts] = useState<{ glamaCount: number; mcpSoCount: number; smitheryCount: number; composioCount: number; arcadeCount: number; mcpserversOrgCount: number }>({ glamaCount: 0, mcpSoCount: 0, smitheryCount: 0, composioCount: 0, arcadeCount: 0, mcpserversOrgCount: 0 });
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [detailServer, setDetailServer] = useState<PublicMcpServer | null>(null);
@@ -218,6 +219,7 @@ export function McpDirectoryBrowser({ onMount, mountedServerIds = [], busyServer
           smitheryCount: json.sources.smitheryCount || 0,
           composioCount: json.sources.composioCount || 0,
           arcadeCount: json.sources.arcadeCount || 0,
+          mcpserversOrgCount: json.sources.mcpserversOrgCount || 0,
         });
         setCurrentPage(1);
       } else {
@@ -393,7 +395,7 @@ export function McpDirectoryBrowser({ onMount, mountedServerIds = [], busyServer
             const active = source === s.id;
             const badgeCount =
               s.id === "ALL"
-                ? counts.glamaCount + counts.mcpSoCount + counts.smitheryCount + counts.composioCount + counts.arcadeCount
+                ? counts.glamaCount + counts.mcpSoCount + counts.smitheryCount + counts.composioCount + counts.arcadeCount + counts.mcpserversOrgCount
                 : s.countKey
                 ? counts[s.countKey]
                 : 0;

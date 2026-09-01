@@ -17,7 +17,8 @@ interface McpConnectionOptions {
   onSamplingRequest?: (params: Record<string, unknown>) => Promise<Record<string, unknown>>;
 }
 
-const DEFAULT_CONNECT_TIMEOUT_MS = 45_000;
+const DEFAULT_CONNECT_TIMEOUT_MS = 15_000;
+const DEFAULT_STREAMABLE_TIMEOUT_MS = 8_000;
 const DEFAULT_CALL_TIMEOUT_MS = 30_000;
 
 /**
@@ -69,10 +70,13 @@ export class McpConnection implements McpRpcClient {
       return;
     }
 
-    // Remote endpoints: Streamable HTTP first, legacy SSE as a fallback for
-    // older servers that only support the split SSE transport.
+    // Remote endpoints: Streamable HTTP first (short timeout), legacy SSE as
+    // a fallback for older servers that only support the split SSE transport.
+    // Use a shorter timeout for the Streamable HTTP probe so SSE-only servers
+    // don't make users wait the full connect budget.
+    const streamableTimeout = Math.min(DEFAULT_STREAMABLE_TIMEOUT_MS, timeoutMs);
     try {
-      await this.connectWith(this.buildStreamableTransport(), timeoutMs, "streamable-http");
+      await this.connectWith(this.buildStreamableTransport(), streamableTimeout, "streamable-http");
     } catch (streamableError) {
       logger.warn(
         { serverId: this.server.id, endpoint: this.server.endpointUrl, error: messageOf(streamableError) },
@@ -213,6 +217,17 @@ export class McpConnection implements McpRpcClient {
   }
 
   private buildStdioTransport(): StdioClientTransport {
+    // Detect serverless environments where child_process.spawn is unavailable.
+    if (typeof process !== "undefined" && !process.env.AWS_LAMBDA_FUNCTION_NAME && !process.env.VERCEL) {
+      // Not serverless — proceed normally.
+    } else if (typeof process !== "undefined" && (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY)) {
+      throw new Error(
+        `STDIO MCP server "${this.server.name}" cannot run in this environment. ` +
+        `STDIO transport requires a persistent Node.js process with filesystem access. ` +
+        `On Vercel/Netlify/AWS Lambda, use an SSE/HTTP MCP server instead, ` +
+        `or self-host Agent Studio on a persistent server (e.g. a VPS or Docker).`
+      );
+    }
     const commandLine = this.server.command ?? "";
     const { command, args } = parseCommandLine(commandLine);
     if (!command) {

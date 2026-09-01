@@ -121,3 +121,10 @@ export {
 
 export { fetchArcadeIntegrations } from "./catalogs/arcade";
 export { fetchGitHub } from "./catalogs/github";
+
+export {
+  fetchMcpserversOrg,
+  mcpserversOrgToServer,
+  mapMcpserversOrgCategory,
+  type McpServersOrgEntry,
+} from "./catalogs/mcpservers-org";

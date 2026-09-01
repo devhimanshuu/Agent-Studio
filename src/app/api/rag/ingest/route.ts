@@ -26,6 +26,8 @@ export async function POST(request: Request) {
       mimeType = "text/plain",
       chunking = {},
       metadata = {},
+      tags = [],
+      embeddingModel,
     } = body;
 
     if (!content || typeof content !== "string" || !content.trim()) {
@@ -48,7 +50,11 @@ export async function POST(request: Request) {
       source,
       mimeType,
       chunking,
-      metadata,
+      metadata: {
+        ...metadata,
+        tags: Array.isArray(tags) ? tags : [],
+        embeddingModel: embeddingModel || undefined,
+      },
       userId,
     });
 

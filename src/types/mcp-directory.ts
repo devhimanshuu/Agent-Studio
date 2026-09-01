@@ -1,6 +1,6 @@
 import { McpTransport } from "./mcp";
 
-export type PublicMcpSource = "glama" | "mcp.so" | "curated" | "smithery" | "composio" | "arcade";
+export type PublicMcpSource = "glama" | "mcp.so" | "curated" | "smithery" | "composio" | "arcade" | "mcpservers-org";
 
 export type McpLanguage = "typescript" | "python" | "go" | "rust" | "csharp" | "java" | "cpp" | "ruby" | "unknown";
 
@@ -42,6 +42,7 @@ export interface McpDirectoryResponse {
     smitheryCount?: number;
     composioCount?: number;
     arcadeCount?: number;
+    mcpserversOrgCount?: number;
   };
 }
 

@@ -445,10 +445,14 @@ export class McpClientService implements IMcpClientService {
 
   private getConnection(server: McpServerDTO): McpConnection {
     let connection = this.connections.get(server.id);
-    if (!connection) {
-      connection = new McpConnection(server);
-      this.connections.set(server.id, connection);
+    if (connection) {
+      // Always close and recreate when the server DTO has changed (e.g. fresh
+      // raw headers from rawServerFor). Keeping a stale connection leads to
+      // auth failures because the old headers are baked into the transport.
+      connection.close().catch(() => {});
     }
+    connection = new McpConnection(server);
+    this.connections.set(server.id, connection);
     return connection;
   }
 

@@ -243,9 +243,13 @@ const MULTI_QUERY_CACHE_TTL = 1800_000;
 /**
  * Fetch Smithery servers using multiple search queries to bypass the 500-server cap.
  * Each query returns up to 500 servers; we deduplicate by ID across all queries.
+ *
+ * NOTE: Reduced from 60 queries × 5 pages (300 requests) to 20 queries × 2 pages
+ * (40 requests) to avoid Vercel serverless timeout (60s). The alphabet + keyword
+ * queries cover the most common server categories.
  */
 export async function fetchSmitheryMultiQuery(
-  maxQueries = 60
+  maxQueries = 20
 ): Promise<{ data: Record<string, unknown>[]; totalCount: number }> {
   if (multiQueryCache && Date.now() - multiQueryCache.fetchedAt < MULTI_QUERY_CACHE_TTL) {
     return { data: multiQueryCache.data, totalCount: multiQueryCache.totalCount };
@@ -261,12 +265,10 @@ export async function fetchSmitheryMultiQuery(
     const results = await Promise.all(
       batch.map(async (q) => {
         try {
+          // Only fetch 2 pages per query (200 servers max) instead of 5
           const pages = await Promise.all([
             smitheryFetchPage<Record<string, unknown>>("servers", 1, 100, q),
             smitheryFetchPage<Record<string, unknown>>("servers", 2, 100, q),
-            smitheryFetchPage<Record<string, unknown>>("servers", 3, 100, q),
-            smitheryFetchPage<Record<string, unknown>>("servers", 4, 100, q),
-            smitheryFetchPage<Record<string, unknown>>("servers", 5, 100, q),
           ]);
           return pages.flatMap((p) => p.data || []);
         } catch {

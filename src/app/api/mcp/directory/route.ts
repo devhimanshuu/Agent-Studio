@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { unauthorized } from "@/lib/api/handlers";
 import { PublicMcpServer, McpLanguage, McpScope } from "@/types/mcp-directory";
-import { fetchAwesomeMcpMarkdown, fetchSmitheryMultiQuery, fetchMcpSoSitemap, fetchGlamaSitemap, fetchComposioToolkits, fetchArcadeIntegrations, fetchAllComposioTools } from "@/lib/fetch-utils";
+import { fetchAwesomeMcpMarkdown, fetchSmitheryMultiQuery, fetchMcpSoSitemap, fetchGlamaSitemap, fetchComposioToolkits, fetchArcadeIntegrations, fetchAllComposioTools, fetchMcpserversOrg, mcpserversOrgToServer } from "@/lib/fetch-utils";
 
 // Cache directory response for 1 hour in Next.js ISR
 export const revalidate = 3600;
@@ -527,7 +527,7 @@ export async function GET(req: Request) {
   const language = searchParams.get("language") || "ALL";
 
   // Fetch ALL data sources in parallel for maximum speed
-  const [markdownResult, smitheryResult, mcpSoResult, glamaResult, composioResult, arcadeResult] = await Promise.allSettled([
+  const [markdownResult, smitheryResult, mcpSoResult, glamaResult, composioResult, arcadeResult, mcpserversOrgResult] = await Promise.allSettled([
     // 1. awesome-mcp markdown (Glama + mcp.so curated servers)
     fetchAwesomeMcpMarkdown(),
     // 2. Smithery multi-query (60 search terms × 5 pages = up to 3K servers)
@@ -540,6 +540,8 @@ export async function GET(req: Request) {
     Promise.all([fetchComposioToolkits(), fetchAllComposioTools(300)]),
     // 6. Arcade integrations (7,500+ tools across 81 MCP servers)
     fetchArcadeIntegrations(),
+    // 7. mcpservers.org (9,800+ servers from sitemaps)
+    fetchMcpserversOrg(),
   ]);
 
   // Process awesome-mcp markdown
@@ -735,6 +737,20 @@ export async function GET(req: Request) {
     }));
   }
 
+  // Process mcpservers.org entries
+  let mcpserversOrgServers: PublicMcpServer[] = [];
+  if (mcpserversOrgResult.status === "fulfilled" && mcpserversOrgResult.value.length > 0) {
+    mcpserversOrgServers = mcpserversOrgResult.value.map((entry) => {
+      const server = mcpserversOrgToServer(entry);
+      return {
+        ...server,
+        source: "mcpservers-org" as PublicMcpServer["source"],
+        language: server.language as PublicMcpServer["language"],
+        scope: server.scope as PublicMcpServer["scope"],
+      };
+    });
+  }
+
   // Combine all sources
   let allServers = [
     ...CURATED_FEATURED_SERVERS,
@@ -744,6 +760,7 @@ export async function GET(req: Request) {
     ...glamaSitemapServers,
     ...composioServers,
     ...arcadeServers,
+    ...mcpserversOrgServers,
   ];
 
   // Deduplicate by normalized name
@@ -760,6 +777,7 @@ export async function GET(req: Request) {
   const smitheryCount = allServers.filter((s) => s.source === "smithery").length;
   const composioCount = allServers.filter((s) => s.source === "composio").length;
   const arcadeCount = allServers.filter((s) => s.source === "arcade").length;
+  const mcpserversOrgCount = allServers.filter((s) => s.source === "mcpservers-org").length;
 
   // Filter by Source
   if (source !== "ALL") {
@@ -816,6 +834,7 @@ export async function GET(req: Request) {
       smitheryCount,
       composioCount,
       arcadeCount,
+      mcpserversOrgCount,
     },
   };
 

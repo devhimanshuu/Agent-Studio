@@ -91,6 +91,18 @@ export default function KnowledgeBasePage() {
   const [isIngesting, setIsIngesting] = useState(false);
   const [ingestSuccess, setIngestSuccess] = useState<Record<string, unknown> | null>(null);
 
+  // Premium: File Upload State
+  const [ingestMode, setIngestMode] = useState<"text" | "file" | "url">("text");
+  const [dragActive, setDragActive] = useState(false);
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadResults, setUploadResults] = useState<Array<Record<string, unknown>>>([]);
+  const [fetchUrl, setFetchUrl] = useState("");
+  const [isFetchingUrl, setIsFetchingUrl] = useState(false);
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
+  const [embeddingModel, setEmbeddingModel] = useState<string>("");
+
   // Live Chunk Preview
   const [chunkPreview, setChunkPreview] = useState(() => previewChunks(content, { strategy, maxChunkSize, overlap }));
 
@@ -561,6 +573,29 @@ export default function KnowledgeBasePage() {
                 </div>
               </div>
 
+              {/* Ingestion Mode Tabs */}
+              <div className="flex items-center gap-1 p-1 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-indigo-900/40">
+                {([
+                  { id: "text" as const, label: "Paste Text", icon: FileText },
+                  { id: "file" as const, label: "Upload Files", icon: UploadCloud },
+                  { id: "url" as const, label: "Fetch URL", icon: Compass },
+                ]).map((mode) => (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    onClick={() => setIngestMode(mode.id)}
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-[11px] font-semibold uppercase tracking-wider transition-all cursor-pointer ${
+                      ingestMode === mode.id
+                        ? "bg-white dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 shadow-sm"
+                        : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                    }`}
+                  >
+                    <mode.icon className="h-3.5 w-3.5" />
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
+
               {/* Title & Collection */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -571,7 +606,7 @@ export default function KnowledgeBasePage() {
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    required
+                    required={ingestMode === "text"}
                     className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-indigo-900/60 bg-slate-50 dark:bg-slate-950 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
                     placeholder="e.g. System Architecture Whitepaper"
                   />
@@ -588,6 +623,54 @@ export default function KnowledgeBasePage() {
                     className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-indigo-900/60 bg-slate-50 dark:bg-slate-950 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
                     placeholder="e.g. engineering, research, legal"
                   />
+                </div>
+              </div>
+
+              {/* Tags & Embedding Model */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Tags (for organization)
+                  </label>
+                  <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-lg border border-slate-300 dark:border-indigo-900/60 bg-slate-50 dark:bg-slate-950 min-h-[36px]">
+                    {tags.map((tag) => (
+                      <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[10px] font-semibold">
+                        {tag}
+                        <button type="button" onClick={() => setTags((prev) => prev.filter((t) => t !== tag))} className="cursor-pointer hover:text-red-500">×</button>
+                      </span>
+                    ))}
+                    <input
+                      type="text"
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if ((e.key === "Enter" || e.key === ",") && tagInput.trim()) {
+                          e.preventDefault();
+                          if (!tags.includes(tagInput.trim())) {
+                            setTags((prev) => [...prev, tagInput.trim()]);
+                          }
+                          setTagInput("");
+                        }
+                      }}
+                      className="flex-1 min-w-[80px] bg-transparent text-xs outline-none placeholder-slate-400"
+                      placeholder="Add tag & press Enter"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Embedding Model
+                  </label>
+                  <select
+                    value={embeddingModel}
+                    onChange={(e) => setEmbeddingModel(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-indigo-900/60 bg-slate-50 dark:bg-slate-950 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                  >
+                    <option value="">Default (text-embedding-3-small)</option>
+                    <option value="text-embedding-3-small">OpenAI text-embedding-3-small (1536D)</option>
+                    <option value="text-embedding-3-large">OpenAI text-embedding-3-large (3072D)</option>
+                    <option value="text-embedding-ada-002">OpenAI text-embedding-ada-002 (1536D)</option>
+                  </select>
                 </div>
               </div>
 
@@ -660,38 +743,214 @@ export default function KnowledgeBasePage() {
                 </div>
               </div>
 
-              {/* Content Textarea */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Document Content (Markdown / Plaintext)
-                </label>
-                <textarea
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  rows={12}
-                  required
-                  className="w-full p-3 rounded-lg border border-slate-300 dark:border-indigo-900/60 bg-slate-50 dark:bg-slate-950 text-xs font-mono focus:ring-2 focus:ring-indigo-500 outline-none leading-relaxed"
-                  placeholder="Paste or write document text here..."
-                />
-              </div>
+              {/* ─── TEXT MODE: Content Textarea ─── */}
+              {ingestMode === "text" && (
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Document Content (Markdown / Plaintext)
+                    </label>
+                    <textarea
+                      value={content}
+                      onChange={(e) => setContent(e.target.value)}
+                      rows={12}
+                      required
+                      className="w-full p-3 rounded-lg border border-slate-300 dark:border-indigo-900/60 bg-slate-50 dark:bg-slate-950 text-xs font-mono focus:ring-2 focus:ring-indigo-500 outline-none leading-relaxed"
+                      placeholder="Paste or write document text here..."
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isIngesting || !content.trim()}
+                    className="w-full py-3 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-bold uppercase tracking-wider shadow-md hover:shadow-indigo-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {isIngesting ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                        Chunking, Embedding (1536D) & Storing in pgvector...
+                      </>
+                    ) : (
+                      <>
+                        <Database className="h-4 w-4" />
+                        Ingest Document into pgvector
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
 
-              <button
-                type="submit"
-                disabled={isIngesting || !content.trim()}
-                className="w-full py-3 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-bold uppercase tracking-wider shadow-md hover:shadow-indigo-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-              >
-                {isIngesting ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    Chunking, Embedding (1536D) & Storing in pgvector...
-                  </>
-                ) : (
-                  <>
-                    <Database className="h-4 w-4" />
-                    Ingest Document into pgvector
-                  </>
-                )}
-              </button>
+              {/* ─── FILE MODE: Drag & Drop Upload ─── */}
+              {ingestMode === "file" && (
+                <>
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+                    onDragLeave={() => setDragActive(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setDragActive(false);
+                      const files = Array.from(e.dataTransfer.files);
+                      setUploadFiles((prev) => [...prev, ...files]);
+                    }}
+                    className={`relative p-8 rounded-xl border-2 border-dashed transition-all text-center space-y-3 ${
+                      dragActive
+                        ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30"
+                        : "border-slate-300 dark:border-indigo-900/50 bg-slate-50/50 dark:bg-slate-950/30 hover:border-indigo-400"
+                    }`}
+                  >
+                    <UploadCloud className={`h-10 w-10 mx-auto ${dragActive ? "text-indigo-500" : "text-slate-400"}`} />
+                    <div>
+                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                        Drop files here or click to browse
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        PDF, DOCX, HTML, CSV, JSON, TXT, MD — Max 20MB per file, up to 20 files
+                      </p>
+                    </div>
+                    <input
+                      type="file"
+                      multiple
+                      accept=".pdf,.docx,.doc,.html,.htm,.csv,.json,.txt,.md,.markdown,.xml,.yaml,.yml"
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        setUploadFiles((prev) => [...prev, ...files]);
+                      }}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Uploaded Files List */}
+                  {uploadFiles.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                          {uploadFiles.length} file(s) selected
+                        </span>
+                        <button type="button" onClick={() => setUploadFiles([])} className="text-[11px] text-red-500 hover:underline cursor-pointer">
+                          Clear all
+                        </button>
+                      </div>
+                      {uploadFiles.map((f, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2 rounded-lg border border-slate-200 dark:border-indigo-900/40 bg-white dark:bg-black/40">
+                          <div className="flex items-center gap-2 text-xs">
+                            <FileText className="h-3.5 w-3.5 text-indigo-500" />
+                            <span className="font-medium text-slate-700 dark:text-slate-300">{f.name}</span>
+                            <span className="text-slate-400">({(f.size / 1024).toFixed(0)}KB)</span>
+                          </div>
+                          <button type="button" onClick={() => setUploadFiles((prev) => prev.filter((_, i) => i !== idx))} className="text-slate-400 hover:text-red-500 cursor-pointer">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    disabled={isUploading || uploadFiles.length === 0}
+                    onClick={async () => {
+                      setIsUploading(true);
+                      setUploadResults([]);
+                      try {
+                        const formData = new FormData();
+                        for (const f of uploadFiles) formData.append("file", f);
+                        formData.append("collection", collection || "default");
+                        if (tags.length > 0) formData.append("tags", tags.join(","));
+                        if (embeddingModel) formData.append("embeddingModel", embeddingModel);
+                        formData.append("chunking", JSON.stringify({ strategy, maxChunkSize, overlap, parentChunkSize: useParentChunking ? 1200 : undefined }));
+
+                        const res = await fetch("/api/rag/upload", { method: "POST", body: formData });
+                        const json = await res.json();
+                        if (json.results) setUploadResults(json.results);
+                        fetchDocuments();
+                      } catch (err) {
+                        alert(err instanceof Error ? err.message : "Upload failed");
+                      } finally {
+                        setIsUploading(false);
+                      }
+                    }}
+                    className="w-full py-3 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-bold uppercase tracking-wider shadow-md hover:shadow-indigo-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {isUploading ? (
+                      <><RefreshCw className="h-4 w-4 animate-spin" /> Uploading & Ingesting {uploadFiles.length} file(s)...</>
+                    ) : (
+                      <><UploadCloud className="h-4 w-4" /> Upload & Ingest {uploadFiles.length} file(s)</>
+                    )}
+                  </button>
+
+                  {/* Upload Results */}
+                  {uploadResults.length > 0 && (
+                    <div className="space-y-2 p-3 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30">
+                      <div className="text-xs font-bold text-emerald-800 dark:text-emerald-300">Upload Results</div>
+                      {uploadResults.map((r, idx) => (
+                        <div key={idx} className={`flex items-center gap-2 text-[11px] ${r.status === "success" ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                          {r.status === "success" ? <CheckCircle2 className="h-3 w-3 shrink-0" /> : <span className="text-red-500">×</span>}
+                          <span className="font-medium">{r.filename as string}</span>
+                          {r.status === "success" ? <span className="text-emerald-600">— {r.chunkCount as number} chunks</span> : <span>— {r.error as string}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* ─── URL MODE: Fetch Web Page ─── */}
+              {ingestMode === "url" && (
+                <>
+                  <div className="space-y-3">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Web Page URL
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="url"
+                        value={fetchUrl}
+                        onChange={(e) => setFetchUrl(e.target.value)}
+                        className="flex-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-indigo-900/60 bg-slate-50 dark:bg-slate-950 text-xs font-mono focus:ring-2 focus:ring-indigo-500 outline-none"
+                        placeholder="https://docs.example.com/api/reference"
+                      />
+                      <button
+                        type="button"
+                        disabled={isFetchingUrl || !fetchUrl.trim()}
+                        onClick={async () => {
+                          if (!fetchUrl.trim()) return;
+                          setIsFetchingUrl(true);
+                          try {
+                            const res = await fetch("/api/rag/fetch-url", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                url: fetchUrl.trim(),
+                                collection: collection || "default",
+                                tags,
+                                chunking: { strategy, maxChunkSize, overlap, parentChunkSize: useParentChunking ? 1200 : undefined },
+                              }),
+                            });
+                            const json = await res.json();
+                            if (json.success) {
+                              setIngestSuccess(json.document);
+                              fetchDocuments();
+                              setFetchUrl("");
+                            } else {
+                              alert(json.error || "Failed to fetch URL");
+                            }
+                          } catch (err) {
+                            alert(err instanceof Error ? err.message : "Network error");
+                          } finally {
+                            setIsFetchingUrl(false);
+                          }
+                        }}
+                        className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {isFetchingUrl ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Compass className="h-3.5 w-3.5" />}
+                        {isFetchingUrl ? "Fetching..." : "Fetch & Ingest"}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Fetches the page, converts HTML to clean markdown, and ingests into your knowledge base. Supports any public HTTP/HTTPS URL.
+                    </p>
+                  </div>
+                </>
+              )}
             </form>
 
             {ingestSuccess && (
