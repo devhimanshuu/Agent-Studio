@@ -92,6 +92,22 @@ export class SkillService implements ISkillService {
     return archived;
   }
 
+  async restoreSkill(skillId: string, userId: string): Promise<SkillDTO> {
+    const skill = await this.skillRepo.findByIdForUser(skillId, userId);
+    if (!skill) {
+      throw new Error("Skill not found or you do not have access to it");
+    }
+
+    logger.info({ skillId, userId }, "Restoring archived skill");
+    const restored = await this.skillRepo.restore(skillId, userId);
+    await this.auditRepo.log({
+      userId,
+      action: "SKILL_RESTORED",
+      details: { skillId, newStatus: restored.status },
+    });
+    return restored;
+  }
+
   async deleteSkill(skillId: string, userId: string): Promise<void> {
     const skill = await this.skillRepo.findByIdForUser(skillId, userId);
     if (!skill) {

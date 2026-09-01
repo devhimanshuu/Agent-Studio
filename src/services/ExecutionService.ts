@@ -333,6 +333,9 @@ export class ExecutionService implements IExecutionService {
     const executionId = execution.id;
 
     // Load the skill and version that were used for this execution.
+    if (!execution.skillVersionId) {
+      throw new Error("Cannot resume: the skill version for this execution has been deleted.");
+    }
     const version = await this.skillRepo.findVersionById(execution.skillVersionId);
     if (!version) throw new Error("Skill version not found");
 

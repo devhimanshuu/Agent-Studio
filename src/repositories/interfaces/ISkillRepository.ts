@@ -19,6 +19,7 @@ export interface ISkillRepository {
   updateDraft(skillId: string, userId: string, input: UpdateSkillInput): Promise<SkillVersionDTO>;
   duplicate(skillId: string, userId: string): Promise<SkillDTO>;
   archive(skillId: string, userId: string): Promise<SkillDTO>;
+  restore(skillId: string, userId: string): Promise<SkillDTO>;
   deleteDraft(skillId: string, userId: string): Promise<void>;
   publishVersion(skillId: string, userId: string, versionId: string): Promise<SkillVersionDTO>;
   findVersionById(versionId: string): Promise<SkillVersionDTO | null>;

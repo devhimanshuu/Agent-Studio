@@ -16,6 +16,7 @@ export interface ISkillService {
   updateSkill(skillId: string, userId: string, input: UpdateSkillInput): Promise<SkillVersionDTO>;
   duplicateSkill(skillId: string, userId: string): Promise<SkillDTO>;
   archiveSkill(skillId: string, userId: string): Promise<SkillDTO>;
+  restoreSkill(skillId: string, userId: string): Promise<SkillDTO>;
   deleteSkill(skillId: string, userId: string): Promise<void>;
   publishVersion(skillId: string, userId: string, versionId: string): Promise<SkillVersionDTO>;
 }

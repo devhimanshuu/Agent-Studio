@@ -232,7 +232,7 @@ export default function ExecutionsPage() {
                     </span>
                     <span className="flex items-center gap-1 font-medium">
                       <GitBranch className="h-3 w-3 text-indigo-600 dark:text-indigo-400/70" />
-                      {execution.skillName ?? `v${shortId(execution.skillVersionId)}`}
+                      {execution.skillName ?? (execution.skillVersionId ? `v${shortId(execution.skillVersionId)}` : "Deleted skill")}
                     </span>
                     {execution.provider && <span className="text-indigo-700 dark:text-indigo-300/80 font-medium">{execution.provider}</span>}
                     <ArrowUpRight className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />

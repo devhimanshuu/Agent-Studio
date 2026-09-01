@@ -227,7 +227,7 @@ export default function HistoryPage() {
                       </Link>
                     </td>
                     <td className="py-2.5 pr-3 text-[11px] text-slate-900 dark:text-slate-300 font-medium">
-                      {execution.skillName ?? shortId(execution.skillVersionId)}
+                      {execution.skillName ?? (execution.skillVersionId ? shortId(execution.skillVersionId) : "Deleted skill")}
                     </td>
                     <td className="py-2.5 pr-3">
                       <ExecutionStatusBadge status={execution.status} />

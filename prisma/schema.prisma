@@ -42,6 +42,9 @@ model Skill {
   publishedVersionId String?        @unique
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
+  /// Soft-delete timestamp. Non-null means the skill has been deleted.
+  /// Use `where: { deletedAt: null }` on all active-skill queries.
+  deletedAt          DateTime?
   organizationId     String?
   versions           SkillVersion[] @relation("SkillToVersions")
   organization       Organization?  @relation(fields: [organizationId], references: [id])
@@ -81,7 +84,9 @@ model SkillVersion {
 model Execution {
   id                      String            @id @default(cuid())
   userId                  String
-  skillVersionId          String
+  /// Nullable: set to NULL when the parent SkillVersion is deleted (onDelete: SetNull).
+  /// Execution history is preserved; use `skillName` for display.
+  skillVersionId          String?
   status                  ExecutionStatus   @default(PENDING)
   inputData               Json
   finalOutput             Json?
@@ -103,7 +108,7 @@ model Execution {
   organization            Organization?     @relation(fields: [organizationId], references: [id])
   replayedFrom            Execution?        @relation("ExecutionReplay", fields: [replayedFromExecutionId], references: [id])
   replays                 Execution[]       @relation("ExecutionReplay")
-  skillVersion            SkillVersion      @relation(fields: [skillVersionId], references: [id], onDelete: Cascade)
+  skillVersion            SkillVersion?     @relation(fields: [skillVersionId], references: [id], onDelete: SetNull)
   user                    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   toolCalls               ToolCall[]
 

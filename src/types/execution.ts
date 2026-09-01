@@ -55,7 +55,8 @@ export interface ExecutionLogDTO {
 export interface ExecutionDTO {
   id: string;
   userId: string;
-  skillVersionId: string;
+  /** Nullable: set to null when the parent SkillVersion is deleted (onDelete: SetNull). Use `skillName` for display instead. */
+  skillVersionId: string | null;
   /** Denormalized skill name for history/search/metrics. */
   skillName?: string | null;
   /** Set when this run was created by replaying a previous execution. */

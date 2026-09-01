@@ -20,6 +20,7 @@ import {
   Play,
   Maximize2,
   Network,
+  RotateCcw,
 } from "lucide-react";
 import { skillsApi } from "@/lib/api/skills";
 import { executionsApi } from "@/lib/api/executions";
@@ -96,6 +97,15 @@ export default function SkillDetailPage() {
       invalidate();
     },
     onError: (e) => toast.error("Duplicate failed", e.message),
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: () => skillsApi.restore(id),
+    onSuccess: (d) => {
+      toast.success("Skill restored successfully", `Status is now ${d.status}`);
+      invalidate();
+    },
+    onError: (e) => toast.error("Restore failed", e.message),
   });
 
   const runMutation = useMutation({
@@ -179,6 +189,17 @@ export default function SkillDetailPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
+            {skill.status === "ARCHIVED" && (
+              <button
+                type="button"
+                onClick={() => restoreMutation.mutate()}
+                disabled={restoreMutation.isPending}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded border border-amber-400 bg-amber-600 text-white font-semibold hover:bg-amber-500 shadow-md shadow-amber-500/30 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {restoreMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+                [ RESTORE SKILL ]
+              </button>
+            )}
             <Link
               href={`/dashboard/canvas/${skill.id}`}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-violet-400/80 bg-violet-600 hover:bg-violet-500 text-white font-semibold shadow-md shadow-violet-500/20 transition-all text-xs"
@@ -186,12 +207,14 @@ export default function SkillDetailPage() {
             >
               <Network className="h-3.5 w-3.5" /> [ OPEN IN CANVAS ]
             </Link>
-            <Link
-              href={`/dashboard/skills/${skill.id}/edit`}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-200 hover:border-indigo-400 transition-all font-semibold shadow-sm"
-            >
-              <Pencil className="h-3.5 w-3.5" /> [ EDIT DRAFT ]
-            </Link>
+            {skill.status !== "ARCHIVED" && (
+              <Link
+                href={`/dashboard/skills/${skill.id}/edit`}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-200 hover:border-indigo-400 transition-all font-semibold shadow-sm"
+              >
+                <Pencil className="h-3.5 w-3.5" /> [ EDIT DRAFT ]
+              </Link>
+            )}
             <Link
               href={`/dashboard/skills/${skill.id}/versions`}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-200 hover:border-indigo-400 transition-all font-semibold shadow-sm"
@@ -226,6 +249,16 @@ export default function SkillDetailPage() {
 
         {/* Quick actions row */}
         <div className="flex items-center gap-1.5 pt-1">
+          {skill.status === "ARCHIVED" && (
+            <button
+              type="button"
+              onClick={() => restoreMutation.mutate()}
+              disabled={restoreMutation.isPending}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded border border-amber-300 dark:border-amber-900/40 text-[10px] font-mono text-amber-700 dark:text-amber-300 hover:border-amber-400 transition-all cursor-pointer font-medium"
+            >
+              <RotateCcw className="h-3 w-3" /> RESTORE
+            </button>
+          )}
           <button
             type="button"
             onClick={() => duplicateMutation.mutate()}
@@ -243,7 +276,7 @@ export default function SkillDetailPage() {
               <Archive className="h-3 w-3" /> ARCHIVE
             </button>
           )}
-          {skill.status !== "PUBLISHED" && (
+          {skill.status !== "PUBLISHED" && skill.status !== "ARCHIVED" && (
             <button
               type="button"
               onClick={() => setConfirm("delete")}
@@ -255,8 +288,34 @@ export default function SkillDetailPage() {
         </div>
       </div>
 
+      {/* Archived Notice Banner */}
+      {skill.status === "ARCHIVED" && (
+        <div className="rounded border border-amber-300 dark:border-amber-500/40 bg-gradient-to-r from-amber-50/90 via-slate-50/70 to-amber-50/60 dark:from-amber-950/30 dark:via-[#0a0a0a]/80 dark:to-amber-950/20 p-4 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Archive className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <span className="text-[11px] font-mono font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider">
+                THIS SKILL IS CURRENTLY ARCHIVED
+              </span>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-400 font-mono">
+              Archived skills are hidden from the active workspace. Historical executions remain preserved.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => restoreMutation.mutate()}
+            disabled={restoreMutation.isPending}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded border border-amber-400 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs font-mono shadow-sm transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
+          >
+            {restoreMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+            [ RESTORE SKILL ]
+          </button>
+        </div>
+      )}
+
       {/* Published Active Banner */}
-      {skill.publishedVersion && (
+      {skill.publishedVersion && skill.status !== "ARCHIVED" && (
         <div className="rounded border border-emerald-300 dark:border-emerald-500/40 bg-gradient-to-r from-emerald-50/90 via-slate-50/70 to-indigo-50/60 dark:from-emerald-950/30 dark:via-[#0a0a0a]/80 dark:to-indigo-950/20 p-4 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">

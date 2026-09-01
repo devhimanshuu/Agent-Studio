@@ -133,6 +133,13 @@ export class FakeSkillRepo implements ISkillRepository {
     return skill;
   }
 
+  async restore(skillId: string, _userId: string): Promise<SkillDTO> {
+    const skill = this.skills.get(skillId);
+    if (!skill) throw new Error("Skill not found");
+    skill.status = skill.publishedVersionId ? "PUBLISHED" : "DRAFT";
+    return skill;
+  }
+
   async deleteDraft(skillId: string, _userId: string): Promise<void> {
     const skill = this.skills.get(skillId);
     if (!skill) throw new Error("Skill not found");

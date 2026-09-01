@@ -90,6 +90,12 @@ export class ExecutionHistoryService {
     const state = planner?.graph === true ? (planner.state as { results?: Record<string, unknown> } | undefined) : undefined;
     const replayOutputs = state?.results ?? undefined;
 
+    // skillVersionId is null when the parent skill version was deleted (onDelete: SetNull).
+    // Replaying against a deleted version is impossible — surface a clear error.
+    if (!original.skillVersionId) {
+      throw new Error("Cannot replay: the skill version for this execution has been deleted.");
+    }
+
     const started = await this.executionService.startExecution({
       userId,
       skillVersionId: original.skillVersionId,

@@ -167,7 +167,7 @@ export default function ExecutionDetailPage() {
             <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600 dark:text-slate-400 font-medium">
               <span className="flex items-center gap-1">
                 <GitBranch className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-                {execution.skillName ?? `v${execution.skillVersionId.slice(0, 8)}`}
+                {execution.skillName ?? (execution.skillVersionId ? `v${execution.skillVersionId.slice(0, 8)}` : "Deleted skill")}
               </span>
               <span className="flex items-center gap-1">
                 <Clock className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />

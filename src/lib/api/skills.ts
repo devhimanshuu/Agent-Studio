@@ -50,6 +50,9 @@ export const skillsApi = {
   archive: (id: string): Promise<SkillDTO> =>
     fetch(`/api/skills/${id}/archive`, { method: "POST" }).then((r) => handle<SkillDTO>(r)),
 
+  restore: (id: string): Promise<SkillDTO> =>
+    fetch(`/api/skills/${id}/restore`, { method: "POST" }).then((r) => handle<SkillDTO>(r)),
+
   publish: (id: string, versionId: string): Promise<SkillVersionDTO> =>
     fetch(`/api/skills/${id}/publish`, {
       method: "POST",

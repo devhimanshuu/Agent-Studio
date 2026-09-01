@@ -18,6 +18,7 @@ import {
   Layers,
   Wand2,
   Network,
+  RotateCcw,
 } from "lucide-react";
 import { skillsApi } from "@/lib/api/skills";
 import { SkillDTO, SkillStatus } from "@/types/skill";
@@ -110,6 +111,15 @@ export default function SkillsDashboardPage() {
     onError: (e) => toast.error("Delete failed", e.message),
   });
 
+  const restoreMutation = useMutation({
+    mutationFn: (id: string) => skillsApi.restore(id),
+    onSuccess: () => {
+      toast.success("Skill restored successfully");
+      invalidate();
+    },
+    onError: (e) => toast.error("Restore failed", e.message),
+  });
+
   const confirmAction = async () => {
     if (!target) return;
     setIsActionPending(true);
@@ -148,13 +158,16 @@ export default function SkillsDashboardPage() {
           </p>
 
           {/* View Mode Tabs */}
-          <div className="flex items-center gap-2 mt-3">
+          <div className="flex items-center gap-2 mt-3 flex-wrap">
             <button
               type="button"
-              onClick={() => setViewMode("studio")}
+              onClick={() => {
+                setViewMode("studio");
+                if (status === "ARCHIVED") setStatus("");
+              }}
               className={clsx(
                 "inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider transition-all cursor-pointer",
-                viewMode === "studio"
+                viewMode === "studio" && status !== "ARCHIVED"
                   ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/30"
                   : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-indigo-950/40"
               )}
@@ -215,6 +228,22 @@ export default function SkillsDashboardPage() {
             >
               <Wand2 className="h-3.5 w-3.5" />
               SYNTHESIZE
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setViewMode("studio");
+                setStatus("ARCHIVED");
+              }}
+              className={clsx(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider transition-all cursor-pointer",
+                viewMode === "studio" && status === "ARCHIVED"
+                  ? "bg-amber-600 text-white shadow-sm shadow-amber-500/30"
+                  : "text-slate-600 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+              )}
+            >
+              <Archive className="h-3.5 w-3.5 text-amber-500" />
+              ARCHIVE
             </button>
           </div>
         </div>
@@ -305,10 +334,13 @@ export default function SkillsDashboardPage() {
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => setTypeFilter(tab.id as typeof typeFilter)}
+                  onClick={() => {
+                    setTypeFilter(tab.id as typeof typeFilter);
+                    if (status === "ARCHIVED") setStatus("");
+                  }}
                   className={clsx(
                     "px-3 py-1.5 rounded text-xs font-mono transition-colors cursor-pointer border",
-                    typeFilter === tab.id
+                    typeFilter === tab.id && status !== "ARCHIVED"
                       ? "border-indigo-400 bg-indigo-100 dark:bg-indigo-950/80 text-indigo-900 dark:text-indigo-200 font-bold shadow-sm"
                       : "border-slate-200 dark:border-indigo-900/30 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-indigo-800"
                   )}
@@ -316,6 +348,20 @@ export default function SkillsDashboardPage() {
                   {tab.label}
                 </button>
               ))}
+
+              <button
+                type="button"
+                onClick={() => setStatus(status === "ARCHIVED" ? "" : "ARCHIVED")}
+                className={clsx(
+                  "px-3 py-1.5 rounded text-xs font-mono transition-colors cursor-pointer border inline-flex items-center gap-1.5",
+                  status === "ARCHIVED"
+                    ? "border-amber-400 bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 font-bold shadow-sm"
+                    : "border-slate-200 dark:border-indigo-900/30 text-slate-600 dark:text-slate-400 hover:border-amber-300 dark:hover:border-amber-800"
+                )}
+              >
+                <Archive className="h-3.5 w-3.5 text-amber-500" />
+                ARCHIVED
+              </button>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3">
@@ -372,15 +418,31 @@ export default function SkillsDashboardPage() {
             />
           ) : filteredSkills.length === 0 ? (
             <EmptyState
-              icon={<Workflow className="h-6 w-6" />}
-              title={debouncedSearch || status ? "No matching items" : "No items yet"}
+              icon={status === "ARCHIVED" ? <Archive className="h-6 w-6 text-amber-500" /> : <Workflow className="h-6 w-6" />}
+              title={
+                status === "ARCHIVED"
+                  ? "No archived items"
+                  : debouncedSearch || status
+                  ? "No matching items"
+                  : "No items yet"
+              }
               description={
-                debouncedSearch || status
+                status === "ARCHIVED"
+                  ? "Archived workflows and skills will appear here. You can restore them anytime."
+                  : debouncedSearch || status
                   ? "No workflows or skills match your active filter criteria."
                   : "Create your first bounded multi-step workflow or start from a pre-built blueprint."
               }
               action={
-                !debouncedSearch && !status ? (
+                status === "ARCHIVED" ? (
+                  <button
+                    type="button"
+                    onClick={() => setStatus("")}
+                    className="px-4 py-2 rounded border border-indigo-400 bg-indigo-600 text-white text-xs font-mono font-semibold hover:bg-indigo-500 transition-all cursor-pointer"
+                  >
+                    [ VIEW ACTIVE SKILLS ]
+                  </button>
+                ) : !debouncedSearch && !status ? (
                   <Link
                     href="/dashboard/skills/new"
                     className="px-4 py-2 rounded border border-indigo-400 bg-indigo-600 text-white text-xs font-mono font-semibold hover:bg-indigo-500 transition-all cursor-pointer"
@@ -397,11 +459,17 @@ export default function SkillsDashboardPage() {
                 const allowedTools = version?.allowedTools ?? [];
                 const actionsRequiringApproval = version?.actionsRequiringApproval ?? [];
                 const isWorkflow = allowedTools.length > 1;
+                const isArchived = skill.status === "ARCHIVED";
 
                 return (
                   <div
                     key={skill.id}
-                    className="rounded border border-slate-200 dark:border-indigo-900/50 bg-white/90 dark:bg-[#0a0a0a]/90 p-5 space-y-4 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-300 flex flex-col justify-between shadow-sm"
+                    className={clsx(
+                      "rounded border p-5 space-y-4 transition-all duration-300 flex flex-col justify-between shadow-sm",
+                      isArchived
+                        ? "border-amber-400/40 dark:border-amber-800/40 bg-amber-50/30 dark:bg-amber-950/10 hover:border-amber-400 hover:shadow-amber-500/10"
+                        : "border-slate-200 dark:border-indigo-900/50 bg-white/90 dark:bg-[#0a0a0a]/90 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-xl hover:shadow-indigo-500/10"
+                    )}
                   >
                     <div className="space-y-3">
                       <div className="flex items-start justify-between gap-3">
@@ -459,12 +527,24 @@ export default function SkillsDashboardPage() {
 
                     <div className="flex items-center justify-between gap-1.5 pt-3 border-t border-slate-100 dark:border-indigo-950/60 mt-auto">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <Link
-                          href={`/dashboard/skills/${skill.id}`}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded border border-indigo-400/80 bg-indigo-600 text-white text-xs hover:bg-indigo-500 font-bold shadow-sm transition-all"
-                        >
-                          <Play className="h-3 w-3" /> [ RUN ]
-                        </Link>
+                        {isArchived ? (
+                          <button
+                            type="button"
+                            onClick={() => restoreMutation.mutate(skill.id)}
+                            disabled={restoreMutation.isPending}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded border border-amber-400/80 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                            title="Restore this archived skill"
+                          >
+                            <RotateCcw className="h-3 w-3" /> [ RESTORE ]
+                          </button>
+                        ) : (
+                          <Link
+                            href={`/dashboard/skills/${skill.id}`}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded border border-indigo-400/80 bg-indigo-600 text-white text-xs hover:bg-indigo-500 font-bold shadow-sm transition-all"
+                          >
+                            <Play className="h-3 w-3" /> [ RUN ]
+                          </Link>
+                        )}
                         <Link
                           href={`/dashboard/canvas/${skill.id}`}
                           className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded border border-violet-300 dark:border-violet-900/60 bg-violet-50 dark:bg-violet-950/30 text-xs text-violet-700 dark:text-violet-300 hover:border-violet-400 hover:text-violet-900 dark:hover:text-violet-100 transition-all font-semibold"
@@ -473,10 +553,10 @@ export default function SkillsDashboardPage() {
                           <Network className="h-3 w-3" /> CANVAS
                         </Link>
                         <Link
-                          href={`/dashboard/skills/${skill.id}/edit`}
+                          href={isArchived ? `/dashboard/skills/${skill.id}` : `/dashboard/skills/${skill.id}/edit`}
                           className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded border border-slate-200 dark:border-indigo-900/60 bg-slate-50 dark:bg-indigo-950/30 text-xs text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-all"
                         >
-                          EDIT
+                          {isArchived ? "DETAILS" : "EDIT"}
                         </Link>
                       </div>
 
@@ -490,7 +570,7 @@ export default function SkillsDashboardPage() {
                         >
                           <Copy className="h-3.5 w-3.5" />
                         </button>
-                        {skill.status !== "ARCHIVED" && (
+                        {!isArchived && (
                           <button
                             type="button"
                             onClick={() => setTarget({ skill, action: "archive" })}
@@ -500,7 +580,7 @@ export default function SkillsDashboardPage() {
                             <Archive className="h-3.5 w-3.5" />
                           </button>
                         )}
-                        {skill.status !== "PUBLISHED" && (
+                        {skill.status !== "PUBLISHED" && !isArchived && (
                           <button
                             type="button"
                             onClick={() => setTarget({ skill, action: "delete" })}
