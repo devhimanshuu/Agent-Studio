@@ -7,8 +7,6 @@
 [![Tests](https://img.shields.io/badge/Tests-70_Suites_559_Passing-brightgreen?style=for-the-badge&logo=vitest&logoColor=white)](https://vitest.dev)
 [![React Flow](https://img.shields.io/badge/Canvas-XYFlow_React-FF0072?style=for-the-badge&logo=react&logoColor=white)](https://reactflow.dev)
 
-> **Live Application**: [https://agent-studio-v1.vercel.app](https://agent-studio-v1.vercel.app)  
-> **GitHub Repository**: [https://github.com/devhimanshuu/Agent-Studio](https://github.com/devhimanshuu/Agent-Studio)  
 
 ---
 
