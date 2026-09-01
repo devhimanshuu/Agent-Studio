@@ -24,29 +24,37 @@ const envSchema = z.object({
 type Env = z.infer<typeof envSchema>;
 
 function parseEnv(): Env {
+  const isServer = typeof window === "undefined";
   const result = envSchema.safeParse(process.env);
   if (!result.success) {
     const formatted = result.error.format();
 
-    // In production, crash immediately — a misconfigured deploy should never
+    // In production on the server, crash immediately — a misconfigured deploy should never
     // silently serve requests with wrong/missing credentials.
-    if (process.env.NODE_ENV === "production") {
+    if (process.env.NODE_ENV === "production" && isServer) {
       console.error("[FATAL] Invalid environment variables in production:");
       console.error(JSON.stringify(formatted, null, 2));
-      process.exit(1);
+      if (typeof process !== "undefined" && typeof process.exit === "function") {
+        process.exit(1);
+      }
     }
 
-    // In development/test, log the error but fall back to defaults so local
-    // dev still works without a full .env file.
-    console.warn("[Config Warning] Some environment variables are missing or invalid:");
-    console.warn(JSON.stringify(formatted, null, 2));
+    // In development/test (or when running on server), log the warning
+    if (isServer) {
+      console.warn("[Config Warning] Some environment variables are missing or invalid:");
+      console.warn(JSON.stringify(formatted, null, 2));
+    }
 
-    // Re-parse with safe defaults for dev — NODE_ENV gets a default so it
+    // Re-parse with safe defaults — NODE_ENV gets a default so it
     // won't fail, and optional keys are simply undefined.
     const fallback = envSchema.partial().parse({});
     return envSchema.parse({
       DATABASE_URL: fallback.DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5432/agent_studio?schema=public",
       NEXTAUTH_SECRET: fallback.NEXTAUTH_SECRET ?? "dev-only-secret-not-for-production",
+      NODE_ENV: (process.env.NODE_ENV as Env["NODE_ENV"]) || "development",
+      LOG_LEVEL: (process.env.LOG_LEVEL as Env["LOG_LEVEL"]) || "info",
+      NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
     });
   }
   return result.data;

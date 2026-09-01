@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { logger } from "@/lib/logger";
 import { 
   Building2, 
   Users, 
@@ -83,7 +82,7 @@ export function OrganizationSettings({
         setCustomRoles(rolesData.data || []);
       }
     } catch (err) {
-      logger.error({ err }, "Failed to load organization data");
+      console.error("Failed to load organization data:", err);
       toast.error("Error", "Failed to load organization data");
     } finally {
       setLoading(false);

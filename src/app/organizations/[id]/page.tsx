@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { logger } from "@/lib/logger";
 import { 
   Building2, 
   ArrowLeft,
@@ -43,7 +42,7 @@ export default function OrganizationDetailPage() {
         router.push("/organizations");
       }
     } catch (err) {
-      logger.error({ err }, "Failed to load organization");
+      console.error("Failed to load organization:", err);
       toast.error("Error", "Failed to load organization");
     } finally {
       setLoading(false);

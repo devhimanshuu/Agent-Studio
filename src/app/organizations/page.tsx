@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { logger } from "@/lib/logger";
 import {
   Building2,
   Plus,
@@ -43,7 +42,7 @@ export default function OrganizationsPage() {
         setOrganizations(data.data || []);
       }
     } catch (err) {
-      logger.error({ err }, "Failed to load organizations");
+      console.error("Failed to load organizations:", err);
       toast.error("Error", "Failed to load organizations");
     } finally {
       setLoading(false);

@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { logger } from "@/lib/logger";
 import {
   Database,
   UploadCloud,
@@ -342,7 +341,7 @@ export default function KnowledgeBasePage() {
         setSearchResults(json.context || []);
       }
     } catch (err) {
-      logger.error({ err }, "Search failed");
+      console.error("Search failed:", err);
     } finally {
       setIsSearching(false);
     }
@@ -390,7 +389,7 @@ export default function KnowledgeBasePage() {
         }
       }
     } catch (err) {
-      logger.error({ err }, "QA generation failed");
+      console.error("QA generation failed:", err);
     } finally {
       setIsGeneratingQA(false);
     }
@@ -424,7 +423,7 @@ export default function KnowledgeBasePage() {
         setSelectedDocChunks(json.document);
       }
     } catch (err) {
-      logger.error({ err }, "Failed to load document chunks");
+      console.error("Failed to load document chunks:", err);
     }
   };
 

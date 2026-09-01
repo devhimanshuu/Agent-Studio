@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { logger } from "@/lib/logger";
 import { 
   Building2, 
   ChevronDown, 
@@ -54,7 +53,7 @@ export function OrganizationSwitcher({
         }
       }
     } catch (err) {
-      logger.error({ err }, "Failed to load organizations");
+      console.error("Failed to load organizations:", err);
     } finally {
       setLoading(false);
     }
