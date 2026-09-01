@@ -187,6 +187,18 @@ export class NotFoundError extends Error {
 // ────────────── Service ──────────────
 
 export class RBACService {
+  // ── Per-request caches (avoid redundant DB round-trips within a single request) ──
+  private superAdminCache = new Map<string, boolean>();
+  private membershipCache = new Map<string, { role: OrgRole; permissions: string[]; customRoleId: string | null } | null>();
+  private effectivePermsCache = new Map<string, { role: OrgRole; permissions: string[] }>();
+
+  /** Clear all per-request caches. Call at the end of each API request if needed. */
+  clearCaches(): void {
+    this.superAdminCache.clear();
+    this.membershipCache.clear();
+    this.effectivePermsCache.clear();
+  }
+
   /**
    * Get custom role permissions for an organization
    */
@@ -206,12 +218,17 @@ export class RBACService {
   }
 
   /**
-   * Get effective permissions for a user (base role + custom role permissions)
+   * Get effective permissions for a user (base role + custom role permissions).
+   * Cached per (userId, organizationId) to avoid redundant lookups within a request.
    */
   private async getEffectivePermissions(
     userId: string,
     organizationId: string
   ): Promise<{ role: OrgRole; permissions: string[] }> {
+    const cacheKey = `${userId}:${organizationId}`;
+    const cached = this.effectivePermsCache.get(cacheKey);
+    if (cached) return cached;
+
     const membership = await prisma.organizationMember.findUnique({
       where: {
         organizationId_userId: { organizationId, userId },
@@ -231,24 +248,32 @@ export class RBACService {
       );
     }
 
-    return {
+    const result = {
       role: baseRole,
       permissions: [
         ...(membership.permissions as string[] || []),
         ...customPermissions,
       ],
     };
+
+    this.effectivePermsCache.set(cacheKey, result);
+    return result;
   }
 
   private async isSuperAdmin(userId: string): Promise<boolean> {
     if (!userId) return false;
+    const cached = this.superAdminCache.get(userId);
+    if (cached !== undefined) return cached;
     try {
       const user = await prisma.user.findUnique({
         where: { id: userId },
         select: { role: true },
       });
-      return user?.role === "ADMIN";
+      const isAdmin = user?.role === "ADMIN";
+      this.superAdminCache.set(userId, isAdmin);
+      return isAdmin;
     } catch {
+      this.superAdminCache.set(userId, false);
       return false;
     }
   }
@@ -300,24 +325,38 @@ export class RBACService {
   }
 
   /**
-   * Get user's organization membership
+   * Get user's organization membership.
+   * Cached per (userId, organizationId) to avoid redundant lookups.
    */
   async getOrgMembership(
     userId: string,
     organizationId: string
   ): Promise<{ role: OrgRole; permissions: SkillPermission[] } | null> {
+    const cacheKey = `membership:${userId}:${organizationId}`;
+    const cached = this.membershipCache.get(cacheKey);
+    if (cached === null) return null;
+    if (cached) {
+      return { role: cached.role, permissions: cached.permissions as SkillPermission[] };
+    }
+
     const membership = await prisma.organizationMember.findUnique({
       where: {
         organizationId_userId: { organizationId, userId },
       },
     });
 
-    if (!membership) return null;
+    if (!membership) {
+      this.membershipCache.set(cacheKey, null);
+      return null;
+    }
 
-    return {
+    const result = {
       role: membership.role as OrgRole,
       permissions: (membership.permissions as SkillPermission[]) || [],
     };
+
+    this.membershipCache.set(cacheKey, { ...result, customRoleId: membership.customRoleId });
+    return result;
   }
 
   /**

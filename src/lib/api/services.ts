@@ -100,7 +100,7 @@ function build(): ApiServices {
   const planLimitsService = new PlanLimitsService();
   const customRoleService = new CustomRoleService();
   const apiKeyService = new ApiKeyService();
-  const organizationService = new OrganizationService();
+  const organizationService = new OrganizationService(rbacService, auditService);
   const vaultService = new VaultService();
   const dashboardStatsService = new DashboardStatsService();
   const invitationEmailService = new InvitationEmailService();

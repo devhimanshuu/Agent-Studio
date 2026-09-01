@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { jsonInput, jsonOrNull } from "@/lib/prisma-helpers";
 import { ISkillRepository } from "./interfaces/ISkillRepository";
 import {
   SkillDTO,
@@ -123,6 +124,31 @@ export class SkillRepository implements ISkillRepository {
     return { items: items.map((s) => this.mapSkill(s)), total };
   }
 
+  async listForOrganization(organizationId: string, query: SkillListQuery): Promise<SkillListResult> {
+    let where: Prisma.SkillWhereInput = { organizationId };
+
+    if (query.status) {
+      where = { AND: [where, { status: query.status }] };
+    }
+    if (query.search) {
+      where = { AND: [where, { name: { contains: query.search, mode: "insensitive" } }] };
+    }
+
+    const sortBy = query.sortBy ?? "updatedAt";
+    const sortOrder = query.sortOrder ?? "desc";
+
+    const [items, total] = await Promise.all([
+      prisma.skill.findMany({
+        where,
+        include: { versions: true },
+        orderBy: { [sortBy]: sortOrder },
+      }),
+      prisma.skill.count({ where }),
+    ]);
+
+    return { items: items.map((s) => this.mapSkill(s)), total };
+  }
+
   async create(input: CreateSkillInput): Promise<SkillDTO> {
     // Create the skill + first draft and set the currentDraftId pointer
     // atomically so a crash between the two writes can't orphan a skill.
@@ -139,15 +165,15 @@ export class SkillRepository implements ISkillRepository {
               create: {
                 versionNumber: 1,
                 status: "DRAFT",
-                inputSchema: (input.inputSchema ?? {}) as unknown as Prisma.InputJsonValue,
-                outputSchema: (input.outputSchema ?? {}) as unknown as Prisma.InputJsonValue,
+                inputSchema: jsonInput(input.inputSchema ?? {}),
+                outputSchema: jsonInput(input.outputSchema ?? {}),
                 instructions: input.instructions ?? "",
-                examples: (input.examples ?? []) as unknown as Prisma.InputJsonValue,
-                allowedTools: (input.allowedTools ?? []) as unknown as Prisma.InputJsonValue,
-                actionsRequiringApproval: (input.actionsRequiringApproval ?? []) as unknown as Prisma.InputJsonValue,
-                approvalPolicy: (input.approvalPolicy ?? Prisma.DbNull) as unknown as Prisma.InputJsonValue,
+                examples: jsonInput(input.examples ?? []),
+                allowedTools: jsonInput(input.allowedTools ?? []),
+                actionsRequiringApproval: jsonInput(input.actionsRequiringApproval ?? []),
+                approvalPolicy: jsonOrNull(input.approvalPolicy),
                 maxExecutionSteps: input.maxExecutionSteps ?? 10,
-                graphDefinition: (input.graphDefinition ?? Prisma.DbNull) as unknown as Prisma.InputJsonValue,
+                graphDefinition: jsonOrNull(input.graphDefinition),
                 notes: input.notes ?? null,
               },
             },
@@ -231,24 +257,24 @@ export class SkillRepository implements ISkillRepository {
         const updatedVersion = await tx.skillVersion.update({
           where: { id: draftId! },
           data: {
-            ...(input.inputSchema && { inputSchema: input.inputSchema as unknown as Prisma.InputJsonValue }),
-            ...(input.outputSchema && { outputSchema: input.outputSchema as unknown as Prisma.InputJsonValue }),
+            ...(input.inputSchema && { inputSchema: jsonInput(input.inputSchema) }),
+            ...(input.outputSchema && { outputSchema: jsonInput(input.outputSchema) }),
             ...(input.instructions !== undefined && { instructions: input.instructions }),
-            ...(input.examples && { examples: input.examples as unknown as Prisma.InputJsonValue }),
-            ...(input.allowedTools && { allowedTools: input.allowedTools as unknown as Prisma.InputJsonValue }),
+            ...(input.examples && { examples: jsonInput(input.examples) }),
+            ...(input.allowedTools && { allowedTools: jsonInput(input.allowedTools) }),
             ...(input.actionsRequiringApproval && {
-              actionsRequiringApproval: input.actionsRequiringApproval as unknown as Prisma.InputJsonValue,
+              actionsRequiringApproval: jsonInput(input.actionsRequiringApproval),
             }),
             // approvalPolicy supports explicit null (clear the override, fall back
             // to DEFAULT_APPROVAL_POLICY) unlike other fields which only update when truthy.
             ...(input.approvalPolicy !== undefined && {
-              approvalPolicy: (input.approvalPolicy ?? Prisma.DbNull) as unknown as Prisma.InputJsonValue,
+              approvalPolicy: jsonOrNull(input.approvalPolicy),
             }),
             ...(input.maxExecutionSteps !== undefined && { maxExecutionSteps: input.maxExecutionSteps }),
             // graphDefinition supports explicit null (clear the graph) unlike
             // other fields which only update when truthy.
             ...(input.graphDefinition !== undefined && {
-              graphDefinition: (input.graphDefinition ?? Prisma.DbNull) as unknown as Prisma.InputJsonValue,
+              graphDefinition: jsonOrNull(input.graphDefinition),
             }),
             ...(input.notes !== undefined && { notes: input.notes }),
           },
@@ -298,15 +324,15 @@ export class SkillRepository implements ISkillRepository {
               create: {
                 versionNumber: 1,
                 status: "DRAFT",
-                inputSchema: (source?.inputSchema ?? {}) as unknown as Prisma.InputJsonValue,
-                outputSchema: (source?.outputSchema ?? {}) as unknown as Prisma.InputJsonValue,
+                inputSchema: jsonInput(source?.inputSchema ?? {}),
+                outputSchema: jsonInput(source?.outputSchema ?? {}),
                 instructions: source?.instructions ?? "",
-                examples: (source?.examples ?? []) as unknown as Prisma.InputJsonValue,
-                allowedTools: (source?.allowedTools ?? []) as unknown as Prisma.InputJsonValue,
-                actionsRequiringApproval: (source?.actionsRequiringApproval ?? []) as unknown as Prisma.InputJsonValue,
-                approvalPolicy: (source?.approvalPolicy ?? Prisma.DbNull) as unknown as Prisma.InputJsonValue,
+                examples: jsonInput(source?.examples ?? []),
+                allowedTools: jsonInput(source?.allowedTools ?? []),
+                actionsRequiringApproval: jsonInput(source?.actionsRequiringApproval ?? []),
+                approvalPolicy: jsonOrNull(source?.approvalPolicy),
                 maxExecutionSteps: source?.maxExecutionSteps ?? 10,
-                graphDefinition: (source?.graphDefinition ?? Prisma.DbNull) as unknown as Prisma.InputJsonValue,
+                graphDefinition: jsonOrNull(source?.graphDefinition),
                 notes: source?.notes ?? null,
               },
             },
@@ -445,7 +471,7 @@ export class SkillRepository implements ISkillRepository {
       examples: v.examples as unknown as SkillExampleDTO[],
       allowedTools: v.allowedTools as string[],
       actionsRequiringApproval: v.actionsRequiringApproval as string[],
-      approvalPolicy: (v.approvalPolicy as unknown as ApprovalPolicy | null) ?? null,
+      approvalPolicy: (v.approvalPolicy as ApprovalPolicy | null) ?? null,
       maxExecutionSteps: v.maxExecutionSteps,
       graphDefinition: (v.graphDefinition as AgentGraphDefinition | null) ?? null,
       changelog: v.changelog,

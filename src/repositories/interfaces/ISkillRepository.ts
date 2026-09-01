@@ -14,6 +14,7 @@ export interface ISkillRepository {
   findByIdForUser(id: string, userId: string): Promise<SkillDTO | null>;
   findByUserId(userId: string): Promise<SkillDTO[]>;
   list(userId: string, query: SkillListQuery): Promise<SkillListResult>;
+  listForOrganization(organizationId: string, query: SkillListQuery): Promise<SkillListResult>;
   create(input: CreateSkillInput): Promise<SkillDTO>;
   updateDraft(skillId: string, userId: string, input: UpdateSkillInput): Promise<SkillVersionDTO>;
   duplicate(skillId: string, userId: string): Promise<SkillDTO>;

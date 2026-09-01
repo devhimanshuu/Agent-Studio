@@ -66,9 +66,12 @@ export class OrganizationService {
   private rbacService: RBACService;
   private auditService: AuditService;
 
-  constructor() {
-    this.rbacService = new RBACService();
-    this.auditService = new AuditService();
+  constructor(
+    rbacService?: RBACService,
+    auditService?: AuditService
+  ) {
+    this.rbacService = rbacService ?? new RBACService();
+    this.auditService = auditService ?? new AuditService();
   }
 
   /**

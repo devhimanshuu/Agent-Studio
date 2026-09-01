@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const securityHeaders = [
-  { key: "X-Frame-Options", value: "ALLOWALL" },
+  { key: "X-Frame-Options", value: "DENY" },
   {
     key: "Content-Security-Policy",
     value: "frame-ancestors 'self' https://devhimanshuu.vercel.app https://*.vercel.app http://localhost:*",
@@ -12,7 +12,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  reactStrictMode: false,
+  reactStrictMode: true,
   experimental: {
     optimizePackageImports: [
       "lucide-react",

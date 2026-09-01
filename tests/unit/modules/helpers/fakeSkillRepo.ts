@@ -44,6 +44,11 @@ export class FakeSkillRepo implements ISkillRepository {
     return { items, total: items.length };
   }
 
+  async listForOrganization(organizationId: string, _query: SkillListQuery): Promise<SkillListResult> {
+    const items = [...this.skills.values()].filter((s) => s.organizationId === organizationId);
+    return { items, total: items.length };
+  }
+
   async create(input: CreateSkillInput): Promise<SkillDTO> {
     this.skillSeq += 1;
     this.versionSeq += 1;

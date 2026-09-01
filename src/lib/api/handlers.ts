@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { logger } from "@/lib/logger";
-import { ForbiddenError, NotFoundError } from "@/services/RBACService";
+import { ForbiddenError as RbacForbiddenError, NotFoundError as RbacNotFoundError } from "@/services/RBACService";
+import {
+  ForbiddenError,
+  NotFoundError,
+  BadRequestError,
+  UnauthorizedError,
+} from "@/lib/api/errors";
 
 export { isValidIsoDate } from "./dates";
 
@@ -76,15 +82,29 @@ export function handleApiError(error: unknown): NextResponse<ApiError> {
   if (error instanceof Error && "issues" in error) {
     return badRequest(error);
   }
-  // Typed domain errors from RBACService
+  // Shared typed API errors (preferred)
+  if (error instanceof BadRequestError) {
+    return badRequest(error);
+  }
+  if (error instanceof UnauthorizedError) {
+    return unauthorized();
+  }
   if (error instanceof ForbiddenError) {
     return forbidden();
   }
   if (error instanceof NotFoundError) {
     return notFound(error.message);
   }
-  // Fallback: check message substrings for ownership / not-found patterns
-  // used by services that throw plain Error with descriptive messages.
+  // Legacy RBACService error types (also typed)
+  if (error instanceof RbacForbiddenError) {
+    return forbidden();
+  }
+  if (error instanceof RbacNotFoundError) {
+    return notFound(error.message);
+  }
+  // DEPRECATED fallback: check message substrings for ownership / not-found
+  // patterns used by services that still throw plain Error. New code should
+  // use NotFoundError / ForbiddenError from @/lib/api/errors instead.
   if (error instanceof Error) {
     const msg = error.message;
     if (msg.includes("not found") || msg.includes("not have access")) {

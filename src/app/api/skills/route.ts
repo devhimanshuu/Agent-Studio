@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { createSkillSchema, skillListQuerySchema } from "@/validators/skillSchema";
 import { auth } from "@clerk/nextjs/server";
 import { unauthorized, forbidden, badRequest, handleApiError } from "@/lib/api/handlers";
-import { prisma } from "@/lib/prisma";
 import { apiServices } from "@/lib/api/services";
+import { rateLimit } from "@/lib/api/rate-limit";
 
 const { skillService, rbacService, planLimitsService, skillRepo } = apiServices();
 
@@ -12,6 +12,9 @@ const { skillService, rbacService, planLimitsService, skillRepo } = apiServices(
  * Supports optional organization context via X-Organization-Id header
  */
 export async function GET(request: Request) {
+  const rl = await rateLimit(request);
+  if (rl) return rl;
+
   const { userId } = await auth();
   if (!userId) return unauthorized();
 
@@ -34,30 +37,8 @@ export async function GET(request: Request) {
       const membership = await rbacService.getOrgMembership(userId, organizationId);
       if (!membership) return forbidden();
 
-      // Build where clause for search
-      const where: import("@prisma/client").Prisma.SkillWhereInput = { organizationId };
-      if (parsed.data.search) {
-        where.name = { contains: parsed.data.search, mode: "insensitive" };
-      }
-      if (parsed.data.status) {
-        where.status = parsed.data.status;
-      }
-
-      // Build order clause
-      const orderBy: import("@prisma/client").Prisma.SkillOrderByWithRelationInput = parsed.data.sortBy
-        ? { [parsed.data.sortBy]: parsed.data.sortOrder || "desc" }
-        : { createdAt: "desc" };
-
-      // List skills for organization
-      const [skills, total] = await Promise.all([
-        prisma.skill.findMany({
-          where,
-          orderBy,
-          include: { versions: true },
-        }),
-        prisma.skill.count({ where }),
-      ]);
-      result = { items: skills.map((s) => skillRepo.mapSkill(s)), total };
+      // Use repository method instead of inline Prisma queries
+      result = await skillRepo.listForOrganization(organizationId, parsed.data);
     } else {
       // List user's personal skills
       result = await skillService.listSkills(userId, parsed.data);
@@ -74,6 +55,9 @@ export async function GET(request: Request) {
  * Supports optional organization context via X-Organization-Id header
  */
 export async function POST(request: Request) {
+  const rl = await rateLimit(request);
+  if (rl) return rl;
+
   const { userId } = await auth();
   if (!userId) return unauthorized();
 
