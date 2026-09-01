@@ -3,8 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { apiServices } from "@/lib/api/services";
 
 import { testRawEndpointRequestSchema } from "@/validators/openApiSchema";
-import { unauthorized, badRequest, serverError } from "@/lib/api/handlers";
-import { ZodError } from "zod";
+import { unauthorized, handleApiError } from "@/lib/api/handlers";
 
 const { openApiService } = apiServices();
 
@@ -29,12 +28,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
-    if (error instanceof SyntaxError) {
-      return badRequest(new Error("Invalid JSON body"));
-    }
-    if (error instanceof ZodError || (error instanceof Error && (error.name === "ZodError" || "issues" in error))) {
-      return badRequest(error);
-    }
-    return serverError(error);
+    return handleApiError(error);
   }
 }

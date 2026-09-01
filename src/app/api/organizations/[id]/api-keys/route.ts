@@ -7,12 +7,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { ApiKeyService } from "@/services/ApiKeyService";
-import { unauthorized, forbidden, badRequest, serverError } from "@/lib/api/handlers";
-import { ForbiddenError } from "@/services/RBACService";
-import { logger } from "@/lib/logger";
+import { unauthorized, badRequest, handleApiError } from "@/lib/api/handlers";
+import { apiServices } from "@/lib/api/services";
 
-const apiKeyService = new ApiKeyService();
+const { apiKeyService } = apiServices();
 
 /**
  * GET /api/organizations/[id]/api-keys — List organization API keys
@@ -29,9 +27,7 @@ export async function GET(
     const keys = await apiKeyService.list(userId, id);
     return NextResponse.json({ success: true, data: keys });
   } catch (error) {
-    if (error instanceof ForbiddenError) return forbidden();
-    logger.error({ error }, "Failed to list API keys");
-    return serverError(error);
+    return handleApiError(error);
   }
 }
 
@@ -78,12 +74,6 @@ export async function POST(
 
     return NextResponse.json({ success: true, data: key }, { status: 201 });
   } catch (error) {
-    if (error instanceof SyntaxError) {
-      return badRequest(new Error("Invalid JSON body"));
-    }
-    if (error instanceof ForbiddenError) return forbidden();
-    if (error instanceof Error) return badRequest(error);
-    logger.error({ error }, "Failed to create API key");
-    return serverError(error);
+    return handleApiError(error);
   }
 }

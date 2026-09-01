@@ -3,7 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { apiServices } from "@/lib/api/services";
 
-import { unauthorized, badRequest, serverError } from "@/lib/api/handlers";
+import { unauthorized, handleApiError } from "@/lib/api/handlers";
 
 const { mcpService } = apiServices();
 
@@ -69,12 +69,6 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    if (error instanceof SyntaxError) {
-      return badRequest(new Error("Invalid JSON bundle"));
-    }
-    if (error instanceof z.ZodError) {
-      return badRequest(error);
-    }
-    return serverError(error);
+    return handleApiError(error);
   }
 }

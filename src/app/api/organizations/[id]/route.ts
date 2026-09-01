@@ -8,12 +8,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { OrganizationService } from "@/services/OrganizationService";
-import { unauthorized, forbidden, notFound, badRequest, serverError } from "@/lib/api/handlers";
-import { ForbiddenError } from "@/services/RBACService";
-import { logger } from "@/lib/logger";
+import { unauthorized, handleApiError } from "@/lib/api/handlers";
+import { apiServices } from "@/lib/api/services";
 
-const organizationService = new OrganizationService();
+const { organizationService } = apiServices();
 
 /**
  * GET /api/organizations/[id] — Get organization details
@@ -30,13 +28,12 @@ export async function GET(
     const organization = await organizationService.getById(userId, id);
 
     if (!organization) {
-      return notFound("Organization not found");
+      return handleApiError(new Error("Organization not found"));
     }
 
     return NextResponse.json({ success: true, data: organization });
   } catch (error) {
-    logger.error({ error }, "Failed to get organization");
-    return serverError(error);
+    return handleApiError(error);
   }
 }
 
@@ -62,17 +59,7 @@ export async function PUT(
 
     return NextResponse.json({ success: true, data: organization });
   } catch (error) {
-    if (error instanceof SyntaxError) {
-      return badRequest(new Error("Invalid JSON body"));
-    }
-    if (error instanceof ForbiddenError) {
-      return forbidden();
-    }
-    if (error instanceof Error && error.message.includes("not found")) {
-      return notFound(error.message);
-    }
-    logger.error({ error }, "Failed to update organization");
-    return serverError(error);
+    return handleApiError(error);
   }
 }
 
@@ -92,13 +79,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    if (error instanceof ForbiddenError) {
-      return forbidden();
-    }
-    if (error instanceof Error && error.message.includes("not found")) {
-      return notFound(error.message);
-    }
-    logger.error({ error }, "Failed to delete organization");
-    return serverError(error);
+    return handleApiError(error);
   }
 }

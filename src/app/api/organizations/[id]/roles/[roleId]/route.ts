@@ -6,10 +6,10 @@
  * DELETE /api/organizations/[id]/roles/[roleId] - Delete role
  */
 
+import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { CustomRoleService } from "@/services/CustomRoleService";
-import { unauthorized, forbidden, badRequest, serverError } from "@/lib/api/handlers";
-import { logger } from "@/lib/logger";
+import { unauthorized, badRequest, handleApiError } from "@/lib/api/handlers";
+import { apiServices } from "@/lib/api/services";
 import { z } from "zod";
 
 const updateRoleSchema = z.object({
@@ -18,7 +18,7 @@ const updateRoleSchema = z.object({
   permissions: z.array(z.string()).optional(),
 });
 
-const customRoleService = new CustomRoleService();
+const { customRoleService } = apiServices();
 
 /**
  * GET /api/organizations/[id]/roles/[roleId]
@@ -39,16 +39,9 @@ export async function GET(
       return badRequest(new Error("Role not found"));
     }
 
-    return new Response(JSON.stringify({ success: true, data: role }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return NextResponse.json({ success: true, data: role });
   } catch (error) {
-    if (error instanceof Error && error.message.includes("Not a member")) {
-      return forbidden();
-    }
-    logger.error({ error }, "Failed to get role");
-    return serverError(error);
+    return handleApiError(error);
   }
 }
 
@@ -70,22 +63,9 @@ export async function PUT(
 
     const role = await customRoleService.update(userId, organizationId, roleId, validatedData);
 
-    return new Response(JSON.stringify({ success: true, data: role }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return NextResponse.json({ success: true, data: role });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return badRequest(new Error(error.errors.map((e) => e.message).join(", ")));
-    }
-    if (error instanceof Error && error.message.includes("built-in")) {
-      return forbidden();
-    }
-    if (error instanceof Error && error.message.includes("Only admins")) {
-      return forbidden();
-    }
-    logger.error({ error }, "Failed to update role");
-    return serverError(error);
+    return handleApiError(error);
   }
 }
 
@@ -105,18 +85,8 @@ export async function DELETE(
 
     await customRoleService.delete(userId, organizationId, roleId);
 
-    return new Response(JSON.stringify({ success: true, data: { deleted: true } }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return NextResponse.json({ success: true, data: { deleted: true } });
   } catch (error) {
-    if (error instanceof Error && error.message.includes("built-in")) {
-      return forbidden();
-    }
-    if (error instanceof Error && error.message.includes("Only admins")) {
-      return forbidden();
-    }
-    logger.error({ error }, "Failed to delete role");
-    return serverError(error);
+    return handleApiError(error);
   }
 }

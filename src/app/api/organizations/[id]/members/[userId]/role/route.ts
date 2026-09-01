@@ -7,12 +7,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { CustomRoleService } from "@/services/CustomRoleService";
-import { unauthorized, forbidden, badRequest, serverError } from "@/lib/api/handlers";
-import { ForbiddenError } from "@/services/RBACService";
-import { logger } from "@/lib/logger";
+import { unauthorized, badRequest, handleApiError } from "@/lib/api/handlers";
+import { apiServices } from "@/lib/api/services";
 
-const customRoleService = new CustomRoleService();
+const { customRoleService } = apiServices();
 
 /**
  * PUT /api/organizations/[id]/members/[userId]/role — Assign custom role
@@ -41,17 +39,7 @@ export async function PUT(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    if (error instanceof SyntaxError) {
-      return badRequest(new Error("Invalid JSON body"));
-    }
-    if (error instanceof ForbiddenError) {
-      return forbidden();
-    }
-    if (error instanceof Error) {
-      return badRequest(error);
-    }
-    logger.error({ error }, "Failed to assign custom role");
-    return serverError(error);
+    return handleApiError(error);
   }
 }
 
@@ -75,13 +63,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    if (error instanceof ForbiddenError) {
-      return forbidden();
-    }
-    if (error instanceof Error) {
-      return badRequest(error);
-    }
-    logger.error({ error }, "Failed to remove custom role");
-    return serverError(error);
+    return handleApiError(error);
   }
 }

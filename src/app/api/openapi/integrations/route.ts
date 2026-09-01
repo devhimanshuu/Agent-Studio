@@ -3,8 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { apiServices } from "@/lib/api/services";
 
 import { createOpenApiIntegrationSchema } from "@/validators/openApiSchema";
-import { unauthorized, badRequest, serverError } from "@/lib/api/handlers";
-import { ZodError } from "zod";
+import { unauthorized, handleApiError } from "@/lib/api/handlers";
 
 const { openApiService } = apiServices();
 
@@ -19,7 +18,7 @@ export async function GET(request: Request) {
     const integrations = await openApiService.listIntegrations(userId, limit);
     return NextResponse.json({ success: true, data: integrations });
   } catch (error) {
-    return serverError(error);
+    return handleApiError(error);
   }
 }
 
@@ -33,12 +32,6 @@ export async function POST(request: Request) {
     const integration = await openApiService.createIntegration(validated);
     return NextResponse.json({ success: true, data: integration }, { status: 201 });
   } catch (error) {
-    if (error instanceof SyntaxError) {
-      return badRequest(new Error("Invalid JSON body"));
-    }
-    if (error instanceof ZodError || (error instanceof Error && (error.name === "ZodError" || "issues" in error))) {
-      return badRequest(error);
-    }
-    return serverError(error);
+    return handleApiError(error);
   }
 }

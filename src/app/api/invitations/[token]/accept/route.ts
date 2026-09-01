@@ -6,11 +6,10 @@
 
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { OrganizationService } from "@/services/OrganizationService";
-import { unauthorized, badRequest, serverError } from "@/lib/api/handlers";
-import { logger } from "@/lib/logger";
+import { unauthorized, badRequest, handleApiError } from "@/lib/api/handlers";
+import { apiServices } from "@/lib/api/services";
 
-const organizationService = new OrganizationService();
+const { organizationService } = apiServices();
 
 /**
  * POST /api/invitations/[token]/accept — Accept invitation
@@ -33,22 +32,6 @@ export async function POST(
 
     return NextResponse.json({ success: true, data: membership });
   } catch (error) {
-    if (error instanceof Error) {
-      // Specific error messages for different failure cases
-      if (error.message.includes("Invalid")) {
-        return badRequest(error);
-      }
-      if (error.message.includes("expired")) {
-        return badRequest(error);
-      }
-      if (error.message.includes("already")) {
-        return badRequest(error);
-      }
-      if (error.message.includes("does not match")) {
-        return badRequest(error);
-      }
-    }
-    logger.error({ error }, "Failed to accept invitation");
-    return serverError(error);
+    return handleApiError(error);
   }
 }

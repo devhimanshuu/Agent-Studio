@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { AuditLogRepository } from "@/repositories/AuditLogRepository";
 import { AuditService } from "@/modules/audit";
-import { unauthorized, serverError, badRequest, isValidIsoDate } from "@/lib/api/handlers";
+import { unauthorized, badRequest, handleApiError, isValidIsoDate } from "@/lib/api/handlers";
 import { AuditQuery } from "@/types/observability";
 
 const auditRepo = new AuditLogRepository();
@@ -46,6 +46,6 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, data });
   } catch (error) {
-    return serverError(error);
+    return handleApiError(error);
   }
 }

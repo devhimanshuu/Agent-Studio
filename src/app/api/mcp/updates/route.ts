@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { apiServices } from "@/lib/api/services";
-import { SkillService } from "@/services/SkillService";
-
 import { ApplyToolUpdateInput, McpToolUpdate } from "@/types/mcp";
 import { applyToolUpdates } from "@/modules/mcp/toolDiff";
-import { logger } from "@/lib/logger";
+import { handleApiError } from "@/lib/api/handlers";
 
 export const dynamic = "force-dynamic";
 
-const { mcpService, skillRepo, auditRepo } = apiServices();
-const skillService = new SkillService(skillRepo, auditRepo);
+const { mcpService, skillService, auditRepo } = apiServices();
 
 /**
  * GET /api/mcp/updates — List all pending tool updates across all servers.
@@ -50,11 +47,7 @@ export async function GET(_request: Request) {
 
     return NextResponse.json({ success: true, data: enrichedUpdates });
   } catch (error) {
-    logger.error({ error }, "Failed to list MCP tool updates");
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal error" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -155,10 +148,6 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    logger.error({ error }, "Failed to apply MCP tool update");
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal error" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

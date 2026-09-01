@@ -7,12 +7,10 @@
 
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { OrganizationService } from "@/services/OrganizationService";
-import { unauthorized, forbidden, badRequest, serverError } from "@/lib/api/handlers";
-import { ForbiddenError } from "@/services/RBACService";
-import { logger } from "@/lib/logger";
+import { unauthorized, badRequest, handleApiError } from "@/lib/api/handlers";
+import { apiServices } from "@/lib/api/services";
 
-const organizationService = new OrganizationService();
+const { organizationService } = apiServices();
 
 /**
  * GET /api/organizations/[id]/invitations — List pending invitations
@@ -29,9 +27,7 @@ export async function GET(
     const invitations = await organizationService.listInvitations(userId, id);
     return NextResponse.json({ success: true, data: invitations });
   } catch (error) {
-    if (error instanceof ForbiddenError) return forbidden();
-    logger.error({ error }, "Failed to list invitations");
-    return serverError(error);
+    return handleApiError(error);
   }
 }
 
@@ -57,9 +53,6 @@ export async function DELETE(
     await organizationService.cancelInvitation(userId, id, invitationId);
     return NextResponse.json({ success: true });
   } catch (error) {
-    if (error instanceof ForbiddenError) return forbidden();
-    if (error instanceof Error) return badRequest(error);
-    logger.error({ error }, "Failed to cancel invitation");
-    return serverError(error);
+    return handleApiError(error);
   }
 }

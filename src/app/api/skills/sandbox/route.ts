@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { SkillRepository } from "@/repositories/SkillRepository";
 import { createSkillSchema } from "@/validators/skillSchema";
-import { SkillService } from "@/services/SkillService";
-import { AuditLogRepository } from "@/repositories/AuditLogRepository";
 import { previewStore } from "@/modules/graph/previewStore";
 import { AgentGraphDefinition } from "@/types/graph";
 import { logger } from "@/lib/logger";
+import { apiServices } from "@/lib/api/services";
+import { handleApiError } from "@/lib/api/handlers";
 
 export const dynamic = "force-dynamic";
 
-const skillRepo = new SkillRepository();
-const auditRepo = new AuditLogRepository();
-const skillService = new SkillService(skillRepo, auditRepo);
+const { skillService, skillRepo } = apiServices();
 
 /**
  * POST /api/skills/sandbox

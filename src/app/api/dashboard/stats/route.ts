@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { unauthorized, serverError } from "@/lib/api/handlers";
-import { DashboardStatsService } from "@/services/DashboardStatsService";
+import { unauthorized, handleApiError } from "@/lib/api/handlers";
 import { TimeRangeFilter } from "@/types/dashboard";
+import { apiServices } from "@/lib/api/services";
 
-const dashboardStatsService = new DashboardStatsService();
+const { dashboardStatsService } = apiServices();
 
 export async function GET(request: Request) {
   const { userId } = await auth();
@@ -19,6 +19,6 @@ export async function GET(request: Request) {
     const stats = await dashboardStatsService.getDashboardStats(userId, timeRange);
     return NextResponse.json({ success: true, data: stats });
   } catch (error) {
-    return serverError(error);
+    return handleApiError(error);
   }
 }

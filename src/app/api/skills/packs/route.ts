@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { SkillService } from "@/services/SkillService";
-
 import { getPackById, SKILL_PACKS } from "@/data/skillPacks";
 import { InstallPackInput, PackInstallationState } from "@/types/skillPacks";
 import { createSkillSchema } from "@/validators/skillSchema";
 import { apiServices } from "@/lib/api/services";
 import { logger } from "@/lib/logger";
+import { handleApiError } from "@/lib/api/handlers";
 
 export const dynamic = "force-dynamic";
 
-const { skillRepo, auditRepo, mcpService } = apiServices();
-const skillService = new SkillService(skillRepo, auditRepo);
+const { skillService, auditRepo, mcpService } = apiServices();
 
 /**
  * GET /api/skills/packs — List all available skill packs

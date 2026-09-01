@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getProviderForModel } from "@/providers/llm";
-import { SkillService } from "@/services/SkillService";
 import { createSkillSchema } from "@/validators/skillSchema";
 import type { AgentGraphDefinition } from "@/types/graph";
 import { logger } from "@/lib/logger";
 import { apiServices } from "@/lib/api/services";
+import { handleApiError } from "@/lib/api/handlers";
 
 export const dynamic = "force-dynamic";
 
-const { skillRepo, auditRepo, mcpService } = apiServices();
-const skillService = new SkillService(skillRepo, auditRepo);
+const { skillService, auditRepo, mcpService } = apiServices();
 
 // ────────────── LLM Prompt for Graph + Server Discovery ──────────────
 
@@ -435,13 +434,6 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    logger.error({ error }, "Skill synthesis failed");
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Synthesis failed",
-      },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

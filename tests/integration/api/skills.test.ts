@@ -61,6 +61,9 @@ const { fakeSkillRepo, fakeAuditRepo } = vi.hoisted(() => {
 // --- mocks must come before imports that reference them --------------------
 vi.mock("@clerk/nextjs/server", () => ({
   auth: vi.fn(async () => ({ userId: "user-abc" })),
+  createClerkClient: vi.fn(() => ({
+    users: { getUser: vi.fn() },
+  })),
 }));
 
 vi.mock("@/lib/logger", () => ({

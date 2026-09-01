@@ -6,11 +6,10 @@
 
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { RBACService } from "@/services/RBACService";
-import { unauthorized, forbidden, serverError } from "@/lib/api/handlers";
-import { logger } from "@/lib/logger";
+import { unauthorized, handleApiError } from "@/lib/api/handlers";
+import { apiServices } from "@/lib/api/services";
 
-const rbacService = new RBACService();
+const { rbacService } = apiServices();
 
 export async function GET(
   _request: Request,
@@ -22,7 +21,7 @@ export async function GET(
   try {
     const { id: organizationId } = await params;
     const membership = await rbacService.getOrgMembership(userId, organizationId);
-    if (!membership) return forbidden();
+    if (!membership) return handleApiError(new Error("access denied"));
 
     const permissions = await rbacService.getUserOrgPermissions(userId, organizationId);
 
@@ -35,7 +34,6 @@ export async function GET(
       },
     });
   } catch (error) {
-    logger.error({ error }, "Failed to get user organization permissions");
-    return serverError(error);
+    return handleApiError(error);
   }
 }

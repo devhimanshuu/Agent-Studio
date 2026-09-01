@@ -6,13 +6,11 @@
 
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { AuditService, AuditAction } from "@/services/AuditService";
-import { RBACService, ForbiddenError } from "@/services/RBACService";
-import { unauthorized, forbidden, serverError } from "@/lib/api/handlers";
-import { logger } from "@/lib/logger";
+import { AuditAction } from "@/services/AuditService";
+import { unauthorized, forbidden, handleApiError } from "@/lib/api/handlers";
+import { apiServices } from "@/lib/api/services";
 
-const auditService = new AuditService();
-const rbacService = new RBACService();
+const { auditService, rbacService } = apiServices();
 
 /**
  * GET /api/organizations/[id]/audit — Get audit logs
@@ -61,8 +59,6 @@ export async function GET(
       },
     });
   } catch (error) {
-    if (error instanceof ForbiddenError) return forbidden();
-    logger.error({ error }, "Failed to get audit logs");
-    return serverError(error);
+    return handleApiError(error);
   }
 }

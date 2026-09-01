@@ -7,12 +7,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { OrganizationService } from "@/services/OrganizationService";
-import { unauthorized, forbidden, badRequest, serverError } from "@/lib/api/handlers";
-import { ForbiddenError } from "@/services/RBACService";
-import { logger } from "@/lib/logger";
+import { unauthorized, badRequest, handleApiError } from "@/lib/api/handlers";
+import { apiServices } from "@/lib/api/services";
 
-const organizationService = new OrganizationService();
+const { organizationService } = apiServices();
 
 /**
  * GET /api/organizations/[id]/members — List organization members
@@ -29,11 +27,7 @@ export async function GET(
     const members = await organizationService.listMembers(userId, id);
     return NextResponse.json({ success: true, data: members });
   } catch (error) {
-    if (error instanceof ForbiddenError) {
-      return forbidden();
-    }
-    logger.error({ error }, "Failed to list members");
-    return serverError(error);
+    return handleApiError(error);
   }
 }
 
@@ -74,16 +68,6 @@ export async function POST(
 
     return NextResponse.json({ success: true, data: invitation }, { status: 201 });
   } catch (error) {
-    if (error instanceof SyntaxError) {
-      return badRequest(new Error("Invalid JSON body"));
-    }
-    if (error instanceof ForbiddenError) {
-      return forbidden();
-    }
-    if (error instanceof Error) {
-      return badRequest(error);
-    }
-    logger.error({ error }, "Failed to invite member");
-    return serverError(error);
+    return handleApiError(error);
   }
 }

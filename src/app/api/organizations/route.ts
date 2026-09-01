@@ -7,11 +7,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { OrganizationService } from "@/services/OrganizationService";
-import { unauthorized, badRequest, serverError } from "@/lib/api/handlers";
-import { logger } from "@/lib/logger";
+import { unauthorized, badRequest, handleApiError } from "@/lib/api/handlers";
+import { apiServices } from "@/lib/api/services";
 
-const organizationService = new OrganizationService();
+const { organizationService } = apiServices();
 
 /**
  * GET /api/organizations — List user's organizations
@@ -23,11 +22,8 @@ export async function GET(_request: Request) {
   try {
     const organizations = await organizationService.listUserOrganizations(userId);
     return NextResponse.json({ success: true, data: organizations });
-  } catch (error: unknown) {
-    const errMsg = error instanceof Error ? error.message : String(error);
-    const errStack = error instanceof Error ? error.stack : undefined;
-    logger.error({ error: errMsg, stack: errStack }, "Failed to list organizations");
-    return serverError(error);
+  } catch (error) {
+    return handleApiError(error);
   }
 }
 
@@ -64,15 +60,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: organization }, { status: 201 });
   } catch (error) {
-    if (error instanceof SyntaxError) {
-      return badRequest(new Error("Invalid JSON body"));
-    }
-    if (error instanceof Error && error.message.includes("already exists")) {
-      return badRequest(error);
-    }
-    const errMsg = error instanceof Error ? error.message : String(error);
-    const errStack = error instanceof Error ? error.stack : undefined;
-    logger.error({ error: errMsg, stack: errStack }, "Failed to create organization");
-    return serverError(error);
+    return handleApiError(error);
   }
 }
