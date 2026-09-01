@@ -11,6 +11,16 @@ import { ExecutionHistoryService } from "@/modules/history";
 import { McpClientService } from "@/services/McpClientService";
 import { OpenApiService } from "@/services/OpenApiService";
 import { ExecutionService } from "@/services/ExecutionService";
+import { RBACService } from "@/services/RBACService";
+import { SkillService } from "@/services/SkillService";
+import { AuditService } from "@/services/AuditService";
+import { PlanLimitsService } from "@/services/PlanLimitsService";
+import { CustomRoleService } from "@/services/CustomRoleService";
+import { ApiKeyService } from "@/services/ApiKeyService";
+import { OrganizationService } from "@/services/OrganizationService";
+import { VaultService } from "@/services/VaultService";
+import { DashboardStatsService } from "@/services/DashboardStatsService";
+import { InvitationEmailService } from "@/services/InvitationEmailService"
 
 /**
  * Process-wide singleton API service graph.
@@ -29,18 +39,31 @@ import { ExecutionService } from "@/services/ExecutionService";
  */
 
 interface ApiServices {
+  // Repositories
   executionRepo: ExecutionRepository;
   skillRepo: SkillRepository;
   auditRepo: AuditLogRepository;
   approvalRepo: ApprovalRepository;
   historyRepo: ApprovalHistoryRepository;
   logRepo: ExecutionLogRepository;
+  // Services with state (must be singletons)
   mcpService: McpClientService;
   openApiService: OpenApiService;
-  approvalEngine: ApprovalEngine;
-  approvalHistoryService: ApprovalHistoryService;
   executionService: ExecutionService;
   historyService: ExecutionHistoryService;
+  approvalEngine: ApprovalEngine;
+  approvalHistoryService: ApprovalHistoryService;
+  // Stateless services (singletons avoid redundant instantiation)
+  rbacService: RBACService;
+  skillService: SkillService;
+  auditService: AuditService;
+  planLimitsService: PlanLimitsService;
+  customRoleService: CustomRoleService;
+  apiKeyService: ApiKeyService;
+  organizationService: OrganizationService;
+  vaultService: VaultService;
+  dashboardStatsService: DashboardStatsService;
+  invitationEmailService: InvitationEmailService;
 }
 
 const globalKey = "__agentStudioApiServices";
@@ -71,6 +94,17 @@ function build(): ApiServices {
     approvalRepo,
     historyRepo
   );
+  const rbacService = new RBACService();
+  const skillService = new SkillService(skillRepo, auditRepo);
+  const auditService = new AuditService();
+  const planLimitsService = new PlanLimitsService();
+  const customRoleService = new CustomRoleService();
+  const apiKeyService = new ApiKeyService();
+  const organizationService = new OrganizationService();
+  const vaultService = new VaultService();
+  const dashboardStatsService = new DashboardStatsService();
+  const invitationEmailService = new InvitationEmailService();
+
   return {
     executionRepo,
     skillRepo,
@@ -84,6 +118,16 @@ function build(): ApiServices {
     approvalHistoryService,
     executionService,
     historyService,
+    rbacService,
+    skillService,
+    auditService,
+    planLimitsService,
+    customRoleService,
+    apiKeyService,
+    organizationService,
+    vaultService,
+    dashboardStatsService,
+    invitationEmailService,
   };
 }
 

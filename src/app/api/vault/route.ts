@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { VaultService, VaultEntryInput, VaultCategory } from "@/services/VaultService";
-import { logger } from "@/lib/logger";
-import { RBACService } from "@/services/RBACService";
+import { VaultEntryInput, VaultCategory } from "@/services/VaultService";
+import { handleApiError } from "@/lib/api/handlers";
+import { apiServices } from "@/lib/api/services";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-const vaultService = new VaultService();
-const rbacService = new RBACService();
+const { vaultService, rbacService } = apiServices();
 
 /**
  * GET /api/vault — List all vault entries (values masked)
@@ -61,11 +60,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, data: entries });
   } catch (error) {
-    logger.error({ error }, "Failed to list vault entries");
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal error" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -133,10 +128,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: entry }, { status: 201 });
   } catch (error) {
-    logger.error({ error }, "Failed to create vault entry");
-    const message = error instanceof Error ? error.message : "Internal error";
-    const status = message.includes("already exists") ? 409 : 500;
-    return NextResponse.json({ error: message }, { status });
+    return handleApiError(error);
   }
 }
 
@@ -189,10 +181,7 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
-    logger.error({ error }, "Failed to update vault entry");
-    const message = error instanceof Error ? error.message : "Internal error";
-    const status = message.includes("not found") ? 404 : message.includes("already exists") ? 409 : 500;
-    return NextResponse.json({ error: message }, { status });
+    return handleApiError(error);
   }
 }
 
@@ -239,9 +228,6 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    logger.error({ error }, "Failed to delete vault entry");
-    const message = error instanceof Error ? error.message : "Internal error";
-    const status = message.includes("not found") ? 404 : 500;
-    return NextResponse.json({ error: message }, { status });
+    return handleApiError(error);
   }
 }

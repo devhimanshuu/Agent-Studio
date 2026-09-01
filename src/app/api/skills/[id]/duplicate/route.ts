@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server";
-import { SkillService } from "@/services/SkillService";
-import { SkillRepository } from "@/repositories/SkillRepository";
-import { AuditLogRepository } from "@/repositories/AuditLogRepository";
 import { auth } from "@clerk/nextjs/server";
-import { unauthorized, serverError, forbidden, notFound } from "@/lib/api/handlers";
+import { unauthorized, handleApiError } from "@/lib/api/handlers";
+import { apiServices } from "@/lib/api/services";
 
-const skillRepo = new SkillRepository();
-const auditRepo = new AuditLogRepository();
-const skillService = new SkillService(skillRepo, auditRepo);
+const { skillService } = apiServices();
 
 export async function POST(
   _request: Request,
@@ -21,9 +17,6 @@ export async function POST(
     const duplicated = await skillService.duplicateSkill(id, userId);
     return NextResponse.json({ success: true, data: duplicated }, { status: 201 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "";
-    if (message.includes("access")) return forbidden();
-    if (message.includes("not found")) return notFound(message);
-    return serverError(error);
+    return handleApiError(error);
   }
 }

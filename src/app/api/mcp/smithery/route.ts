@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { unauthorized } from "@/lib/api/handlers";
 import { fetchWithRetry, fetchAllSmithery, fetchSmitheryPaginated } from "@/lib/fetch-utils";
+import { logger } from "@/lib/logger";
 
 export const revalidate = 300;
 
@@ -103,7 +104,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error) {
-    console.error("[Smithery API Error]", error);
+    logger.error({ err: error }, "[Smithery API Error]");
     return NextResponse.json(
       {
         success: false,

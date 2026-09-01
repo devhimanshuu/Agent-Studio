@@ -2,14 +2,10 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { apiServices } from "@/lib/api/services";
 import { createMcpServerSchema } from "@/validators/mcpSchema";
-import { unauthorized, forbidden, badRequest, serverError } from "@/lib/api/handlers";
-import { RBACService, ForbiddenError } from "@/services/RBACService";
+import { unauthorized, forbidden, badRequest, handleApiError } from "@/lib/api/handlers";
 import { prisma } from "@/lib/prisma";
-import { logger } from "@/lib/logger";
-import { ZodError } from "zod";
 
-const { mcpService } = apiServices();
-const rbacService = new RBACService();
+const { mcpService, rbacService } = apiServices();
 
 /**
  * GET /api/mcp/servers — List MCP servers
@@ -45,8 +41,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, data: servers });
   } catch (error) {
-    logger.error({ error }, "Failed to list MCP servers");
-    return serverError(error);
+    return handleApiError(error);
   }
 }
 
@@ -88,14 +83,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, data: server }, { status: 201 });
   } catch (error) {
-    if (error instanceof SyntaxError) {
-      return badRequest(new Error("Invalid JSON body"));
-    }
-    if (error instanceof ZodError || (error instanceof Error && (error.name === "ZodError" || "issues" in error))) {
-      return badRequest(error);
-    }
-    if (error instanceof ForbiddenError) return forbidden();
-    logger.error({ error }, "Failed to create MCP server");
-    return serverError(error);
+    return handleApiError(error);
   }
 }

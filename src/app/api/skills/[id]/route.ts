@@ -1,18 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { SkillService } from "@/services/SkillService";
-import { SkillRepository } from "@/repositories/SkillRepository";
-import { AuditLogRepository } from "@/repositories/AuditLogRepository";
 import { updateSkillSchema } from "@/validators/skillSchema";
-import { unauthorized, badRequest, serverError, notFound, forbidden } from "@/lib/api/handlers";
-import { RBACService, ForbiddenError } from "@/services/RBACService";
-import { prisma } from "@/lib/prisma";
-import { logger } from "@/lib/logger";
+import { unauthorized, badRequest, handleApiError } from "@/lib/api/handlers";
+import { NotFoundError } from "@/services/RBACService";
+import { apiServices } from "@/lib/api/services";
 
-const skillRepo = new SkillRepository();
-const auditRepo = new AuditLogRepository();
-const skillService = new SkillService(skillRepo, auditRepo);
-const rbacService = new RBACService();
+const { skillService, rbacService } = apiServices();
 
 /**
  * GET /api/skills/[id] — Get skill details
@@ -29,24 +22,22 @@ export async function GET(
     const { id } = await params;
     
     // Get skill to check organization context and return mapped DTO
-    const skill = await skillRepo.findById(id);
-    
-    if (!skill) return notFound("Skill not found");
+    const skillData = await skillService.getSkill(id);
+    if (!skillData) throw new NotFoundError("Skill not found");
 
     // Check access permission
     const hasAccess = await rbacService.canAccessResource(
       userId,
-      skill.organizationId || "",
+      skillData.organizationId || "",
       "skill",
       id,
       "read"
     );
-    if (!hasAccess && skill.userId !== userId) return forbidden();
+    if (!hasAccess && skillData.userId !== userId) throw new NotFoundError("Skill not found");
 
-    return NextResponse.json({ success: true, data: skill });
+    return NextResponse.json({ success: true, data: skillData });
   } catch (error) {
-    logger.error({ error }, "Failed to get skill");
-    return serverError(error);
+    return handleApiError(error);
   }
 }
 
@@ -65,40 +56,25 @@ export async function PATCH(
     const { id } = await params;
     
     // Get skill to check organization context
-    const skill = await prisma.skill.findUnique({
-      where: { id },
-      select: { organizationId: true, userId: true },
-    });
-    
-    if (!skill) return notFound("Skill not found");
+    const skillData = await skillService.getSkill(id);
+    if (!skillData) throw new NotFoundError("Skill not found");
 
     // Check edit permission
     const canEdit = await rbacService.canAccessResource(
       userId,
-      skill.organizationId || "",
+      skillData.organizationId || "",
       "skill",
       id,
       "write"
     );
-    if (!canEdit && skill.userId !== userId) return forbidden();
+    if (!canEdit && skillData.userId !== userId) throw new NotFoundError("Skill not found");
 
     const body = await request.json();
     const validated = updateSkillSchema.parse(body);
     const updated = await skillService.updateSkill(id, userId, validated);
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "";
-    if (message.includes("access")) return forbidden();
-    if (message.includes("not found")) return notFound(message);
-    if (error instanceof Error && "issues" in error) {
-      return badRequest(error); // Zod validation failure → 400
-    }
-    if (message.includes("cannot be edited")) {
-      return badRequest(new Error(message));
-    }
-    if (error instanceof ForbiddenError) return forbidden();
-    logger.error({ error }, "Failed to update skill");
-    return serverError(error);
+    return handleApiError(error);
   }
 }
 
@@ -117,32 +93,22 @@ export async function DELETE(
     const { id } = await params;
     
     // Get skill to check organization context
-    const skill = await prisma.skill.findUnique({
-      where: { id },
-      select: { organizationId: true, userId: true },
-    });
-    
-    if (!skill) return notFound("Skill not found");
+    const skillData = await skillService.getSkill(id);
+    if (!skillData) throw new NotFoundError("Skill not found");
 
     // Check delete permission
     const canDelete = await rbacService.canAccessResource(
       userId,
-      skill.organizationId || "",
+      skillData.organizationId || "",
       "skill",
       id,
       "delete"
     );
-    if (!canDelete && skill.userId !== userId) return forbidden();
+    if (!canDelete && skillData.userId !== userId) throw new NotFoundError("Skill not found");
 
     await skillService.deleteSkill(id, userId);
     return NextResponse.json({ success: true });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "";
-    if (message.includes("access")) return forbidden();
-    if (message.includes("not found")) return notFound(message);
-    if (message.includes("cannot be deleted")) return badRequest(new Error(message));
-    if (error instanceof ForbiddenError) return forbidden();
-    logger.error({ error }, "Failed to delete skill");
-    return serverError(error);
+    return handleApiError(error);
   }
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { unauthorized, serverError, notFound } from "@/lib/api/handlers";
+import { unauthorized, handleApiError } from "@/lib/api/handlers";
 import { apiServices } from "@/lib/api/services";
 
 const { executionService } = apiServices();
@@ -18,10 +18,6 @@ export async function POST(
     const execution = await executionService.cancelExecutionForUser(id, userId);
     return NextResponse.json({ success: true, data: execution });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "";
-    if (message.includes("not found") || message.includes("access")) {
-      return notFound("Execution not found");
-    }
-    return serverError(error);
+    return handleApiError(error);
   }
 }

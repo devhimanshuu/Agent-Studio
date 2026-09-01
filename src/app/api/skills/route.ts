@@ -1,20 +1,11 @@
 import { NextResponse } from "next/server";
 import { createSkillSchema, skillListQuerySchema } from "@/validators/skillSchema";
-import { SkillService } from "@/services/SkillService";
-import { SkillRepository } from "@/repositories/SkillRepository";
-import { AuditLogRepository } from "@/repositories/AuditLogRepository";
 import { auth } from "@clerk/nextjs/server";
-import { unauthorized, forbidden, badRequest, serverError } from "@/lib/api/handlers";
-import { RBACService, ForbiddenError } from "@/services/RBACService";
-import { PlanLimitsService } from "@/services/PlanLimitsService";
+import { unauthorized, forbidden, badRequest, handleApiError } from "@/lib/api/handlers";
 import { prisma } from "@/lib/prisma";
-import { logger } from "@/lib/logger";
+import { apiServices } from "@/lib/api/services";
 
-const skillRepo = new SkillRepository();
-const auditRepo = new AuditLogRepository();
-const skillService = new SkillService(skillRepo, auditRepo);
-const rbacService = new RBACService();
-const planLimitsService = new PlanLimitsService();
+const { skillService, rbacService, planLimitsService, skillRepo } = apiServices();
 
 /**
  * GET /api/skills — List skills
@@ -74,8 +65,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
-    logger.error({ error }, "Failed to list skills");
-    return serverError(error);
+    return handleApiError(error);
   }
 }
 
@@ -119,16 +109,6 @@ export async function POST(request: Request) {
     const skill = await skillService.createSkill(skillData);
     return NextResponse.json({ success: true, data: skill }, { status: 201 });
   } catch (error) {
-    if (error instanceof SyntaxError) {
-      return badRequest(new Error("Invalid JSON body"));
-    }
-    if (error instanceof Error && "issues" in error) {
-      return badRequest(error); // Zod validation failure → 400
-    }
-    if (error instanceof ForbiddenError) {
-      return forbidden();
-    }
-    logger.error({ error }, "Failed to create skill");
-    return serverError(error); // service/DB failure → 500
+    return handleApiError(error);
   }
 }

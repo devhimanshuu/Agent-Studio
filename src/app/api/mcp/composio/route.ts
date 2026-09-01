@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { unauthorized, badRequest } from "@/lib/api/handlers";
+import { unauthorized, badRequest, handleApiError } from "@/lib/api/handlers";
+import { logger } from "@/lib/logger";
 
 const COMPOSIO_BASE = "https://backend.composio.dev/api/v3.1";
 
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
 
     if (!res.ok) {
       const err = await res.text();
-      console.error("[Composio] Session creation failed:", res.status, err);
+      logger.error({ status: res.status, err }, "[Composio] Session creation failed");
       return badRequest(new Error(`Composio session failed: ${res.status} — ${err}`));
     }
 
@@ -79,8 +80,7 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    console.error("[Composio] Error:", error);
-    return badRequest(error instanceof Error ? error : new Error("Failed to create Composio session"));
+    return handleApiError(error);
   }
 }
 

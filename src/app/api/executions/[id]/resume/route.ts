@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
-import { unauthorized, forbidden, badRequest, serverError, notFound } from "@/lib/api/handlers";
+import { unauthorized, badRequest, handleApiError } from "@/lib/api/handlers";
 import { rateLimit } from "@/lib/api/rateLimit";
 import { apiServices } from "@/lib/api/services";
 
@@ -32,13 +32,11 @@ export async function POST(
     // Ownership check: the approval request must belong to this user.
     const approval = await approvalRepo.findById(validated.approvalId);
     if (!approval || approval.executionId !== executionId) {
-      return notFound("Approval request not found");
+      return badRequest(new Error("Approval request not found"));
     }
     // The user is authenticated but does not own this approval — 403, not 401
-    // (401 would tell the client the session is missing and could trigger a
-    // re-login loop for a fully signed-in user).
     if (approval.userId !== userId) {
-      return forbidden();
+      return handleApiError(new Error("access denied"));
     }
 
     // The approval must be in APPROVED status.
@@ -71,20 +69,6 @@ export async function POST(
 
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
-    if (error instanceof z.ZodError) return badRequest(error);
-    if (error instanceof Error) {
-      const message = error.message;
-      // Ownership violations are 403 (never 404 — don't leak existence);
-      // genuinely missing resources are 404.
-      if (message.includes("access")) return forbidden();
-      if (message.includes("not found")) return notFound(message);
-      if (message.includes("already been resumed") || message.includes("duplicate")) {
-        return badRequest(error);
-      }
-      if (message.includes("step limit") || message.includes("Step limit")) {
-        return badRequest(error);
-      }
-    }
-    return serverError(error);
+    return handleApiError(error);
   }
 }

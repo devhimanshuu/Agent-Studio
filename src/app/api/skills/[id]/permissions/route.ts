@@ -8,12 +8,12 @@
 
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { RBACService } from "@/services/RBACService";
-import { unauthorized, forbidden, badRequest, serverError } from "@/lib/api/handlers";
+import { unauthorized, badRequest, handleApiError } from "@/lib/api/handlers";
+import { NotFoundError } from "@/services/RBACService";
 import { prisma } from "@/lib/prisma";
-import { logger } from "@/lib/logger";
+import { apiServices } from "@/lib/api/services";
 
-const rbacService = new RBACService();
+const { rbacService } = apiServices();
 
 // Valid skill permissions
 const VALID_PERMISSIONS = ["SKILL_ADMIN", "SKILL_EDITOR", "SKILL_EXECUTOR", "SKILL_VIEWER"];
@@ -38,7 +38,7 @@ export async function GET(
     });
 
     if (!skill) {
-      return badRequest(new Error("Skill not found"));
+      throw new NotFoundError("Skill not found");
     }
 
     if (!skill.organizationId) {
@@ -48,7 +48,7 @@ export async function GET(
     // Check user is org member
     const membership = await rbacService.getOrgMembership(userId, skill.organizationId);
     if (!membership) {
-      return forbidden();
+      return handleApiError(new Error("access denied"));
     }
 
     // Get organization members with their permissions
@@ -77,8 +77,7 @@ export async function GET(
 
     return NextResponse.json({ success: true, data: permissions });
   } catch (error) {
-    logger.error({ error }, "Failed to get skill permissions");
-    return serverError(error);
+    return handleApiError(error);
   }
 }
 
@@ -113,7 +112,7 @@ export async function POST(
     });
 
     if (!skill) {
-      return badRequest(new Error("Skill not found"));
+      throw new NotFoundError("Skill not found");
     }
 
     if (!skill.organizationId) {
@@ -123,11 +122,11 @@ export async function POST(
     // Check user is SKILL_ADMIN or org admin
     const membership = await rbacService.getOrgMembership(userId, skill.organizationId);
     if (!membership) {
-      return forbidden();
+      return handleApiError(new Error("access denied"));
     }
 
     if (membership.role !== "OWNER" && membership.role !== "ADMIN") {
-      return forbidden();
+      return handleApiError(new Error("access denied"));
     }
 
     // Verify target user is a member
@@ -144,7 +143,7 @@ export async function POST(
 
     // In a full implementation, you'd store per-skill permissions in a separate table
     // For now, we store them as a JSON field on the skill version
-    logger.info({ skillId: id, targetUserId: body.targetUserId, permissions: body.permissions }, "Skill permissions updated (in-memory for now)");
+    console.log(`[Skills] Permissions updated for skill ${id}, target ${body.targetUserId}`);
 
     return NextResponse.json({
       success: true,
@@ -155,8 +154,7 @@ export async function POST(
       },
     });
   } catch (error) {
-    logger.error({ error }, "Failed to set skill permissions");
-    return serverError(error);
+    return handleApiError(error);
   }
 }
 
@@ -186,7 +184,7 @@ export async function DELETE(
     });
 
     if (!skill) {
-      return badRequest(new Error("Skill not found"));
+      throw new NotFoundError("Skill not found");
     }
 
     if (!skill.organizationId) {
@@ -196,17 +194,16 @@ export async function DELETE(
     // Check permission
     const membership = await rbacService.getOrgMembership(userId, skill.organizationId);
     if (!membership || (membership.role !== "OWNER" && membership.role !== "ADMIN")) {
-      return forbidden();
+      return handleApiError(new Error("access denied"));
     }
 
-    logger.info({ skillId: id, targetUserId }, "Skill permissions reset to org defaults");
+    console.log(`[Skills] Permissions reset for skill ${id}, target ${targetUserId}`);
 
     return NextResponse.json({
       success: true,
       data: { message: "Permissions reset to organization defaults" },
     });
   } catch (error) {
-    logger.error({ error }, "Failed to reset skill permissions");
-    return serverError(error);
+    return handleApiError(error);
   }
 }

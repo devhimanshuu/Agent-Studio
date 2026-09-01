@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { z } from "zod";
 import { respondApprovalSchema } from "@/validators/approvalSchema";
-import { unauthorized, forbidden, notFound, badRequest, serverError } from "@/lib/api/handlers";
+import { unauthorized, badRequest, handleApiError } from "@/lib/api/handlers";
 import { rateLimit } from "@/lib/api/rateLimit";
 import { apiServices } from "@/lib/api/services";
-import { RBACService, ForbiddenError } from "@/services/RBACService";
 import { prisma } from "@/lib/prisma";
-import { logger } from "@/lib/logger";
 
-const { approvalRepo, approvalEngine, approvalHistoryService } = apiServices();
-const rbacService = new RBACService();
+const { approvalRepo, approvalEngine, approvalHistoryService, rbacService } = apiServices();
 
 /**
  * GET /api/approvals — List approval requests
@@ -27,13 +23,13 @@ export async function GET(request: Request) {
     if (organizationId) {
       // Verify membership
       const membership = await rbacService.getOrgMembership(userId, organizationId);
-      if (!membership) return forbidden();
+      if (!membership) return handleApiError(new Error("access denied"));
 
       const permissions = await rbacService.getUserOrgPermissions(userId, organizationId);
       
       // Only admins/owners can see all org approvals
       if (!permissions.canManageMembers) {
-        return forbidden();
+        return handleApiError(new Error("access denied"));
       }
 
       // Get approvals for organization's executions
@@ -67,8 +63,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, data: requestsWithHistory });
   } catch (error) {
-    logger.error({ error }, "Failed to list approvals");
-    return serverError(error);
+    return handleApiError(error);
   }
 }
 
@@ -92,7 +87,7 @@ export async function POST(request: Request) {
       include: { execution: { select: { organizationId: true } } },
     });
 
-    if (!approval) return notFound("Approval request not found");
+    if (!approval) throw new Error("Approval request not found");
 
     // Check ownership or admin permission
     if (approval.userId !== userId) {
@@ -100,10 +95,10 @@ export async function POST(request: Request) {
       if (organizationId) {
         const membership = await rbacService.getOrgMembership(userId, organizationId);
         if (!membership || (membership.role !== "OWNER" && membership.role !== "ADMIN")) {
-          return forbidden();
+          return handleApiError(new Error("access denied"));
         }
       } else {
-        return forbidden();
+        return handleApiError(new Error("access denied"));
       }
     }
 
@@ -124,18 +119,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, data: result });
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : "";
-    if (message.includes("access")) return forbidden();
-    if (message.includes("not found")) return notFound(message);
-    if (error instanceof z.ZodError) return badRequest(error);
-    if (error instanceof Error && "issues" in error) {
-      return badRequest(error);
-    }
-    if (error instanceof Error) {
-      return badRequest(new Error(error.message));
-    }
-    if (error instanceof ForbiddenError) return forbidden();
-    logger.error({ error }, "Failed to respond to approval");
-    return serverError(error);
+    return handleApiError(error);
   }
 }

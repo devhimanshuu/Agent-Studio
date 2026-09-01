@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { logger } from "@/lib/logger";
+import { ForbiddenError, NotFoundError } from "@/services/RBACService";
 
 export { isValidIsoDate } from "./dates";
 
@@ -54,5 +55,45 @@ export function serverError(error: unknown): NextResponse<ApiError> {
     { success: false, error: "Internal server error", code: "INTERNAL_ERROR" },
     { status: 500 }
   );
+}
+
+/**
+ * Unified API error handler for route catch blocks.
+ * Maps known error types to the appropriate HTTP response and falls through
+ * to `serverError` for anything unexpected.
+ *
+ * Usage:
+ *   } catch (error) {
+ *     return handleApiError(error);
+ *   }
+ */
+export function handleApiError(error: unknown): NextResponse<ApiError> {
+  // SyntaxError from request.json() on malformed bodies
+  if (error instanceof SyntaxError) {
+    return badRequest(new Error("Invalid JSON body"));
+  }
+  // ZodError (or anything carrying Zod-style `issues`)
+  if (error instanceof Error && "issues" in error) {
+    return badRequest(error);
+  }
+  // Typed domain errors from RBACService
+  if (error instanceof ForbiddenError) {
+    return forbidden();
+  }
+  if (error instanceof NotFoundError) {
+    return notFound(error.message);
+  }
+  // Fallback: check message substrings for ownership / not-found patterns
+  // used by services that throw plain Error with descriptive messages.
+  if (error instanceof Error) {
+    const msg = error.message;
+    if (msg.includes("not found") || msg.includes("not have access")) {
+      return notFound(msg);
+    }
+    if (msg.includes("access") || msg.includes("permission")) {
+      return forbidden();
+    }
+  }
+  return serverError(error);
 }
 

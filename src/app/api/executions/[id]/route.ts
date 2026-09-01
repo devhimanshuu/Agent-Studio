@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { unauthorized, serverError, notFound, forbidden } from "@/lib/api/handlers";
+import { unauthorized, handleApiError } from "@/lib/api/handlers";
+import { NotFoundError } from "@/services/RBACService";
 import { apiServices } from "@/lib/api/services";
-import { RBACService } from "@/services/RBACService";
 
-const { executionService, executionRepo } = apiServices();
-const rbacService = new RBACService();
+const { executionService, executionRepo, rbacService } = apiServices();
 
 export async function GET(
   _request: Request,
@@ -25,7 +24,7 @@ export async function GET(
 
     // 2. If not direct owner, check if it's an organization execution
     const execution = await executionRepo.findById(id);
-    if (!execution) return notFound("Execution not found");
+    if (!execution) throw new NotFoundError("Execution not found");
 
     if (execution.organizationId) {
       const hasAccess = await rbacService.canAccessResource(
@@ -38,11 +37,11 @@ export async function GET(
       if (hasAccess) {
         return NextResponse.json({ success: true, data: execution });
       }
-      return forbidden();
+      throw new NotFoundError("Execution not found");
     }
 
-    return notFound("Execution not found");
+    throw new NotFoundError("Execution not found");
   } catch (error) {
-    return serverError(error);
+    return handleApiError(error);
   }
 }

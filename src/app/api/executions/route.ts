@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { startExecutionSchema } from "@/validators/executionSchema";
-import { unauthorized, forbidden, badRequest, serverError, isValidIsoDate } from "@/lib/api/handlers";
+import { unauthorized, forbidden, badRequest, handleApiError, isValidIsoDate } from "@/lib/api/handlers";
 import { rateLimit } from "@/lib/api/rateLimit";
 import { ExecutionError } from "@/modules/execution/executor/errors";
 import { ExecutionQuery, ExecutionStatus } from "@/types/execution";
 import { apiServices } from "@/lib/api/services";
-import { RBACService, ForbiddenError } from "@/services/RBACService";
 import { prisma } from "@/lib/prisma";
-import { logger } from "@/lib/logger";
 
 const VALID_STATUSES = new Set<ExecutionStatus>([
   "PENDING",
@@ -23,8 +21,7 @@ const VALID_STATUSES = new Set<ExecutionStatus>([
 const VALID_SORT_BY = new Set(["startedAt", "durationMs", "status"]);
 const VALID_SORT_ORDER = new Set(["asc", "desc"]);
 
-const { executionService, historyService } = apiServices();
-const rbacService = new RBACService();
+const { executionService, historyService, rbacService } = apiServices();
 
 /**
  * GET /api/executions — List executions
@@ -102,8 +99,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, data: executions });
   } catch (error) {
-    logger.error({ error }, "Failed to list executions");
-    return serverError(error);
+    return handleApiError(error);
   }
 }
 
@@ -145,17 +141,9 @@ export async function POST(request: Request) {
     const execution = await executionService.startExecution(executionData);
     return NextResponse.json({ success: true, data: execution }, { status: 201 });
   } catch (error) {
-    if (error instanceof SyntaxError) {
-      return badRequest(new Error("Invalid JSON body"));
-    }
-    if (error instanceof Error && "issues" in error) {
-      return badRequest(error);
-    }
     if (error instanceof ExecutionError) {
       return badRequest(new Error(error.message));
     }
-    if (error instanceof ForbiddenError) return forbidden();
-    logger.error({ error }, "Failed to start execution");
-    return serverError(error);
+    return handleApiError(error);
   }
 }

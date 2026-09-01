@@ -8,9 +8,10 @@
  */
 
 import { auth } from "@clerk/nextjs/server";
-import { RBACService, ForbiddenError, OrgRole, SkillPermission, OrgPermissionSet, SkillPermissionSet } from "@/services/RBACService";
+import { ForbiddenError, OrgRole, SkillPermission, OrgPermissionSet, SkillPermissionSet } from "@/services/RBACService";
 import { unauthorized, forbidden, badRequest } from "@/lib/api/handlers";
-import { prisma } from "@/lib/prisma";
+import { apiServices } from "@/lib/api/services";
+import { prisma } from "@/lib/prisma"
 
 // ────────────── Types ──────────────
 
@@ -91,7 +92,7 @@ export function requireOrganization(handler: RouteHandler): RouteHandler {
       return unauthorized();
     }
 
-    const rbacService = new RBACService();
+    const { rbacService } = apiServices();
 
     // Extract organization ID
     let organizationId = extractOrganizationId(request);
@@ -131,7 +132,7 @@ export function requireOrgRole(
   handler: RouteHandler
 ): RouteHandler {
   return requireOrganization(async (request: Request, context: Record<string, unknown> = {}) => {
-    const rbacService = new RBACService();
+    const { rbacService } = apiServices();
     const { userId, organizationId } = context as { userId: string; organizationId: string };
 
     try {
@@ -155,7 +156,7 @@ export function requireSkillPermission(
   handler: RouteHandler
 ): RouteHandler {
   return requireAuth(async (request: Request, context: Record<string, unknown> = {}) => {
-    const rbacService = new RBACService();
+    const { rbacService } = apiServices();
     const { userId } = context as { userId: string };
 
     // Extract skill ID from URL or body
@@ -206,7 +207,7 @@ export function optionalOrganization(handler: RouteHandler): RouteHandler {
       return unauthorized();
     }
 
-    const rbacService = new RBACService();
+    const { rbacService } = apiServices();
     const organizationId = extractOrganizationId(request);
 
     if (organizationId) {
@@ -240,7 +241,7 @@ export async function checkPermission(
   resourceId: string,
   action: "read" | "write" | "delete" | "execute"
 ): Promise<boolean> {
-  const rbacService = new RBACService();
+  const { rbacService } = apiServices();
 
   if (!organizationId) {
     // No organization context - only owner has access

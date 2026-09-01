@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { unauthorized, serverError, notFound, forbidden } from "@/lib/api/handlers";
+import { unauthorized, handleApiError } from "@/lib/api/handlers";
 import { rateLimit } from "@/lib/api/rateLimit";
 import { apiServices } from "@/lib/api/services";
 
@@ -27,12 +27,6 @@ export async function POST(
     const execution = await historyService.replay(id, userId);
     return NextResponse.json({ success: true, data: execution }, { status: 201 });
   } catch (error) {
-    if (error instanceof Error) {
-      // Ownership violations must be 403, never 404 — a 404 leaks whether the
-      // execution exists to a user who shouldn't see it.
-      if (error.message.includes("access")) return forbidden();
-      if (error.message.includes("not found")) return notFound(error.message);
-    }
-    return serverError(error);
+    return handleApiError(error);
   }
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
-import { unauthorized, forbidden, badRequest, serverError, notFound } from "@/lib/api/handlers";
+import { unauthorized, handleApiError } from "@/lib/api/handlers";
 import { apiServices } from "@/lib/api/services";
 
 const cancelSchema = z.object({
@@ -26,14 +26,6 @@ export async function POST(
     const result = await approvalEngine.cancelPending(approvalId, userId, validated.idempotencyKey);
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
-    if (error instanceof z.ZodError) return badRequest(error);
-    const message = error instanceof Error ? error.message : "";
-    // Ownership errors (wrong user accessing someone else's approval) → 403.
-    if (message.includes("access")) return forbidden();
-    if (message.includes("not found")) return notFound(message);
-    if (error instanceof Error) {
-      return badRequest(error);
-    }
-    return serverError(error);
+    return handleApiError(error);
   }
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { unauthorized, forbidden, notFound, serverError, badRequest } from "@/lib/api/handlers";
+import { unauthorized, badRequest, handleApiError } from "@/lib/api/handlers";
 import { rateLimit } from "@/lib/api/rateLimit";
 import { apiServices } from "@/lib/api/services";
 
@@ -24,7 +24,7 @@ export async function POST(
     const { id } = await params;
     const execution = await executionService.getExecutionForUser(id, userId);
     if (!execution) {
-      return notFound("Execution not found or you do not have access to it");
+      return handleApiError(new Error("Execution not found or you do not have access to it"));
     }
 
     if (execution.status === "RUNNING") {
@@ -34,11 +34,6 @@ export async function POST(
     const retried = await executionService.retryFailedExecution(id, userId);
     return NextResponse.json({ success: true, data: retried });
   } catch (error) {
-    if (error instanceof Error) {
-      if (error.message.includes("access")) return forbidden();
-      if (error.message.includes("not found")) return notFound(error.message);
-      if (error.message.includes("already running")) return badRequest(error);
-    }
-    return serverError(error);
+    return handleApiError(error);
   }
 }
