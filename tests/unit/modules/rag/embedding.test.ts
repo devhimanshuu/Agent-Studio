@@ -1,4 +1,13 @@
-import { describe, it, expect } from "vitest";
+/**
+ * Embedding Service & Vector Mathematics
+ *
+ * The OpenAI provider was removed permanently — these tests cover Groq,
+ * OpenRouter, Ollama, and the in-process deterministic fallback. The OpenAI
+ * provider path is exercised only by a "legacy openai coerces to openrouter"
+ * guard test.
+ */
+
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   generateEmbedding,
   batchEmbed,
@@ -8,6 +17,10 @@ import {
 } from "@/modules/rag/embeddingService";
 
 describe("Embedding Service & Vector Mathematics", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("generates deterministic 1536D normalized vectors locally without API keys", async () => {
     const text1 = "PostgreSQL pgvector dense semantic retrieval";
     const result1 = await generateEmbedding({ text: text1, provider: "local" });
@@ -23,6 +36,109 @@ describe("Embedding Service & Vector Mathematics", () => {
     // Same text generates identical vector
     const result2 = await generateEmbedding({ text: text1, provider: "local" });
     expect(result2.vector).toEqual(result1.vector);
+  });
+
+  it("coerces the deprecated 'openai' provider value to openrouter", async () => {
+    const spy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            data: [{ embedding: new Array(1536).fill(0.001) }],
+            model: "openai/text-embedding-3-small",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+
+    process.env.OPENROUTER_API_KEY = "test-key";
+
+    const result = await generateEmbedding({
+      text: "deprecated openai provider call",
+      provider: "openai", // should NOT crash; should call OpenRouter instead
+    } as unknown as Parameters<typeof generateEmbedding>[0]);
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][0]).toContain("openrouter.ai");
+    expect(result.provider).toBe("openrouter");
+    expect(result.vector).toHaveLength(1536);
+
+    delete process.env.OPENROUTER_API_KEY;
+  });
+
+  it("auto-routes to Groq when GROQ_API_KEY is set and provider is not specified", async () => {
+    process.env.GROQ_API_KEY = "test-groq";
+    delete process.env.OPENROUTER_API_KEY;
+    delete process.env.OLLAMA_HOST;
+
+    const spy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            data: [{ embedding: new Array(1536).fill(0.002) }],
+            model: "nomic-embed-text-v1.5",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+
+    const result = await generateEmbedding({ text: "auto-routing test" });
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][0]).toContain("groq.com");
+    expect(result.provider).toBe("groq");
+
+    delete process.env.GROQ_API_KEY;
+  });
+
+  it("auto-routes to OpenRouter when only OPENROUTER_API_KEY is set", async () => {
+    delete process.env.GROQ_API_KEY;
+    process.env.OPENROUTER_API_KEY = "test-openrouter";
+
+    const spy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            data: [{ embedding: new Array(1536).fill(0.003) }],
+            model: "openai/text-embedding-3-small",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+
+    const result = await generateEmbedding({ text: "openrouter routing test" });
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][0]).toContain("openrouter.ai");
+    expect(result.provider).toBe("openrouter");
+
+    delete process.env.OPENROUTER_API_KEY;
+  });
+
+  it("NEVER calls api.openai.com regardless of which keys are set", async () => {
+    // Even with a stale OPENAI_API_KEY, the embedding service must not hit
+    // the OpenAI embeddings endpoint — it was removed permanently.
+    process.env.OPENAI_API_KEY = "stale-openai-key";
+    process.env.GROQ_API_KEY = "active-groq";
+
+    const spy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            data: [{ embedding: new Array(1536).fill(0.004) }],
+            model: "nomic-embed-text-v1.5",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+
+    await generateEmbedding({ text: "no-openai test" });
+    const calledUrls = spy.mock.calls.map((c) => String(c[0]));
+    expect(calledUrls.some((u) => u.includes("api.openai.com"))).toBe(false);
+
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.GROQ_API_KEY;
   });
 
   it("calculates accurate cosine similarity between semantic vectors", () => {

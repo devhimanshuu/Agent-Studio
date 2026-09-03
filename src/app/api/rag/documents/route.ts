@@ -71,6 +71,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Document not found" }, { status: 404 });
     }
 
+    logger.info({ documentId: id, userId }, "Document and its pgvector chunks deleted");
     return NextResponse.json({ success: true, deletedId: id });
   } catch (error) {
     logger.error({ err: error }, "Failed to delete document from pgvector");

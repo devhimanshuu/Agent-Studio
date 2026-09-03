@@ -444,12 +444,19 @@ function createChunk(
 
 /**
  * Merge small chunks that fall below the minimum threshold to avoid fragmented vectors.
+ *
+ * Edge cases:
+ * - Empty / single-chunk input is returned as-is.
+ * - Whitespace-only chunks are dropped (otherwise they'd produce empty
+ *   embeddings downstream).
+ * - Each merge increments `metadata.tokenCount` and recomputes `charCount`.
  */
 export function mergeSmallChunks(
   chunks: DocumentChunk[],
   minSize: number = 150
 ): DocumentChunk[] {
-  if (chunks.length <= 1) return chunks;
+  if (!Array.isArray(chunks) || chunks.length === 0) return [];
+  if (chunks.length === 1) return chunks.slice();
 
   const merged: DocumentChunk[] = [];
   let current = chunks[0];
@@ -457,12 +464,19 @@ export function mergeSmallChunks(
   for (let i = 1; i < chunks.length; i++) {
     const next = chunks[i];
 
+    if (!next || typeof next.content !== "string") continue;
+
     if (current.content.length < minSize) {
-      const newContent = `${current.content}\n\n${next.content}`;
+      const trimmed = next.content.trim();
+      // Skip purely-empty neighbor so we don't bloat the merged chunk with
+      // whitespace.
+      if (trimmed.length === 0) continue;
+
+      const newContent = `${current.content}\n\n${trimmed}`;
       current = {
         ...current,
         content: newContent,
-        embeddingText: `${current.embeddingText}\n\n${next.embeddingText}`,
+        embeddingText: `${current.embeddingText}\n\n${next.embeddingText || trimmed}`,
         endOffset: next.endOffset,
         metadata: {
           ...current.metadata,

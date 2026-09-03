@@ -1,20 +1,27 @@
 /**
  * Embedding Service — generates dense vector embeddings for the RAG pipeline.
  *
- * Supported providers:
- * - OpenAI (text-embedding-3-small, text-embedding-3-large, text-embedding-ada-002)
- * - Open Models (Groq / OpenRouter / Ollama)
- * - Built-in 1536D Normalized Semantic Vector Generator (Zero-config offline mode)
+ * Supported providers (Groq + OpenRouter ONLY — OpenAI was removed permanently):
+ * - Groq        — primary; uses OpenAI-compatible /v1/embeddings
+ * - OpenRouter  — passthrough to OpenAI / Cohere / Voyage embedding models
+ * - Ollama      — local HTTP endpoint, optional
+ *
+ * The deterministic 1536D normalized semantic fallback runs in-process when no
+ * remote provider is configured so the dashboard remains functional in
+ * zero-config / offline environments. It is NEVER the default for production
+ * deployments; configure Groq (or OpenRouter) for real semantic quality.
  */
+
+import { logger } from "@/lib/logger";
 
 interface EmbeddingOptions {
   /** Text to embed */
   text: string;
   /** Model to use */
   model?: string;
-  /** Provider override */
-  provider?: "openai" | "groq" | "openrouter" | "ollama" | "local";
-  /** Vector dimension (default: 1536 for OpenAI compatibility) */
+  /** Provider override (openai is silently coerced to openrouter) */
+  provider?: "groq" | "openrouter" | "ollama" | "local";
+  /** Vector dimension (default: 1536) */
   dimensions?: number;
 }
 
@@ -36,23 +43,51 @@ interface BatchEmbeddingOptions {
   concurrency?: number;
   /** Model to use */
   model?: string;
-  /** Provider override */
-  provider?: "openai" | "groq" | "openrouter" | "ollama" | "local";
+  /** Provider override (openai is silently coerced to openrouter) */
+  provider?: "groq" | "openrouter" | "ollama" | "local";
   /** Vector dimensions */
   dimensions?: number;
 }
 
-/** Standard OpenAI embedding dimensions */
-import { logger } from "@/lib/logger";
-
 export const DEFAULT_EMBEDDING_DIM = 1536;
 
 /**
+ * Mapping of provider → default remote embedding model. Both providers expose
+ * an OpenAI-compatible /v1/embeddings endpoint, so the request shape is the
+ * same; only the URL + auth header differ.
+ */
+const DEFAULT_MODELS: Record<"groq" | "openrouter" | "ollama", string> = {
+  groq: "nomic-embed-text-v1.5",
+  openrouter: "openai/text-embedding-3-small",
+  ollama: "nomic-embed-text",
+};
+
+/**
+ * Coerce the deprecated "openai" provider value to OpenRouter — the OpenAI
+ * provider path was removed permanently and legacy callers should fail soft
+ * (redirect) rather than hard-error.
+ *
+ * The current `provider` type union already excludes "openai", so this
+ * function is a forward-compatibility shim: if the union is ever re-widened
+ * for legacy callers, the coercion still runs.
+ */
+function coerceProvider(
+  provider: EmbeddingOptions["provider"],
+): "groq" | "openrouter" | "ollama" | "local" | undefined {
+  if ((provider as string | undefined) === "openai") return "openrouter";
+  return provider;
+}
+
+/**
  * Generate embedding vector for text using the configured provider.
- * Falls back gracefully to local deterministic 1536D normalized semantic embedding.
+ * Auto-selects Groq → OpenRouter → Ollama → in-process deterministic fallback.
+ *
+ * The OpenAI provider was removed permanently. Any caller that still passes
+ * `provider: "openai"` is silently coerced to OpenRouter.
  */
 export async function generateEmbedding(options: EmbeddingOptions): Promise<EmbeddingResult> {
-  const { text, model, provider, dimensions = DEFAULT_EMBEDDING_DIM } = options;
+  const { text, model, dimensions = DEFAULT_EMBEDDING_DIM } = options;
+  const provider = coerceProvider(options.provider);
 
   if (!text || !text.trim()) {
     throw new Error("Cannot embed empty text");
@@ -60,17 +95,7 @@ export async function generateEmbedding(options: EmbeddingOptions): Promise<Embe
 
   const cleanText = text.trim();
 
-  // 1. OpenAI Provider
-  if (provider === "openai" || (!provider && process.env.OPENAI_API_KEY)) {
-    try {
-      return await embedWithOpenAI(cleanText, model, dimensions);
-    } catch (error) {
-      logger.warn({ err: error }, "OpenAI embedding failed, attempting fallback");
-      if (provider === "openai") throw error;
-    }
-  }
-
-  // 2. Groq Provider
+  // 1. Groq (OpenAI-compatible endpoint at https://api.groq.com/openai/v1).
   if (provider === "groq" || (!provider && process.env.GROQ_API_KEY)) {
     try {
       return await embedWithGroq(cleanText, model);
@@ -80,7 +105,7 @@ export async function generateEmbedding(options: EmbeddingOptions): Promise<Embe
     }
   }
 
-  // 3. OpenRouter Provider
+  // 2. OpenRouter (passthrough to OpenAI / Cohere / Voyage embeddings).
   if (provider === "openrouter" || (!provider && process.env.OPENROUTER_API_KEY)) {
     try {
       return await embedWithOpenRouter(cleanText, model);
@@ -90,7 +115,7 @@ export async function generateEmbedding(options: EmbeddingOptions): Promise<Embe
     }
   }
 
-  // 4. Ollama Provider
+  // 3. Ollama local HTTP endpoint.
   if (provider === "ollama" || (!provider && process.env.OLLAMA_HOST)) {
     try {
       return await embedWithOllama(cleanText, model);
@@ -100,81 +125,23 @@ export async function generateEmbedding(options: EmbeddingOptions): Promise<Embe
     }
   }
 
-  // 5. Zero-config Local 1536D Normalized Semantic Vector Generator
+  // 4. Zero-config in-process 1536D normalized semantic vector.
+  //    Used only when no remote provider is reachable; not the production default.
   return embedLocally(cleanText, dimensions);
 }
 
 /**
- * Embed using OpenAI API (text-embedding-3-small / text-embedding-3-large).
- */
-async function embedWithOpenAI(
-  text: string,
-  modelName: string = "text-embedding-3-small",
-  dimensions: number = DEFAULT_EMBEDDING_DIM
-): Promise<EmbeddingResult> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 30000);
-
-  const payload: Record<string, unknown> = {
-    input: text,
-    model: modelName,
-  };
-
-  // text-embedding-3 supports dimension shortening
-  if (modelName.startsWith("text-embedding-3") && dimensions) {
-    payload.dimensions = dimensions;
-  }
-
-  try {
-    const res = await fetch("https://api.openai.com/v1/embeddings", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-    clearTimeout(timer);
-
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      throw new Error(`OpenAI embedding failed (${res.status}): ${errText.slice(0, 200)}`);
-    }
-
-    const json = (await res.json()) as {
-      data?: Array<{ embedding: number[] }>;
-      model?: string;
-      usage?: { total_tokens: number };
-    };
-
-    const embedding = json.data?.[0]?.embedding;
-    if (!embedding || !Array.isArray(embedding)) {
-      throw new Error("No embedding vector returned from OpenAI");
-    }
-
-    return {
-      vector: normalizeVector(embedding),
-      model: json.model || modelName,
-      tokenCount: json.usage?.total_tokens,
-      provider: "openai",
-      dimensions: embedding.length,
-    };
-  } catch (error) {
-    clearTimeout(timer);
-    throw error;
-  }
-}
-
-/**
- * Embed using Groq API.
+ * Embed using Groq's OpenAI-compatible /v1/embeddings endpoint.
+ *
+ * Groq rarely exposes embedding models, so on a hard error we transparently
+ * fall through to OpenRouter (when configured) so a single Groq key still
+ * produces useful vectors via the OpenRouter passthrough.
  */
 async function embedWithGroq(text: string, modelName?: string): Promise<EmbeddingResult> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error("GROQ_API_KEY is not set");
+
+  const groqModel = modelName || DEFAULT_MODELS.groq;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 30000);
@@ -186,10 +153,7 @@ async function embedWithGroq(text: string, modelName?: string): Promise<Embeddin
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        input: text,
-        model: modelName || "llama-3.3-70b-versatile",
-      }),
+      body: JSON.stringify({ input: text, model: groqModel }),
       signal: controller.signal,
     });
     clearTimeout(timer);
@@ -210,12 +174,11 @@ async function embedWithGroq(text: string, modelName?: string): Promise<Embeddin
       throw new Error("No embedding returned from Groq");
     }
 
-    // Project to 1536 if needed
     const vector = adjustDimensions(rawEmbedding, DEFAULT_EMBEDDING_DIM);
 
     return {
       vector: normalizeVector(vector),
-      model: json.model || modelName || "groq-embedding",
+      model: json.model || groqModel,
       tokenCount: json.usage?.total_tokens,
       provider: "groq",
       dimensions: vector.length,
@@ -227,11 +190,17 @@ async function embedWithGroq(text: string, modelName?: string): Promise<Embeddin
 }
 
 /**
- * Embed using OpenRouter API.
+ * Embed using OpenRouter's /api/v1/embeddings endpoint.
+ * OpenRouter proxies the full set of OpenAI / Cohere / Voyage embedding models.
  */
-async function embedWithOpenRouter(text: string, modelName?: string): Promise<EmbeddingResult> {
+async function embedWithOpenRouter(
+  text: string,
+  modelName?: string,
+): Promise<EmbeddingResult> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) throw new Error("OPENROUTER_API_KEY is not set");
+
+  const model = modelName || DEFAULT_MODELS.openrouter;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 30000);
@@ -243,10 +212,7 @@ async function embedWithOpenRouter(text: string, modelName?: string): Promise<Em
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        input: text,
-        model: modelName || "openai/text-embedding-3-small",
-      }),
+      body: JSON.stringify({ input: text, model }),
       signal: controller.signal,
     });
     clearTimeout(timer);
@@ -271,7 +237,7 @@ async function embedWithOpenRouter(text: string, modelName?: string): Promise<Em
 
     return {
       vector: normalizeVector(vector),
-      model: json.model || modelName || "openrouter-embedding",
+      model: json.model || model,
       tokenCount: json.usage?.total_tokens,
       provider: "openrouter",
       dimensions: vector.length,
@@ -283,11 +249,14 @@ async function embedWithOpenRouter(text: string, modelName?: string): Promise<Em
 }
 
 /**
- * Embed using local Ollama endpoint (e.g. nomic-embed-text / all-minilm).
+ * Embed using a local Ollama endpoint (e.g. nomic-embed-text / all-minilm).
  */
-async function embedWithOllama(text: string, modelName?: string): Promise<EmbeddingResult> {
+async function embedWithOllama(
+  text: string,
+  modelName?: string,
+): Promise<EmbeddingResult> {
   const host = (process.env.OLLAMA_HOST || "http://localhost:11434").replace(/\/+$/, "");
-  const model = modelName || "nomic-embed-text";
+  const model = modelName || DEFAULT_MODELS.ollama;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 30000);
@@ -329,16 +298,17 @@ async function embedWithOllama(text: string, modelName?: string): Promise<Embedd
 
 /**
  * High-performance deterministic 1536D normalized semantic embedding generator.
- * Employs multi-gram subword hashing, character n-grams, and semantic term frequency
- * with cosine-preserving L2 unit-norm sphere projection.
+ * Multi-gram subword hashing + character n-grams + L2 unit-norm projection.
  *
- * Provides instant zero-config vector search in offline and test environments.
+ * Used only when no remote provider is configured — never the production default.
  */
-export function embedLocally(text: string, dimensions: number = DEFAULT_EMBEDDING_DIM): EmbeddingResult {
+export function embedLocally(
+  text: string,
+  dimensions: number = DEFAULT_EMBEDDING_DIM,
+): EmbeddingResult {
   const clean = text.toLowerCase().trim();
   const vector = new Array(dimensions).fill(0);
 
-  // Extract words & n-grams
   const words = clean.split(/[^a-z0-9_.-]+/).filter((w) => w.length > 0);
   const ngrams: string[] = [];
 
@@ -352,7 +322,6 @@ export function embedLocally(text: string, dimensions: number = DEFAULT_EMBEDDIN
     }
   }
 
-  // Character 3-grams for typo tolerance & subword semantics
   for (let i = 0; i < clean.length - 2; i++) {
     ngrams.push(clean.slice(i, i + 3));
   }
@@ -371,7 +340,6 @@ export function embedLocally(text: string, dimensions: number = DEFAULT_EMBEDDIN
 
     const weight = 1 / Math.sqrt(totalTokens);
 
-    // Project across 8 distinct sinusoidal harmonic positions
     for (let j = 0; j < 8; j++) {
       const pos1 = Math.abs((h1 + j * 97) % dimensions);
       const pos2 = Math.abs((h2 + j * 199) % dimensions);
@@ -398,15 +366,18 @@ export function embedLocally(text: string, dimensions: number = DEFAULT_EMBEDDIN
  */
 export async function batchEmbed(
   texts: string[],
-  options: BatchEmbeddingOptions = {}
+  options: BatchEmbeddingOptions = {},
 ): Promise<EmbeddingResult[]> {
-  const { concurrency = 5, model, provider, dimensions } = options;
+  const { concurrency = 5, model, dimensions = DEFAULT_EMBEDDING_DIM } = options;
+  const provider = coerceProvider(options.provider);
   const results: EmbeddingResult[] = [];
 
   for (let i = 0; i < texts.length; i += concurrency) {
     const batch = texts.slice(i, i + concurrency);
     const batchResults = await Promise.all(
-      batch.map((text) => generateEmbedding({ text, model, provider, dimensions }))
+      batch.map((text) =>
+        generateEmbedding({ text, model, provider, dimensions }),
+      ),
     );
     results.push(...batchResults);
   }

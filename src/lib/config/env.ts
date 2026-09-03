@@ -19,6 +19,13 @@ const envSchema = z.object({
   MCP_ACCESS_TOKEN: z.string().optional(),
   COMPOSIO_API_KEY: z.string().optional(),
   ARCADE_API_KEY: z.string().optional(),
+  /**
+   * Optional upstream A2A registry base URL. When set, the discover endpoint
+   * and auction participants pull manifests from this registry before falling
+   * back to the built-in presets.
+   */
+  A2A_REGISTRY_URL: z.string().url().optional(),
+  A2A_REGISTRY_TOKEN: z.string().optional(),
 });
 
 type Env = z.infer<typeof envSchema>;

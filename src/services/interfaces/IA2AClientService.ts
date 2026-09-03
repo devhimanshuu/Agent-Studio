@@ -4,6 +4,10 @@ import { A2ADelegateOptions } from "@/modules/a2a/client";
 export interface IA2AClientService {
   discover(agentUrl: string): Promise<A2AAgentManifest>;
   listPresets(): A2AAgentManifest[];
+  listDirectory(config?: { registryUrl?: string; authToken?: string }): Promise<{
+    manifests: A2AAgentManifest[];
+    source: "registry" | "presets";
+  }>;
   delegate(
     agentUrl: string,
     taskRequest: A2ATaskRequest,

@@ -189,6 +189,11 @@ async function processFile(
         embeddingModel,
       },
       userId,
+      // The chunker reads `parentChunkSize` from the chunking options; we
+      // treat its existence as the parent's "use me" signal — matching the
+      // behavior of the dashboard's manual ingest form.
+      useParentChunking:
+        typeof chunkingConfig.parentChunkSize === "number" && chunkingConfig.parentChunkSize > 0,
     });
 
     return {

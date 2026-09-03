@@ -15,10 +15,13 @@ describe("Autonomous Multi-Agent Task Bidding & Auction Protocol", () => {
       { executeWinner: false }
     );
 
-    expect(auction.status).toBe("AWARDED_AND_EXECUTED");
+    expect(auction.status).toBe("AWARDED_NOT_EXECUTED");
     expect(auction.allBids.length).toBeGreaterThan(0);
-    expect(auction.winningBid).toBeDefined();
-    expect(auction.winningBid.agentName).toBeTruthy();
-    expect(auction.winningBid.confidenceScore).toBeGreaterThan(0.5);
+    expect(auction.winningBid).not.toBeNull();
+    expect(auction.winningBid?.agentName).toBeTruthy();
+    expect(auction.winningBid?.confidenceScore).toBeGreaterThan(0.5);
+    expect(auction.rfpId).toMatch(/^rfp_/);
+    expect(auction.biddingDeadlineAt).toBeGreaterThan(Date.now() - 60_000);
+    expect(auction.admittedBids.length).toBeGreaterThan(0);
   });
 });

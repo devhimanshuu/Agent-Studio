@@ -2,6 +2,7 @@ import { IA2AClientService } from "./interfaces/IA2AClientService";
 import { A2AAgentManifest, A2ATaskRequest, A2ATaskResponse, A2AMessage } from "@/types/a2a";
 import { discoverA2AAgent, delegateA2ATask, sendA2AMessage, A2ADelegateOptions } from "@/modules/a2a/client";
 import { A2A_AGENT_PRESETS } from "@/modules/a2a/presets";
+import { fetchA2ARegistry } from "@/modules/a2a/registry";
 
 export class A2AClientService implements IA2AClientService {
   private cache = new Map<string, { manifest: A2AAgentManifest; expiresAt: number }>();
@@ -20,6 +21,16 @@ export class A2AClientService implements IA2AClientService {
 
   listPresets(): A2AAgentManifest[] {
     return A2A_AGENT_PRESETS;
+  }
+
+  /**
+   * Pull the full agent directory. Tries the configured upstream registry
+   * first, then falls back to the static presets so the UI is never empty.
+   */
+  async listDirectory(
+    config: { registryUrl?: string; authToken?: string } = {},
+  ): Promise<{ manifests: A2AAgentManifest[]; source: "registry" | "presets" }> {
+    return fetchA2ARegistry(config);
   }
 
   async delegate(

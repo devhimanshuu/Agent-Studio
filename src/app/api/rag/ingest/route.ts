@@ -28,6 +28,7 @@ export async function POST(request: Request) {
       metadata = {},
       tags = [],
       embeddingModel,
+      useParentChunking = false,
     } = body;
 
     if (!content || typeof content !== "string" || !content.trim()) {
@@ -56,7 +57,24 @@ export async function POST(request: Request) {
         embeddingModel: embeddingModel || undefined,
       },
       userId,
+      useParentChunking,
     });
+
+    if (!result || result.chunkCount === 0) {
+      logger.warn(
+        { title: docTitle, contentLength: content.length, strategy: chunking.strategy },
+        "Ingestion produced zero chunks — chunking strategy may not match content shape",
+      );
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Document was ingested but produced no usable chunks. Try a different chunking strategy or increase the maxChunkSize.",
+          code: "NO_CHUNKS_PRODUCED",
+        },
+        { status: 422 },
+      );
+    }
 
     return NextResponse.json({
       success: true,

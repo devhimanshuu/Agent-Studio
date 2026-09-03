@@ -44,6 +44,12 @@ interface IngestOptions {
   chunking?: ChunkingOptions;
   /** Metadata to store with document & chunks */
   metadata?: Record<string, unknown>;
+  /**
+   * Enable "Small-to-Big" parent-document chunking. Each child chunk keeps a
+   * pointer to its parent section for downstream expansion. The dashboard
+   * toggles this on by default, so the pipeline must forward it.
+   */
+  useParentChunking?: boolean;
 }
 
 interface RetrieveOptions {
@@ -135,6 +141,8 @@ export class RAGPipeline {
       mimeType: options.mimeType,
       chunking: options.chunking,
       metadata: options.metadata,
+      // Normalize undefined → false so downstream code can rely on a real boolean.
+      useParentChunking: options.useParentChunking ?? false,
     });
   }
 

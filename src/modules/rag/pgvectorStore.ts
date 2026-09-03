@@ -21,8 +21,8 @@ interface PgVectorStoreConfig {
   defaultCollection?: string;
   /** Embedding model override */
   embeddingModel?: string;
-  /** Embedding provider (openai | groq | openrouter | ollama | local) */
-  embeddingProvider?: "openai" | "groq" | "openrouter" | "ollama" | "local";
+  /** Embedding provider (Groq + OpenRouter only — OpenAI removed permanently) */
+  embeddingProvider?: "groq" | "openrouter" | "ollama" | "local";
   /** Embedding dimensions (default 1536) */
   dimensions?: number;
 }
@@ -112,16 +112,30 @@ export class PgVectorStore {
   private hasNativePgVector = false;
 
   constructor(config: PgVectorStoreConfig = {}) {
+    // Auto-detect the best available remote provider. OpenAI embeddings were
+    // removed permanently — we never default to it even when OPENAI_API_KEY is
+    // set. Groq is the preferred default; OpenRouter is the fallback.
+    let defaultProvider: "groq" | "openrouter" | "local";
+    if (process.env.GROQ_API_KEY) defaultProvider = "groq";
+    else if (process.env.OPENROUTER_API_KEY) defaultProvider = "openrouter";
+    else defaultProvider = "local";
+
     this.config = {
       defaultCollection: config.defaultCollection || "default",
-      embeddingModel: config.embeddingModel || "text-embedding-3-small",
-      embeddingProvider: config.embeddingProvider || (process.env.OPENAI_API_KEY ? "openai" : "local"),
+      embeddingModel: config.embeddingModel || "openai/text-embedding-3-small",
+      embeddingProvider: config.embeddingProvider || defaultProvider,
       dimensions: config.dimensions || DEFAULT_EMBEDDING_DIM,
     };
   }
 
   /**
    * Initializes PostgreSQL connection and verifies pgvector extension availability.
+   *
+   * The setup races against a hard timeout (default 8s) so a slow/unreachable DB
+   * doesn't block the entire request — the JS cosine-similarity fallback is
+   * always available and matches Float[] embeddings stored on the row. The
+   * dimension-mismatch case (column created at a different size than
+   * `config.dimensions`) is logged and degrades gracefully rather than throwing.
    */
   async initialize(): Promise<{ nativePgVector: boolean }> {
     if (this.isPgVectorExtensionChecked) {
@@ -130,20 +144,72 @@ export class PgVectorStore {
 
     try {
       const setupPromise = (async () => {
+        // Quick reachability probe — bail out fast if Prisma can't even open
+        // a connection so unit tests without a live DB don't sit on the
+        // full 8s setup timeout waiting for a TCP retry loop.
+        try {
+          await Promise.race([
+            prisma.$queryRawUnsafe(`SELECT 1`),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error("Prisma ping timeout")), 1500),
+            ),
+          ]);
+        } catch (pingErr) {
+          // Re-throw to the outer catch so we skip the pgvector setup entirely.
+          throw pingErr;
+        }
+
         await prisma.$executeRawUnsafe(`CREATE EXTENSION IF NOT EXISTS vector;`);
-        await prisma.$executeRawUnsafe(
-          `ALTER TABLE "document_chunks" ADD COLUMN IF NOT EXISTS embedding_vector vector(${this.config.dimensions});`
+
+        // Detect existing column dimensions so a prior deployment with a
+        // different `dimensions` config doesn't break ingestion silently.
+        const existing = await prisma.$queryRawUnsafe<Array<{
+          atttypmod: number | null;
+        }>>(
+          `SELECT atttypmod FROM pg_attribute
+   WHERE attrelid = '"document_chunks"'::regclass
+     AND attname = 'embedding_vector'`
         );
+        const existingDim = existing[0]?.atttypmod ?? null;
+        const targetDim = this.config.dimensions;
+
+        if (existingDim !== null && existingDim !== targetDim) {
+          logger.warn(
+            { existingDim, targetDim },
+            "pgvector column dimension mismatch — native pgvector disabled for this process; JS cosine fallback in effect",
+          );
+          throw new Error("pgvector dimension mismatch");
+        }
+
         await prisma.$executeRawUnsafe(
-          `CREATE INDEX IF NOT EXISTS document_chunks_embedding_vector_idx ON "document_chunks" USING ivfflat (embedding_vector vector_cosine_ops) WITH (lists = 100);`
+          `ALTER TABLE "document_chunks" ADD COLUMN IF NOT EXISTS embedding_vector vector(${targetDim});`
         );
+        // Recreate the index only when the column doesn't already have one for
+        // this dimension. IF NOT EXISTS on the index would silently fail on a
+        // dimension mismatch; explicit check keeps the warning useful.
+        const indexExists = await prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
+          `SELECT EXISTS (
+             SELECT 1 FROM pg_indexes
+             WHERE schemaname = 'public'
+               AND tablename = 'document_chunks'
+               AND indexname = 'document_chunks_embedding_vector_idx'
+           ) AS "exists"`
+        );
+        if (!indexExists[0]?.exists) {
+          await prisma.$executeRawUnsafe(
+            `CREATE INDEX document_chunks_embedding_vector_idx ON "document_chunks" USING ivfflat (embedding_vector vector_cosine_ops) WITH (lists = 100);`
+          );
+        }
       })();
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Database connection timeout")), 3000)
+        setTimeout(() => reject(new Error("Database connection timeout")), 4000),
       );
       await Promise.race([setupPromise, timeoutPromise]);
       this.hasNativePgVector = true;
-      logger.info("PostgreSQL pgvector extension verified — native vector column + IVFFlat index active");
+      logger.info(
+        { dimensions: this.config.dimensions },
+        "PostgreSQL pgvector extension verified — native vector column + IVFFlat index active",
+      );
     } catch (err) {
       this.hasNativePgVector = false;
       logger.warn({ err }, "pgvector extension unavailable — using JS cosine-similarity fallback");
@@ -852,6 +918,9 @@ export class PgVectorStore {
 
   /**
    * Deletes document and cascades all vector chunks.
+   * Returns true when the document was found and removed, false otherwise.
+   * Failure to cascade chunks (rare, only when FK enforcement is off) is
+   * logged so the operator can clean up orphaned chunks manually.
    */
   async deleteDocument(documentId: string, userId?: string): Promise<boolean> {
     const where: Record<string, unknown> = { id: documentId };
@@ -861,9 +930,32 @@ export class PgVectorStore {
       const doc = await prisma.document.findFirst({ where, select: { id: true } });
       if (!doc) return false;
 
+      // The Document ↔ DocumentChunk Prisma relation is configured via the
+      // schema, so prisma.document.delete cascades automatically. We still
+      // count the chunks first so we can log a warning if anything is left
+      // behind — that would indicate a schema/model drift bug.
+      const chunkCount = await prisma.documentChunk.count({
+        where: { documentId },
+      });
       await prisma.document.delete({ where: { id: documentId } });
+
+      if (chunkCount > 0) {
+        const remaining = await prisma.documentChunk.count({
+          where: { documentId },
+        });
+        if (remaining > 0) {
+          logger.error(
+            { documentId, expected: chunkCount, remaining },
+            "Document cascade failed — orphaned chunks left behind",
+          );
+          // Best-effort manual cleanup so the caller still sees a clean DB.
+          await prisma.documentChunk.deleteMany({ where: { documentId } });
+        }
+      }
+
       return true;
-    } catch {
+    } catch (error) {
+      logger.error({ err: error, documentId }, "Failed to delete document");
       return false;
     }
   }

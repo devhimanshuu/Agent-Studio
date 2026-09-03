@@ -38,6 +38,8 @@ export async function POST(request: Request) {
       collection = "default",
       tags = [],
       chunking = {},
+      useParentChunking = false,
+      embeddingModel,
     } = body;
 
     if (!url || typeof url !== "string") {
@@ -139,12 +141,17 @@ export async function POST(request: Request) {
       source: url,
       mimeType: "text/markdown",
       chunking,
+      useParentChunking:
+        typeof chunking.parentChunkSize === "number" && chunking.parentChunkSize > 0
+          ? true
+          : useParentChunking,
       metadata: {
         url,
         fetchedAt: new Date().toISOString(),
         contentType,
         contentLength: content.length,
-        tags,
+        tags: Array.isArray(tags) ? tags : [],
+        embeddingModel: typeof embeddingModel === "string" ? embeddingModel : undefined,
       },
       userId,
     });

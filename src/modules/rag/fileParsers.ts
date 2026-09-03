@@ -104,8 +104,10 @@ export async function parseFile(
  * Check if a file extension is supported.
  */
 export function isSupportedExtension(filename: string): boolean {
-  const ext = getExtension(filename);
-  return ext in EXTENSION_MAP || ext === "";
+  const lastDot = filename.lastIndexOf(".");
+  if (lastDot === -1) return false;
+  const ext = filename.slice(lastDot + 1).toLowerCase();
+  return ext in EXTENSION_MAP;
 }
 
 /**

@@ -103,6 +103,16 @@ export async function POST(request: Request) {
       success: true,
       mode: "search",
       ...searchResult,
+      warnings:
+        searchResult.chunkCount === 0
+          ? [
+              "No chunks matched the query at the requested minScore. Try lowering minScore or broadening the metadata filter.",
+            ]
+          : searchResult.chunkCount < limit
+            ? [
+                `Only ${searchResult.chunkCount} chunks passed the filter — try a lower minScore or remove the metadataFilter.`,
+              ]
+            : undefined,
     });
   } catch (error) {
     logger.error({ err: error }, "Failed to perform semantic search in pgvector");
